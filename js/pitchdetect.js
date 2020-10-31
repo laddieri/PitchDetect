@@ -31,13 +31,14 @@ var analyser = null;
 var theBuffer = null;
 var DEBUGCANVAS = null;
 var mediaStreamSource = null;
-var detectorElem, 
+var detectorElem,
 	canvasElem,
 	waveCanvas,
 	pitchElem,
 	noteElem,
 	detuneElem,
-	detuneAmount;
+	detuneAmount,
+	notetoDraw;
 
 window.onload = function() {
 	audioContext = new AudioContext();
@@ -46,7 +47,7 @@ window.onload = function() {
 	request.open("GET", "../sounds/whistling3.ogg", true);
 	request.responseType = "arraybuffer";
 	request.onload = function() {
-	  audioContext.decodeAudioData( request.response, function(buffer) { 
+	  audioContext.decodeAudioData( request.response, function(buffer) {
 	    	theBuffer = buffer;
 		} );
 	}
@@ -65,8 +66,8 @@ window.onload = function() {
 	detuneElem = document.getElementById( "detune" );
 	detuneAmount = document.getElementById( "detune_amt" );
 
-	detectorElem.ondragenter = function () { 
-		this.classList.add("droptarget"); 
+	detectorElem.ondragenter = function () {
+		this.classList.add("droptarget");
 		return false; };
 	detectorElem.ondragleave = function () { this.classList.remove("droptarget"); return false; };
 	detectorElem.ondrop = function (e) {
@@ -78,7 +79,7 @@ window.onload = function() {
 	  	reader.onload = function (event) {
 	  		audioContext.decodeAudioData( event.target.result, function(buffer) {
 	    		theBuffer = buffer;
-	  		}, function(){alert("error loading!");} ); 
+	  		}, function(){alert("error loading!");} );
 
 	  	};
 	  	reader.onerror = function (event) {
@@ -98,7 +99,7 @@ function error() {
 
 function getUserMedia(dictionary, callback) {
     try {
-        navigator.getUserMedia = 
+        navigator.getUserMedia =
         	navigator.getUserMedia ||
         	navigator.webkitGetUserMedia ||
         	navigator.mozGetUserMedia;
@@ -263,10 +264,10 @@ function autoCorrelate( buf, sampleRate ) {
 			// we need to do a curve fit on correlations[] around best_offset in order to better determine precise
 			// (anti-aliased) offset.
 
-			// we know best_offset >=1, 
-			// since foundGoodCorrelation cannot go to true until the second pass (offset=1), and 
+			// we know best_offset >=1,
+			// since foundGoodCorrelation cannot go to true until the second pass (offset=1), and
 			// we can't drop into this clause until the following pass (else if).
-			var shift = (correlations[best_offset+1] - correlations[best_offset-1])/correlations[best_offset];  
+			var shift = (correlations[best_offset+1] - correlations[best_offset-1])/correlations[best_offset];
 			return sampleRate/(best_offset+(8*shift));
 		}
 		lastCorrelation = correlation;
@@ -366,7 +367,8 @@ function updatePitch( time ) {
 	 	pitch = ac;
 	 	pitchElem.innerText = Math.round( pitch ) ;
 	 	var note =  noteFromPitch( pitch );
-		noteElem.innerHTML = noteStrings[note%12];
+		notetoDraw = noteStrings[note%12];
+		noteElem.innerHTML = notetoDraw;
 		var detune = centsOffFromPitch( pitch, note );
 		if (detune == 0 ) {
 			detuneElem.className = "";
@@ -383,4 +385,47 @@ function updatePitch( time ) {
 	if (!window.requestAnimationFrame)
 		window.requestAnimationFrame = window.webkitRequestAnimationFrame;
 	rafID = window.requestAnimationFrame( updatePitch );
+}
+
+let noteName = {
+	"A":275,
+	"A#":275,
+	"B":250,
+	"B#":250,
+	"C":225,
+	"C#":225,
+	"D":200,
+	"D#":200,
+	"E":175,
+	"F#":150,
+	"G":125,
+	"G#":125,
+}
+
+// Setup p5.js canvas
+function setup() {
+  var xwidth=400
+  var yheight=400;
+  createCanvas(xwidth, yheight);
+  frameRate(60);
+}
+
+function draw() {
+	background(255)
+	drawStaff(100);
+	drawNote(noteName[notetoDraw]-50);
+}
+
+function drawStaff(y){
+  line(0,y,400,y);
+  line(0,y+50,400,y+50);
+  line(0,y+100,400,y+100);
+  line(0,y+150,400,y+150);
+  line(0,y+200,400,y+200);
+}
+
+function drawNote(noteY){
+  noFill();
+  strokeWeight(7);
+  ellipse(200,noteY,50,50);
 }
