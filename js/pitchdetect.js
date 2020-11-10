@@ -38,7 +38,9 @@ var detectorElem,
 	noteElem,
 	detuneElem,
 	detuneAmount,
-	notetoDraw;
+	noteStringArray;
+
+var notetoDraw = "A";
 
 window.onload = function() {
 	audioContext = new AudioContext();
@@ -389,17 +391,12 @@ function updatePitch( time ) {
 
 let noteName = {
 	"A":275,
-	"A#":275,
 	"B":250,
-	"B#":250,
 	"C":225,
-	"C#":225,
 	"D":200,
-	"D#":200,
 	"E":175,
-	"F#":150,
+	"F":150,
 	"G":125,
-	"G#":125,
 }
 
 // Setup p5.js canvas
@@ -411,12 +408,19 @@ function setup() {
 }
 
 function draw() {
+	noteStringArray = notetoDraw.split("");
 	background(255)
 	drawStaff(100);
-	drawNote(noteName[notetoDraw]-50);
+	let note = noteName[noteStringArray[0]];
+	drawNote(note-50);
+
+	if (typeof noteStringArray[1] !== "undefined"){
+		drawSharp(note-50+17)
+	}
 }
 
 function drawStaff(y){
+	strokeWeight(4);
   line(0,y,400,y);
   line(0,y+50,400,y+50);
   line(0,y+100,400,y+100);
@@ -428,4 +432,12 @@ function drawNote(noteY){
   noFill();
   strokeWeight(7);
   ellipse(200,noteY,50,50);
+}
+
+function drawSharp(noteY){
+  noteY=noteY-1;
+  line (125,noteY+10,125,noteY-40)
+  line (150,noteY+10,150,noteY-40)
+  line (115,noteY-5,160,noteY-5)
+  line (115,noteY-28,160,noteY-28)
 }
