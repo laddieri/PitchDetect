@@ -41,19 +41,20 @@ var detectorElem,
 	noteStringArray;
 
 var notetoDraw = "A";
+var octavetoDraw = "4"
 
 window.onload = function() {
 	audioContext = new AudioContext();
 	MAX_SIZE = Math.max(4,Math.floor(audioContext.sampleRate/5000));	// corresponds to a 5kHz signal
-	var request = new XMLHttpRequest();
-	request.open("GET", "../sounds/whistling3.ogg", true);
-	request.responseType = "arraybuffer";
-	request.onload = function() {
-	  audioContext.decodeAudioData( request.response, function(buffer) {
-	    	theBuffer = buffer;
-		} );
-	}
-	request.send();
+	// var request = new XMLHttpRequest();
+	// request.open("GET", "../sounds/whistling3.ogg", true);
+	// request.responseType = "arraybuffer";
+	// request.onload = function() {
+	//   audioContext.decodeAudioData( request.response, function(buffer) {
+	//     	theBuffer = buffer;
+	// 	} );
+	// }
+	// request.send();
 
 	detectorElem = document.getElementById( "detector" );
 	canvasElem = document.getElementById( "output" );
@@ -159,6 +160,9 @@ function toggleLiveInput() {
 			window.cancelAnimationFrame = window.webkitCancelAnimationFrame;
         window.cancelAnimationFrame( rafID );
     }
+		audioContext.resume().then(() => {
+			console.log('Playback resumed successfully');
+		});
     getUserMedia(
     	{
             "audio": {
@@ -208,6 +212,7 @@ var buflen = 2048;
 var buf = new Float32Array( buflen );
 
 var noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+var octave = [0,1,2,3,4,5,6,7,8]
 
 function noteFromPitch( frequency ) {
 	var noteNum = 12 * (Math.log( frequency / 440 )/Math.log(2) );
@@ -216,6 +221,33 @@ function noteFromPitch( frequency ) {
 
 function frequencyFromNoteNumber( note ) {
 	return 440 * Math.pow(2,(note-69)/12);
+}
+
+function octaveFromPitch ( frequency ){
+	if (frequency < 31 ){
+		return 0;
+	}
+	if (frequency < 65.4 && frequency > 32.7 ){
+		return 1;
+	}
+	if (frequency < 125  && frequency > 63 ){
+		return 2;
+	}
+	if (frequency < 250 && frequency > 125){
+		return 3;
+	}
+	if (frequency < 510 && frequency > 250 ){
+		return 4;
+	}
+	if (frequency < 1010 && frequency > 510 ){
+		return 5;
+	}
+	if (frequency < 2000 && frequency > 1010 ){
+		return 6;
+	}
+	if (frequency < 3951 && frequency > 2000 ){
+		return 7;
+	}
 }
 
 function centsOffFromPitch( frequency, note ) {
@@ -369,6 +401,7 @@ function updatePitch( time ) {
 	 	pitch = ac;
 	 	pitchElem.innerText = Math.round( pitch ) ;
 	 	var note =  noteFromPitch( pitch );
+		octavetoDraw = octaveFromPitch(pitch);
 		notetoDraw = noteStrings[note%12];
 		noteElem.innerHTML = notetoDraw;
 		var detune = centsOffFromPitch( pitch, note );
@@ -390,14 +423,15 @@ function updatePitch( time ) {
 }
 
 let noteName = {
-	"A":275,
-	"B":250,
-	"C":225,
-	"D":200,
-	"E":175,
-	"F":150,
-	"G":125,
+	"A":225,
+	"B":200,
+	"C":175,
+	"D":150,
+	"E":125,
+	"F":100,
+	"G":75,
 }
+
 
 // Setup p5.js canvas
 function setup() {
@@ -412,11 +446,16 @@ function draw() {
 	background(255)
 	drawStaff(100);
 	let note = noteName[noteStringArray[0]];
-	drawNote(note-50);
-
+	note = adujustForOctave(note);
 	if (typeof noteStringArray[1] !== "undefined"){
-		drawSharp(note-50+17)
+		drawNote(200-75,note);
+		drawSharp(200-150,note+17);
+		drawNote(200+75,note-25);
+		drawFlat(200+10,note-25+17);
+	}	else {
+		drawNote(200,note);
 	}
+
 }
 
 function drawStaff(y){
@@ -428,16 +467,36 @@ function drawStaff(y){
   line(0,y+200,400,y+200);
 }
 
-function drawNote(noteY){
+function drawNote(noteX,noteY){
   noFill();
   strokeWeight(7);
-  ellipse(200,noteY,50,50);
+  ellipse(noteX,noteY,50,50);
 }
 
-function drawSharp(noteY){
+function drawSharp(x,noteY){
   noteY=noteY-1;
-  line (125,noteY+10,125,noteY-40)
-  line (150,noteY+10,150,noteY-40)
-  line (115,noteY-5,160,noteY-5)
-  line (115,noteY-28,160,noteY-28)
+  line (x,noteY+10,x,noteY-40)
+  line (x+25,noteY+10,x+25,noteY-40)
+  line (x-10,noteY-5,x+35,noteY-5)
+  line (x-10,noteY-28,x+35,noteY-28)
+}
+
+function drawFlat(x,y){
+  line (x,y-50,x,y);
+	curve(x-325, y+125, x, y, x, y-25, x-10, y+90);
+}
+
+function adujustForOctave (frequency){
+	if (octavetoDraw == 4){
+		return frequency;
+	}
+	if (octavetoDraw == 3){
+		return frequency+175;
+	}
+	if (octavetoDraw == 2){
+		return frequency+350;
+	}
+	if (octavetoDraw == 5){
+		return frequency-175;
+	}
 }
