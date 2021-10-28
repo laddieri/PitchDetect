@@ -11,20 +11,20 @@
 			div.vague { color: lightgrey; }
 			#note { display: inline-block; height:180px; text-align: left;}
 
-			#detector { width: 300px; height: 300px; border: 4px solid gray; border-radius: 8px; text-align: center; padding-top: 10px; }
+			#detector { width: 300px; height: 300px; border: 4px solid gray; border-radius: 8px; text-align: center; padding-top: 10px; float: left; margin-right:10px;}
 			#output { width: 300px; height: 42px; }
 			#flat { display: none; }
 			#sharp { display: none; }
 			.flat #flat { display: inline; }
 			.sharp #sharp { display: inline; }
-			.p5Canvas{margin-left: 50px; float: left;}
+			.p5Canvas{margin-left: 4px; float: left;}
 		</style>
 	</head>
 	<body>
 		<script src="js/pitchdetect.js"></script>
 
 		<p>
-			<button onclick="toggleLiveInput()">use live input</button>
+			<button onclick="toggleLiveInput()">Start Listening for a Note</button>
 			<button onclick="toggleOscillator()">use oscillator</button>
 			<!--<button onclick="updatePitch(0);">sample</button>-->
 		</p>
