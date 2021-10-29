@@ -25,8 +25,18 @@
 
 		<p>
 			<button onclick="toggleLiveInput()">Start Listening for a Note</button>
-			<button onclick="toggleOscillator()">use oscillator</button>
+			<!-- <button onclick="toggleOscillator()">use oscillator</button> -->
 			<!--<button onclick="updatePitch(0);">sample</button>-->
+			<select name="Instrument" id="instrument">
+				 <option value="">--Pick your instrument--</option>
+  			<option value="flute">flute</option>
+  			<option value="clarinet">clarinet</option>
+  			<option value="alto sax">alto sax</option>
+  			<option value="trumpet">trumpt</option>
+				<option value="horn">horn</option>
+				<option value="trombone">trombone</option>
+				<option value="euphonium">euphonium</option>
+			</select>
 		</p>
 
 		<div id="detector" class="vague">
