@@ -21,21 +21,26 @@
 		</style>
 	</head>
 	<body>
-		<script src="js/pitchdetect.js"></script>
 
 		<p>
 			<button onclick="toggleLiveInput()">Start Listening for a Note</button>
 			<!-- <button onclick="toggleOscillator()">use oscillator</button> -->
 			<!--<button onclick="updatePitch(0);">sample</button>-->
-			<select name="Instrument" id="instrument">
-				 <option value="">--Pick your instrument--</option>
-  			<option value="flute">flute</option>
-  			<option value="clarinet">clarinet</option>
-  			<option value="alto sax">alto sax</option>
-  			<option value="trumpet">trumpt</option>
-				<option value="horn">horn</option>
-				<option value="trombone">trombone</option>
-				<option value="euphonium">euphonium</option>
+			<select name="Instrument" id="my-select">
+				 <option value="C">--Pick your instrument--</option>
+  			<option value="C">flute</option>
+				<option value="C">oboe</option>
+				<option value="BC">bassoon</option>
+  			<option value="Bb">clarinet</option>
+  			<option value="Eb">alto sax</option>
+				<option value="Bb">tenor sax</option>
+				<option value="Eb">bari sax</option>
+  			<option value="Bb">trumpet</option>
+				<option value="F"> F horn</option>
+				<option value="BC">trombone</option>
+				<option value="BC">euphonium</option>
+				<option value="BC">tuba</option>
+				<option value="C">mallets</option>
 			</select>
 		</p>
 
@@ -64,5 +69,6 @@
 			})();
 		</script>
 		 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.js"></script>
+		 <script src="js/pitchdetect.js"></script>
 	</body>
 </html>

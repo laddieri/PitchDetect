@@ -43,6 +43,9 @@ var detectorElem,
 var notetoDraw = "A";
 var octavetoDraw = "4"
 
+
+
+
 window.onload = function() {
 	audioContext = new AudioContext();
 	MAX_SIZE = Math.max(4,Math.floor(audioContext.sampleRate/5000));	// corresponds to a 5kHz signal
@@ -224,28 +227,28 @@ function frequencyFromNoteNumber( note ) {
 }
 
 function octaveFromPitch ( frequency ){
-	if (frequency < 31 ){
+	if (frequency < 50){
 		return 0;
 	}
-	if (frequency < 65.4 && frequency > 32.7 ){
+	if (frequency < 100 && frequency > 50 ){
 		return 1;
 	}
-	if (frequency < 125  && frequency > 63 ){
+	if (frequency < 125  && frequency > 100 ){
 		return 2;
 	}
-	if (frequency < 250 && frequency > 125){
+	if (frequency < 210 && frequency > 125){
 		return 3;
 	}
-	if (frequency < 510 && frequency > 250 ){
+	if (frequency < 420 && frequency > 210 ){
 		return 4;
 	}
-	if (frequency < 1010 && frequency > 510 ){
+	if (frequency < 840 && frequency > 420 ){
 		return 5;
 	}
-	if (frequency < 2000 && frequency > 1010 ){
+	if (frequency < 1650 && frequency > 840 ){
 		return 6;
 	}
-	if (frequency < 3951 && frequency > 2000 ){
+	if (frequency < 4186 && frequency > 1650 ){
 		return 7;
 	}
 }
@@ -402,6 +405,11 @@ function updatePitch( time ) {
 	 	pitchElem.innerText = Math.round( pitch ) ;
 	 	var note =  noteFromPitch( pitch );
 		octavetoDraw = octaveFromPitch(pitch);
+		var key = document.getElementById('my-select').value;
+		note = transpose(note,key);
+		if (key=="BC"){
+
+		}
 		notetoDraw = noteStrings[note%12];
 		noteElem.innerHTML = notetoDraw;
 		var detune = centsOffFromPitch( pitch, note );
@@ -446,7 +454,12 @@ function draw() {
 	background(255)
 	drawStaff(100);
 	let note = noteName[noteStringArray[0]];
-	note = adujustForOctave(note);
+
+	note = adjustForOctave(note);
+	var clef = document.getElementById('my-select').value;
+	if (clef == 'BC'){
+			note = adjustForBC(note);
+	}
 	if (typeof noteStringArray[1] !== "undefined"){
 		drawNote(200-75,note);
 		drawSharp(200-150,note+17);
@@ -486,17 +499,41 @@ function drawFlat(x,y){
 	curve(x-325, y+125, x, y, x, y-25, x-10, y+90);
 }
 
-function adujustForOctave (frequency){
-	if (octavetoDraw == 4){
-		return frequency;
+function adjustForOctave (frequency){
+	if (octavetoDraw == 2){
+		return frequency+525;
 	}
 	if (octavetoDraw == 3){
-		return frequency+175;
-	}
-	if (octavetoDraw == 2){
 		return frequency+350;
 	}
-	if (octavetoDraw == 5){
-		return frequency-175;
+	if (octavetoDraw == 4){
+		return frequency+175;
 	}
+	if (octavetoDraw == 5){
+		return frequency;
+	}
+}
+
+function transpose(note,key){
+	console.log(note);
+	console.log(key);
+	if (key == "C"){
+		return note;
+	}
+	if (key == "Bb"){
+		return note + 2;
+	}
+	if (key == "Eb"){
+		return note + 9;
+	}
+	if (key == "F"){
+		return note + 11;
+	}
+	if (key == "BC"){
+		return note;
+	}
+};
+
+function adjustForBC(note){
+	return note - (25*12);
 }
