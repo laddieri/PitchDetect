@@ -41,9 +41,7 @@ var detectorElem,
 	noteStringArray;
 
 var notetoDraw = "A";
-var octavetoDraw = "4"
-
-
+var octavetoDraw = "5"
 
 
 window.onload = function() {
@@ -227,96 +225,134 @@ function frequencyFromNoteNumber( note ) {
 }
 
 function octaveFromPitch ( frequency ){
-	if (frequency < 50){
-		return 0;
+	var key = document.getElementById('my-select').value;
+	if (key == "C"){
+
+		if (frequency < 20){
+			return 0;
+		}
+		if (frequency < 39 && frequency > 20){
+			return 1;
+		}
+		if (frequency < 80  && frequency > 39 ){
+			return 2;
+		}
+		if (frequency < 160 && frequency > 80){
+			return 3;
+		}
+		if (frequency < 315 && frequency > 160 ){
+			return 4;
+		}
+		if (frequency < 640 && frequency > 315 ){
+			return 5;
+		}
+		if (frequency < 1280 && frequency > 640){
+			return 6;
+		}
+		if (frequency < 4186 && frequency > 1280 ){
+			return 7;
+		}
 	}
-	if (frequency < 100 && frequency > 50 ){
-		return 1;
+	if (key=="Bb"){
+
+		if (frequency < 20){
+			return 0;
+		}
+		if (frequency < 34 && frequency > 20){
+			return 1;
+		}
+		if (frequency < 70  && frequency > 34 ){
+			return 2;
+		}
+		if (frequency < 140 && frequency > 70){
+			return 3;
+		}
+		if (frequency < 280 && frequency > 140 ){
+			return 4;
+		}
+		if (frequency < 560 && frequency > 280 ){
+			return 5;
+		}
+		if (frequency < 1100&& frequency > 560){
+			return 6;
+		}
+		if (frequency < 2200 && frequency > 1100 ){
+			return 7;
+		}
 	}
-	if (frequency < 125  && frequency > 100 ){
-		return 2;
+	if (key=="Eb"){
+
+		if (frequency < 20){
+			return 0;
+		}
+		if (frequency < 45  && frequency > 20 ){
+			return 2;
+		}
+		if (frequency < 92 && frequency > 45){
+			return 3;
+		}
+		if (frequency < 185 && frequency > 92 ){
+			return 4;
+		}
+		if (frequency < 350 && frequency > 185 ){
+			return 5;
+		}
+		if (frequency < 720 && frequency > 350){
+			return 6;
+		}
+		if (frequency < 1400 && frequency > 720 ){
+			return 7;
+		}
 	}
-	if (frequency < 210 && frequency > 125){
-		return 3;
+	if (key=="F"){
+
+		if (frequency < 20){
+			return 0;
+		}
+		if (frequency < 52  && frequency > 20 ){
+			return 2;
+		}
+		if (frequency < 105 && frequency > 52){
+			return 3;
+		}
+		if (frequency < 210 && frequency > 105 ){
+			return 4;
+		}
+		if (frequency < 420 && frequency > 210 ){
+			return 5;
+		}
+		if (frequency < 840 && frequency > 420){
+			return 6;
+		}
+		if (frequency < 1600 && frequency > 840 ){
+			return 7;
+		}
 	}
-	if (frequency < 420 && frequency > 210 ){
-		return 4;
-	}
-	if (frequency < 840 && frequency > 420 ){
-		return 5;
-	}
-	if (frequency < 1650 && frequency > 840 ){
-		return 6;
-	}
-	if (frequency < 4186 && frequency > 1650 ){
-		return 7;
+	if (key=="BC"){
+		if (frequency < 20){
+			return 2;
+		}
+		if (frequency < 45 && frequency >20 ){
+			return 3;
+		}
+		if (frequency < 90 && frequency > 45 ){
+			return 4;
+		}
+		if (frequency < 180 && frequency > 90 ){
+			return 5;
+		}
+		if (frequency < 355 && frequency > 180){
+			return 6;
+		}
+		if (frequency < 720 && frequency > 355 ){
+			return 7;
+		}
 	}
 }
 
 function centsOffFromPitch( frequency, note ) {
 	return Math.floor( 1200 * Math.log( frequency / frequencyFromNoteNumber( note ))/Math.log(2) );
 }
-
-// this is the previously used pitch detection algorithm.
-/*
-var MIN_SAMPLES = 0;  // will be initialized when AudioContext is created.
-var GOOD_ENOUGH_CORRELATION = 0.9; // this is the "bar" for how close a correlation needs to be
-
-function autoCorrelate( buf, sampleRate ) {
-	var SIZE = buf.length;
-	var MAX_SAMPLES = Math.floor(SIZE/2);
-	var best_offset = -1;
-	var best_correlation = 0;
-	var rms = 0;
-	var foundGoodCorrelation = false;
-	var correlations = new Array(MAX_SAMPLES);
-
-	for (var i=0;i<SIZE;i++) {
-		var val = buf[i];
-		rms += val*val;
-	}
-	rms = Math.sqrt(rms/SIZE);
-	if (rms<0.01) // not enough signal
-		return -1;
-
-	var lastCorrelation=1;
-	for (var offset = MIN_SAMPLES; offset < MAX_SAMPLES; offset++) {
-		var correlation = 0;
-
-		for (var i=0; i<MAX_SAMPLES; i++) {
-			correlation += Math.abs((buf[i])-(buf[i+offset]));
-		}
-		correlation = 1 - (correlation/MAX_SAMPLES);
-		correlations[offset] = correlation; // store it, for the tweaking we need to do below.
-		if ((correlation>GOOD_ENOUGH_CORRELATION) && (correlation > lastCorrelation)) {
-			foundGoodCorrelation = true;
-			if (correlation > best_correlation) {
-				best_correlation = correlation;
-				best_offset = offset;
-			}
-		} else if (foundGoodCorrelation) {
-			// short-circuit - we found a good correlation, then a bad one, so we'd just be seeing copies from here.
-			// Now we need to tweak the offset - by interpolating between the values to the left and right of the
-			// best offset, and shifting it a bit.  This is complex, and HACKY in this code (happy to take PRs!) -
-			// we need to do a curve fit on correlations[] around best_offset in order to better determine precise
-			// (anti-aliased) offset.
-
-			// we know best_offset >=1,
-			// since foundGoodCorrelation cannot go to true until the second pass (offset=1), and
-			// we can't drop into this clause until the following pass (else if).
-			var shift = (correlations[best_offset+1] - correlations[best_offset-1])/correlations[best_offset];
-			return sampleRate/(best_offset+(8*shift));
-		}
-		lastCorrelation = correlation;
-	}
-	if (best_correlation > 0.01) {
-		// console.log("f = " + sampleRate/best_offset + "Hz (rms: " + rms + " confidence: " + best_correlation + ")")
-		return sampleRate/best_offset;
-	}
-	return -1;
-//	var best_frequency = sampleRate/best_offset;
-}
-*/
 
 function autoCorrelate( buf, sampleRate ) {
 	// Implements the ACF2+ algorithm
@@ -403,14 +439,17 @@ function updatePitch( time ) {
 	 	detectorElem.className = "confident";
 	 	pitch = ac;
 	 	pitchElem.innerText = Math.round( pitch ) ;
-	 	var note =  noteFromPitch( pitch );
-		octavetoDraw = octaveFromPitch(pitch);
-		var key = document.getElementById('my-select').value;
-		note = transpose(note,key);
-		if (key=="BC"){
 
-		}
+		octavetoDraw = octaveFromPitch(pitch);
+
+	 	var note =  noteFromPitch( pitch );
+
+		var key = document.getElementById('my-select').value;
+
+		note = transpose(note);
+
 		notetoDraw = noteStrings[note%12];
+
 		noteElem.innerHTML = notetoDraw;
 		var detune = centsOffFromPitch( pitch, note );
 		if (detune == 0 ) {
@@ -430,16 +469,15 @@ function updatePitch( time ) {
 	rafID = window.requestAnimationFrame( updatePitch );
 }
 
-let noteName = {
-	"A":225,
-	"B":200,
-	"C":175,
-	"D":150,
-	"E":125,
-	"F":100,
-	"G":75,
+let notePosition = {
+	1:300,
+	2:275,
+	3:250,
+	4:225,
+	5:200,
+	6:175,
+	7:150,
 }
-
 
 // Setup p5.js canvas
 function setup() {
@@ -453,13 +491,9 @@ function draw() {
 	noteStringArray = notetoDraw.split("");
 	background(255)
 	drawStaff(100);
-	let note = noteName[noteStringArray[0]];
-
+	let note = notePosition[getNotePositionfromNoteStringArray(noteStringArray[0])];
 	note = adjustForOctave(note);
-	var clef = document.getElementById('my-select').value;
-	if (clef == 'BC'){
-			note = adjustForBC(note);
-	}
+
 	if (typeof noteStringArray[1] !== "undefined"){
 		drawNote(200-75,note);
 		drawSharp(200-150,note+17);
@@ -499,41 +533,94 @@ function drawFlat(x,y){
 	curve(x-325, y+125, x, y, x, y-25, x-10, y+90);
 }
 
-function adjustForOctave (frequency){
+function getNotePositionfromNoteStringArray(note){
+	let position;
+
+	var key = document.getElementById('my-select').value;
+
+	if (key == "BC"){
+		if (note=="G"){
+			return 1;
+		}
+		if (note=="A"){
+			return 2;
+		}
+		if (note=="B"){
+			return 3;
+		}
+		if (note=="C"){
+			return 4;
+		}
+		if (note=="D"){
+			return 5;
+		}
+		if (note=="E"){
+			return 6;
+		}
+		if (note=="F"){
+			return 7;
+		}
+
+	}
+
+	if (note=="E"){
+		return 1;
+	}
+	if (note=="F"){
+		return 2;
+	}
+	if (note=="G"){
+		return 3;
+	}
+	if (note=="A"){
+		return 4;
+	}
+	if (note=="B"){
+		return 5;
+	}
+	if (note=="C"){
+		return 6;
+	}
+	if (note=="D"){
+		return 7;
+	}
+
+	return position;
+}
+
+function adjustForOctave (note){
 	if (octavetoDraw == 2){
-		return frequency+525;
+		return note+525;
 	}
 	if (octavetoDraw == 3){
-		return frequency+350;
+		return note+350;
 	}
 	if (octavetoDraw == 4){
-		return frequency+175;
+		return note+175;
 	}
 	if (octavetoDraw == 5){
-		return frequency;
+		return note;
+	}
+	if (octavetoDraw == 6){
+		return note-175;
 	}
 }
 
-function transpose(note,key){
-	console.log(note);
-	console.log(key);
-	if (key == "C"){
+function transpose (note) {
+	var key = document.getElementById('my-select').value;
+	if (key =="C" || key=="BC"){
 		return note;
 	}
-	if (key == "Bb"){
-		return note + 2;
-	}
-	if (key == "Eb"){
-		return note + 9;
-	}
-	if (key == "F"){
-		return note + 11;
-	}
-	if (key == "BC"){
+	if (key =="Bb"){
+		note = note+2;
 		return note;
+		}
+	if (key =="Eb"){
+			note = note+9;
+			return note;
 	}
-};
-
-function adjustForBC(note){
-	return note - (25*12);
+	if (key =="F"){
+			note = note+7;
+			return note;
+	}
 }
