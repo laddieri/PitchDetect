@@ -518,7 +518,13 @@ function drawNote(noteX,noteY){
   noFill();
   strokeWeight(7);
   ellipse(noteX,noteY,50,50);
-}
+
+	if (noteY > 325 || noteY < 75){
+		if (noteY%50 == 0){
+				line(noteX-35,noteY, noteX+35,noteY);
+		}	else {
+				line(noteX-35,noteY-25, noteX+35,noteY-25);
+		}}}
 
 function drawSharp(x,noteY){
   noteY=noteY-1;
