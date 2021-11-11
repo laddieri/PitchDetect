@@ -103,10 +103,11 @@ function error() {
 
 function getUserMedia(dictionary, callback) {
     try {
-        navigator.getUserMedia =
-        	navigator.getUserMedia ||
+        navigator.mediaDevices.getUserMedia =
+        	navigator.mediaDevices.getUserMedia ||
         	navigator.webkitGetUserMedia ||
-        	navigator.mozGetUserMedia;
+        	navigator.mozGetUserMedia||
+          navigator.msGetUserMedia;
         navigator.getUserMedia(dictionary, callback, error);
     } catch (e) {
         alert('getUserMedia threw exception :' + e);
