@@ -85,8 +85,6 @@ window.onload = function() {
 	  	return false;
 	};
 
-
-
 }
 
 function startPitchDetect() {
@@ -331,8 +329,6 @@ function updatePitch( time ) {
 	var cycles = new Array;
 	analyser.getFloatTimeDomainData( buf );
 	var ac = autoCorrelate( buf, audioContext.sampleRate );
-	// TODO: Paint confidence meter on canvasElem here.
-
 
 
  	if (ac == -1) {

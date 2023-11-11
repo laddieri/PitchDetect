@@ -2,8 +2,8 @@
 <html>
 	<head>
 		<title>Pitch Detector</title>
+		<link rel="shortcut icon" href="#">
 		<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-		<link href='http://fonts.googleapis.com/css?family=Alike' rel='stylesheet' type='text/css'>
 		<style>
 			body { font: 14pt 'Alike', sans-serif;}
 			#note { font-size: 164px; }
@@ -19,10 +19,11 @@
 			.flat #flat { display: inline; }
 			.sharp #sharp { display: inline; }
 			.p5Canvas{margin-left: 4px; float: left;}
+			.button{width: 50%; border: 4px solid black; font-size: 30px}
 		</style>
 	</head>
 	<body>
-	<p><button onclick="startPitchDetect();">Start</button></p>
+	<p><button class="button" onclick="startPitchDetect();">Start</button></p>
 
 			<!-- <button onclick="toggleOscillator()">use oscillator</button> -->
 			<!--<button onclick="updatePitch(0);">sample</button>-->
