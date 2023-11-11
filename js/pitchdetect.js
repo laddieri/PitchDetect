@@ -47,15 +47,7 @@ var octavetoDraw = "5"
 window.onload = function() {
 	audioContext = new AudioContext();
 	MAX_SIZE = Math.max(4,Math.floor(audioContext.sampleRate/5000));	// corresponds to a 5kHz signal
-	// var request = new XMLHttpRequest();
-	// request.open("GET", "../sounds/whistling3.ogg", true);
-	// request.responseType = "arraybuffer";
-	// request.onload = function() {
-	//   audioContext.decodeAudioData( request.response, function(buffer) {
-	//     	theBuffer = buffer;
-	// 	} );
-	// }
-	// request.send();
+
 
 	detectorElem = document.getElementById( "detector" );
 	canvasElem = document.getElementById( "output" );
@@ -101,17 +93,36 @@ function error() {
     alert('Stream generation failed.');
 }
 
-function getUserMedia(dictionary, callback) {
-    try {
-        navigator.mediaDevices.getUserMedia =
-        	navigator.mediaDevices.getUserMedia ||
-        	navigator.webkitGetUserMedia ||
-        	navigator.mozGetUserMedia||
-          navigator.msGetUserMedia;
-        navigator.getUserMedia(dictionary, callback, error);
-    } catch (e) {
-        alert('getUserMedia threw exception :' + e);
-    }
+function startPitchDetect() {
+    // grab an audio context
+    audioContext = new AudioContext();
+
+    // Attempt to get audio input
+    navigator.mediaDevices.getUserMedia(
+    {
+        "audio": {
+            "mandatory": {
+                "googEchoCancellation": "false",
+                "googAutoGainControl": "false",
+                "googNoiseSuppression": "false",
+                "googHighpassFilter": "false"
+            },
+            "optional": []
+        },
+    }).then((stream) => {
+        // Create an AudioNode from the stream.
+        mediaStreamSource = audioContext.createMediaStreamSource(stream);
+
+	    // Connect it to the destination.
+	    analyser = audioContext.createAnalyser();
+	    analyser.fftSize = 2048;
+	    mediaStreamSource.connect( analyser );
+	    updatePitch();
+    }).catch((err) => {
+        // always check for errors at the end.
+        console.error(`${err.name}: ${err.message}`);
+        alert('Stream generation failed.');
+    });
 }
 
 function gotStream(stream) {
@@ -125,88 +136,8 @@ function gotStream(stream) {
     updatePitch();
 }
 
-function toggleOscillator() {
-    if (isPlaying) {
-        //stop playing and return
-        sourceNode.stop( 0 );
-        sourceNode = null;
-        analyser = null;
-        isPlaying = false;
-		if (!window.cancelAnimationFrame)
-			window.cancelAnimationFrame = window.webkitCancelAnimationFrame;
-        window.cancelAnimationFrame( rafID );
-        return "play oscillator";
-    }
-    sourceNode = audioContext.createOscillator();
 
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    sourceNode.connect( analyser );
-    analyser.connect( audioContext.destination );
-    sourceNode.start(0);
-    isPlaying = true;
-    isLiveInput = false;
-    updatePitch();
 
-    return "stop";
-}
-
-function toggleLiveInput() {
-    if (isPlaying) {
-        //stop playing and return
-        sourceNode.stop( 0 );
-        sourceNode = null;
-        analyser = null;
-        isPlaying = false;
-		if (!window.cancelAnimationFrame)
-			window.cancelAnimationFrame = window.webkitCancelAnimationFrame;
-        window.cancelAnimationFrame( rafID );
-    }
-		audioContext.resume().then(() => {
-			console.log('Playback resumed successfully');
-		});
-    getUserMedia(
-    	{
-            "audio": {
-                "mandatory": {
-                    "googEchoCancellation": "false",
-                    "googAutoGainControl": "false",
-                    "googNoiseSuppression": "false",
-                    "googHighpassFilter": "false"
-                },
-                "optional": []
-            },
-        }, gotStream);
-}
-
-function togglePlayback() {
-    if (isPlaying) {
-        //stop playing and return
-        sourceNode.stop( 0 );
-        sourceNode = null;
-        analyser = null;
-        isPlaying = false;
-		if (!window.cancelAnimationFrame)
-			window.cancelAnimationFrame = window.webkitCancelAnimationFrame;
-        window.cancelAnimationFrame( rafID );
-        return "start";
-    }
-
-    sourceNode = audioContext.createBufferSource();
-    sourceNode.buffer = theBuffer;
-    sourceNode.loop = true;
-
-    analyser = audioContext.createAnalyser();
-    analyser.fftSize = 2048;
-    sourceNode.connect( analyser );
-    analyser.connect( audioContext.destination );
-    sourceNode.start( 0 );
-    isPlaying = true;
-    isLiveInput = false;
-    updatePitch();
-
-    return "stop";
-}
 
 var rafID = null;
 var tracks = null;

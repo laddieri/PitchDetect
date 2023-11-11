@@ -21,9 +21,8 @@
 		</style>
 	</head>
 	<body>
+	<p><button onclick="startPitchDetect();">Start</button></p>
 
-		<p>
-			<button onclick="toggleLiveInput()">Start Listening for a Note</button>
 			<!-- <button onclick="toggleOscillator()">use oscillator</button> -->
 			<!--<button onclick="updatePitch(0);">sample</button>-->
 			<select name="Instrument" id="my-select">
@@ -47,27 +46,11 @@
 		<div id="detector" class="vague">
 			<div class="pitch"><span id="pitch">--</span>Hz</div>
 			<div class="note"><span id="note">--</span></div>
-			<canvas id="output" width=300 height=42></canvas>
+
 			<div id="detune"><span id="detune_amt">--</span><span id="flat">cents &#9837;</span><span id="sharp">cents &#9839;</span></div>
 		</div>
 
-		<!-- just used for debugging
-		<canvas id="waveform" width="512" height="256"></canvas>
-		-->
-		<a href="https://github.com/cwilso/pitchdetect" style="position: absolute; z-index:2; top: 0; right: 0; border: 0;"><img src="img/forkme.png" alt="Fork me on GitHub"></a>
 
-		<script type="text/javascript">
-
-			var _gaq = _gaq || [];
-			_gaq.push(['_setAccount', 'UA-35593052-1']);
-			_gaq.push(['_trackPageview']);
-
-			(function() {
-				var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
-				ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
-				var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
-			})();
-		</script>
 		 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.js"></script>
 		 <script src="js/pitchdetect.js"></script>
 	</body>
