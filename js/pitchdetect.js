@@ -421,12 +421,30 @@ function drawNote(noteX,noteY){
   strokeWeight(7);
   ellipse(noteX,noteY,50,50);
 
-	if (noteY > 325 || noteY < 75){
+	if (noteY > 325){
 		if (noteY%50 == 0){
 				line(noteX-35,noteY, noteX+35,noteY);
 		}	else {
 				line(noteX-35,noteY-25, noteX+35,noteY-25);
-		}}}
+		}
+		if (noteY>375){
+			line(noteX-35,350, noteX+35,350);
+		}
+	}
+
+	if (noteY < 75){
+		if (noteY%50 == 0){
+				line(noteX-35,noteY, noteX+35,noteY);
+		}	else {
+				line(noteX-35,noteY+25, noteX+35,noteY+25);
+		}}
+		if (noteY<25){
+				line(noteX-35, 50, noteX+35,50);
+		}
+
+	}
+
+
 
 function drawSharp(x,noteY){
   noteY=noteY-1;
