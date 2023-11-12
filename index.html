@@ -16,32 +16,43 @@
 			#output { width: 300px; height: 42px; }
 			#flat { display: none; }
 			#sharp { display: none; }
+			select{
+				height:50px;
+				font-size: 30px;
+			}
 			.flat #flat { display: inline; }
 			.sharp #sharp { display: inline; }
 			.p5Canvas{margin-left: 4px; float: left;}
 			.button{width: 50%; border: 4px solid black; font-size: 30px}
+			.vertical-center {
+  			margin: 0;
+  			position: absolute;
+  			-ms-transform: translateY(-50%);
+  			transform: translateY(-50%);
+
+			}
 		</style>
 	</head>
 	<body>
-	<p><button class="button" onclick="startPitchDetect();">Start</button></p>
+	<p><button class="button" class="vertical-center" onclick="startPitchDetect();">Start</button></p>
 
 			<!-- <button onclick="toggleOscillator()">use oscillator</button> -->
 			<!--<button onclick="updatePitch(0);">sample</button>-->
 			<select name="Instrument" id="my-select">
 				 <option value="C">--Pick your instrument--</option>
-  			<option value="C">flute</option>
-				<option value="C">oboe</option>
-				<option value="BC">bassoon</option>
-  			<option value="Bb">clarinet</option>
-  			<option value="Eb">alto sax</option>
-				<option value="Bb">tenor sax</option>
-				<option value="Eb">bari sax</option>
-  			<option value="Bb">trumpet</option>
-				<option value="F"> F horn</option>
-				<option value="BC">trombone</option>
-				<option value="BC">euphonium</option>
-				<option value="BC">tuba</option>
-				<option value="C">mallets</option>
+  			<option value="C">Flute</option>
+				<option value="C">Oboe</option>
+				<option value="BC">Bassoon</option>
+  			<option value="Bb">Clarinet</option>
+  			<option value="Eb">Alto Sax</option>
+				<option value="Bb">Tenor Sax</option>
+				<option value="Eb">Bari Sax</option>
+  			<option value="Bb">Trumpet</option>
+				<option value="F"> F Horn</option>
+				<option value="BC">Trombone</option>
+				<option value="BC">Euphonium</option>
+				<option value="BC">Tuba</option>
+				<option value="C">Mallets</option>
 			</select>
 		</p>
 

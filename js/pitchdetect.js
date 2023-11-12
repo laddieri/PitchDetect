@@ -384,7 +384,7 @@ let notePosition = {
 // Setup p5.js canvas
 function setup() {
   var xwidth=400
-  var yheight=400;
+  var yheight=700;
   createCanvas(xwidth, yheight);
   frameRate(60);
 }
