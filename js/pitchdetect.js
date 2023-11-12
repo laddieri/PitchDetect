@@ -408,7 +408,7 @@ function draw() {
 }
 
 function drawStaff(y){
-	strokeWeight(4);
+	strokeWeight(5);
   line(0,y,400,y);
   line(0,y+50,400,y+50);
   line(0,y+100,400,y+100);
@@ -418,9 +418,10 @@ function drawStaff(y){
 
 function drawNote(noteX,noteY){
   noFill();
-  strokeWeight(7);
+  strokeWeight(5);
   ellipse(noteX,noteY,50,50);
 
+	strokeWeight(5);
 	if (noteY > 325){
 		if (noteY%50 == 0){
 				line(noteX-35,noteY, noteX+35,noteY);
