@@ -384,7 +384,7 @@ let notePosition = {
 // Setup p5.js canvas
 function setup() {
   var xwidth=400
-  var yheight=700;
+  var yheight=475;
   createCanvas(xwidth, yheight);
   frameRate(60);
 }
@@ -430,6 +430,12 @@ function drawNote(noteX,noteY){
 		}
 		if (noteY>375){
 			line(noteX-35,350, noteX+35,350);
+		}
+		if (noteY>425){
+			line(noteX-35,400, noteX+35,400);
+		}
+		if (noteY>475){
+			line(noteX-35,450, noteX+35,450);
 		}
 	}
 
