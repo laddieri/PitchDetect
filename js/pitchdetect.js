@@ -31,6 +31,7 @@ var analyser = null;
 var theBuffer = null;
 var DEBUGCANVAS = null;
 var mediaStreamSource = null;
+var mediaStream = null;
 var detectorElem,
 	canvasElem,
 	waveCanvas,
@@ -84,6 +85,14 @@ window.onload = function() {
 	};
 
 }
+function togglePitchDetect() {
+    if (isPlaying) {
+        stopPitchDetect();
+    } else {
+        startPitchDetect();
+    }
+}
+
 function startPitchDetect() {
     // grab an audio context
     audioContext = new AudioContext();
@@ -101,6 +110,9 @@ function startPitchDetect() {
             "optional": []
         },
     }).then((stream) => {
+        // Store the stream so we can stop it later
+        mediaStream = stream;
+
         // Create an AudioNode from the stream.
         mediaStreamSource = audioContext.createMediaStreamSource(stream);
 
@@ -108,12 +120,54 @@ function startPitchDetect() {
 	    analyser = audioContext.createAnalyser();
 	    analyser.fftSize = 2048;
 	    mediaStreamSource.connect( analyser );
+
+	    // Update state and button
+	    isPlaying = true;
+	    document.getElementById("startStopButton").innerText = "Stop";
+
 	    updatePitch();
     }).catch((err) => {
         // always check for errors at the end.
         console.error(`${err.name}: ${err.message}`);
         alert('Stream generation failed.');
     });
+}
+
+function stopPitchDetect() {
+    // Stop the animation frame
+    if (rafID) {
+        if (!window.cancelAnimationFrame)
+            window.cancelAnimationFrame = window.webkitCancelAnimationFrame;
+        window.cancelAnimationFrame(rafID);
+        rafID = null;
+    }
+
+    // Stop all tracks in the media stream
+    if (mediaStream) {
+        mediaStream.getTracks().forEach(track => track.stop());
+        mediaStream = null;
+    }
+
+    // Close the audio context
+    if (audioContext) {
+        audioContext.close();
+        audioContext = null;
+    }
+
+    // Reset state
+    analyser = null;
+    mediaStreamSource = null;
+    isPlaying = false;
+
+    // Update button text
+    document.getElementById("startStopButton").innerText = "Start";
+
+    // Reset display
+    detectorElem.className = "vague";
+    pitchElem.innerText = "--";
+    noteElem.innerText = "-";
+    detuneElem.className = "";
+    detuneAmount.innerText = "--";
 }
 
 function error() {
