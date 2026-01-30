@@ -353,6 +353,10 @@ function draw() {
 		// Draw treble clef on the G line (y=250, which is 100 + 150)
 		drawTrebleClef(50, 250);
 		noteOffset = 50; // Shift notes right to make room for clef
+	} else if (bassClefInstruments.includes(selectedInstrument)) {
+		// Draw bass clef on the F line (y=150, which is 100 + 50)
+		drawBassClef(50, 150);
+		noteOffset = 50; // Shift notes right to make room for clef
 	}
 
 	let note = noteName[noteStringArray[0]];
@@ -399,6 +403,9 @@ function drawFlat(x,y){
 // Treble clef instruments
 var trebleClefInstruments = ["flute", "clarinet", "alto sax", "trumpet", "horn"];
 
+// Bass clef instruments
+var bassClefInstruments = ["trombone", "euphonium"];
+
 function drawTrebleClef(x, y) {
 	// Draw treble clef (G-clef) at position x, y where y is the G line (second from bottom)
 	// The clef is drawn relative to the G line at y=250 when staff starts at y=100
@@ -437,6 +444,42 @@ function drawTrebleClef(x, y) {
 	// Small dot at the bottom of the tail
 	fill(0);
 	ellipse(x + 15, y + 100, 12, 12);
+	noFill();
+
+	pop();
+}
+
+function drawBassClef(x, y) {
+	// Draw bass clef (F-clef) at position x, y where y is the F line (4th line from bottom)
+	// The clef is drawn relative to the F line at y=150 when staff starts at y=100
+	push();
+	strokeWeight(4);
+	noFill();
+
+	// Main curved body of bass clef
+	beginShape();
+	curveVertex(x + 5, y - 5);
+	curveVertex(x + 5, y - 5);
+	curveVertex(x + 15, y - 15);
+	curveVertex(x + 20, y - 35);
+	curveVertex(x + 15, y - 55);
+	curveVertex(x, y - 65);
+	curveVertex(x - 15, y - 55);
+	curveVertex(x - 20, y - 30);
+	curveVertex(x - 15, y);
+	curveVertex(x, y + 30);
+	curveVertex(x + 20, y + 60);
+	curveVertex(x + 45, y + 85);
+	curveVertex(x + 45, y + 85);
+	endShape();
+
+	// Two dots next to the F line
+	fill(0);
+	ellipse(x + 30, y - 25, 10, 10); // Dot above F line
+	ellipse(x + 30, y + 25, 10, 10); // Dot below F line
+
+	// Starting dot on F line
+	ellipse(x + 5, y, 12, 12);
 	noFill();
 
 	pop();
