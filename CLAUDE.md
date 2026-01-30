@@ -56,7 +56,8 @@ Core JavaScript file containing all pitch detection logic:
 | `centsOffFromPitch(frequency, note)` | 212 | Calculates detuning in cents |
 | `setup()` / `draw()` | 335/342 | p5.js canvas initialization and rendering |
 | `drawStaff()` / `drawNote()` | 371/380 | Musical staff visualization helpers |
-| `drawTrebleClef(x, y)` | 402 | Draws treble clef symbol at position |
+| `drawTrebleClef(x, y)` | 408 | Draws treble clef symbol at position |
+| `drawBassClef(x, y)` | 452 | Draws bass clef symbol at position |
 
 ## Core Algorithm: ACF2+ (Auto-Correlation)
 
@@ -131,8 +132,13 @@ If the instrument reads treble clef, add it to the `trebleClefInstruments` array
 var trebleClefInstruments = ["flute", "clarinet", "alto sax", "trumpet", "horn", "new_instrument"];
 ```
 
+If the instrument reads bass clef, add it to the `bassClefInstruments` array:
+```javascript
+var bassClefInstruments = ["trombone", "euphonium", "new_instrument"];
+```
+
 **Treble clef instruments:** flute, clarinet, alto sax, trumpet, horn
-**Bass clef instruments:** trombone, euphonium (no clef displayed currently)
+**Bass clef instruments:** trombone, euphonium
 
 ### Adjusting Detection Sensitivity
 In `js/pitchdetect.js`:
@@ -148,8 +154,7 @@ In `js/pitchdetect.js`:
 1. **Monophonic only** - Works best with single-note sources (whistling, flute, guitar tuning)
 2. **Strong harmonics** - May throw off detection accuracy
 3. **No polyphonic detection** - Cannot detect chords
-4. **Instrument selector** - Displays treble clef for treble instruments, but no transposition implemented yet
-5. **Bass clef** - Not yet implemented for bass clef instruments (trombone, euphonium)
+4. **Instrument selector** - Displays appropriate clef for instruments, but no transposition implemented yet
 
 ## Code Style Conventions
 
