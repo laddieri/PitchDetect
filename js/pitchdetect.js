@@ -343,15 +343,27 @@ function draw() {
 	noteStringArray = notetoDraw.split("");
 	background(255)
 	drawStaff(100);
+
+	// Check if selected instrument uses treble clef
+	var instrumentSelect = document.getElementById("instrument");
+	var selectedInstrument = instrumentSelect ? instrumentSelect.value : "";
+	var noteOffset = 0;
+
+	if (trebleClefInstruments.includes(selectedInstrument)) {
+		// Draw treble clef on the G line (y=250, which is 100 + 150)
+		drawTrebleClef(50, 250);
+		noteOffset = 50; // Shift notes right to make room for clef
+	}
+
 	let note = noteName[noteStringArray[0]];
 	note = adujustForOctave(note);
 	if (typeof noteStringArray[1] !== "undefined"){
-		drawNote(200-75,note);
-		drawSharp(200-150,note+17);
-		drawNote(200+75,note-25);
-		drawFlat(200+10,note-25+17);
+		drawNote(200-75+noteOffset,note);
+		drawSharp(200-150+noteOffset,note+17);
+		drawNote(200+75+noteOffset,note-25);
+		drawFlat(200+10+noteOffset,note-25+17);
 	}	else {
-		drawNote(200,note);
+		drawNote(200+noteOffset,note);
 	}
 
 }
@@ -382,6 +394,52 @@ function drawSharp(x,noteY){
 function drawFlat(x,y){
   line (x,y-50,x,y);
 	curve(x-325, y+125, x, y, x, y-25, x-10, y+90);
+}
+
+// Treble clef instruments
+var trebleClefInstruments = ["flute", "clarinet", "alto sax", "trumpet", "horn"];
+
+function drawTrebleClef(x, y) {
+	// Draw treble clef (G-clef) at position x, y where y is the G line (second from bottom)
+	// The clef is drawn relative to the G line at y=250 when staff starts at y=100
+	push();
+	strokeWeight(4);
+	noFill();
+
+	// Main spiral curl around G line
+	beginShape();
+	// Start from bottom tail
+	curveVertex(x + 15, y + 95);
+	curveVertex(x + 15, y + 95);
+	curveVertex(x + 5, y + 70);
+	curveVertex(x - 5, y + 40);
+	curveVertex(x - 5, y + 10);
+	curveVertex(x + 5, y - 20);
+	curveVertex(x + 20, y - 50);
+	curveVertex(x + 30, y - 80);
+	curveVertex(x + 25, y - 110);
+	curveVertex(x + 10, y - 130);
+	curveVertex(x - 5, y - 120);
+	curveVertex(x - 10, y - 95);
+	curveVertex(x - 5, y - 70);
+	curveVertex(x + 10, y - 50);
+	curveVertex(x + 25, y - 35);
+	curveVertex(x + 30, y - 10);
+	curveVertex(x + 25, y + 15);
+	curveVertex(x + 10, y + 30);
+	curveVertex(x - 10, y + 25);
+	curveVertex(x - 15, y + 5);
+	curveVertex(x - 10, y - 10);
+	curveVertex(x + 5, y - 10);
+	curveVertex(x + 5, y - 10);
+	endShape();
+
+	// Small dot at the bottom of the tail
+	fill(0);
+	ellipse(x + 15, y + 100, 12, 12);
+	noFill();
+
+	pop();
 }
 
 function adujustForOctave (frequency){
