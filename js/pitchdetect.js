@@ -404,27 +404,30 @@ function draw() {
 	// Check if selected instrument uses treble clef
 	var instrumentSelect = document.getElementById("instrument");
 	var selectedInstrument = instrumentSelect ? instrumentSelect.value : "";
-	var noteOffset = 0;
+	var noteX = 200; // Default center position for note
 
 	if (trebleClefInstruments.includes(selectedInstrument)) {
 		// Draw treble clef on the G line (y=250, which is 100 + 150)
 		drawTrebleClef(50, 250);
-		noteOffset = 50; // Shift notes right to make room for clef
+		noteX = 270; // Shift note right to make room for clef
 	} else if (bassClefInstruments.includes(selectedInstrument)) {
 		// Draw bass clef on the F line (y=150, which is 100 + 50)
 		drawBassClef(50, 150);
-		noteOffset = 50; // Shift notes right to make room for clef
+		noteX = 270; // Shift note right to make room for clef
 	}
 
 	let note = noteName[noteStringArray[0]];
 	note = adujustForOctave(note);
 	if (typeof noteStringArray[1] !== "undefined"){
-		drawNote(200-75+noteOffset,note);
-		drawSharp(200-150+noteOffset,note+17);
-		drawNote(200+75+noteOffset,note-25);
-		drawFlat(200+10+noteOffset,note-25+17);
-	}	else {
-		drawNote(200+noteOffset,note);
+		// Sharp/flat note - draw accidental symbol next to note
+		drawNote(noteX, note);
+		if (noteStringArray[1] === "#") {
+			drawSharp(noteX - 45, note + 17);
+		} else if (noteStringArray[1] === "b") {
+			drawFlat(noteX - 40, note + 17);
+		}
+	} else {
+		drawNote(noteX, note);
 	}
 
 }
