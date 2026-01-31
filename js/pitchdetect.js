@@ -462,42 +462,45 @@ var bassClefInstruments = ["trombone", "euphonium"];
 
 function drawTrebleClef(x, y) {
 	// Draw treble clef (G-clef) at position x, y where y is the G line (second from bottom)
-	// The clef is drawn relative to the G line at y=250 when staff starts at y=100
+	// Staff lines: top=y-150, bottom=y+50, G line=y
+	// Top should reach top line (y-150), bottom loop touches bottom line (y+50)
+	// Tail extends one note width below staff (y+75)
 	push();
 	strokeWeight(4);
 	noFill();
 
-	// Main spiral curl around G line
+	// Main curve of treble clef
 	beginShape();
-	// Start from bottom tail
-	curveVertex(x + 15, y + 95);
-	curveVertex(x + 15, y + 95);
-	curveVertex(x + 5, y + 70);
-	curveVertex(x - 5, y + 40);
-	curveVertex(x - 5, y + 10);
-	curveVertex(x + 5, y - 20);
-	curveVertex(x + 20, y - 50);
-	curveVertex(x + 30, y - 80);
-	curveVertex(x + 25, y - 110);
-	curveVertex(x + 10, y - 130);
-	curveVertex(x - 5, y - 120);
-	curveVertex(x - 10, y - 95);
-	curveVertex(x - 5, y - 70);
-	curveVertex(x + 10, y - 50);
-	curveVertex(x + 25, y - 35);
-	curveVertex(x + 30, y - 10);
-	curveVertex(x + 25, y + 15);
-	curveVertex(x + 10, y + 30);
-	curveVertex(x - 10, y + 25);
-	curveVertex(x - 15, y + 5);
+	// Start from the tail at bottom, going up
+	curveVertex(x + 10, y + 75);  // Tail tip (one note below staff)
+	curveVertex(x + 10, y + 75);
+	curveVertex(x + 5, y + 50);   // Bottom line of staff
+	curveVertex(x - 5, y + 20);
+	curveVertex(x - 5, y);        // G line
+	curveVertex(x + 5, y - 40);
+	curveVertex(x + 20, y - 80);
+	curveVertex(x + 25, y - 120);
+	curveVertex(x + 15, y - 145);
+	curveVertex(x, y - 150);      // Top line of staff
+	curveVertex(x - 15, y - 140);
+	curveVertex(x - 20, y - 110);
+	curveVertex(x - 10, y - 75);
+	curveVertex(x + 5, y - 50);
+	curveVertex(x + 20, y - 30);
+	curveVertex(x + 25, y - 5);
+	curveVertex(x + 20, y + 25);
+	curveVertex(x + 5, y + 45);
+	curveVertex(x - 15, y + 50);  // Bottom line - main loop
+	curveVertex(x - 25, y + 30);
+	curveVertex(x - 20, y + 5);
 	curveVertex(x - 10, y - 10);
-	curveVertex(x + 5, y - 10);
-	curveVertex(x + 5, y - 10);
+	curveVertex(x + 5, y - 5);
+	curveVertex(x + 5, y - 5);
 	endShape();
 
 	// Small dot at the bottom of the tail
 	fill(0);
-	ellipse(x + 15, y + 100, 12, 12);
+	ellipse(x + 10, y + 80, 12, 12);
 	noFill();
 
 	pop();
@@ -505,35 +508,35 @@ function drawTrebleClef(x, y) {
 
 function drawBassClef(x, y) {
 	// Draw bass clef (F-clef) at position x, y where y is the F line (4th line from bottom)
-	// The clef is drawn relative to the F line at y=150 when staff starts at y=100
+	// Staff: top line at y-50, F line at y, bottom line at y+150
+	// Curve starts at F line, goes up and right, curves back around to bottom of staff
 	push();
 	strokeWeight(4);
 	noFill();
 
-	// Main curved body of bass clef
+	// Main curved body of bass clef - starts at F line, curves up-right, then down
 	beginShape();
-	curveVertex(x + 5, y - 5);
-	curveVertex(x + 5, y - 5);
-	curveVertex(x + 15, y - 15);
-	curveVertex(x + 20, y - 35);
-	curveVertex(x + 15, y - 55);
-	curveVertex(x, y - 65);
-	curveVertex(x - 15, y - 55);
-	curveVertex(x - 20, y - 30);
-	curveVertex(x - 15, y);
-	curveVertex(x, y + 30);
-	curveVertex(x + 20, y + 60);
-	curveVertex(x + 45, y + 85);
-	curveVertex(x + 45, y + 85);
+	curveVertex(x, y);           // Start at F line
+	curveVertex(x, y);
+	curveVertex(x + 20, y - 20); // Curve up and right
+	curveVertex(x + 35, y - 40); // Continue up
+	curveVertex(x + 40, y - 50); // Near top line
+	curveVertex(x + 35, y - 40); // Start curving back
+	curveVertex(x + 25, y - 20);
+	curveVertex(x + 15, y + 20); // Curve down
+	curveVertex(x + 5, y + 80);  // Continue down
+	curveVertex(x, y + 130);     // Approach bottom
+	curveVertex(x - 5, y + 150); // End at bottom of staff, underneath start
+	curveVertex(x - 5, y + 150);
 	endShape();
 
-	// Two dots next to the F line
+	// Two dots to the right of the curve, above and below F line
 	fill(0);
-	ellipse(x + 30, y - 25, 10, 10); // Dot above F line
-	ellipse(x + 30, y + 25, 10, 10); // Dot below F line
+	ellipse(x + 50, y - 25, 10, 10); // Dot above F line
+	ellipse(x + 50, y + 25, 10, 10); // Dot below F line
 
 	// Starting dot on F line
-	ellipse(x + 5, y, 12, 12);
+	ellipse(x, y, 12, 12);
 	noFill();
 
 	pop();
