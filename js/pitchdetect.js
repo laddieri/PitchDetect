@@ -387,9 +387,12 @@ let noteName = {
 
 // Setup p5.js canvas
 function setup() {
-  var xwidth=400
-  var yheight=400;
-  createCanvas(xwidth, yheight);
+  var canvas = createCanvas(400, 400);
+  // Place canvas in the container div
+  var container = document.querySelector('.canvas-container');
+  if (container) {
+    canvas.parent(container);
+  }
   frameRate(60);
 }
 

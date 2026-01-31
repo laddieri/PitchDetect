@@ -2,50 +2,284 @@
 <html>
 	<head>
 		<title>Pitch Detector</title>
-		<link href='http://fonts.googleapis.com/css?family=Alike' rel='stylesheet' type='text/css'>
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link href='https://fonts.googleapis.com/css?family=Alike' rel='stylesheet' type='text/css'>
 		<style>
-			body { font: 14pt 'Alike', sans-serif;}
-			#note { font-size: 164px; }
-			.droptarget { background-color: #348781}
-			div.confident { color: black; }
-			div.vague { color: lightgrey; }
-			#note { display: inline-block; height:180px; text-align: left;}
+			* {
+				box-sizing: border-box;
+			}
 
-			#detector { width: 300px; height: 300px; border: 4px solid gray; border-radius: 8px; text-align: center; padding-top: 10px; float: left; margin-right:10px;}
-			#output { width: 300px; height: 42px; }
-			#flat { display: none; }
-			#sharp { display: none; }
-			.flat #flat { display: inline; }
-			.sharp #sharp { display: inline; }
-			.p5Canvas{margin-left: 4px; float: left;}
+			body {
+				font: 14pt 'Alike', sans-serif;
+				margin: 0;
+				padding: 20px;
+				background-color: #f5f5f5;
+				min-height: 100vh;
+			}
+
+			.container {
+				max-width: 900px;
+				margin: 0 auto;
+			}
+
+			h1 {
+				text-align: center;
+				color: #333;
+				margin-bottom: 20px;
+				font-size: 1.8rem;
+			}
+
+			.controls {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 15px;
+				justify-content: center;
+				align-items: center;
+				margin-bottom: 20px;
+			}
+
+			#startStopButton {
+				padding: 12px 32px;
+				font-size: 16px;
+				font-family: 'Alike', sans-serif;
+				background-color: #4CAF50;
+				color: white;
+				border: none;
+				border-radius: 6px;
+				cursor: pointer;
+				transition: background-color 0.2s;
+			}
+
+			#startStopButton:hover {
+				background-color: #45a049;
+			}
+
+			#startStopButton:active {
+				background-color: #3d8b40;
+			}
+
+			#instrument {
+				padding: 12px 16px;
+				font-size: 16px;
+				font-family: 'Alike', sans-serif;
+				border: 2px solid #ddd;
+				border-radius: 6px;
+				background-color: white;
+				cursor: pointer;
+			}
+
+			#instrument:focus {
+				outline: none;
+				border-color: #4CAF50;
+			}
+
+			.main-display {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 20px;
+				justify-content: center;
+				align-items: flex-start;
+			}
+
+			#detector {
+				width: 300px;
+				background-color: white;
+				border: 4px solid #ddd;
+				border-radius: 12px;
+				text-align: center;
+				padding: 20px;
+				box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+			}
+
+			#detector.confident {
+				border-color: #4CAF50;
+			}
+
+			#detector.vague {
+				border-color: #ddd;
+			}
+
+			div.confident {
+				color: black;
+			}
+
+			div.vague {
+				color: #ccc;
+			}
+
+			.pitch {
+				font-size: 18px;
+				color: #666;
+				margin-bottom: 10px;
+			}
+
+			#pitch {
+				font-size: 24px;
+				font-weight: bold;
+				color: #333;
+			}
+
+			#note {
+				font-size: 120px;
+				line-height: 1;
+				display: block;
+				height: 140px;
+				margin: 10px 0;
+			}
+
+			#detune {
+				font-size: 18px;
+				color: #666;
+				min-height: 30px;
+			}
+
+			#detune_amt {
+				font-weight: bold;
+				color: #333;
+			}
+
+			#flat, #sharp {
+				display: none;
+			}
+
+			.flat #flat {
+				display: inline;
+				color: #e74c3c;
+			}
+
+			.sharp #sharp {
+				display: inline;
+				color: #3498db;
+			}
+
+			.canvas-container {
+				background-color: white;
+				border-radius: 12px;
+				padding: 10px;
+				box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+			}
+
+			.p5Canvas {
+				display: block;
+			}
+
+			.droptarget {
+				background-color: #348781;
+			}
+
+			.github-link {
+				position: fixed;
+				top: 0;
+				right: 0;
+				z-index: 100;
+			}
+
+			.github-link img {
+				width: 100px;
+				height: auto;
+			}
+
+			/* Mobile styles */
+			@media (max-width: 700px) {
+				body {
+					padding: 15px;
+				}
+
+				h1 {
+					font-size: 1.4rem;
+					margin-top: 10px;
+				}
+
+				.controls {
+					flex-direction: column;
+				}
+
+				#startStopButton,
+				#instrument {
+					width: 100%;
+					max-width: 280px;
+				}
+
+				.main-display {
+					flex-direction: column;
+					align-items: center;
+				}
+
+				#detector {
+					width: 100%;
+					max-width: 320px;
+				}
+
+				#note {
+					font-size: 100px;
+					height: 120px;
+				}
+
+				.canvas-container {
+					width: 100%;
+					max-width: 320px;
+					overflow-x: auto;
+				}
+
+				.github-link {
+					display: none;
+				}
+			}
+
+			/* Small mobile */
+			@media (max-width: 400px) {
+				#note {
+					font-size: 80px;
+					height: 100px;
+				}
+
+				#detector {
+					padding: 15px;
+				}
+			}
 		</style>
 	</head>
 	<body>
 		<script src="js/pitchdetect.js"></script>
-<p><button id="startStopButton" onclick="togglePitchDetect();">Start</button></p>
-		<p>
 
-			<select name="Instrument" id="instrument">
-				 <option value="">--Pick your instrument--</option>
-  			<option value="flute">flute</option>
-  			<option value="clarinet">clarinet</option>
-  			<option value="alto sax">alto sax</option>
-  			<option value="trumpet">trumpet</option>
-				<option value="horn">horn</option>
-				<option value="trombone">trombone</option>
-				<option value="euphonium">euphonium</option>
-			</select>
-		</p>
+		<div class="container">
+			<h1>Pitch Detector</h1>
 
-		<div id="detector" class="vague">
-			<div class="pitch"><span id="pitch">--</span>Hz</div>
-			<div class="note"><span id="note">--</span></div>
+			<div class="controls">
+				<button id="startStopButton" onclick="togglePitchDetect();">Start</button>
+				<select name="Instrument" id="instrument">
+					<option value="">--Pick your instrument--</option>
+					<option value="flute">Flute</option>
+					<option value="clarinet">Clarinet</option>
+					<option value="alto sax">Alto Sax</option>
+					<option value="trumpet">Trumpet</option>
+					<option value="horn">Horn</option>
+					<option value="trombone">Trombone</option>
+					<option value="euphonium">Euphonium</option>
+				</select>
+			</div>
 
-			<div id="detune"><span id="detune_amt">--</span><span id="flat">cents &#9837;</span><span id="sharp">cents &#9839;</span></div>
+			<div class="main-display">
+				<div id="detector" class="vague">
+					<div class="pitch"><span id="pitch">--</span> Hz</div>
+					<span id="note">--</span>
+					<div id="detune">
+						<span id="detune_amt">--</span>
+						<span id="flat">cents &#9837;</span>
+						<span id="sharp">cents &#9839;</span>
+					</div>
+				</div>
+
+				<div class="canvas-container">
+					<!-- p5.js canvas will be inserted here -->
+				</div>
+			</div>
 		</div>
 
-		<a href="https://github.com/cwilso/pitchdetect" style="position: absolute; z-index:2; top: 0; right: 0; border: 0;"><img src="img/forkme.png" alt="Fork me on GitHub"></a>
+		<a href="https://github.com/cwilso/pitchdetect" class="github-link">
+			<img src="img/forkme.png" alt="Fork me on GitHub">
+		</a>
 
-		 <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.js"></script>
+		<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.js"></script>
 	</body>
 </html>
