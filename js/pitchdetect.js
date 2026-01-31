@@ -509,31 +509,31 @@ function drawTrebleClef(x, y) {
 function drawBassClef(x, y) {
 	// Draw bass clef (F-clef) at position x, y where y is the F line (4th line from bottom)
 	// Staff: top line at y-50, F line at y, bottom line at y+150
-	// Curve starts at F line, goes up and right, curves back around to bottom of staff
+	// Curve starts at F line, goes up and right in a gentle arc, then down to bottom
 	push();
 	strokeWeight(4);
 	noFill();
 
-	// Main curved body of bass clef - starts at F line, curves up-right, then down
+	// Main curved body of bass clef - gentle arc from F line up and back down
 	beginShape();
-	curveVertex(x, y);           // Start at F line
+	curveVertex(x, y);             // Start at F line
 	curveVertex(x, y);
-	curveVertex(x + 20, y - 20); // Curve up and right
-	curveVertex(x + 35, y - 40); // Continue up
-	curveVertex(x + 40, y - 50); // Near top line
-	curveVertex(x + 35, y - 40); // Start curving back
-	curveVertex(x + 25, y - 20);
-	curveVertex(x + 15, y + 20); // Curve down
-	curveVertex(x + 5, y + 80);  // Continue down
-	curveVertex(x, y + 130);     // Approach bottom
-	curveVertex(x - 5, y + 150); // End at bottom of staff, underneath start
-	curveVertex(x - 5, y + 150);
+	curveVertex(x + 15, y - 15);   // Gentle curve up and right
+	curveVertex(x + 30, y - 35);   // Continue curving
+	curveVertex(x + 40, y - 50);   // Apex near top line
+	curveVertex(x + 45, y - 45);   // Gentle turn - no sharp angle
+	curveVertex(x + 42, y - 25);   // Continue the gentle arc back
+	curveVertex(x + 35, y + 10);   // Curving down
+	curveVertex(x + 20, y + 60);   // Continue down
+	curveVertex(x + 10, y + 110);  // Approaching bottom
+	curveVertex(x, y + 150);       // End at bottom of staff, underneath start
+	curveVertex(x, y + 150);
 	endShape();
 
 	// Two dots to the right of the curve, above and below F line
 	fill(0);
-	ellipse(x + 50, y - 25, 10, 10); // Dot above F line
-	ellipse(x + 50, y + 25, 10, 10); // Dot below F line
+	ellipse(x + 55, y - 25, 10, 10); // Dot above F line
+	ellipse(x + 55, y + 25, 10, 10); // Dot below F line
 
 	// Starting dot on F line
 	ellipse(x, y, 12, 12);
