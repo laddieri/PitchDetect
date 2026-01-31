@@ -462,42 +462,45 @@ var bassClefInstruments = ["trombone", "euphonium"];
 
 function drawTrebleClef(x, y) {
 	// Draw treble clef (G-clef) at position x, y where y is the G line (second from bottom)
-	// The clef is drawn relative to the G line at y=250 when staff starts at y=100
+	// Staff lines: top=y-150, bottom=y+50, G line=y
+	// Top should reach top line (y-150), bottom loop touches bottom line (y+50)
+	// Tail extends one note width below staff (y+75)
 	push();
 	strokeWeight(4);
 	noFill();
 
-	// Main spiral curl around G line
+	// Main curve of treble clef
 	beginShape();
-	// Start from bottom tail
-	curveVertex(x + 15, y + 95);
-	curveVertex(x + 15, y + 95);
-	curveVertex(x + 5, y + 70);
-	curveVertex(x - 5, y + 40);
-	curveVertex(x - 5, y + 10);
-	curveVertex(x + 5, y - 20);
-	curveVertex(x + 20, y - 50);
-	curveVertex(x + 30, y - 80);
-	curveVertex(x + 25, y - 110);
-	curveVertex(x + 10, y - 130);
-	curveVertex(x - 5, y - 120);
-	curveVertex(x - 10, y - 95);
-	curveVertex(x - 5, y - 70);
-	curveVertex(x + 10, y - 50);
-	curveVertex(x + 25, y - 35);
-	curveVertex(x + 30, y - 10);
-	curveVertex(x + 25, y + 15);
-	curveVertex(x + 10, y + 30);
-	curveVertex(x - 10, y + 25);
-	curveVertex(x - 15, y + 5);
+	// Start from the tail at bottom, going up
+	curveVertex(x + 10, y + 75);  // Tail tip (one note below staff)
+	curveVertex(x + 10, y + 75);
+	curveVertex(x + 5, y + 50);   // Bottom line of staff
+	curveVertex(x - 5, y + 20);
+	curveVertex(x - 5, y);        // G line
+	curveVertex(x + 5, y - 40);
+	curveVertex(x + 20, y - 80);
+	curveVertex(x + 25, y - 120);
+	curveVertex(x + 15, y - 145);
+	curveVertex(x, y - 150);      // Top line of staff
+	curveVertex(x - 15, y - 140);
+	curveVertex(x - 20, y - 110);
+	curveVertex(x - 10, y - 75);
+	curveVertex(x + 5, y - 50);
+	curveVertex(x + 20, y - 30);
+	curveVertex(x + 25, y - 5);
+	curveVertex(x + 20, y + 25);
+	curveVertex(x + 5, y + 45);
+	curveVertex(x - 15, y + 50);  // Bottom line - main loop
+	curveVertex(x - 25, y + 30);
+	curveVertex(x - 20, y + 5);
 	curveVertex(x - 10, y - 10);
-	curveVertex(x + 5, y - 10);
-	curveVertex(x + 5, y - 10);
+	curveVertex(x + 5, y - 5);
+	curveVertex(x + 5, y - 5);
 	endShape();
 
 	// Small dot at the bottom of the tail
 	fill(0);
-	ellipse(x + 15, y + 100, 12, 12);
+	ellipse(x + 10, y + 80, 12, 12);
 	noFill();
 
 	pop();
