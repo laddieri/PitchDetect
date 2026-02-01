@@ -159,7 +159,12 @@
 				box-shadow: 0 2px 10px rgba(0,0,0,0.1);
 			}
 
-			.p5Canvas {
+			#vexflow-output {
+				min-width: 320px;
+				min-height: 180px;
+			}
+
+			#vexflow-output svg {
 				display: block;
 			}
 
@@ -271,7 +276,7 @@
 				</div>
 
 				<div class="canvas-container">
-					<!-- p5.js canvas will be inserted here -->
+					<div id="vexflow-output"></div>
 				</div>
 			</div>
 		</div>
@@ -280,6 +285,6 @@
 			<img src="img/forkme.png" alt="Fork me on GitHub">
 		</a>
 
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/0.7.3/p5.js"></script>
+		<script src="https://cdn.jsdelivr.net/npm/vexflow@4.2.6/build/cjs/vexflow.js"></script>
 	</body>
 </html>
