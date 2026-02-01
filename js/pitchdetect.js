@@ -438,6 +438,26 @@ var resizeTimeout = null;
 var VEXFLOW_WIDTH = 320;
 var VEXFLOW_HEIGHT = 160;
 
+// Enharmonic equivalents: sharp -> flat mapping
+var enharmonicMap = {
+	"C#": { flat: "Db", sharpOctaveAdjust: 0, flatOctaveAdjust: 0 },
+	"D#": { flat: "Eb", sharpOctaveAdjust: 0, flatOctaveAdjust: 0 },
+	"F#": { flat: "Gb", sharpOctaveAdjust: 0, flatOctaveAdjust: 0 },
+	"G#": { flat: "Ab", sharpOctaveAdjust: 0, flatOctaveAdjust: 0 },
+	"A#": { flat: "Bb", sharpOctaveAdjust: 0, flatOctaveAdjust: 0 }
+};
+
+// Get enharmonic equivalent of a note
+function getEnharmonic(noteName, octave) {
+	if (enharmonicMap[noteName]) {
+		return {
+			sharp: { name: noteName, octave: octave + enharmonicMap[noteName].sharpOctaveAdjust },
+			flat: { name: enharmonicMap[noteName].flat, octave: octave + enharmonicMap[noteName].flatOctaveAdjust }
+		};
+	}
+	return null; // No enharmonic (natural note)
+}
+
 // Initialize VexFlow when page loads
 function initVexFlow() {
 	var outputDiv = document.getElementById("vexflow-output");
@@ -490,43 +510,57 @@ function renderNotation(noteName, octave, instrument) {
 
 	// If we have a note to display, render it
 	if (noteName && octave) {
-		// Convert note name to VexFlow format (e.g., "C#" -> "c#", octave 4 -> "c#/4")
-		var vexNote = noteName.toLowerCase();
-
-		// Adjust octave for bass clef display (VexFlow handles this automatically)
-		var displayOctave = octave;
-
-		// Create the note key in VexFlow format
-		var noteKey = vexNote + "/" + displayOctave;
+		// Check if note has an enharmonic equivalent
+		var enharmonic = getEnharmonic(noteName, octave);
 
 		try {
-			// Create a whole note
-			var note = new VF.StaveNote({
-				clef: clef,
-				keys: [noteKey],
-				duration: "w"  // whole note
-			});
+			var notes = [];
 
-			// Add accidental if needed (VexFlow 3.x uses addAccidental with index)
-			if (noteName.includes("#")) {
-				note.addAccidental(0, new VF.Accidental("#"));
-			} else if (noteName.includes("b")) {
-				note.addAccidental(0, new VF.Accidental("b"));
+			if (enharmonic) {
+				// Create sharp note (half note to fit both)
+				var sharpKey = enharmonic.sharp.name.toLowerCase() + "/" + enharmonic.sharp.octave;
+				var sharpNote = new VF.StaveNote({
+					clef: clef,
+					keys: [sharpKey],
+					duration: "h"  // half note
+				});
+				sharpNote.addAccidental(0, new VF.Accidental("#"));
+				notes.push(sharpNote);
+
+				// Create flat note (half note)
+				var flatKey = enharmonic.flat.name.replace("b", "").toLowerCase() + "b/" + enharmonic.flat.octave;
+				var flatNote = new VF.StaveNote({
+					clef: clef,
+					keys: [flatKey],
+					duration: "h"  // half note
+				});
+				flatNote.addAccidental(0, new VF.Accidental("b"));
+				notes.push(flatNote);
+			} else {
+				// Natural note - single whole note
+				var vexNote = noteName.toLowerCase();
+				var noteKey = vexNote + "/" + octave;
+				var note = new VF.StaveNote({
+					clef: clef,
+					keys: [noteKey],
+					duration: "w"  // whole note
+				});
+				notes.push(note);
 			}
 
-			// Create a voice and add the note
+			// Create a voice and add notes
 			var voice = new VF.Voice({
 				num_beats: 4,
 				beat_value: 4
 			}).setStrict(false);
-			voice.addTickables([note]);
+			voice.addTickables(notes);
 
 			// Format and draw
 			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
 			voice.draw(context, stave);
 		} catch (e) {
 			// Note might be out of range for the clef, just show empty staff
-			console.log("Could not render note:", noteKey, e.message);
+			console.log("Could not render note:", noteName, octave, e.message);
 		}
 	}
 }
