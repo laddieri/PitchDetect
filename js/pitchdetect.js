@@ -434,17 +434,9 @@ var lastRenderedOctave = null;
 var lastRenderedInstrument = null;
 var resizeTimeout = null;
 
-// Get VexFlow dimensions based on container size
-function getVexFlowDimensions() {
-	var container = document.querySelector(".canvas-container");
-	if (!container) return { width: 320, height: 180 };
-
-	var rect = container.getBoundingClientRect();
-	var width = Math.max(200, rect.width - 20); // Subtract padding
-	var height = Math.max(120, rect.height - 20);
-
-	return { width: width, height: height };
-}
+// Fixed internal dimensions for VexFlow (maintains aspect ratio)
+var VEXFLOW_WIDTH = 320;
+var VEXFLOW_HEIGHT = 160;
 
 // Initialize VexFlow when page loads
 function initVexFlow() {
@@ -465,13 +457,19 @@ function renderNotation(noteName, octave, instrument) {
 
 	var VF = Vex.Flow;
 
-	// Get dimensions based on container size
-	var dims = getVexFlowDimensions();
-
-	// Create new renderer each time (VexFlow 3.x approach)
+	// Create new renderer at fixed internal size
 	var renderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
-	renderer.resize(dims.width, dims.height);
+	renderer.resize(VEXFLOW_WIDTH, VEXFLOW_HEIGHT);
 	var context = renderer.getContext();
+
+	// Set viewBox on the SVG to enable proportional scaling
+	var svgElement = outputDiv.querySelector("svg");
+	if (svgElement) {
+		svgElement.setAttribute("viewBox", "0 0 " + VEXFLOW_WIDTH + " " + VEXFLOW_HEIGHT);
+		svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
+		svgElement.style.width = "100%";
+		svgElement.style.height = "100%";
+	}
 
 	// Determine clef based on instrument
 	var clef = "treble"; // default
@@ -481,9 +479,9 @@ function renderNotation(noteName, octave, instrument) {
 		clef = "treble";
 	}
 
-	// Calculate stave dimensions based on container
-	var staveWidth = Math.max(150, dims.width - 30);
-	var staveY = Math.max(20, (dims.height - 80) / 2);
+	// Fixed stave dimensions (will scale with viewBox)
+	var staveWidth = VEXFLOW_WIDTH - 30;
+	var staveY = 40;
 
 	// Create stave
 	var stave = new VF.Stave(10, staveY, staveWidth);
@@ -523,9 +521,8 @@ function renderNotation(noteName, octave, instrument) {
 			}).setStrict(false);
 			voice.addTickables([note]);
 
-			// Format and draw - use stave width for formatting
-			var formatWidth = Math.max(100, staveWidth - 80);
-			new VF.Formatter().joinVoices([voice]).format([voice], formatWidth);
+			// Format and draw
+			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
 			voice.draw(context, stave);
 		} catch (e) {
 			// Note might be out of range for the clef, just show empty staff
