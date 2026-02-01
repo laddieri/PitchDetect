@@ -432,6 +432,19 @@ function getTransposition() {
 var lastRenderedNote = null;
 var lastRenderedOctave = null;
 var lastRenderedInstrument = null;
+var resizeTimeout = null;
+
+// Get VexFlow dimensions based on container size
+function getVexFlowDimensions() {
+	var container = document.querySelector(".canvas-container");
+	if (!container) return { width: 320, height: 180 };
+
+	var rect = container.getBoundingClientRect();
+	var width = Math.max(200, rect.width - 20); // Subtract padding
+	var height = Math.max(120, rect.height - 20);
+
+	return { width: width, height: height };
+}
 
 // Initialize VexFlow when page loads
 function initVexFlow() {
@@ -452,9 +465,12 @@ function renderNotation(noteName, octave, instrument) {
 
 	var VF = Vex.Flow;
 
+	// Get dimensions based on container size
+	var dims = getVexFlowDimensions();
+
 	// Create new renderer each time (VexFlow 3.x approach)
 	var renderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
-	renderer.resize(320, 180);
+	renderer.resize(dims.width, dims.height);
 	var context = renderer.getContext();
 
 	// Determine clef based on instrument
@@ -465,8 +481,12 @@ function renderNotation(noteName, octave, instrument) {
 		clef = "treble";
 	}
 
+	// Calculate stave dimensions based on container
+	var staveWidth = Math.max(150, dims.width - 30);
+	var staveY = Math.max(20, (dims.height - 80) / 2);
+
 	// Create stave
-	var stave = new VF.Stave(10, 40, 300);
+	var stave = new VF.Stave(10, staveY, staveWidth);
 	stave.addClef(clef);
 	stave.setContext(context).draw();
 
@@ -503,14 +523,28 @@ function renderNotation(noteName, octave, instrument) {
 			}).setStrict(false);
 			voice.addTickables([note]);
 
-			// Format and draw
-			new VF.Formatter().joinVoices([voice]).format([voice], 250);
+			// Format and draw - use stave width for formatting
+			var formatWidth = Math.max(100, staveWidth - 80);
+			new VF.Formatter().joinVoices([voice]).format([voice], formatWidth);
 			voice.draw(context, stave);
 		} catch (e) {
 			// Note might be out of range for the clef, just show empty staff
 			console.log("Could not render note:", noteKey, e.message);
 		}
 	}
+}
+
+// Handle window resize with debouncing
+function handleResize() {
+	if (resizeTimeout) {
+		clearTimeout(resizeTimeout);
+	}
+	resizeTimeout = setTimeout(function() {
+		// Force re-render at new size
+		lastRenderedNote = null;
+		lastRenderedOctave = null;
+		updateNotation();
+	}, 100);
 }
 
 // Update the notation display (called when note changes)
@@ -531,7 +565,7 @@ function updateNotation() {
 	}
 }
 
-// Re-render when instrument changes
+// Re-render when instrument changes or window resizes
 document.addEventListener("DOMContentLoaded", function() {
 	initVexFlow();
 
@@ -543,4 +577,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			updateNotation();
 		});
 	}
+
+	// Handle window resize
+	window.addEventListener("resize", handleResize);
 });
