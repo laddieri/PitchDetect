@@ -367,7 +367,14 @@ function updatePitch( time ) {
 	 	notetoDraw = noteStrings[writtenNote % 12];
 	 	octavetoDraw = Math.floor(writtenNote / 12) - 1; // MIDI note to octave
 
-		noteElem.innerHTML = notetoDraw;
+		// Display note name with enharmonic equivalent if applicable
+		var enharmonic = getEnharmonic(notetoDraw, octavetoDraw);
+		if (enharmonic) {
+			// Show both sharp and flat spellings
+			noteElem.innerHTML = enharmonic.sharp.name + " / " + enharmonic.flat.name;
+		} else {
+			noteElem.innerHTML = notetoDraw;
+		}
 
 		// Update VexFlow notation display
 		updateNotation();
