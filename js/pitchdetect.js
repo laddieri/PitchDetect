@@ -392,22 +392,33 @@ function updatePitch( time ) {
 }
 
 // Treble clef instruments
-var trebleClefInstruments = ["flute", "clarinet", "alto sax", "trumpet", "horn"];
+var trebleClefInstruments = [
+	"flute", "oboe", "clarinet", "bass clarinet",
+	"alto sax", "tenor sax", "bari sax",
+	"trumpet", "horn", "glockenspiel"
+];
 
 // Bass clef instruments
-var bassClefInstruments = ["trombone", "euphonium"];
+var bassClefInstruments = ["bassoon", "trombone", "euphonium", "tuba"];
 
 // Transposition map: semitones to add to concert pitch to get written pitch
 // Positive = written pitch is higher than concert pitch
 var transpositionMap = {
-	"": 0,              // No instrument selected - concert pitch
-	"flute": 0,         // C instrument - concert pitch
-	"clarinet": 2,      // Bb instrument - up major 2nd
-	"alto sax": 9,      // Eb instrument - up major 6th
-	"trumpet": 2,       // Bb instrument - up major 2nd
-	"horn": 7,          // F instrument - up perfect 5th
-	"trombone": 0,      // C instrument - concert pitch
-	"euphonium": 0      // C instrument - concert pitch
+	"": 0,                // No instrument selected - concert pitch
+	"flute": 0,           // C instrument - concert pitch
+	"oboe": 0,            // C instrument - concert pitch
+	"clarinet": 2,        // Bb instrument - up major 2nd
+	"bass clarinet": 14,  // Bb instrument - up major 9th (octave + M2)
+	"bassoon": 0,         // C instrument - concert pitch
+	"alto sax": 9,        // Eb instrument - up major 6th
+	"tenor sax": 14,      // Bb instrument - up major 9th (octave + M2)
+	"bari sax": 21,       // Eb instrument - up major 13th (octave + M6)
+	"trumpet": 2,         // Bb instrument - up major 2nd
+	"horn": 7,            // F instrument - up perfect 5th
+	"trombone": 0,        // C instrument - concert pitch
+	"euphonium": 0,       // C instrument - concert pitch
+	"tuba": 0,            // C instrument - concert pitch
+	"glockenspiel": -24   // Sounds 2 octaves higher than written
 };
 
 // Get transposition for current instrument
@@ -421,6 +432,19 @@ function getTransposition() {
 var lastRenderedNote = null;
 var lastRenderedOctave = null;
 var lastRenderedInstrument = null;
+var resizeTimeout = null;
+
+// Get VexFlow dimensions based on container size
+function getVexFlowDimensions() {
+	var container = document.querySelector(".canvas-container");
+	if (!container) return { width: 320, height: 180 };
+
+	var rect = container.getBoundingClientRect();
+	var width = Math.max(200, rect.width - 20); // Subtract padding
+	var height = Math.max(120, rect.height - 20);
+
+	return { width: width, height: height };
+}
 
 // Initialize VexFlow when page loads
 function initVexFlow() {
@@ -441,9 +465,12 @@ function renderNotation(noteName, octave, instrument) {
 
 	var VF = Vex.Flow;
 
+	// Get dimensions based on container size
+	var dims = getVexFlowDimensions();
+
 	// Create new renderer each time (VexFlow 3.x approach)
 	var renderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
-	renderer.resize(320, 180);
+	renderer.resize(dims.width, dims.height);
 	var context = renderer.getContext();
 
 	// Determine clef based on instrument
@@ -454,8 +481,12 @@ function renderNotation(noteName, octave, instrument) {
 		clef = "treble";
 	}
 
+	// Calculate stave dimensions based on container
+	var staveWidth = Math.max(150, dims.width - 30);
+	var staveY = Math.max(20, (dims.height - 80) / 2);
+
 	// Create stave
-	var stave = new VF.Stave(10, 40, 300);
+	var stave = new VF.Stave(10, staveY, staveWidth);
 	stave.addClef(clef);
 	stave.setContext(context).draw();
 
@@ -492,14 +523,28 @@ function renderNotation(noteName, octave, instrument) {
 			}).setStrict(false);
 			voice.addTickables([note]);
 
-			// Format and draw
-			new VF.Formatter().joinVoices([voice]).format([voice], 250);
+			// Format and draw - use stave width for formatting
+			var formatWidth = Math.max(100, staveWidth - 80);
+			new VF.Formatter().joinVoices([voice]).format([voice], formatWidth);
 			voice.draw(context, stave);
 		} catch (e) {
 			// Note might be out of range for the clef, just show empty staff
 			console.log("Could not render note:", noteKey, e.message);
 		}
 	}
+}
+
+// Handle window resize with debouncing
+function handleResize() {
+	if (resizeTimeout) {
+		clearTimeout(resizeTimeout);
+	}
+	resizeTimeout = setTimeout(function() {
+		// Force re-render at new size
+		lastRenderedNote = null;
+		lastRenderedOctave = null;
+		updateNotation();
+	}, 100);
 }
 
 // Update the notation display (called when note changes)
@@ -520,7 +565,7 @@ function updateNotation() {
 	}
 }
 
-// Re-render when instrument changes
+// Re-render when instrument changes or window resizes
 document.addEventListener("DOMContentLoaded", function() {
 	initVexFlow();
 
@@ -532,4 +577,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			updateNotation();
 		});
 	}
+
+	// Handle window resize
+	window.addEventListener("resize", handleResize);
 });
