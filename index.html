@@ -49,24 +49,25 @@
 				flex-shrink: 0;
 			}
 
-			#startStopButton {
+			#stopButton {
 				padding: 12px 32px;
 				font-size: 16px;
 				font-family: 'Alike', sans-serif;
-				background-color: #4CAF50;
+				background-color: #e74c3c;
 				color: white;
 				border: none;
 				border-radius: 6px;
 				cursor: pointer;
 				transition: background-color 0.2s;
+				display: none;
 			}
 
-			#startStopButton:hover {
-				background-color: #45a049;
+			#stopButton:hover {
+				background-color: #c0392b;
 			}
 
-			#startStopButton:active {
-				background-color: #3d8b40;
+			#stopButton:active {
+				background-color: #a93226;
 			}
 
 			#instrument {
@@ -226,7 +227,7 @@
 					margin-bottom: 10px;
 				}
 
-				#startStopButton,
+				#stopButton,
 				#instrument {
 					width: 100%;
 					max-width: 280px;
@@ -260,9 +261,10 @@
 			<h1>Pitch Detector</h1>
 
 			<div class="controls">
-				<button id="startStopButton" onclick="togglePitchDetect();">Start</button>
 				<select name="Instrument" id="instrument">
-					<option value="">--Pick your instrument--</option>
+					<option value="">Select an instrument to begin</option>
+					<option value="treble clef">Treble Clef</option>
+					<option value="bass clef">Bass Clef</option>
 					<option value="flute">Flute</option>
 					<option value="oboe">Oboe</option>
 					<option value="clarinet">Clarinet</option>
@@ -278,6 +280,7 @@
 					<option value="tuba">Tuba</option>
 					<option value="glockenspiel">Glockenspiel</option>
 				</select>
+				<button id="stopButton" onclick="stopPitchDetect();">Stop</button>
 			</div>
 
 			<div class="main-display">
