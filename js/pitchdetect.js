@@ -385,7 +385,6 @@ var trebleClefInstruments = ["flute", "clarinet", "alto sax", "trumpet", "horn"]
 var bassClefInstruments = ["trombone", "euphonium"];
 
 // VexFlow rendering variables
-var vexflowRenderer = null;
 var lastRenderedNote = null;
 var lastRenderedOctave = null;
 var lastRenderedInstrument = null;
@@ -395,25 +394,24 @@ function initVexFlow() {
 	var outputDiv = document.getElementById("vexflow-output");
 	if (!outputDiv) return;
 
-	// Clear any existing content
-	outputDiv.innerHTML = "";
-
-	// Create renderer
-	var VF = Vex.Flow;
-	vexflowRenderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
-	vexflowRenderer.resize(320, 180);
-
 	// Draw initial empty staff
 	renderNotation(null, null, "");
 }
 
 // Render notation with VexFlow
 function renderNotation(noteName, octave, instrument) {
-	if (!vexflowRenderer) return;
+	var outputDiv = document.getElementById("vexflow-output");
+	if (!outputDiv) return;
+
+	// Clear previous content
+	outputDiv.innerHTML = "";
 
 	var VF = Vex.Flow;
-	var context = vexflowRenderer.getContext();
-	context.clear();
+
+	// Create new renderer each time (VexFlow 3.x approach)
+	var renderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
+	renderer.resize(320, 180);
+	var context = renderer.getContext();
 
 	// Determine clef based on instrument
 	var clef = "treble"; // default
@@ -447,11 +445,11 @@ function renderNotation(noteName, octave, instrument) {
 				duration: "w"  // whole note
 			});
 
-			// Add accidental if needed
+			// Add accidental if needed (VexFlow 3.x uses addAccidental with index)
 			if (noteName.includes("#")) {
-				note.addModifier(new VF.Accidental("#"));
+				note.addAccidental(0, new VF.Accidental("#"));
 			} else if (noteName.includes("b")) {
-				note.addModifier(new VF.Accidental("b"));
+				note.addAccidental(0, new VF.Accidental("b"));
 			}
 
 			// Create a voice and add the note
