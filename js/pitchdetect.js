@@ -356,6 +356,10 @@ function updatePitch( time ) {
 		octavetoDraw = octaveFromPitch(pitch);
 		notetoDraw = noteStrings[note%12];
 		noteElem.innerHTML = notetoDraw;
+
+		// Update VexFlow notation display
+		updateNotation();
+
 		var detune = centsOffFromPitch( pitch, note );
 		if (detune == 0 ) {
 			detuneElem.className = "";
@@ -374,191 +378,127 @@ function updatePitch( time ) {
 	rafID = window.requestAnimationFrame( updatePitch );
 }
 
-let noteName = {
-	"A":225,
-	"B":200,
-	"C":175,
-	"D":150,
-	"E":125,
-	"F":100,
-	"G":75,
-}
-
-
-// Setup p5.js canvas
-function setup() {
-  var canvas = createCanvas(400, 400);
-  // Place canvas in the container div
-  var container = document.querySelector('.canvas-container');
-  if (container) {
-    canvas.parent(container);
-  }
-  frameRate(60);
-}
-
-function draw() {
-	noteStringArray = notetoDraw.split("");
-	background(255)
-	drawStaff(100);
-
-	// Check if selected instrument uses treble clef
-	var instrumentSelect = document.getElementById("instrument");
-	var selectedInstrument = instrumentSelect ? instrumentSelect.value : "";
-	var noteX = 200; // Default center position for note
-
-	if (trebleClefInstruments.includes(selectedInstrument)) {
-		// Draw treble clef on the G line (y=250, which is 100 + 150)
-		drawTrebleClef(50, 250);
-		noteX = 270; // Shift note right to make room for clef
-	} else if (bassClefInstruments.includes(selectedInstrument)) {
-		// Draw bass clef on the F line (y=150, which is 100 + 50)
-		drawBassClef(50, 150);
-		noteX = 270; // Shift note right to make room for clef
-	}
-
-	let note = noteName[noteStringArray[0]];
-	note = adujustForOctave(note);
-	if (typeof noteStringArray[1] !== "undefined"){
-		// Sharp/flat note - draw accidental symbol next to note
-		drawNote(noteX, note);
-		if (noteStringArray[1] === "#") {
-			drawSharp(noteX - 45, note + 17);
-		} else if (noteStringArray[1] === "b") {
-			drawFlat(noteX - 40, note + 17);
-		}
-	} else {
-		drawNote(noteX, note);
-	}
-
-}
-
-function drawStaff(y){
-	strokeWeight(4);
-  line(0,y,400,y);
-  line(0,y+50,400,y+50);
-  line(0,y+100,400,y+100);
-  line(0,y+150,400,y+150);
-  line(0,y+200,400,y+200);
-}
-
-function drawNote(noteX,noteY){
-  noFill();
-  strokeWeight(7);
-  ellipse(noteX,noteY,50,50);
-}
-
-function drawSharp(x,noteY){
-  noteY=noteY-1;
-  line (x,noteY+10,x,noteY-40)
-  line (x+25,noteY+10,x+25,noteY-40)
-  line (x-10,noteY-5,x+35,noteY-5)
-  line (x-10,noteY-28,x+35,noteY-28)
-}
-
-function drawFlat(x,y){
-  line (x,y-50,x,y);
-	curve(x-325, y+125, x, y, x, y-25, x-10, y+90);
-}
-
 // Treble clef instruments
 var trebleClefInstruments = ["flute", "clarinet", "alto sax", "trumpet", "horn"];
 
 // Bass clef instruments
 var bassClefInstruments = ["trombone", "euphonium"];
 
-function drawTrebleClef(x, y) {
-	// Draw treble clef (G-clef) at position x, y where y is the G line (second from bottom)
-	// Staff lines: top=y-150, bottom=y+50, G line=y
-	// Top should reach top line (y-150), bottom loop touches bottom line (y+50)
-	// Tail extends one note width below staff (y+75)
-	push();
-	strokeWeight(4);
-	noFill();
+// VexFlow rendering variables
+var vexflowRenderer = null;
+var lastRenderedNote = null;
+var lastRenderedOctave = null;
+var lastRenderedInstrument = null;
 
-	// Main curve of treble clef
-	beginShape();
-	// Start from the tail at bottom, going up
-	curveVertex(x + 10, y + 75);  // Tail tip (one note below staff)
-	curveVertex(x + 10, y + 75);
-	curveVertex(x + 5, y + 50);   // Bottom line of staff
-	curveVertex(x - 5, y + 20);
-	curveVertex(x - 5, y);        // G line
-	curveVertex(x + 5, y - 40);
-	curveVertex(x + 20, y - 80);
-	curveVertex(x + 25, y - 120);
-	curveVertex(x + 15, y - 145);
-	curveVertex(x, y - 150);      // Top line of staff
-	curveVertex(x - 15, y - 140);
-	curveVertex(x - 20, y - 110);
-	curveVertex(x - 10, y - 75);
-	curveVertex(x + 5, y - 50);
-	curveVertex(x + 20, y - 30);
-	curveVertex(x + 25, y - 5);
-	curveVertex(x + 20, y + 25);
-	curveVertex(x + 5, y + 45);
-	curveVertex(x - 15, y + 50);  // Bottom line - main loop
-	curveVertex(x - 25, y + 30);
-	curveVertex(x - 20, y + 5);
-	curveVertex(x - 10, y - 10);
-	curveVertex(x + 5, y - 5);
-	curveVertex(x + 5, y - 5);
-	endShape();
+// Initialize VexFlow when page loads
+function initVexFlow() {
+	var outputDiv = document.getElementById("vexflow-output");
+	if (!outputDiv) return;
 
-	// Small dot at the bottom of the tail
-	fill(0);
-	ellipse(x + 10, y + 80, 12, 12);
-	noFill();
+	// Clear any existing content
+	outputDiv.innerHTML = "";
 
-	pop();
+	// Create renderer
+	var VF = Vex.Flow;
+	vexflowRenderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
+	vexflowRenderer.resize(320, 180);
+
+	// Draw initial empty staff
+	renderNotation(null, null, "");
 }
 
-function drawBassClef(x, y) {
-	// Draw bass clef (F-clef) at position x, y where y is the F line (4th line from bottom)
-	// Staff: top line at y-50, F line at y, bottom line at y+150
-	// Curve starts at F line, goes up and right in a gentle arc, then down to bottom
-	push();
-	strokeWeight(4);
-	noFill();
+// Render notation with VexFlow
+function renderNotation(noteName, octave, instrument) {
+	if (!vexflowRenderer) return;
 
-	// Main curved body of bass clef - gentle arc from F line up and back down
-	beginShape();
-	curveVertex(x, y);             // Start at F line
-	curveVertex(x, y);
-	curveVertex(x + 15, y - 15);   // Gentle curve up and right
-	curveVertex(x + 30, y - 35);   // Continue curving
-	curveVertex(x + 40, y - 50);   // Apex near top line
-	curveVertex(x + 45, y - 45);   // Gentle turn - no sharp angle
-	curveVertex(x + 42, y - 25);   // Continue the gentle arc back
-	curveVertex(x + 35, y + 10);   // Curving down
-	curveVertex(x + 20, y + 60);   // Continue down
-	curveVertex(x + 10, y + 110);  // Approaching bottom
-	curveVertex(x, y + 150);       // End at bottom of staff, underneath start
-	curveVertex(x, y + 150);
-	endShape();
+	var VF = Vex.Flow;
+	var context = vexflowRenderer.getContext();
+	context.clear();
 
-	// Two dots to the right of the curve, above and below F line
-	fill(0);
-	ellipse(x + 55, y - 25, 10, 10); // Dot above F line
-	ellipse(x + 55, y + 25, 10, 10); // Dot below F line
+	// Determine clef based on instrument
+	var clef = "treble"; // default
+	if (bassClefInstruments.includes(instrument)) {
+		clef = "bass";
+	} else if (trebleClefInstruments.includes(instrument)) {
+		clef = "treble";
+	}
 
-	// Starting dot on F line
-	ellipse(x, y, 12, 12);
-	noFill();
+	// Create stave
+	var stave = new VF.Stave(10, 40, 300);
+	stave.addClef(clef);
+	stave.setContext(context).draw();
 
-	pop();
+	// If we have a note to display, render it
+	if (noteName && octave) {
+		// Convert note name to VexFlow format (e.g., "C#" -> "c#", octave 4 -> "c#/4")
+		var vexNote = noteName.toLowerCase();
+
+		// Adjust octave for bass clef display (VexFlow handles this automatically)
+		var displayOctave = octave;
+
+		// Create the note key in VexFlow format
+		var noteKey = vexNote + "/" + displayOctave;
+
+		try {
+			// Create a whole note
+			var note = new VF.StaveNote({
+				clef: clef,
+				keys: [noteKey],
+				duration: "w"  // whole note
+			});
+
+			// Add accidental if needed
+			if (noteName.includes("#")) {
+				note.addModifier(new VF.Accidental("#"));
+			} else if (noteName.includes("b")) {
+				note.addModifier(new VF.Accidental("b"));
+			}
+
+			// Create a voice and add the note
+			var voice = new VF.Voice({
+				num_beats: 4,
+				beat_value: 4
+			}).setStrict(false);
+			voice.addTickables([note]);
+
+			// Format and draw
+			new VF.Formatter().joinVoices([voice]).format([voice], 250);
+			voice.draw(context, stave);
+		} catch (e) {
+			// Note might be out of range for the clef, just show empty staff
+			console.log("Could not render note:", noteKey, e.message);
+		}
+	}
 }
 
-function adujustForOctave (frequency){
-	if (octavetoDraw == 4){
-		return frequency;
-	}
-	if (octavetoDraw == 3){
-		return frequency+175;
-	}
-	if (octavetoDraw == 2){
-		return frequency+350;
-	}
-	if (octavetoDraw == 5){
-		return frequency-175;
+// Update the notation display (called when note changes)
+function updateNotation() {
+	var instrumentSelect = document.getElementById("instrument");
+	var currentInstrument = instrumentSelect ? instrumentSelect.value : "";
+
+	// Only re-render if something changed
+	if (notetoDraw !== lastRenderedNote ||
+		octavetoDraw !== lastRenderedOctave ||
+		currentInstrument !== lastRenderedInstrument) {
+
+		renderNotation(notetoDraw, octavetoDraw, currentInstrument);
+
+		lastRenderedNote = notetoDraw;
+		lastRenderedOctave = octavetoDraw;
+		lastRenderedInstrument = currentInstrument;
 	}
 }
+
+// Re-render when instrument changes
+document.addEventListener("DOMContentLoaded", function() {
+	initVexFlow();
+
+	var instrumentSelect = document.getElementById("instrument");
+	if (instrumentSelect) {
+		instrumentSelect.addEventListener("change", function() {
+			// Force re-render with new clef
+			lastRenderedInstrument = null;
+			updateNotation();
+		});
+	}
+});
