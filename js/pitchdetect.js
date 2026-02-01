@@ -351,17 +351,30 @@ function updatePitch( time ) {
  	} else {
 	 	detectorElem.className = "confident";
 	 	pitch = ac;
-	 	pitchElem.innerText = Math.round( pitch ) ;
-	 	var note =  noteFromPitch( pitch );
-		octavetoDraw = octaveFromPitch(pitch);
-		notetoDraw = noteStrings[note%12];
+
+	 	// Get concert pitch note (for detuning calculation)
+	 	var concertNote = noteFromPitch(pitch);
+
+	 	// Apply transposition to get written pitch
+	 	var transposition = getTransposition();
+	 	var writtenNote = concertNote + transposition;
+
+	 	// Calculate written pitch frequency for display
+	 	var writtenFreq = frequencyFromNoteNumber(writtenNote);
+	 	pitchElem.innerText = Math.round(writtenFreq);
+
+	 	// Get written note name and octave
+	 	notetoDraw = noteStrings[writtenNote % 12];
+	 	octavetoDraw = Math.floor(writtenNote / 12) - 1; // MIDI note to octave
+
 		noteElem.innerHTML = notetoDraw;
 
 		// Update VexFlow notation display
 		updateNotation();
 
-		var detune = centsOffFromPitch( pitch, note );
-		if (detune == 0 ) {
+		// Detuning is still based on concert pitch (how in-tune they actually are)
+		var detune = centsOffFromPitch(pitch, concertNote);
+		if (detune == 0) {
 			detuneElem.className = "";
 			detuneAmount.innerHTML = "--";
 		} else {
@@ -369,7 +382,7 @@ function updatePitch( time ) {
 				detuneElem.className = "flat";
 			else
 				detuneElem.className = "sharp";
-			detuneAmount.innerHTML = Math.abs( detune );
+			detuneAmount.innerHTML = Math.abs(detune);
 		}
 	}
 
@@ -383,6 +396,26 @@ var trebleClefInstruments = ["flute", "clarinet", "alto sax", "trumpet", "horn"]
 
 // Bass clef instruments
 var bassClefInstruments = ["trombone", "euphonium"];
+
+// Transposition map: semitones to add to concert pitch to get written pitch
+// Positive = written pitch is higher than concert pitch
+var transpositionMap = {
+	"": 0,              // No instrument selected - concert pitch
+	"flute": 0,         // C instrument - concert pitch
+	"clarinet": 2,      // Bb instrument - up major 2nd
+	"alto sax": 9,      // Eb instrument - up major 6th
+	"trumpet": 2,       // Bb instrument - up major 2nd
+	"horn": 7,          // F instrument - up perfect 5th
+	"trombone": 0,      // C instrument - concert pitch
+	"euphonium": 0      // C instrument - concert pitch
+};
+
+// Get transposition for current instrument
+function getTransposition() {
+	var instrumentSelect = document.getElementById("instrument");
+	var instrument = instrumentSelect ? instrumentSelect.value : "";
+	return transpositionMap[instrument] || 0;
+}
 
 // VexFlow rendering variables
 var lastRenderedNote = null;
