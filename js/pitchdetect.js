@@ -392,22 +392,33 @@ function updatePitch( time ) {
 }
 
 // Treble clef instruments
-var trebleClefInstruments = ["flute", "clarinet", "alto sax", "trumpet", "horn"];
+var trebleClefInstruments = [
+	"flute", "oboe", "clarinet", "bass clarinet",
+	"alto sax", "tenor sax", "bari sax",
+	"trumpet", "horn", "glockenspiel"
+];
 
 // Bass clef instruments
-var bassClefInstruments = ["trombone", "euphonium"];
+var bassClefInstruments = ["bassoon", "trombone", "euphonium", "tuba"];
 
 // Transposition map: semitones to add to concert pitch to get written pitch
 // Positive = written pitch is higher than concert pitch
 var transpositionMap = {
-	"": 0,              // No instrument selected - concert pitch
-	"flute": 0,         // C instrument - concert pitch
-	"clarinet": 2,      // Bb instrument - up major 2nd
-	"alto sax": 9,      // Eb instrument - up major 6th
-	"trumpet": 2,       // Bb instrument - up major 2nd
-	"horn": 7,          // F instrument - up perfect 5th
-	"trombone": 0,      // C instrument - concert pitch
-	"euphonium": 0      // C instrument - concert pitch
+	"": 0,                // No instrument selected - concert pitch
+	"flute": 0,           // C instrument - concert pitch
+	"oboe": 0,            // C instrument - concert pitch
+	"clarinet": 2,        // Bb instrument - up major 2nd
+	"bass clarinet": 14,  // Bb instrument - up major 9th (octave + M2)
+	"bassoon": 0,         // C instrument - concert pitch
+	"alto sax": 9,        // Eb instrument - up major 6th
+	"tenor sax": 14,      // Bb instrument - up major 9th (octave + M2)
+	"bari sax": 21,       // Eb instrument - up major 13th (octave + M6)
+	"trumpet": 2,         // Bb instrument - up major 2nd
+	"horn": 7,            // F instrument - up perfect 5th
+	"trombone": 0,        // C instrument - concert pitch
+	"euphonium": 0,       // C instrument - concert pitch
+	"tuba": 0,            // C instrument - concert pitch
+	"glockenspiel": -24   // Sounds 2 octaves higher than written
 };
 
 // Get transposition for current instrument
