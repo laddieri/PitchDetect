@@ -121,9 +121,9 @@ function startPitchDetect() {
 	    analyser.fftSize = 2048;
 	    mediaStreamSource.connect( analyser );
 
-	    // Update state and button
+	    // Update state and show stop button
 	    isPlaying = true;
-	    document.getElementById("startStopButton").innerText = "Stop";
+	    document.getElementById("stopButton").style.display = "inline-block";
 
 	    updatePitch();
     }).catch((err) => {
@@ -159,8 +159,9 @@ function stopPitchDetect() {
     mediaStreamSource = null;
     isPlaying = false;
 
-    // Update button text
-    document.getElementById("startStopButton").innerText = "Start";
+    // Hide stop button and reset instrument selector
+    document.getElementById("stopButton").style.display = "none";
+    document.getElementById("instrument").selectedIndex = 0;
 
     // Reset display
     detectorElem.className = "vague";
@@ -168,6 +169,10 @@ function stopPitchDetect() {
     noteElem.innerText = "-";
     detuneElem.className = "";
     detuneAmount.innerText = "--";
+
+    // Reset notation display
+    lastRenderedInstrument = null;
+    renderNotation(null, null, "");
 }
 
 function error() {
@@ -400,18 +405,20 @@ function updatePitch( time ) {
 
 // Treble clef instruments
 var trebleClefInstruments = [
-	"flute", "oboe", "clarinet", "bass clarinet",
+	"treble clef", "flute", "oboe", "clarinet", "bass clarinet",
 	"alto sax", "tenor sax", "bari sax",
 	"trumpet", "horn", "glockenspiel"
 ];
 
 // Bass clef instruments
-var bassClefInstruments = ["bassoon", "trombone", "euphonium", "tuba"];
+var bassClefInstruments = ["bass clef", "bassoon", "trombone", "euphonium", "tuba"];
 
 // Transposition map: semitones to add to concert pitch to get written pitch
 // Positive = written pitch is higher than concert pitch
 var transpositionMap = {
 	"": 0,                // No instrument selected - concert pitch
+	"treble clef": 0,     // Generic treble clef - concert pitch
+	"bass clef": 0,       // Generic bass clef - concert pitch
 	"flute": 0,           // C instrument - concert pitch
 	"oboe": 0,            // C instrument - concert pitch
 	"clarinet": 2,        // Bb instrument - up major 2nd
@@ -611,9 +618,17 @@ document.addEventListener("DOMContentLoaded", function() {
 	var instrumentSelect = document.getElementById("instrument");
 	if (instrumentSelect) {
 		instrumentSelect.addEventListener("change", function() {
-			// Force re-render with new clef
-			lastRenderedInstrument = null;
-			updateNotation();
+			// If an instrument is selected, auto-start pitch detection
+			if (instrumentSelect.value !== "") {
+				// Force re-render with new clef
+				lastRenderedInstrument = null;
+				updateNotation();
+
+				// Start pitch detection if not already playing
+				if (!isPlaying) {
+					startPitchDetect();
+				}
+			}
 		});
 	}
 
