@@ -158,6 +158,7 @@ function stopPitchDetect() {
     analyser = null;
     mediaStreamSource = null;
     isPlaying = false;
+    pitchHistory = [];
 
     // Hide stop button and reset instrument selector
     document.getElementById("stopButton").style.display = "none";
@@ -282,8 +283,8 @@ function autoCorrelate( buf, sampleRate ) {
 		rms += val*val;
 	}
 	rms = Math.sqrt(rms/SIZE);
-	if (rms<0.01) // not enough signal
-		return -1;
+	if (rms<0.02) // not enough signal (increased threshold to filter noise)
+		return { frequency: -1, confidence: 0 };
 
 	var r1=0, r2=SIZE-1, thres=0.2;
 	for (var i=0; i<SIZE/2; i++)
@@ -309,19 +310,21 @@ function autoCorrelate( buf, sampleRate ) {
 	}
 	var T0 = maxpos;
 
+	// Calculate confidence as ratio of peak correlation to autocorrelation at 0
+	var confidence = c[0] > 0 ? maxval / c[0] : 0;
+
 	var x1=c[T0-1], x2=c[T0], x3=c[T0+1];
 	a = (x1 + x3 - 2*x2)/2;
 	b = (x3 - x1)/2;
 	if (a) T0 = T0 - b/(2*a);
 
-	return sampleRate/T0;
+	return { frequency: sampleRate/T0, confidence: confidence };
 }
 
 function updatePitch( time ) {
 	var cycles = new Array;
 	analyser.getFloatTimeDomainData( buf );
 	var ac = autoCorrelate( buf, audioContext.sampleRate );
-	// TODO: Paint confidence meter on canvasElem here.
 
 	if (DEBUGCANVAS) {  // This draws the current waveform, useful for debugging
 		waveCanvas.clearRect(0,0,512,256);
@@ -347,7 +350,41 @@ function updatePitch( time ) {
 		waveCanvas.stroke();
 	}
 
- 	if (ac == -1) {
+	// Check if we have a valid pitch with sufficient confidence
+	var validPitch = false;
+	var detectedFreq = ac.frequency;
+	var confidence = ac.confidence;
+
+	if (detectedFreq > 0 && confidence >= MIN_CONFIDENCE) {
+		// Check if frequency is within instrument range
+		var range = getInstrumentRange();
+		if (detectedFreq >= range.min && detectedFreq <= range.max) {
+			// Add to pitch history for smoothing
+			pitchHistory.push(detectedFreq);
+			if (pitchHistory.length > SMOOTHING_COUNT) {
+				pitchHistory.shift();
+			}
+
+			// Check if we have enough consistent readings
+			if (pitchHistory.length >= SMOOTHING_COUNT) {
+				var consistent = true;
+				for (var i = 1; i < pitchHistory.length; i++) {
+					if (!isWithinTolerance(pitchHistory[i], pitchHistory[0], SMOOTHING_TOLERANCE)) {
+						consistent = false;
+						break;
+					}
+				}
+				if (consistent) {
+					validPitch = true;
+				}
+			}
+		}
+	} else {
+		// Reset pitch history on invalid reading
+		pitchHistory = [];
+	}
+
+ 	if (!validPitch) {
  		detectorElem.className = "vague";
 	 	pitchElem.innerText = "--";
 		noteElem.innerText = "-";
@@ -355,7 +392,7 @@ function updatePitch( time ) {
 		detuneAmount.innerText = "--";
  	} else {
 	 	detectorElem.className = "confident";
-	 	pitch = ac;
+	 	pitch = detectedFreq;
 
 	 	// Get concert pitch note (for detuning calculation)
 	 	var concertNote = noteFromPitch(pitch);
@@ -440,6 +477,47 @@ function getTransposition() {
 	var instrumentSelect = document.getElementById("instrument");
 	var instrument = instrumentSelect ? instrumentSelect.value : "";
 	return transpositionMap[instrument] || 0;
+}
+
+// Instrument frequency ranges (concert pitch in Hz) - min and max playable frequencies
+var instrumentRanges = {
+	"": { min: 20, max: 5000 },              // No limit for generic
+	"treble clef": { min: 20, max: 5000 },   // No limit for generic treble
+	"bass clef": { min: 20, max: 5000 },     // No limit for generic bass
+	"flute": { min: 262, max: 2093 },        // C4 to C7
+	"oboe": { min: 233, max: 1568 },         // Bb3 to G6
+	"clarinet": { min: 165, max: 1568 },     // E3 to G6 (concert pitch)
+	"bass clarinet": { min: 87, max: 698 },  // F2 to F5 (concert pitch)
+	"bassoon": { min: 58, max: 622 },        // Bb1 to Eb5
+	"alto sax": { min: 139, max: 831 },      // Db3 to Ab5 (concert pitch)
+	"tenor sax": { min: 104, max: 622 },     // Ab2 to Eb5 (concert pitch)
+	"bari sax": { min: 69, max: 415 },       // Db2 to Ab4 (concert pitch)
+	"trumpet": { min: 165, max: 988 },       // E3 to B5 (concert pitch)
+	"horn": { min: 87, max: 698 },           // F2 to F5 (concert pitch)
+	"trombone": { min: 58, max: 587 },       // Bb1 to D5
+	"euphonium": { min: 58, max: 587 },      // Bb1 to D5
+	"tuba": { min: 29, max: 349 },           // Bb0 to F4
+	"glockenspiel": { min: 784, max: 4186 }  // G5 to C8 (concert pitch)
+};
+
+// Get frequency range for current instrument
+function getInstrumentRange() {
+	var instrumentSelect = document.getElementById("instrument");
+	var instrument = instrumentSelect ? instrumentSelect.value : "";
+	return instrumentRanges[instrument] || { min: 20, max: 5000 };
+}
+
+// Pitch smoothing variables
+var pitchHistory = [];
+var SMOOTHING_COUNT = 3;  // Number of consistent readings required
+var SMOOTHING_TOLERANCE = 15;  // Cents tolerance for "same note"
+var MIN_CONFIDENCE = 0.9;  // Minimum correlation confidence to accept pitch
+
+// Check if a frequency is within tolerance of another (in cents)
+function isWithinTolerance(freq1, freq2, cents) {
+	if (freq1 <= 0 || freq2 <= 0) return false;
+	var centsDiff = Math.abs(1200 * Math.log(freq1 / freq2) / Math.log(2));
+	return centsDiff <= cents;
 }
 
 // VexFlow rendering variables
