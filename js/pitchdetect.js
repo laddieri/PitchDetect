@@ -504,9 +504,9 @@ var instrumentRanges = {
 	"bari sax": { min: 69, max: 415 },       // Db2 to Ab4 (concert pitch)
 	"trumpet": { min: 138, max: 988 },       // C#3 to B5 (concert pitch) - expanded low range
 	"horn": { min: 65, max: 880 },           // C2 to A5 (concert pitch) - expanded range for horn's wide tessitura
-	"trombone": { min: 58, max: 587 },       // Bb1 to D5
-	"euphonium": { min: 58, max: 587 },      // Bb1 to D5
-	"tuba": { min: 29, max: 349 },           // Bb0 to F4
+	"trombone": { min: 40, max: 700 },       // Below Bb1 to F5 - expanded for pedal tones and upper range
+	"euphonium": { min: 40, max: 700 },      // Below Bb1 to F5 - expanded for pedal tones and upper range
+	"tuba": { min: 25, max: 400 },           // Below Bb0 to G4 - expanded range
 	"glockenspiel": { min: 784, max: 4186 }  // G5 to C8 (concert pitch)
 };
 
@@ -520,8 +520,8 @@ function getInstrumentRange() {
 // Pitch smoothing variables
 var pitchHistory = [];
 var SMOOTHING_COUNT = 2;  // Number of consistent readings required (reduced for faster response)
-var SMOOTHING_TOLERANCE = 20;  // Cents tolerance for "same note" (slightly more forgiving)
-var MIN_CONFIDENCE = 0.85;  // Minimum correlation confidence to accept pitch (lowered for brass)
+var SMOOTHING_TOLERANCE = 25;  // Cents tolerance for "same note" (more forgiving for low brass)
+var MIN_CONFIDENCE = 0.80;  // Minimum correlation confidence to accept pitch (lowered for low brass)
 var NOTE_CHANGE_THRESHOLD = 80;  // Cents threshold to detect note change (reset smoothing buffer)
 
 // Check if a frequency is within tolerance of another (in cents)
