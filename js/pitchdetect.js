@@ -359,6 +359,16 @@ function updatePitch( time ) {
 		// Check if frequency is within instrument range
 		var range = getInstrumentRange();
 		if (detectedFreq >= range.min && detectedFreq <= range.max) {
+			// Check if this is a significant note change (more than a semitone from recent average)
+			// If so, reset history to allow faster response to new notes
+			if (pitchHistory.length > 0) {
+				var avgRecent = pitchHistory.reduce(function(a, b) { return a + b; }, 0) / pitchHistory.length;
+				if (!isWithinTolerance(detectedFreq, avgRecent, NOTE_CHANGE_THRESHOLD)) {
+					// Significant note change detected - reset history
+					pitchHistory = [];
+				}
+			}
+
 			// Add to pitch history for smoothing
 			pitchHistory.push(detectedFreq);
 			if (pitchHistory.length > SMOOTHING_COUNT) {
@@ -492,8 +502,8 @@ var instrumentRanges = {
 	"alto sax": { min: 139, max: 831 },      // Db3 to Ab5 (concert pitch)
 	"tenor sax": { min: 104, max: 622 },     // Ab2 to Eb5 (concert pitch)
 	"bari sax": { min: 69, max: 415 },       // Db2 to Ab4 (concert pitch)
-	"trumpet": { min: 165, max: 988 },       // E3 to B5 (concert pitch)
-	"horn": { min: 87, max: 698 },           // F2 to F5 (concert pitch)
+	"trumpet": { min: 138, max: 988 },       // C#3 to B5 (concert pitch) - expanded low range
+	"horn": { min: 65, max: 880 },           // C2 to A5 (concert pitch) - expanded range for horn's wide tessitura
 	"trombone": { min: 58, max: 587 },       // Bb1 to D5
 	"euphonium": { min: 58, max: 587 },      // Bb1 to D5
 	"tuba": { min: 29, max: 349 },           // Bb0 to F4
@@ -509,9 +519,10 @@ function getInstrumentRange() {
 
 // Pitch smoothing variables
 var pitchHistory = [];
-var SMOOTHING_COUNT = 3;  // Number of consistent readings required
-var SMOOTHING_TOLERANCE = 15;  // Cents tolerance for "same note"
-var MIN_CONFIDENCE = 0.9;  // Minimum correlation confidence to accept pitch
+var SMOOTHING_COUNT = 2;  // Number of consistent readings required (reduced for faster response)
+var SMOOTHING_TOLERANCE = 20;  // Cents tolerance for "same note" (slightly more forgiving)
+var MIN_CONFIDENCE = 0.85;  // Minimum correlation confidence to accept pitch (lowered for brass)
+var NOTE_CHANGE_THRESHOLD = 80;  // Cents threshold to detect note change (reset smoothing buffer)
 
 // Check if a frequency is within tolerance of another (in cents)
 function isWithinTolerance(freq1, freq2, cents) {
