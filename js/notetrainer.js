@@ -118,24 +118,33 @@ function getStaffPosition(noteName, octave, clef) {
 }
 
 // Convert click Y position to note
-function yPositionToNote(yPos, clef, staveTopY, lineSpacing) {
-	// Calculate position relative to middle line
-	// Staff has 5 lines, middle line is the 3rd line
-	var middleLineY = staveTopY + (2 * lineSpacing);
+function yPositionToNote(yPos, clef) {
+	// VexFlow stave positioning:
+	// - STAFF_Y is the top of the stave bounding box
+	// - VexFlow adds 4 line-spacings of headroom above the top line
+	// - Line spacing is 10 units by default
+	var lineSpacing = 10;
+	var headroom = 4;  // VexFlow's default space_above_staff_ln
 
-	// Each half-lineSpacing is one note step
+	// Calculate the actual Y position of the top line (line 0)
+	var topLineY = STAFF_Y + (headroom * lineSpacing);
+
+	// Each half-lineSpacing is one note step (line or space)
 	var halfSpacing = lineSpacing / 2;
-	var stepsFromMiddle = Math.round((middleLineY - yPos) / halfSpacing);
 
-	// Convert steps to note
+	// Calculate steps from top line (positive = below top line)
+	var stepsFromTopLine = Math.round((yPos - topLineY) / halfSpacing);
+
+	// Convert steps to MIDI note
+	// Treble clef: top line (line 0) = F5 (MIDI 77)
+	// Bass clef: top line (line 0) = A3 (MIDI 57)
+	var midiNote;
 	if (clef === "treble") {
-		// Middle line is B4
-		// Steps: B4=0, C5=1, D5=2, etc. (going up)
-		// Steps: A4=-1, G4=-2, etc. (going down)
-		var midiNote = 71 + stepsFromMiddle;  // B4 = MIDI 71
+		// Top line is F5 (MIDI 77), going down = lower notes
+		midiNote = 77 - stepsFromTopLine;
 	} else {
-		// Bass clef: middle line is D3
-		var midiNote = 50 + stepsFromMiddle;  // D3 = MIDI 50
+		// Bass clef: top line is A3 (MIDI 57)
+		midiNote = 57 - stepsFromTopLine;
 	}
 
 	// Clamp to reasonable range
@@ -246,12 +255,8 @@ function handleStaffClick(event) {
 	// Get current clef
 	var clef = getCurrentClef();
 
-	// Convert Y position to note (using VexFlow's coordinate system)
-	// VexFlow staff: top line at STAFF_Y, lines are 10 units apart
-	var staveTopY = STAFF_Y;
-	var lineSpacing = 10;
-
-	var noteInfo = yPositionToNote(svgY, clef, staveTopY, lineSpacing);
+	// Convert Y position to note
+	var noteInfo = yPositionToNote(svgY, clef);
 
 	// Apply transposition (convert written pitch to concert pitch for frequency)
 	var transposition = getTransposition();
