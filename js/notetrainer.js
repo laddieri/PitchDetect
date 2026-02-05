@@ -10,6 +10,7 @@ var currentOscillator = null;
 var currentNote = null;
 var currentOctave = null;
 var currentFrequency = null;
+var currentMidi = null;  // Track MIDI note number for arrow key navigation
 
 // Ghost note state (follows mouse)
 var ghostNote = null;
@@ -366,6 +367,7 @@ function handleStaffClick(event) {
 	currentNote = noteInfo.note;
 	currentOctave = noteInfo.octave;
 	currentFrequency = frequency;
+	currentMidi = noteInfo.midi;
 
 	// Clear ghost note
 	ghostNote = null;
@@ -382,6 +384,40 @@ function handleStaffClick(event) {
 	document.getElementById("playButton").style.display = "inline-block";
 	document.getElementById("clearButton").style.display = "inline-block";
 	document.getElementById("note-display").classList.add("active");
+}
+
+// Handle keyboard input for arrow key navigation
+function handleKeyDown(event) {
+	// Only handle arrow keys when we have a placed note
+	if (currentNote === null || currentMidi === null) return;
+
+	var newMidi = currentMidi;
+
+	if (event.key === "ArrowUp") {
+		newMidi = Math.min(96, currentMidi + 1);  // Move up one half step
+		event.preventDefault();
+	} else if (event.key === "ArrowDown") {
+		newMidi = Math.max(24, currentMidi - 1);  // Move down one half step
+		event.preventDefault();
+	} else {
+		return;  // Not an arrow key we care about
+	}
+
+	// Update note if it changed
+	if (newMidi !== currentMidi) {
+		currentMidi = newMidi;
+		currentNote = noteStrings[currentMidi % 12];
+		currentOctave = Math.floor(currentMidi / 12) - 1;
+
+		// Recalculate frequency with transposition
+		var transposition = getTransposition();
+		var concertMidi = currentMidi - transposition;
+		currentFrequency = frequencyFromNoteNumber(concertMidi);
+
+		// Update display and redraw staff
+		updateNoteDisplay();
+		drawStaff(currentNote, currentOctave, null, null);
+	}
 }
 
 // Update the note name display
@@ -464,6 +500,7 @@ function clearNote() {
 	currentNote = null;
 	currentOctave = null;
 	currentFrequency = null;
+	currentMidi = null;
 	ghostNote = null;
 	ghostOctave = null;
 
@@ -503,6 +540,9 @@ document.addEventListener("DOMContentLoaded", function() {
 	staffContainer.addEventListener("click", handleStaffClick);
 	staffContainer.addEventListener("mousemove", handleStaffMouseMove);
 	staffContainer.addEventListener("mouseleave", handleStaffMouseLeave);
+
+	// Set up keyboard handler for arrow key navigation
+	document.addEventListener("keydown", handleKeyDown);
 
 	// Draw initial staff (empty, treble clef)
 	drawStaff(null, null, null, null);
