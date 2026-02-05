@@ -272,17 +272,18 @@ function getSvgCoordinates(event) {
 
 	if (!svgElement) return null;
 
-	var rect = svgElement.getBoundingClientRect();
-	var clickX = event.clientX - rect.left;
-	var clickY = event.clientY - rect.top;
+	// Use SVG's built-in coordinate transformation
+	// This properly handles viewBox scaling and preserveAspectRatio
+	var pt = svgElement.createSVGPoint();
+	pt.x = event.clientX;
+	pt.y = event.clientY;
 
-	// Convert to SVG coordinates (accounting for viewBox scaling)
-	var scaleX = STAFF_WIDTH / rect.width;
-	var scaleY = STAFF_HEIGHT / rect.height;
+	// Transform from screen coordinates to SVG coordinates
+	var svgCoords = pt.matrixTransform(svgElement.getScreenCTM().inverse());
 
 	return {
-		x: clickX * scaleX,
-		y: clickY * scaleY
+		x: svgCoords.x,
+		y: svgCoords.y
 	};
 }
 
