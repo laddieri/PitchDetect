@@ -11,6 +11,10 @@ var currentNote = null;
 var currentOctave = null;
 var currentFrequency = null;
 
+// Ghost note state (follows mouse)
+var ghostNote = null;
+var ghostOctave = null;
+
 // Staff rendering constants
 var STAFF_WIDTH = 400;
 var STAFF_HEIGHT = 200;
@@ -157,7 +161,7 @@ function yPositionToNote(yPos, clef) {
 }
 
 // Draw the staff with VexFlow
-function drawStaff(noteName, octave) {
+function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave) {
 	var outputDiv = document.getElementById("staff-output");
 	if (!outputDiv) return null;
 
@@ -187,7 +191,7 @@ function drawStaff(noteName, octave) {
 	stave.addClef(clef);
 	stave.setContext(context).draw();
 
-	// If we have a note to display, render it
+	// If we have a placed note to display, render it
 	if (noteName && octave !== null) {
 		try {
 			var vexNote = noteName.toLowerCase();
@@ -218,6 +222,40 @@ function drawStaff(noteName, octave) {
 			console.log("Could not render note:", noteKey, e.message);
 		}
 	}
+	// If we have a ghost note (no placed note), render it semi-transparent
+	else if (ghostNoteName && ghostNoteOctave !== null) {
+		try {
+			var vexNote = ghostNoteName.toLowerCase();
+			var noteKey = vexNote + "/" + ghostNoteOctave;
+
+			var note = new VF.StaveNote({
+				clef: clef,
+				keys: [noteKey],
+				duration: "w"
+			});
+
+			// Add accidental if needed
+			if (ghostNoteName.includes("#")) {
+				note.addAccidental(0, new VF.Accidental("#"));
+			} else if (ghostNoteName.includes("b")) {
+				note.addAccidental(0, new VF.Accidental("b"));
+			}
+
+			// Set style for ghost note (semi-transparent)
+			note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
+
+			var voice = new VF.Voice({
+				num_beats: 4,
+				beat_value: 4
+			}).setStrict(false);
+			voice.addTickables([note]);
+
+			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
+			voice.draw(context, stave);
+		} catch (e) {
+			console.log("Could not render ghost note:", noteKey, e.message);
+		}
+	}
 
 	// Return stave info for click calculations
 	return {
@@ -225,6 +263,76 @@ function drawStaff(noteName, octave) {
 		lineSpacing: 10,  // VexFlow default
 		clef: clef
 	};
+}
+
+// Get SVG coordinates from mouse event
+function getSvgCoordinates(event) {
+	var outputDiv = document.getElementById("staff-output");
+	var svgElement = outputDiv.querySelector("svg");
+
+	if (!svgElement) return null;
+
+	var rect = svgElement.getBoundingClientRect();
+	var clickX = event.clientX - rect.left;
+	var clickY = event.clientY - rect.top;
+
+	// Convert to SVG coordinates (accounting for viewBox scaling)
+	var scaleX = STAFF_WIDTH / rect.width;
+	var scaleY = STAFF_HEIGHT / rect.height;
+
+	return {
+		x: clickX * scaleX,
+		y: clickY * scaleY
+	};
+}
+
+// Handle mouse move over staff (show ghost note)
+function handleStaffMouseMove(event) {
+	var instrument = document.getElementById("instrument").value;
+	if (!instrument) return;
+
+	// Don't show ghost note if we already have a placed note
+	if (currentNote !== null) return;
+
+	var coords = getSvgCoordinates(event);
+	if (!coords) return;
+
+	var clef = getCurrentClef();
+	var noteInfo = yPositionToNote(coords.y, clef);
+
+	// Only update if ghost note changed
+	if (noteInfo.note !== ghostNote || noteInfo.octave !== ghostOctave) {
+		ghostNote = noteInfo.note;
+		ghostOctave = noteInfo.octave;
+
+		// Redraw staff with ghost note
+		drawStaff(null, null, ghostNote, ghostOctave);
+
+		// Update display with ghost note info (lighter styling handled by CSS)
+		var noteNameElem = document.getElementById("note-name");
+		var displayName = ghostNote;
+		if (enharmonicMap[ghostNote]) {
+			displayName = ghostNote + " / " + enharmonicMap[ghostNote];
+		}
+		noteNameElem.textContent = displayName;
+		noteNameElem.style.opacity = "0.5";
+	}
+}
+
+// Handle mouse leave from staff (clear ghost note)
+function handleStaffMouseLeave(event) {
+	if (currentNote !== null) return;  // Don't clear if we have a placed note
+
+	ghostNote = null;
+	ghostOctave = null;
+
+	// Redraw staff without ghost note
+	drawStaff(null, null, null, null);
+
+	// Reset display
+	var noteNameElem = document.getElementById("note-name");
+	noteNameElem.textContent = "-";
+	noteNameElem.style.opacity = "1";
 }
 
 // Handle click on staff
@@ -235,28 +343,11 @@ function handleStaffClick(event) {
 		return;
 	}
 
-	var container = document.getElementById("staff-container");
-	var outputDiv = document.getElementById("staff-output");
-	var svgElement = outputDiv.querySelector("svg");
+	var coords = getSvgCoordinates(event);
+	if (!coords) return;
 
-	if (!svgElement) return;
-
-	// Get click position relative to SVG
-	var rect = svgElement.getBoundingClientRect();
-	var clickX = event.clientX - rect.left;
-	var clickY = event.clientY - rect.top;
-
-	// Convert to SVG coordinates (accounting for viewBox scaling)
-	var scaleX = STAFF_WIDTH / rect.width;
-	var scaleY = STAFF_HEIGHT / rect.height;
-	var svgX = clickX * scaleX;
-	var svgY = clickY * scaleY;
-
-	// Get current clef
 	var clef = getCurrentClef();
-
-	// Convert Y position to note
-	var noteInfo = yPositionToNote(svgY, clef);
+	var noteInfo = yPositionToNote(coords.y, clef);
 
 	// Apply transposition (convert written pitch to concert pitch for frequency)
 	var transposition = getTransposition();
@@ -268,11 +359,16 @@ function handleStaffClick(event) {
 	currentOctave = noteInfo.octave;
 	currentFrequency = frequency;
 
+	// Clear ghost note
+	ghostNote = null;
+	ghostOctave = null;
+
 	// Update display
 	updateNoteDisplay();
+	document.getElementById("note-name").style.opacity = "1";
 
-	// Redraw staff with note
-	drawStaff(currentNote, currentOctave);
+	// Redraw staff with placed note
+	drawStaff(currentNote, currentOctave, null, null);
 
 	// Show buttons
 	document.getElementById("playButton").style.display = "inline-block";
@@ -360,9 +456,11 @@ function clearNote() {
 	currentNote = null;
 	currentOctave = null;
 	currentFrequency = null;
+	ghostNote = null;
+	ghostOctave = null;
 
 	updateNoteDisplay();
-	drawStaff(null, null);
+	drawStaff(null, null, null, null);
 
 	document.getElementById("playButton").style.display = "none";
 	document.getElementById("clearButton").style.display = "none";
@@ -375,6 +473,10 @@ document.addEventListener("DOMContentLoaded", function() {
 	var instrument = document.getElementById("instrument");
 
 	instrument.addEventListener("change", function() {
+		// Clear any existing note when instrument changes
+		ghostNote = null;
+		ghostOctave = null;
+
 		// Redraw staff with new clef
 		if (currentNote && currentOctave !== null) {
 			// Recalculate frequency with new transposition
@@ -385,13 +487,15 @@ document.addEventListener("DOMContentLoaded", function() {
 			currentFrequency = frequencyFromNoteNumber(fullMidi - transposition);
 			updateNoteDisplay();
 		}
-		drawStaff(currentNote, currentOctave);
+		drawStaff(currentNote, currentOctave, null, null);
 	});
 
-	// Set up click handler
+	// Set up event handlers for staff interaction
 	var staffContainer = document.getElementById("staff-container");
 	staffContainer.addEventListener("click", handleStaffClick);
+	staffContainer.addEventListener("mousemove", handleStaffMouseMove);
+	staffContainer.addEventListener("mouseleave", handleStaffMouseLeave);
 
 	// Draw initial staff (empty, treble clef)
-	drawStaff(null, null);
+	drawStaff(null, null, null, null);
 });
