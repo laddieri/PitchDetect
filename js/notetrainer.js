@@ -124,34 +124,21 @@ function getStaffPosition(noteName, octave, clef) {
 
 // Convert click Y position to note
 function yPositionToNote(yPos, clef) {
-	// VexFlow stave positioning:
-	// - STAFF_Y is the top of the stave bounding box
-	// - VexFlow adds headroom above the top line
-	// - Alignment is best at the 2nd line from bottom (G4 in treble, B2 in bass)
-	var lineSpacing = 8;
-	var headroom = 4;
+	// Simplified calculation using middle line as reference
+	// Middle line = B4 in treble clef (MIDI 71), D3 in bass clef (MIDI 50)
+	// These values can be tuned empirically to match VexFlow rendering
+	var middleLineY = 90;  // Y coordinate of middle staff line
+	var halfSpacing = 5;   // Pixels per half-step (half of line spacing)
 
-	// Calculate the Y position of the top line
-	var topLineY = STAFF_Y + (headroom * lineSpacing);
-
-	// Use the 2nd line from bottom (line 3 from top) as reference point
-	// This is where visual alignment is most accurate
-	var referenceLineY = topLineY + (3 * lineSpacing);
-
-	// Each half-lineSpacing is one note step (line or space)
-	var halfSpacing = lineSpacing / 2;
-
-	// Calculate steps from reference line (positive = below reference)
-	var stepsFromReference = Math.round((yPos - referenceLineY) / halfSpacing);
+	// Calculate steps from middle line (positive = above middle line)
+	var stepsFromMiddle = Math.round((middleLineY - yPos) / halfSpacing);
 
 	// Convert steps to MIDI note
-	// Treble clef: 2nd line from bottom = G4 (MIDI 67)
-	// Bass clef: 2nd line from bottom = B2 (MIDI 47)
 	var midiNote;
 	if (clef === "treble") {
-		midiNote = 67 - stepsFromReference;  // G4 = MIDI 67
+		midiNote = 71 + stepsFromMiddle;  // B4 = MIDI 71
 	} else {
-		midiNote = 47 - stepsFromReference;  // B2 = MIDI 47
+		midiNote = 50 + stepsFromMiddle;  // D3 = MIDI 50
 	}
 
 	// Clamp to reasonable range
