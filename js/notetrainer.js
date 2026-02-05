@@ -127,8 +127,8 @@ function yPositionToNote(yPos, clef) {
 	// VexFlow stave positioning:
 	// - STAFF_Y is the top of the stave bounding box
 	// - VexFlow adds 4 line-spacings of headroom above the top line
-	// - Line spacing is 10 units by default
-	var lineSpacing = 10;
+	// - Line spacing is approximately 8 units in the rendered output
+	var lineSpacing = 8;
 	var headroom = 4;  // VexFlow's default space_above_staff_ln
 
 	// Calculate the actual Y position of the top line (line 0)
