@@ -191,70 +191,77 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave) {
 	stave.addClef(clef);
 	stave.setContext(context).draw();
 
-	// If we have a placed note to display, render it
-	if (noteName && octave !== null) {
+	// Helper function to render notes (handles enharmonic display)
+	function renderNotes(noteName, noteOctave, isGhost) {
 		try {
-			var vexNote = noteName.toLowerCase();
-			var noteKey = vexNote + "/" + octave;
+			var notes = [];
+			var hasEnharmonic = enharmonicMap[noteName];
 
-			var note = new VF.StaveNote({
-				clef: clef,
-				keys: [noteKey],
-				duration: "w"
-			});
+			if (hasEnharmonic) {
+				// Render both sharp and flat versions as half notes
+				var flatName = enharmonicMap[noteName];
 
-			// Add accidental if needed
-			if (noteName.includes("#")) {
-				note.addAccidental(0, new VF.Accidental("#"));
-			} else if (noteName.includes("b")) {
-				note.addAccidental(0, new VF.Accidental("b"));
+				// Sharp note
+				var sharpKey = noteName.toLowerCase() + "/" + noteOctave;
+				var sharpNote = new VF.StaveNote({
+					clef: clef,
+					keys: [sharpKey],
+					duration: "h"
+				});
+				sharpNote.addAccidental(0, new VF.Accidental("#"));
+				if (isGhost) {
+					sharpNote.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
+				}
+				notes.push(sharpNote);
+
+				// Flat note
+				var flatBase = flatName.replace("b", "").toLowerCase();
+				var flatKey = flatBase + "b/" + noteOctave;
+				var flatNote = new VF.StaveNote({
+					clef: clef,
+					keys: [flatKey],
+					duration: "h"
+				});
+				flatNote.addAccidental(0, new VF.Accidental("b"));
+				if (isGhost) {
+					flatNote.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
+				}
+				notes.push(flatNote);
+			} else {
+				// Natural note - single whole note
+				var vexNote = noteName.toLowerCase();
+				var noteKey = vexNote + "/" + noteOctave;
+				var note = new VF.StaveNote({
+					clef: clef,
+					keys: [noteKey],
+					duration: "w"
+				});
+				if (isGhost) {
+					note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
+				}
+				notes.push(note);
 			}
 
 			var voice = new VF.Voice({
 				num_beats: 4,
 				beat_value: 4
 			}).setStrict(false);
-			voice.addTickables([note]);
+			voice.addTickables(notes);
 
 			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
 			voice.draw(context, stave);
 		} catch (e) {
-			console.log("Could not render note:", noteKey, e.message);
+			console.log("Could not render note:", noteName, noteOctave, e.message);
 		}
+	}
+
+	// If we have a placed note to display, render it
+	if (noteName && octave !== null) {
+		renderNotes(noteName, octave, false);
 	}
 	// If we have a ghost note (no placed note), render it semi-transparent
 	else if (ghostNoteName && ghostNoteOctave !== null) {
-		try {
-			var vexNote = ghostNoteName.toLowerCase();
-			var noteKey = vexNote + "/" + ghostNoteOctave;
-
-			var note = new VF.StaveNote({
-				clef: clef,
-				keys: [noteKey],
-				duration: "w"
-			});
-
-			// Add accidental if needed
-			if (ghostNoteName.includes("#")) {
-				note.addAccidental(0, new VF.Accidental("#"));
-			} else if (ghostNoteName.includes("b")) {
-				note.addAccidental(0, new VF.Accidental("b"));
-			}
-
-			// Set style for ghost note (semi-transparent)
-			note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
-
-			var voice = new VF.Voice({
-				num_beats: 4,
-				beat_value: 4
-			}).setStrict(false);
-			voice.addTickables([note]);
-
-			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
-			voice.draw(context, stave);
-		} catch (e) {
-			console.log("Could not render ghost note:", noteKey, e.message);
-		}
+		renderNotes(ghostNoteName, ghostNoteOctave, true);
 	}
 
 	// Return stave info for click calculations
