@@ -1,7 +1,7 @@
 <!doctype html>
 <html>
 	<head>
-		<title>Pitch Detector</title>
+		<title>Note Trainer</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link href='https://fonts.googleapis.com/css?family=Alike' rel='stylesheet' type='text/css'>
 		<style>
@@ -39,6 +39,21 @@
 				flex-shrink: 0;
 			}
 
+			.nav-links {
+				text-align: center;
+				margin-bottom: 15px;
+			}
+
+			.nav-links a {
+				color: #4CAF50;
+				text-decoration: none;
+				font-size: 14px;
+			}
+
+			.nav-links a:hover {
+				text-decoration: underline;
+			}
+
 			.controls {
 				display: flex;
 				flex-wrap: wrap;
@@ -47,27 +62,6 @@
 				align-items: center;
 				margin-bottom: 15px;
 				flex-shrink: 0;
-			}
-
-			#stopButton {
-				padding: 12px 32px;
-				font-size: 16px;
-				font-family: 'Alike', sans-serif;
-				background-color: #e74c3c;
-				color: white;
-				border: none;
-				border-radius: 6px;
-				cursor: pointer;
-				transition: background-color 0.2s;
-				display: none;
-			}
-
-			#stopButton:hover {
-				background-color: #c0392b;
-			}
-
-			#stopButton:active {
-				background-color: #a93226;
 			}
 
 			#instrument {
@@ -85,6 +79,44 @@
 				border-color: #4CAF50;
 			}
 
+			#playButton {
+				padding: 12px 32px;
+				font-size: 16px;
+				font-family: 'Alike', sans-serif;
+				background-color: #4CAF50;
+				color: white;
+				border: none;
+				border-radius: 6px;
+				cursor: pointer;
+				transition: background-color 0.2s;
+				display: none;
+			}
+
+			#playButton:hover {
+				background-color: #45a049;
+			}
+
+			#playButton:active {
+				background-color: #3d8b40;
+			}
+
+			#clearButton {
+				padding: 12px 32px;
+				font-size: 16px;
+				font-family: 'Alike', sans-serif;
+				background-color: #e74c3c;
+				color: white;
+				border: none;
+				border-radius: 6px;
+				cursor: pointer;
+				transition: background-color 0.2s;
+				display: none;
+			}
+
+			#clearButton:hover {
+				background-color: #c0392b;
+			}
+
 			.main-display {
 				flex: 1;
 				display: flex;
@@ -92,7 +124,7 @@
 				min-height: 0;
 			}
 
-			#detector {
+			#note-display {
 				flex: 1;
 				background-color: white;
 				border: 4px solid #ddd;
@@ -107,67 +139,31 @@
 				min-width: 0;
 			}
 
-			#detector.confident {
+			#note-display.active {
 				border-color: #4CAF50;
 			}
 
-			#detector.vague {
-				border-color: #ddd;
-			}
-
-			div.confident {
-				color: black;
-			}
-
-			div.vague {
-				color: #ccc;
-			}
-
-			.pitch {
+			.instruction {
 				font-size: 18px;
 				color: #666;
 				margin-bottom: 10px;
 			}
 
-			#pitch {
-				font-size: clamp(20px, 3vw, 28px);
-				font-weight: bold;
-				color: #333;
-			}
-
-			#note {
+			#note-name {
 				font-size: clamp(60px, 15vw, 140px);
 				line-height: 1.1;
 				display: block;
 				margin: 10px 0;
-			}
-
-			#detune {
-				font-size: clamp(14px, 2vw, 18px);
-				color: #666;
-				min-height: 30px;
-			}
-
-			#detune_amt {
-				font-weight: bold;
 				color: #333;
 			}
 
-			#flat, #sharp {
-				display: none;
+			#frequency-display {
+				font-size: 18px;
+				color: #666;
+				margin-top: 10px;
 			}
 
-			.flat #flat {
-				display: inline;
-				color: #e74c3c;
-			}
-
-			.sharp #sharp {
-				display: inline;
-				color: #3498db;
-			}
-
-			.canvas-container {
+			.staff-container {
 				flex: 1;
 				background-color: white;
 				border-radius: 12px;
@@ -178,9 +174,10 @@
 				justify-content: center;
 				min-width: 0;
 				overflow: hidden;
+				cursor: crosshair;
 			}
 
-			#vexflow-output {
+			#staff-output {
 				width: 100%;
 				height: 100%;
 				display: flex;
@@ -188,26 +185,10 @@
 				justify-content: center;
 			}
 
-			#vexflow-output svg {
+			#staff-output svg {
 				display: block;
 				max-width: 100%;
 				max-height: 100%;
-			}
-
-			.droptarget {
-				background-color: #348781;
-			}
-
-			.github-link {
-				position: fixed;
-				top: 0;
-				right: 0;
-				z-index: 100;
-			}
-
-			.github-link img {
-				width: 100px;
-				height: auto;
 			}
 
 			/* Mobile styles */
@@ -227,8 +208,9 @@
 					margin-bottom: 10px;
 				}
 
-				#stopButton,
-				#instrument {
+				#instrument,
+				#playButton,
+				#clearButton {
 					width: 100%;
 					max-width: 280px;
 				}
@@ -237,35 +219,30 @@
 					flex-direction: column;
 				}
 
-				#detector {
+				#note-display {
 					flex: none;
-					min-height: 180px;
-				}
-
-				.canvas-container {
-					flex: 1;
 					min-height: 150px;
 				}
 
-				.github-link {
-					display: none;
+				.staff-container {
+					flex: 1;
+					min-height: 200px;
 				}
 			}
 		</style>
 	</head>
 	<body>
 		<script src="https://unpkg.com/vexflow@3.0.9/releases/vexflow-min.js"></script>
-		<script src="js/pitchdetect.js"></script>
 
 		<div class="container">
-			<h1>Pitch Detector</h1>
-			<div class="nav-links" style="text-align: center; margin-bottom: 15px;">
-				<a href="note-trainer.html" style="color: #4CAF50; text-decoration: none; font-size: 14px;">Go to Note Trainer</a>
+			<h1>Note Trainer</h1>
+			<div class="nav-links">
+				<a href="index.html">Back to Pitch Detector</a>
 			</div>
 
 			<div class="controls">
 				<select name="Instrument" id="instrument">
-					<option value="">Select an instrument to begin</option>
+					<option value="">Select an instrument</option>
 					<option value="treble clef">Treble Clef</option>
 					<option value="bass clef">Bass Clef</option>
 					<option value="flute">Flute</option>
@@ -283,28 +260,23 @@
 					<option value="tuba">Tuba</option>
 					<option value="glockenspiel">Glockenspiel</option>
 				</select>
-				<button id="stopButton" onclick="stopPitchDetect();">Stop</button>
+				<button id="playButton" onclick="playNote()">Play Sound</button>
+				<button id="clearButton" onclick="clearNote()">Clear</button>
 			</div>
 
 			<div class="main-display">
-				<div id="detector" class="vague">
-					<div class="pitch"><span id="pitch">--</span> Hz</div>
-					<span id="note">--</span>
-					<div id="detune">
-						<span id="detune_amt">--</span>
-						<span id="flat">cents &#9837;</span>
-						<span id="sharp">cents &#9839;</span>
-					</div>
+				<div id="note-display">
+					<div class="instruction">Click on the staff to place a note</div>
+					<span id="note-name">-</span>
+					<div id="frequency-display"></div>
 				</div>
 
-				<div class="canvas-container">
-					<div id="vexflow-output"></div>
+				<div class="staff-container" id="staff-container">
+					<div id="staff-output"></div>
 				</div>
 			</div>
 		</div>
 
-		<a href="https://github.com/cwilso/pitchdetect" class="github-link">
-			<img src="img/forkme.png" alt="Fork me on GitHub">
-		</a>
+		<script src="js/notetrainer.js"></script>
 	</body>
 </html>
