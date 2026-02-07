@@ -122,32 +122,56 @@ function getStaffPosition(noteName, octave, clef) {
 	}
 }
 
-// Convert click Y position to note
+// Convert click Y position to note using diatonic (staff) mapping
 function yPositionToNote(yPos, clef) {
-	// Simplified calculation using middle line as reference
-	// Middle line = B4 in treble clef (MIDI 71), D3 in bass clef (MIDI 50)
-	// These values can be tuned empirically to match VexFlow rendering
-	var middleLineY = 90;  // Y coordinate of middle staff line
-	var halfSpacing = 5;   // Pixels per half-step (half of line spacing)
+	// The staff uses diatonic spacing (7 notes per octave), not chromatic (12)
+	// Each line or space represents one diatonic step
 
-	// Calculate steps from middle line (positive = above middle line)
-	var stepsFromMiddle = Math.round((middleLineY - yPos) / halfSpacing);
+	// Empirically tuned values based on VexFlow rendering
+	var topLineY = 100;   // Y coordinate of top staff line (tuned based on user feedback)
+	var halfSpacing = 5;  // Pixels per staff position
 
-	// Convert steps to MIDI note
-	var midiNote;
+	// Calculate staff position (0 = top line, positive = going down)
+	var staffPos = Math.round((yPos - topLineY) / halfSpacing);
+
+	// Convert staff position to note name and octave
+	var noteName, octave;
+
 	if (clef === "treble") {
-		midiNote = 71 + stepsFromMiddle;  // B4 = MIDI 71
+		// Treble clef: Top line = F5
+		// Notes going down: F, E, D, C, B, A, G (repeating)
+		var noteNames = ["F", "E", "D", "C", "B", "A", "G"];
+		// Octaves for positions 0-6: F5, E5, D5, C5, B4, A4, G4
+		var baseOctaves = [5, 5, 5, 5, 4, 4, 4];
+
+		// Handle the cycling through octaves
+		var cyclePos = staffPos >= 0 ? staffPos % 7 : ((staffPos % 7) + 7) % 7;
+		var cycleNum = Math.floor(staffPos / 7);
+
+		noteName = noteNames[cyclePos];
+		octave = baseOctaves[cyclePos] - cycleNum;
 	} else {
-		midiNote = 50 + stepsFromMiddle;  // D3 = MIDI 50
+		// Bass clef: Top line = A3
+		// Notes going down: A, G, F, E, D, C, B (repeating)
+		var noteNames = ["A", "G", "F", "E", "D", "C", "B"];
+		// Octaves for positions 0-6: A3, G3, F3, E3, D3, C3, B2
+		var baseOctaves = [3, 3, 3, 3, 3, 3, 2];
+
+		var cyclePos = staffPos >= 0 ? staffPos % 7 : ((staffPos % 7) + 7) % 7;
+		var cycleNum = Math.floor(staffPos / 7);
+
+		noteName = noteNames[cyclePos];
+		octave = baseOctaves[cyclePos] - cycleNum;
 	}
 
+	// Convert to MIDI
+	var noteToSemitone = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11};
+	var midi = noteToSemitone[noteName] + (octave + 1) * 12;
+
 	// Clamp to reasonable range
-	midiNote = Math.max(24, Math.min(96, midiNote));
+	midi = Math.max(24, Math.min(96, midi));
 
-	var noteName = noteStrings[midiNote % 12];
-	var octave = Math.floor(midiNote / 12) - 1;
-
-	return { note: noteName, octave: octave, midi: midiNote };
+	return { note: noteName, octave: octave, midi: midi };
 }
 
 // Draw the staff with VexFlow
