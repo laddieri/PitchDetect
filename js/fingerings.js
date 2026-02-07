@@ -12,9 +12,9 @@ var trumpetFingerings = {
 	// Low register (written)
 	52: { primary: [], alternates: [] },           // E3 - open
 	53: { primary: [1, 2], alternates: [[3]] },    // F3
-	54: { primary: [1], alternates: [] },          // F#3
-	55: { primary: [2], alternates: [] },          // G3
-	56: { primary: [], alternates: [[1, 2, 3]] },  // G#3
+	54: { primary: [1, 2, 3], alternates: [] },    // F#3
+	55: { primary: [1, 3], alternates: [] },       // G3
+	56: { primary: [2, 3], alternates: [] },       // G#3
 	57: { primary: [1, 2], alternates: [] },       // A3
 	58: { primary: [1], alternates: [] },          // A#3
 	59: { primary: [2], alternates: [] },          // B3
@@ -35,9 +35,9 @@ var trumpetFingerings = {
 
 	// Upper register
 	72: { primary: [], alternates: [] },           // C5 - open
-	73: { primary: [1, 2, 3], alternates: [[1, 2]] }, // C#5
-	74: { primary: [1, 3], alternates: [[1, 2]] }, // D5
-	75: { primary: [2, 3], alternates: [[1]] },    // D#5
+	73: { primary: [1, 2], alternates: [] },       // C#5
+	74: { primary: [1], alternates: [] },          // D5
+	75: { primary: [], alternates: [] },           // D#5 - open
 	76: { primary: [1, 2], alternates: [[3]] },    // E5
 	77: { primary: [1], alternates: [[2]] },       // F5
 	78: { primary: [2], alternates: [] },          // F#5
