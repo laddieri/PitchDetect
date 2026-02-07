@@ -15,6 +15,8 @@ var currentMidi = null;  // Track MIDI note number for arrow key navigation
 // Ghost note state (follows mouse)
 var ghostNote = null;
 var ghostOctave = null;
+var ghostMidi = null;
+var currentModifier = null;  // Track shift/alt for sharp/flat ghost notes
 
 // Fingering display state
 var showingAlternates = false;
@@ -313,6 +315,10 @@ function getSvgCoordinates(event) {
 
 // Handle mouse move over staff (show ghost note)
 function handleStaffMouseMove(event) {
+	// Store last mouse event for modifier key updates
+	var staffContainer = document.getElementById("staff-container");
+	staffContainer._lastMouseEvent = event;
+
 	var instrument = document.getElementById("instrument").value;
 	if (!instrument) return;
 
@@ -325,10 +331,36 @@ function handleStaffMouseMove(event) {
 	var clef = getCurrentClef();
 	var noteInfo = yPositionToNote(coords.y, clef);
 
+	// Check for modifier keys to show sharp/flat
+	var modifier = null;
+	if (event.shiftKey) {
+		modifier = "sharp";
+	} else if (event.altKey) {
+		modifier = "flat";
+	}
+
+	// Apply modifier to get sharp/flat version
+	var displayNote = noteInfo.note;
+	var displayOctave = noteInfo.octave;
+	var displayMidi = noteInfo.midi;
+
+	if (modifier === "sharp") {
+		// Move up one half step
+		displayMidi = Math.min(96, noteInfo.midi + 1);
+		displayNote = noteStrings[displayMidi % 12];
+		displayOctave = Math.floor(displayMidi / 12) - 1;
+	} else if (modifier === "flat") {
+		// Move down one half step
+		displayMidi = Math.max(24, noteInfo.midi - 1);
+		displayNote = noteStrings[displayMidi % 12];
+		displayOctave = Math.floor(displayMidi / 12) - 1;
+	}
+
 	// Only update if ghost note changed
-	if (noteInfo.note !== ghostNote || noteInfo.octave !== ghostOctave) {
-		ghostNote = noteInfo.note;
-		ghostOctave = noteInfo.octave;
+	if (displayNote !== ghostNote || displayOctave !== ghostOctave || displayMidi !== ghostMidi) {
+		ghostNote = displayNote;
+		ghostOctave = displayOctave;
+		ghostMidi = displayMidi;
 
 		// Redraw staff with ghost note
 		drawStaff(null, null, ghostNote, ghostOctave);
@@ -346,10 +378,15 @@ function handleStaffMouseMove(event) {
 
 // Handle mouse leave from staff (clear ghost note)
 function handleStaffMouseLeave(event) {
+	// Clear stored mouse event
+	var staffContainer = document.getElementById("staff-container");
+	staffContainer._lastMouseEvent = null;
+
 	if (currentNote !== null) return;  // Don't clear if we have a placed note
 
 	ghostNote = null;
 	ghostOctave = null;
+	ghostMidi = null;
 
 	// Redraw staff without ghost note
 	drawStaff(null, null, null, null);
@@ -374,16 +411,27 @@ function handleStaffClick(event) {
 	var clef = getCurrentClef();
 	var noteInfo = yPositionToNote(coords.y, clef);
 
+	// Check for modifier keys to place sharp/flat
+	var placeMidi = noteInfo.midi;
+	if (event.shiftKey) {
+		placeMidi = Math.min(96, noteInfo.midi + 1);
+	} else if (event.altKey) {
+		placeMidi = Math.max(24, noteInfo.midi - 1);
+	}
+
+	var placeNote = noteStrings[placeMidi % 12];
+	var placeOctave = Math.floor(placeMidi / 12) - 1;
+
 	// Apply transposition (convert written pitch to concert pitch for frequency)
 	var transposition = getTransposition();
-	var concertMidi = noteInfo.midi - transposition;
+	var concertMidi = placeMidi - transposition;
 	var frequency = frequencyFromNoteNumber(concertMidi);
 
 	// Store current note (written pitch)
-	currentNote = noteInfo.note;
-	currentOctave = noteInfo.octave;
+	currentNote = placeNote;
+	currentOctave = placeOctave;
 	currentFrequency = frequency;
-	currentMidi = noteInfo.midi;
+	currentMidi = placeMidi;
 
 	// Clear ghost note
 	ghostNote = null;
@@ -565,6 +613,7 @@ function clearNote() {
 	currentMidi = null;
 	ghostNote = null;
 	ghostOctave = null;
+	ghostMidi = null;
 	showingAlternates = false;
 
 	updateNoteDisplay();
@@ -612,6 +661,26 @@ document.addEventListener("DOMContentLoaded", function() {
 	// Set up keyboard handler for arrow key navigation
 	document.addEventListener("keydown", handleKeyDown);
 
+	// Set up keyboard handlers for modifier keys (shift/alt for sharp/flat ghost notes)
+	document.addEventListener("keydown", handleModifierKey);
+	document.addEventListener("keyup", handleModifierKey);
+
 	// Draw initial staff (empty, treble clef)
 	drawStaff(null, null, null, null);
 });
+
+// Handle modifier key press/release to update ghost note
+function handleModifierKey(event) {
+	// Only care about shift and alt
+	if (event.key !== "Shift" && event.key !== "Alt") return;
+
+	// Don't update if we have a placed note
+	if (currentNote !== null) return;
+
+	// Trigger a fake mousemove to update the ghost note
+	var staffContainer = document.getElementById("staff-container");
+	var lastMouseEvent = staffContainer._lastMouseEvent;
+	if (lastMouseEvent) {
+		handleStaffMouseMove(lastMouseEvent);
+	}
+}
