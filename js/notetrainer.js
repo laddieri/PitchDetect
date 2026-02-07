@@ -16,6 +16,9 @@ var currentMidi = null;  // Track MIDI note number for arrow key navigation
 var ghostNote = null;
 var ghostOctave = null;
 
+// Fingering display state
+var showingAlternates = false;
+
 // Staff rendering constants
 var STAFF_WIDTH = 400;
 var STAFF_HEIGHT = 200;
@@ -397,6 +400,10 @@ function handleStaffClick(event) {
 	document.getElementById("playButton").style.display = "inline-block";
 	document.getElementById("clearButton").style.display = "inline-block";
 	document.getElementById("note-display").classList.add("active");
+
+	// Update fingering display
+	showingAlternates = false;
+	updateFingeringDisplay();
 }
 
 // Handle keyboard input for arrow key navigation
@@ -430,6 +437,9 @@ function handleKeyDown(event) {
 		// Update display and redraw staff
 		updateNoteDisplay();
 		drawStaff(currentNote, currentOctave, null, null);
+
+		// Update fingering display
+		updateFingeringDisplay();
 	}
 }
 
@@ -506,6 +516,45 @@ function stopNote() {
 	}
 }
 
+// Update fingering display for current note
+function updateFingeringDisplay() {
+	var instrument = document.getElementById("instrument").value;
+	var fingeringContainer = document.getElementById("fingering-container");
+	var fingeringDisplay = document.getElementById("fingering-display");
+	var alternateButton = document.getElementById("alternateButton");
+
+	// Check if this instrument has fingering data
+	if (!hasFingeringData(instrument) || currentMidi === null) {
+		fingeringContainer.classList.remove("active");
+		return;
+	}
+
+	// Show the fingering container
+	fingeringContainer.classList.add("active");
+
+	// Display the fingering
+	var hasAlternates = displayFingering(fingeringDisplay, instrument, currentMidi, showingAlternates);
+
+	// Show/hide alternate button based on whether alternates exist
+	if (hasAlternates) {
+		alternateButton.style.display = "inline-block";
+		alternateButton.textContent = showingAlternates ? "Hide Alternate Fingerings" : "Show Alternate Fingerings";
+		if (showingAlternates) {
+			alternateButton.classList.add("active");
+		} else {
+			alternateButton.classList.remove("active");
+		}
+	} else {
+		alternateButton.style.display = "none";
+	}
+}
+
+// Toggle alternate fingerings display
+function toggleAlternateFingerings() {
+	showingAlternates = !showingAlternates;
+	updateFingeringDisplay();
+}
+
 // Clear the current note
 function clearNote() {
 	stopNote();
@@ -516,6 +565,7 @@ function clearNote() {
 	currentMidi = null;
 	ghostNote = null;
 	ghostOctave = null;
+	showingAlternates = false;
 
 	updateNoteDisplay();
 	drawStaff(null, null, null, null);
@@ -523,6 +573,7 @@ function clearNote() {
 	document.getElementById("playButton").style.display = "none";
 	document.getElementById("clearButton").style.display = "none";
 	document.getElementById("note-display").classList.remove("active");
+	document.getElementById("fingering-container").classList.remove("active");
 }
 
 // Initialize
@@ -534,6 +585,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		// Clear any existing note when instrument changes
 		ghostNote = null;
 		ghostOctave = null;
+		showingAlternates = false;
 
 		// Redraw staff with new clef
 		if (currentNote && currentOctave !== null) {
@@ -544,6 +596,9 @@ document.addEventListener("DOMContentLoaded", function() {
 			var transposition = getTransposition();
 			currentFrequency = frequencyFromNoteNumber(fullMidi - transposition);
 			updateNoteDisplay();
+			updateFingeringDisplay();
+		} else {
+			document.getElementById("fingering-container").classList.remove("active");
 		}
 		drawStaff(currentNote, currentOctave, null, null);
 	});
