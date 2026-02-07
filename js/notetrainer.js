@@ -31,6 +31,8 @@ var LINE_SPACING = 10;  // Space between staff lines in internal coordinates
 // Dynamic staff layout values (updated by drawStaff from VexFlow)
 var staffTopLineY = null;
 var staffHalfSpacing = 5;
+var staffNoteStartX = null;
+var staffNoteEndX = null;
 
 // Treble clef instruments
 var trebleClefInstruments = [
@@ -214,9 +216,11 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 	stave.addClef(clef);
 	stave.setContext(context).draw();
 
-	// Capture actual staff line positions for accurate mouse-to-note mapping
+	// Capture actual staff positions for accurate mouse-to-note mapping
 	staffTopLineY = stave.getYForLine(0);
 	staffHalfSpacing = (stave.getYForLine(1) - stave.getYForLine(0)) / 2;
+	staffNoteStartX = stave.getNoteStartX();
+	staffNoteEndX = stave.getNoteEndX();
 
 	// Helper function to render notes (handles enharmonic display)
 	function renderNotes(noteName, noteOctave, isGhost, modifier) {
@@ -268,7 +272,7 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 				}
 				notes.push(flatNote);
 			} else {
-				// Natural note - single whole note
+				// Single note (natural or accidental without enharmonic entry)
 				var vexNote = noteName.toLowerCase();
 				var noteKey = vexNote + "/" + noteOctave;
 				var note = new VF.StaveNote({
@@ -276,6 +280,12 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 					keys: [noteKey],
 					duration: "w"
 				});
+				// Add accidental if present in note name
+				if (noteName.includes("#")) {
+					note.addAccidental(0, new VF.Accidental("#"));
+				} else if (noteName.length > 1 && noteName.endsWith("b")) {
+					note.addAccidental(0, new VF.Accidental("b"));
+				}
 				if (isGhost) {
 					note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
 				}
@@ -334,6 +344,19 @@ function getSvgCoordinates(event) {
 	};
 }
 
+// Determine accidental modifier from horizontal mouse position
+// Left third of note area = flat, middle = natural, right third = sharp
+function getModifierFromX(x) {
+	if (staffNoteStartX === null || staffNoteEndX === null) return null;
+	var noteAreaWidth = staffNoteEndX - staffNoteStartX;
+	var relativeX = x - staffNoteStartX;
+	var fraction = relativeX / noteAreaWidth;
+
+	if (fraction < 1 / 3) return "flat";
+	if (fraction > 2 / 3) return "sharp";
+	return null;
+}
+
 // Handle mouse move over staff (show ghost note)
 function handleStaffMouseMove(event) {
 	// Store last mouse event for modifier key updates
@@ -352,12 +375,14 @@ function handleStaffMouseMove(event) {
 	var clef = getCurrentClef();
 	var noteInfo = yPositionToNote(coords.y, clef);
 
-	// Check for modifier keys to show sharp/flat
+	// Determine accidental from X position (keyboard modifiers override)
 	var modifier = null;
 	if (event.shiftKey) {
 		modifier = "sharp";
 	} else if (event.altKey) {
 		modifier = "flat";
+	} else {
+		modifier = getModifierFromX(coords.x);
 	}
 
 	// Apply modifier to get sharp/flat version
@@ -427,16 +452,27 @@ function handleStaffClick(event) {
 	var clef = getCurrentClef();
 	var noteInfo = yPositionToNote(coords.y, clef);
 
-	// Check for modifier keys to place sharp/flat
-	var placeMidi = noteInfo.midi;
+	// Determine accidental from X position (keyboard modifiers override)
+	var modifier = null;
 	if (event.shiftKey) {
-		placeMidi = Math.min(96, noteInfo.midi + 1);
+		modifier = "sharp";
 	} else if (event.altKey) {
-		placeMidi = Math.max(24, noteInfo.midi - 1);
+		modifier = "flat";
+	} else {
+		modifier = getModifierFromX(coords.x);
 	}
 
-	var placeNote = noteStrings[placeMidi % 12];
-	var placeOctave = Math.floor(placeMidi / 12) - 1;
+	var placeMidi = noteInfo.midi;
+	var placeNote = noteInfo.note;
+	var placeOctave = noteInfo.octave;
+
+	if (modifier === "sharp") {
+		placeNote = noteInfo.note + "#";
+		placeMidi = Math.min(96, noteInfo.midi + 1);
+	} else if (modifier === "flat") {
+		placeNote = noteInfo.note + "b";
+		placeMidi = Math.max(24, noteInfo.midi - 1);
+	}
 
 	// Apply transposition (convert written pitch to concert pitch for frequency)
 	var transposition = getTransposition();
