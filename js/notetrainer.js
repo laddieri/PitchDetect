@@ -184,7 +184,7 @@ function yPositionToNote(yPos, clef) {
 }
 
 // Draw the staff with VexFlow
-function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave) {
+function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifier) {
 	var outputDiv = document.getElementById("staff-output");
 	if (!outputDiv) return null;
 
@@ -219,12 +219,25 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave) {
 	staffHalfSpacing = (stave.getYForLine(1) - stave.getYForLine(0)) / 2;
 
 	// Helper function to render notes (handles enharmonic display)
-	function renderNotes(noteName, noteOctave, isGhost) {
+	function renderNotes(noteName, noteOctave, isGhost, modifier) {
 		try {
 			var notes = [];
 			var hasEnharmonic = enharmonicMap[noteName];
 
-			if (hasEnharmonic) {
+			if (isGhost && modifier) {
+				// Ghost note with explicit accidental - render single note
+				var baseNote = noteName.charAt(0).toLowerCase();
+				var accidental = modifier === "sharp" ? "#" : "b";
+				var noteKey = baseNote + accidental + "/" + noteOctave;
+				var note = new VF.StaveNote({
+					clef: clef,
+					keys: [noteKey],
+					duration: "w"
+				});
+				note.addAccidental(0, new VF.Accidental(accidental));
+				note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
+				notes.push(note);
+			} else if (hasEnharmonic) {
 				// Render both sharp and flat versions as half notes
 				var flatName = enharmonicMap[noteName];
 
@@ -284,11 +297,11 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave) {
 
 	// If we have a placed note to display, render it
 	if (noteName && octave !== null) {
-		renderNotes(noteName, octave, false);
+		renderNotes(noteName, octave, false, null);
 	}
 	// If we have a ghost note (no placed note), render it semi-transparent
 	else if (ghostNoteName && ghostNoteOctave !== null) {
-		renderNotes(ghostNoteName, ghostNoteOctave, true);
+		renderNotes(ghostNoteName, ghostNoteOctave, true, ghostModifier);
 	}
 
 	// Return stave info for click calculations
@@ -348,38 +361,32 @@ function handleStaffMouseMove(event) {
 	}
 
 	// Apply modifier to get sharp/flat version
+	// Keep note at same staff position and add accidental
 	var displayNote = noteInfo.note;
 	var displayOctave = noteInfo.octave;
 	var displayMidi = noteInfo.midi;
 
 	if (modifier === "sharp") {
-		// Move up one half step
+		displayNote = noteInfo.note + "#";
 		displayMidi = Math.min(96, noteInfo.midi + 1);
-		displayNote = noteStrings[displayMidi % 12];
-		displayOctave = Math.floor(displayMidi / 12) - 1;
 	} else if (modifier === "flat") {
-		// Move down one half step
+		displayNote = noteInfo.note + "b";
 		displayMidi = Math.max(24, noteInfo.midi - 1);
-		displayNote = noteStrings[displayMidi % 12];
-		displayOctave = Math.floor(displayMidi / 12) - 1;
 	}
 
 	// Only update if ghost note changed
-	if (displayNote !== ghostNote || displayOctave !== ghostOctave || displayMidi !== ghostMidi) {
+	if (displayNote !== ghostNote || displayOctave !== ghostOctave || displayMidi !== ghostMidi || modifier !== currentModifier) {
 		ghostNote = displayNote;
 		ghostOctave = displayOctave;
 		ghostMidi = displayMidi;
+		currentModifier = modifier;
 
 		// Redraw staff with ghost note
-		drawStaff(null, null, ghostNote, ghostOctave);
+		drawStaff(null, null, ghostNote, ghostOctave, currentModifier);
 
 		// Update display with ghost note info (lighter styling handled by CSS)
 		var noteNameElem = document.getElementById("note-name");
-		var displayName = ghostNote;
-		if (enharmonicMap[ghostNote]) {
-			displayName = ghostNote + " / " + enharmonicMap[ghostNote];
-		}
-		noteNameElem.textContent = displayName;
+		noteNameElem.textContent = ghostNote;
 		noteNameElem.style.opacity = "0.5";
 	}
 }
@@ -395,6 +402,7 @@ function handleStaffMouseLeave(event) {
 	ghostNote = null;
 	ghostOctave = null;
 	ghostMidi = null;
+	currentModifier = null;
 
 	// Redraw staff without ghost note
 	drawStaff(null, null, null, null);
