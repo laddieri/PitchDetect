@@ -28,6 +28,10 @@ var STAFF_X = 10;
 var STAFF_Y = 50;
 var LINE_SPACING = 10;  // Space between staff lines in internal coordinates
 
+// Dynamic staff layout values (updated by drawStaff from VexFlow)
+var staffTopLineY = null;
+var staffHalfSpacing = 5;
+
 // Treble clef instruments
 var trebleClefInstruments = [
 	"treble clef", "flute", "oboe", "clarinet", "bass clarinet",
@@ -132,9 +136,9 @@ function yPositionToNote(yPos, clef) {
 	// The staff uses diatonic spacing (7 notes per octave), not chromatic (12)
 	// Each line or space represents one diatonic step
 
-	// Empirically tuned values based on VexFlow rendering
-	var topLineY = 100;   // Y coordinate of top staff line (tuned based on user feedback)
-	var halfSpacing = 5;  // Pixels per staff position
+	// Use actual VexFlow rendering positions (set by drawStaff)
+	var topLineY = staffTopLineY !== null ? staffTopLineY : 100;
+	var halfSpacing = staffHalfSpacing;
 
 	// Calculate staff position (0 = top line, positive = going down)
 	var staffPos = Math.round((yPos - topLineY) / halfSpacing);
@@ -209,6 +213,10 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave) {
 	var stave = new VF.Stave(STAFF_X, STAFF_Y, staveWidth);
 	stave.addClef(clef);
 	stave.setContext(context).draw();
+
+	// Capture actual staff line positions for accurate mouse-to-note mapping
+	staffTopLineY = stave.getYForLine(0);
+	staffHalfSpacing = (stave.getYForLine(1) - stave.getYForLine(0)) / 2;
 
 	// Helper function to render notes (handles enharmonic display)
 	function renderNotes(noteName, noteOctave, isGhost) {
