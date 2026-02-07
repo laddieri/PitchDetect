@@ -274,51 +274,106 @@ function centsOffFromPitch( frequency, note ) {
 }
 
 function autoCorrelate( buf, sampleRate ) {
-	// Implements the ACF2+ algorithm
+	// McLeod Pitch Method (MPM) using Normalized Square Difference Function
+	// Reference: "A Smarter Way to Find Pitch" by Philip McLeod and Geoff Wyvill
 	var SIZE = buf.length;
 	var rms = 0;
 
-	for (var i=0;i<SIZE;i++) {
+	for (var i = 0; i < SIZE; i++) {
 		var val = buf[i];
-		rms += val*val;
+		rms += val * val;
 	}
-	rms = Math.sqrt(rms/SIZE);
-	if (rms<0.02) // not enough signal (increased threshold to filter noise)
+	rms = Math.sqrt(rms / SIZE);
+	if (rms < 0.01)
 		return { frequency: -1, confidence: 0 };
 
-	var r1=0, r2=SIZE-1, thres=0.2;
-	for (var i=0; i<SIZE/2; i++)
-		if (Math.abs(buf[i])<thres) { r1=i; break; }
-	for (var i=1; i<SIZE/2; i++)
-		if (Math.abs(buf[SIZE-i])<thres) { r2=SIZE-i; break; }
+	// Compute NSDF: nsdf[tau] = 2*r(tau) / m(tau)
+	// where r(tau) = sum of x[j]*x[j+tau]  (autocorrelation)
+	// and   m(tau) = sum of x[j]^2 + x[j+tau]^2  (normalization)
+	// This normalizes values to [-1, 1], making peak selection reliable
+	var maxLag = Math.floor(SIZE / 2);
+	var nsdf = new Float32Array(maxLag);
 
-	buf = buf.slice(r1,r2);
-	SIZE = buf.length;
+	for (var tau = 0; tau < maxLag; tau++) {
+		var acf = 0;
+		var m = 0;
+		for (var j = 0; j < SIZE - tau; j++) {
+			acf += buf[j] * buf[j + tau];
+			m += buf[j] * buf[j] + buf[j + tau] * buf[j + tau];
+		}
+		nsdf[tau] = m > 0 ? 2 * acf / m : 0;
+	}
 
-	var c = new Array(SIZE).fill(0);
-	for (var i=0; i<SIZE; i++)
-		for (var j=0; j<SIZE-i; j++)
-			c[i] = c[i] + buf[j]*buf[j+i];
+	// Find peaks: local maxima in positive regions after zero crossings
+	// Skip the initial peak at tau=0 (always 1.0) by waiting for
+	// the first negative-going crossing before collecting peaks
+	var peaks = [];
+	var pastInitial = false;
+	var inPositiveRegion = false;
+	var peakLag = 0;
+	var peakVal = -Infinity;
 
-	var d=0; while (c[d]>c[d+1]) d++;
-	var maxval=-1, maxpos=-1;
-	for (var i=d; i<SIZE; i++) {
-		if (c[i] > maxval) {
-			maxval = c[i];
-			maxpos = i;
+	for (var tau = 1; tau < maxLag; tau++) {
+		if (!pastInitial) {
+			if (nsdf[tau] < 0) pastInitial = true;
+			continue;
+		}
+
+		if (nsdf[tau] > 0 && nsdf[tau - 1] <= 0) {
+			// Positive-going zero crossing — start of new positive region
+			inPositiveRegion = true;
+			peakLag = tau;
+			peakVal = nsdf[tau];
+		} else if (nsdf[tau] <= 0 && nsdf[tau - 1] > 0 && inPositiveRegion) {
+			// Negative-going zero crossing — record the peak of this region
+			peaks.push({ lag: peakLag, value: peakVal });
+			inPositiveRegion = false;
+		} else if (inPositiveRegion && nsdf[tau] > peakVal) {
+			peakLag = tau;
+			peakVal = nsdf[tau];
 		}
 	}
-	var T0 = maxpos;
+	if (inPositiveRegion) {
+		peaks.push({ lag: peakLag, value: peakVal });
+	}
 
-	// Calculate confidence as ratio of peak correlation to autocorrelation at 0
-	var confidence = c[0] > 0 ? maxval / c[0] : 0;
+	if (peaks.length === 0) return { frequency: -1, confidence: 0 };
 
-	var x1=c[T0-1], x2=c[T0], x3=c[T0+1];
-	a = (x1 + x3 - 2*x2)/2;
-	b = (x3 - x1)/2;
-	if (a) T0 = T0 - b/(2*a);
+	// Find the highest peak value across all candidate peaks
+	var maxPeakValue = 0;
+	for (var i = 0; i < peaks.length; i++) {
+		if (peaks[i].value > maxPeakValue) maxPeakValue = peaks[i].value;
+	}
 
-	return { frequency: sampleRate/T0, confidence: confidence };
+	// MPM key step: select the FIRST peak above the threshold.
+	// The first strong peak corresponds to the fundamental frequency,
+	// while later peaks at 2x, 3x lag are sub-harmonics (octave errors).
+	var PEAK_THRESHOLD = 0.93;
+	var threshold = maxPeakValue * PEAK_THRESHOLD;
+
+	var bestPeak = null;
+	for (var i = 0; i < peaks.length; i++) {
+		if (peaks[i].value >= threshold) {
+			bestPeak = peaks[i];
+			break;
+		}
+	}
+
+	if (!bestPeak || bestPeak.value < 0.5)
+		return { frequency: -1, confidence: 0 };
+
+	// Parabolic interpolation for sub-sample accuracy
+	var T0 = bestPeak.lag;
+	var confidence = bestPeak.value;
+
+	if (T0 > 0 && T0 < maxLag - 1) {
+		var x1 = nsdf[T0 - 1], x2 = nsdf[T0], x3 = nsdf[T0 + 1];
+		var a = (x1 + x3 - 2 * x2) / 2;
+		var b = (x3 - x1) / 2;
+		if (a !== 0) T0 = T0 - b / (2 * a);
+	}
+
+	return { frequency: sampleRate / T0, confidence: confidence };
 }
 
 function updatePitch( time ) {
@@ -377,15 +432,17 @@ function updatePitch( time ) {
 
 			// Check if we have enough consistent readings
 			if (pitchHistory.length >= SMOOTHING_COUNT) {
+				var median = medianOfArray(pitchHistory);
 				var consistent = true;
-				for (var i = 1; i < pitchHistory.length; i++) {
-					if (!isWithinTolerance(pitchHistory[i], pitchHistory[0], SMOOTHING_TOLERANCE)) {
+				for (var i = 0; i < pitchHistory.length; i++) {
+					if (!isWithinTolerance(pitchHistory[i], median, SMOOTHING_TOLERANCE)) {
 						consistent = false;
 						break;
 					}
 				}
 				if (consistent) {
 					validPitch = true;
+					detectedFreq = median;  // Use smoothed value for display
 				}
 			}
 		}
@@ -519,9 +576,9 @@ function getInstrumentRange() {
 
 // Pitch smoothing variables
 var pitchHistory = [];
-var SMOOTHING_COUNT = 2;  // Number of consistent readings required (reduced for faster response)
-var SMOOTHING_TOLERANCE = 25;  // Cents tolerance for "same note" (more forgiving for low brass)
-var MIN_CONFIDENCE = 0.75;  // Minimum correlation confidence to accept pitch (lowered for low brass)
+var SMOOTHING_COUNT = 3;  // Number of consistent readings for median filter
+var SMOOTHING_TOLERANCE = 50;  // Cents tolerance for "same note" (median handles outliers)
+var MIN_CONFIDENCE = 0.80;  // Minimum NSDF confidence to accept pitch
 var NOTE_CHANGE_THRESHOLD = 80;  // Cents threshold to detect note change (reset smoothing buffer)
 
 // Check if a frequency is within tolerance of another (in cents)
@@ -529,6 +586,16 @@ function isWithinTolerance(freq1, freq2, cents) {
 	if (freq1 <= 0 || freq2 <= 0) return false;
 	var centsDiff = Math.abs(1200 * Math.log(freq1 / freq2) / Math.log(2));
 	return centsDiff <= cents;
+}
+
+// Median filter — more robust than mean for rejecting single-frame outliers
+function medianOfArray(arr) {
+	var sorted = arr.slice().sort(function(a, b) { return a - b; });
+	var mid = Math.floor(sorted.length / 2);
+	if (sorted.length % 2 === 0) {
+		return (sorted[mid - 1] + sorted[mid]) / 2;
+	}
+	return sorted[mid];
 }
 
 // VexFlow rendering variables
