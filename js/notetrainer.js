@@ -147,11 +147,9 @@ function yPositionToNote(yPos, clef) {
 	var staffPos = Math.floor(staffPosExact);
 	var fraction = staffPosExact - staffPos;
 
-	// If fraction is around 0.5, we're between positions (sharp/flat territory)
-	var isBetween = fraction > 0.3 && fraction < 0.7;
-
 	// Convert staff position to note name and octave
-	var noteName, octave, isSharp;
+	var noteName, octave;
+	var noteToSemitone = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11};
 
 	if (clef === "treble") {
 		// Treble clef: Top line = F5
@@ -165,29 +163,35 @@ function yPositionToNote(yPos, clef) {
 		noteName = noteNames[cyclePos];
 		octave = baseOctaves[cyclePos] - cycleNum;
 
-		// If we're between positions, we need to determine if it's the sharp of the note above
-		// or the flat of the note below
-		if (isBetween) {
-			// Get the note below (next in sequence)
-			var nextPos = (cyclePos + 1) % 7;
-			var nextOctave = baseOctaves[nextPos] - cycleNum - (nextPos < cyclePos ? 1 : 0);
-			var nextNoteName = noteNames[nextPos];
+		// Check if we should show a sharp/flat based on position between staff lines
+		// fraction close to 0 = on the current line/space (higher pitch)
+		// fraction close to 1 = approaching next line/space (lower pitch)
 
-			// Check if there's a half-step between current and next note
-			var noteToSemitone = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11};
+		if (fraction > 0.2 && fraction < 0.8) {
+			// We're between two staff positions - check if there's a black key here
 			var currentMidi = noteToSemitone[noteName] + (octave + 1) * 12;
+
+			// Get the note below (next in sequence = lower pitch)
+			var nextPos = (cyclePos + 1) % 7;
+			var nextCycleNum = cycleNum + (nextPos < cyclePos ? 1 : 0);
+			var nextOctave = baseOctaves[nextPos] - nextCycleNum;
+			var nextNoteName = noteNames[nextPos];
 			var nextMidi = noteToSemitone[nextNoteName] + (nextOctave + 1) * 12;
 
 			// If there's a whole step between them (2 semitones), there's a black key
 			if (currentMidi - nextMidi === 2) {
-				// Use the sharp of the lower note
-				noteName = nextNoteName + "#";
-				octave = nextOctave;
-				isSharp = true;
-			} else {
-				// E-F or B-C boundary - no black key, stick to the natural note
-				isBetween = false;
+				// Determine which sharp to show based on which note we're closer to
+				if (fraction < 0.5) {
+					// Closer to current note (higher pitch) - show its sharp
+					noteName = noteName + "#";
+					// Sharp doesn't change the octave
+				} else {
+					// Closer to next note (lower pitch) - show it as the sharp of the note below
+					noteName = nextNoteName + "#";
+					octave = nextOctave;
+				}
 			}
+			// If only half step (E-F or B-C), stick with the closer natural note
 		}
 	} else {
 		// Bass clef: Top line = A3
@@ -200,27 +204,27 @@ function yPositionToNote(yPos, clef) {
 		noteName = noteNames[cyclePos];
 		octave = baseOctaves[cyclePos] - cycleNum;
 
-		if (isBetween) {
-			var nextPos = (cyclePos + 1) % 7;
-			var nextOctave = baseOctaves[nextPos] - cycleNum - (nextPos < cyclePos ? 1 : 0);
-			var nextNoteName = noteNames[nextPos];
+		if (fraction > 0.2 && fraction < 0.8) {
+			var currentMidi = noteToSemitone[noteName] + (octave + 1) * 12;
 
-			var noteToSemitone = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11};
-			var currentMidi = noteToSemitone[noteName.replace("#", "").replace("b", "")] + (octave + 1) * 12;
+			var nextPos = (cyclePos + 1) % 7;
+			var nextCycleNum = cycleNum + (nextPos < cyclePos ? 1 : 0);
+			var nextOctave = baseOctaves[nextPos] - nextCycleNum;
+			var nextNoteName = noteNames[nextPos];
 			var nextMidi = noteToSemitone[nextNoteName] + (nextOctave + 1) * 12;
 
 			if (currentMidi - nextMidi === 2) {
-				noteName = nextNoteName + "#";
-				octave = nextOctave;
-				isSharp = true;
-			} else {
-				isBetween = false;
+				if (fraction < 0.5) {
+					noteName = noteName + "#";
+				} else {
+					noteName = nextNoteName + "#";
+					octave = nextOctave;
+				}
 			}
 		}
 	}
 
 	// Convert to MIDI
-	var noteToSemitone = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11};
 	var baseNote = noteName.replace("#", "").replace("b", "");
 	var midi = noteToSemitone[baseNote] + (octave + 1) * 12;
 
