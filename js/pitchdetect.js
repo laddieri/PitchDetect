@@ -166,9 +166,9 @@ function stopPitchDetect() {
 
     // Reset display
     detectorElem.className = "vague";
+    detectorElem.style.backgroundColor = "white";
     pitchElem.innerText = "--";
     noteElem.innerText = "-";
-    noteElem.style.backgroundColor = "transparent";
     detuneElem.className = "";
     detuneAmount.innerText = "--";
 
@@ -454,9 +454,9 @@ function updatePitch( time ) {
 
  	if (!validPitch) {
  		detectorElem.className = "vague";
+ 		detectorElem.style.backgroundColor = "white";
 	 	pitchElem.innerText = "--";
 		noteElem.innerText = "-";
-		noteElem.style.backgroundColor = "transparent";
 		detuneElem.className = "";
 		detuneAmount.innerText = "--";
  	} else {
@@ -494,27 +494,37 @@ function updatePitch( time ) {
 		var detune = centsOffFromPitch(pitch, concertNote);
 
 		// Calculate background color intensity based on how out of tune
-		// 0 cents = transparent, 50+ cents = fully opaque
+		// 0 cents = white, 50+ cents = fully saturated color
 		var absDetune = Math.abs(detune);
 		var maxDetune = 50; // cents at which we reach maximum darkness
 		var intensity = Math.min(absDetune / maxDetune, 1.0);
 
-		// Use a darker color with increasing opacity as note gets more out of tune
-		// RGB(200, 100, 100) gives a muted red/brown color
-		var alpha = intensity * 0.5; // Max opacity of 0.5 to keep text readable
-		noteElem.style.backgroundColor = "rgba(200, 100, 100, " + alpha + ")";
-
+		// Apply background color to detector container
+		// Blue for flat (negative detune), red for sharp (positive detune)
 		if (detune == 0) {
 			detuneElem.className = "";
 			detuneAmount.innerHTML = "--";
 			detectorElem.className = "confident";
+			detectorElem.style.backgroundColor = "white";
 		} else {
 			if (detune < 0) {
+				// Flat: dark blue gradient
 				detuneElem.className = "flat";
 				detectorElem.className = "confident flat";
+				// Blend from white to dark blue
+				var r = Math.round(255 - (255 - 30) * intensity);
+				var g = Math.round(255 - (255 - 60) * intensity);
+				var b = Math.round(255 - (255 - 120) * intensity);
+				detectorElem.style.backgroundColor = "rgb(" + r + ", " + g + ", " + b + ")";
 			} else {
+				// Sharp: dark red gradient
 				detuneElem.className = "sharp";
 				detectorElem.className = "confident sharp";
+				// Blend from white to dark red
+				var r = Math.round(255 - (255 - 140) * intensity);
+				var g = Math.round(255 - (255 - 30) * intensity);
+				var b = Math.round(255 - (255 - 30) * intensity);
+				detectorElem.style.backgroundColor = "rgb(" + r + ", " + g + ", " + b + ")";
 			}
 			detuneAmount.innerHTML = Math.abs(detune);
 		}
