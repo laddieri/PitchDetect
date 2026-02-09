@@ -503,6 +503,8 @@ function handleStaffClick(event) {
 	document.getElementById("playButton").style.display = "inline-block";
 	document.getElementById("clearButton").style.display = "inline-block";
 	document.getElementById("note-display").classList.add("active");
+	document.getElementById("pitchUpButton").classList.add("active");
+	document.getElementById("pitchDownButton").classList.add("active");
 
 	// Update fingering display
 	showingAlternates = false;
@@ -563,6 +565,35 @@ function updateNoteDisplay() {
 	} else {
 		noteNameElem.textContent = "-";
 		freqElem.textContent = "";
+	}
+}
+
+// Adjust pitch by semitones (for mobile pitch control buttons)
+function adjustPitch(semitones) {
+	// Only work if we have a placed note
+	if (currentNote === null || currentMidi === null) return;
+
+	var newMidi = currentMidi + semitones;
+
+	// Clamp to reasonable range
+	newMidi = Math.max(24, Math.min(96, newMidi));
+
+	if (newMidi !== currentMidi) {
+		currentMidi = newMidi;
+		currentNote = noteStrings[currentMidi % 12];
+		currentOctave = Math.floor(currentMidi / 12) - 1;
+
+		// Recalculate frequency with transposition
+		var transposition = getTransposition();
+		var concertMidi = currentMidi - transposition;
+		currentFrequency = frequencyFromNoteNumber(concertMidi);
+
+		// Update display and redraw staff
+		updateNoteDisplay();
+		drawStaff(currentNote, currentOctave, null, null);
+
+		// Update fingering display
+		updateFingeringDisplay();
 	}
 }
 
@@ -678,6 +709,8 @@ function clearNote() {
 	document.getElementById("clearButton").style.display = "none";
 	document.getElementById("note-display").classList.remove("active");
 	document.getElementById("fingering-container").classList.remove("active");
+	document.getElementById("pitchUpButton").classList.remove("active");
+	document.getElementById("pitchDownButton").classList.remove("active");
 }
 
 // Initialize
