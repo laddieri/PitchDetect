@@ -168,6 +168,7 @@ function stopPitchDetect() {
     detectorElem.className = "vague";
     pitchElem.innerText = "--";
     noteElem.innerText = "-";
+    noteElem.style.backgroundColor = "transparent";
     detuneElem.className = "";
     detuneAmount.innerText = "--";
 
@@ -455,6 +456,7 @@ function updatePitch( time ) {
  		detectorElem.className = "vague";
 	 	pitchElem.innerText = "--";
 		noteElem.innerText = "-";
+		noteElem.style.backgroundColor = "transparent";
 		detuneElem.className = "";
 		detuneAmount.innerText = "--";
  	} else {
@@ -490,6 +492,18 @@ function updatePitch( time ) {
 
 		// Detuning is still based on concert pitch (how in-tune they actually are)
 		var detune = centsOffFromPitch(pitch, concertNote);
+
+		// Calculate background color intensity based on how out of tune
+		// 0 cents = transparent, 50+ cents = fully opaque
+		var absDetune = Math.abs(detune);
+		var maxDetune = 50; // cents at which we reach maximum darkness
+		var intensity = Math.min(absDetune / maxDetune, 1.0);
+
+		// Use a darker color with increasing opacity as note gets more out of tune
+		// RGB(200, 100, 100) gives a muted red/brown color
+		var alpha = intensity * 0.5; // Max opacity of 0.5 to keep text readable
+		noteElem.style.backgroundColor = "rgba(200, 100, 100, " + alpha + ")";
+
 		if (detune == 0) {
 			detuneElem.className = "";
 			detuneAmount.innerHTML = "--";
