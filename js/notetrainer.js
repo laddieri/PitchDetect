@@ -133,39 +133,65 @@ function getStaffPosition(noteName, octave, clef) {
 	}
 }
 
-// Convert click Y position to note using diatonic (staff) mapping
+// Convert click Y position to note using chromatic mapping
+// Clicking on staff lines/spaces = natural notes
+// Clicking between staff lines/spaces = sharps/flats
 function yPositionToNote(yPos, clef) {
-	// The staff uses diatonic spacing (7 notes per octave), not chromatic (12)
-	// Each line or space represents one diatonic step
-
 	// Use actual VexFlow rendering positions (set by drawStaff)
 	var topLineY = staffTopLineY !== null ? staffTopLineY : 100;
 	var halfSpacing = staffHalfSpacing;
 
 	// Calculate staff position (0 = top line, positive = going down)
-	var staffPos = Math.round((yPos - topLineY) / halfSpacing);
+	// Don't round - we'll use the fractional part to determine sharps/flats
+	var staffPosExact = (yPos - topLineY) / halfSpacing;
+	var staffPos = Math.floor(staffPosExact);
+	var fraction = staffPosExact - staffPos;
+
+	// If fraction is around 0.5, we're between positions (sharp/flat territory)
+	var isBetween = fraction > 0.3 && fraction < 0.7;
 
 	// Convert staff position to note name and octave
-	var noteName, octave;
+	var noteName, octave, isSharp;
 
 	if (clef === "treble") {
 		// Treble clef: Top line = F5
 		// Notes going down: F, E, D, C, B, A, G (repeating)
 		var noteNames = ["F", "E", "D", "C", "B", "A", "G"];
-		// Octaves for positions 0-6: F5, E5, D5, C5, B4, A4, G4
 		var baseOctaves = [5, 5, 5, 5, 4, 4, 4];
 
-		// Handle the cycling through octaves
 		var cyclePos = staffPos >= 0 ? staffPos % 7 : ((staffPos % 7) + 7) % 7;
 		var cycleNum = Math.floor(staffPos / 7);
 
 		noteName = noteNames[cyclePos];
 		octave = baseOctaves[cyclePos] - cycleNum;
+
+		// If we're between positions, we need to determine if it's the sharp of the note above
+		// or the flat of the note below
+		if (isBetween) {
+			// Get the note below (next in sequence)
+			var nextPos = (cyclePos + 1) % 7;
+			var nextOctave = baseOctaves[nextPos] - cycleNum - (nextPos < cyclePos ? 1 : 0);
+			var nextNoteName = noteNames[nextPos];
+
+			// Check if there's a half-step between current and next note
+			var noteToSemitone = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11};
+			var currentMidi = noteToSemitone[noteName] + (octave + 1) * 12;
+			var nextMidi = noteToSemitone[nextNoteName] + (nextOctave + 1) * 12;
+
+			// If there's a whole step between them (2 semitones), there's a black key
+			if (currentMidi - nextMidi === 2) {
+				// Use the sharp of the lower note
+				noteName = nextNoteName + "#";
+				octave = nextOctave;
+				isSharp = true;
+			} else {
+				// E-F or B-C boundary - no black key, stick to the natural note
+				isBetween = false;
+			}
+		}
 	} else {
 		// Bass clef: Top line = A3
-		// Notes going down: A, G, F, E, D, C, B (repeating)
 		var noteNames = ["A", "G", "F", "E", "D", "C", "B"];
-		// Octaves for positions 0-6: A3, G3, F3, E3, D3, C3, B2
 		var baseOctaves = [3, 3, 3, 3, 3, 3, 2];
 
 		var cyclePos = staffPos >= 0 ? staffPos % 7 : ((staffPos % 7) + 7) % 7;
@@ -173,11 +199,35 @@ function yPositionToNote(yPos, clef) {
 
 		noteName = noteNames[cyclePos];
 		octave = baseOctaves[cyclePos] - cycleNum;
+
+		if (isBetween) {
+			var nextPos = (cyclePos + 1) % 7;
+			var nextOctave = baseOctaves[nextPos] - cycleNum - (nextPos < cyclePos ? 1 : 0);
+			var nextNoteName = noteNames[nextPos];
+
+			var noteToSemitone = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11};
+			var currentMidi = noteToSemitone[noteName.replace("#", "").replace("b", "")] + (octave + 1) * 12;
+			var nextMidi = noteToSemitone[nextNoteName] + (nextOctave + 1) * 12;
+
+			if (currentMidi - nextMidi === 2) {
+				noteName = nextNoteName + "#";
+				octave = nextOctave;
+				isSharp = true;
+			} else {
+				isBetween = false;
+			}
+		}
 	}
 
 	// Convert to MIDI
 	var noteToSemitone = {"C": 0, "D": 2, "E": 4, "F": 5, "G": 7, "A": 9, "B": 11};
-	var midi = noteToSemitone[noteName] + (octave + 1) * 12;
+	var baseNote = noteName.replace("#", "").replace("b", "");
+	var midi = noteToSemitone[baseNote] + (octave + 1) * 12;
+
+	// Add semitone for sharp
+	if (noteName.includes("#")) {
+		midi += 1;
+	}
 
 	// Clamp to reasonable range
 	midi = Math.max(24, Math.min(96, midi));
@@ -344,25 +394,8 @@ function getSvgCoordinates(event) {
 	};
 }
 
-// Determine accidental modifier from horizontal mouse position
-// Left third of note area = flat, middle = natural, right third = sharp
-function getModifierFromX(x) {
-	if (staffNoteStartX === null || staffNoteEndX === null) return null;
-	var noteAreaWidth = staffNoteEndX - staffNoteStartX;
-	var relativeX = x - staffNoteStartX;
-	var fraction = relativeX / noteAreaWidth;
-
-	if (fraction < 1 / 3) return "flat";
-	if (fraction > 2 / 3) return "sharp";
-	return null;
-}
-
 // Handle mouse move over staff (show ghost note)
 function handleStaffMouseMove(event) {
-	// Store last mouse event for modifier key updates
-	var staffContainer = document.getElementById("staff-container");
-	staffContainer._lastMouseEvent = event;
-
 	var instrument = document.getElementById("instrument").value;
 	if (!instrument) return;
 
@@ -375,43 +408,30 @@ function handleStaffMouseMove(event) {
 	var clef = getCurrentClef();
 	var noteInfo = yPositionToNote(coords.y, clef);
 
-	// Determine accidental from X position (keyboard modifiers override)
-	var modifier = null;
-	if (event.shiftKey) {
-		modifier = "sharp";
-	} else if (event.altKey) {
-		modifier = "flat";
-	} else {
-		modifier = getModifierFromX(coords.x);
-	}
-
-	// Apply modifier to get sharp/flat version
-	// Keep note at same staff position and add accidental
+	// Use the note directly from Y position (includes sharps if between staff positions)
 	var displayNote = noteInfo.note;
 	var displayOctave = noteInfo.octave;
 	var displayMidi = noteInfo.midi;
 
-	if (modifier === "sharp") {
-		displayNote = noteInfo.note + "#";
-		displayMidi = Math.min(96, noteInfo.midi + 1);
-	} else if (modifier === "flat") {
-		displayNote = noteInfo.note + "b";
-		displayMidi = Math.max(24, noteInfo.midi - 1);
-	}
-
 	// Only update if ghost note changed
-	if (displayNote !== ghostNote || displayOctave !== ghostOctave || displayMidi !== ghostMidi || modifier !== currentModifier) {
+	if (displayNote !== ghostNote || displayOctave !== ghostOctave || displayMidi !== ghostMidi) {
 		ghostNote = displayNote;
 		ghostOctave = displayOctave;
 		ghostMidi = displayMidi;
-		currentModifier = modifier;
+		currentModifier = null;
 
 		// Redraw staff with ghost note
-		drawStaff(null, null, ghostNote, ghostOctave, currentModifier);
+		drawStaff(null, null, ghostNote, ghostOctave, null);
 
-		// Update display with ghost note info (lighter styling handled by CSS)
+		// Update display with ghost note info
 		var noteNameElem = document.getElementById("note-name");
-		noteNameElem.textContent = ghostNote;
+		// Show enharmonic equivalent if it exists
+		var enharmonic = enharmonicMap[ghostNote];
+		if (enharmonic) {
+			noteNameElem.textContent = ghostNote + " / " + enharmonic;
+		} else {
+			noteNameElem.textContent = ghostNote;
+		}
 		noteNameElem.style.opacity = "0.5";
 	}
 }
@@ -452,27 +472,10 @@ function handleStaffClick(event) {
 	var clef = getCurrentClef();
 	var noteInfo = yPositionToNote(coords.y, clef);
 
-	// Determine accidental from X position (keyboard modifiers override)
-	var modifier = null;
-	if (event.shiftKey) {
-		modifier = "sharp";
-	} else if (event.altKey) {
-		modifier = "flat";
-	} else {
-		modifier = getModifierFromX(coords.x);
-	}
-
-	var placeMidi = noteInfo.midi;
+	// Use the note directly from Y position (includes sharps if between staff positions)
 	var placeNote = noteInfo.note;
 	var placeOctave = noteInfo.octave;
-
-	if (modifier === "sharp") {
-		placeNote = noteInfo.note + "#";
-		placeMidi = Math.min(96, noteInfo.midi + 1);
-	} else if (modifier === "flat") {
-		placeNote = noteInfo.note + "b";
-		placeMidi = Math.max(24, noteInfo.midi - 1);
-	}
+	var placeMidi = noteInfo.midi;
 
 	// Apply transposition (convert written pitch to concert pitch for frequency)
 	var transposition = getTransposition();
@@ -713,26 +716,6 @@ document.addEventListener("DOMContentLoaded", function() {
 	// Set up keyboard handler for arrow key navigation
 	document.addEventListener("keydown", handleKeyDown);
 
-	// Set up keyboard handlers for modifier keys (shift/alt for sharp/flat ghost notes)
-	document.addEventListener("keydown", handleModifierKey);
-	document.addEventListener("keyup", handleModifierKey);
-
 	// Draw initial staff (empty, treble clef)
 	drawStaff(null, null, null, null);
 });
-
-// Handle modifier key press/release to update ghost note
-function handleModifierKey(event) {
-	// Only care about shift and alt
-	if (event.key !== "Shift" && event.key !== "Alt") return;
-
-	// Don't update if we have a placed note
-	if (currentNote !== null) return;
-
-	// Trigger a fake mousemove to update the ghost note
-	var staffContainer = document.getElementById("staff-container");
-	var lastMouseEvent = staffContainer._lastMouseEvent;
-	if (lastMouseEvent) {
-		handleStaffMouseMove(lastMouseEvent);
-	}
-}
