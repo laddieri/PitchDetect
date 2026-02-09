@@ -53,169 +53,169 @@ var trumpetFingerings = {
 // FLUTE FINGERINGS
 // ============================================================================
 // Flute fingering representation:
-// LT = Left Thumb (B key)
+// LT = Left Thumb - two keys: B-natural and Bb
 // L1, L2, L3 = Left hand fingers 1, 2, 3
 // RT = Right Thumb (support, not a key)
 // R1, R2, R3, R4 = Right hand fingers
 // Keys: Gsharp, Dsharp, Dnatural, Csharp, C, B
-// Format: { left: [thumb, 1, 2, 3], right: [1, 2, 3, 4], trill: [], foot: [Dsharp, Dnat, Csharp, C, B] }
+// Format: { left: [Bnat_thumb, Bb_thumb, 1, 2, 3], right: [1, 2, 3, 4], foot: [Dsharp, Dnat, Csharp, C, B] }
 // 1 = pressed, 0 = open
 
 var fluteFingerings = {
 	// Low register (first octave)
 	60: { // C4 (middle C)
-		primary: { left: [0, 1, 1, 1], right: [1, 1, 1, 0], foot: [0, 0, 1, 1, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 1, 1, 0], foot: [0, 0, 1, 1, 0] },
 		alternates: []
 	},
 	61: { // C#4
-		primary: { left: [0, 1, 1, 1], right: [1, 1, 1, 0], foot: [0, 0, 1, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 1, 1, 0], foot: [0, 0, 1, 0, 0] },
 		alternates: []
 	},
 	62: { // D4
-		primary: { left: [0, 1, 1, 1], right: [1, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	63: { // D#4
-		primary: { left: [0, 1, 1, 1], right: [1, 1, 1, 0], foot: [1, 0, 0, 0, 0] },
-		alternates: [{ left: [0, 1, 1, 1], right: [1, 1, 0, 1], foot: [0, 0, 0, 0, 0] }]
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 1, 1, 0], foot: [1, 0, 0, 0, 0] },
+		alternates: [{ left: [0, 0, 1, 1, 1], right: [1, 1, 0, 1], foot: [0, 0, 0, 0, 0] }]
 	},
 	64: { // E4
-		primary: { left: [0, 1, 1, 1], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	65: { // F4
-		primary: { left: [0, 1, 1, 1], right: [1, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	66: { // F#4
-		primary: { left: [0, 1, 1, 1], right: [0, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
-		alternates: [{ left: [0, 1, 1, 1], right: [0, 0, 1, 0], foot: [0, 0, 0, 0, 0] }]
+		primary: { left: [0, 0, 1, 1, 1], right: [0, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
+		alternates: [{ left: [0, 0, 1, 1, 1], right: [0, 0, 1, 0], foot: [0, 0, 0, 0, 0] }]
 	},
 	67: { // G4
-		primary: { left: [0, 1, 1, 1], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	68: { // G#4
-		primary: { left: [0, 1, 1, 0], right: [0, 0, 0, 1], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 0], right: [0, 0, 0, 1], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	69: { // A4
-		primary: { left: [0, 1, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	70: { // A#4 / Bb4
-		primary: { left: [0, 1, 0, 1], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 1, 1, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: [
-			{ left: [0, 1, 0, 0], right: [1, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
-			{ left: [1, 1, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] }
+			{ left: [0, 0, 1, 0, 0], right: [1, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+			{ left: [1, 0, 1, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] }
 		]
 	},
 	71: { // B4
-		primary: { left: [0, 1, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [1, 0, 1, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 
 	// Second octave (same fingerings, different embouchure)
 	72: { // C5
-		primary: { left: [0, 0, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
-		alternates: [{ left: [0, 1, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] }]
+		primary: { left: [0, 0, 0, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		alternates: [{ left: [1, 0, 1, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] }]
 	},
 	73: { // C#5
-		primary: { left: [0, 0, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 0, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	74: { // D5
-		primary: { left: [0, 1, 1, 1], right: [1, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	75: { // D#5
-		primary: { left: [0, 1, 1, 1], right: [1, 1, 1, 0], foot: [1, 0, 0, 0, 0] },
-		alternates: [{ left: [0, 1, 1, 1], right: [1, 1, 0, 1], foot: [0, 0, 0, 0, 0] }]
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 1, 1, 0], foot: [1, 0, 0, 0, 0] },
+		alternates: [{ left: [0, 0, 1, 1, 1], right: [1, 1, 0, 1], foot: [0, 0, 0, 0, 0] }]
 	},
 	76: { // E5
-		primary: { left: [0, 1, 1, 1], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	77: { // F5
-		primary: { left: [0, 1, 1, 1], right: [1, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	78: { // F#5
-		primary: { left: [0, 1, 1, 1], right: [0, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
-		alternates: [{ left: [0, 1, 1, 1], right: [0, 0, 1, 0], foot: [0, 0, 0, 0, 0] }]
+		primary: { left: [0, 0, 1, 1, 1], right: [0, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
+		alternates: [{ left: [0, 0, 1, 1, 1], right: [0, 0, 1, 0], foot: [0, 0, 0, 0, 0] }]
 	},
 	79: { // G5
-		primary: { left: [0, 1, 1, 1], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	80: { // G#5
-		primary: { left: [0, 1, 1, 0], right: [0, 0, 0, 1], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 0], right: [0, 0, 0, 1], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	81: { // A5
-		primary: { left: [0, 1, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	82: { // A#5 / Bb5
-		primary: { left: [0, 1, 0, 1], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
-		alternates: [{ left: [1, 1, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] }]
+		primary: { left: [0, 1, 1, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		alternates: [{ left: [1, 0, 1, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] }]
 	},
 	83: { // B5
-		primary: { left: [0, 1, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [1, 0, 1, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 
 	// Third octave
 	84: { // C6
-		primary: { left: [0, 0, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 0, 1, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	85: { // C#6
-		primary: { left: [0, 0, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 0, 0, 0], right: [0, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	86: { // D6
-		primary: { left: [0, 1, 1, 1], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	87: { // D#6
-		primary: { left: [0, 1, 1, 1], right: [1, 0, 1, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [1, 0, 1, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	88: { // E6
-		primary: { left: [0, 1, 1, 1], right: [0, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 1], right: [0, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	89: { // F6
-		primary: { left: [0, 1, 1, 0], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 0], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	90: { // F#6
-		primary: { left: [0, 1, 1, 0], right: [0, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 0], right: [0, 1, 1, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	91: { // G6
-		primary: { left: [0, 1, 1, 0], right: [0, 0, 1, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 0], right: [0, 0, 1, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	92: { // G#6
-		primary: { left: [0, 1, 1, 0], right: [0, 0, 0, 1], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 1, 0], right: [0, 0, 0, 1], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	93: { // A6
-		primary: { left: [0, 1, 0, 1], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 0, 1], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	94: { // A#6
-		primary: { left: [0, 1, 0, 1], right: [0, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 0, 1], right: [0, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	95: { // B6
-		primary: { left: [0, 1, 0, 0], right: [1, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 1, 0, 0], right: [1, 0, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	},
 	96: { // C7
-		primary: { left: [0, 0, 1, 0], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
+		primary: { left: [0, 0, 0, 1, 0], right: [1, 1, 0, 0], foot: [0, 0, 0, 0, 0] },
 		alternates: []
 	}
 };
@@ -324,12 +324,17 @@ function drawFluteFingering(container, fingering, isAlternate) {
 	var keyRadius = 12;
 	var smallKeyRadius = 8;
 
-	// Left hand keys (thumb + 3 fingers)
+	// Left hand keys (2 thumb keys + 3 fingers)
 	var leftKeys = [
-		{ x: 40, y: 30, r: smallKeyRadius, label: "Th", pressed: fingering.left[0] },   // Thumb B key
-		{ x: 70, y: 55, r: keyRadius, label: "1", pressed: fingering.left[1] },         // L1
-		{ x: 100, y: 55, r: keyRadius, label: "2", pressed: fingering.left[2] },        // L2
-		{ x: 130, y: 55, r: keyRadius, label: "3", pressed: fingering.left[3] }         // L3
+		{ x: 70, y: 55, r: keyRadius, label: "1", pressed: fingering.left[2] },         // L1
+		{ x: 100, y: 55, r: keyRadius, label: "2", pressed: fingering.left[3] },        // L2
+		{ x: 130, y: 55, r: keyRadius, label: "3", pressed: fingering.left[4] }         // L3
+	];
+
+	// Thumb keys (below the body)
+	var thumbKeys = [
+		{ x: 40, y: 90, r: smallKeyRadius, label: "B♮", pressed: fingering.left[0] },   // B-natural key
+		{ x: 60, y: 90, r: smallKeyRadius, label: "B♭", pressed: fingering.left[1] }    // Bb key
 	];
 
 	// Right hand keys (4 fingers)
@@ -360,8 +365,8 @@ function drawFluteFingering(container, fingering, isAlternate) {
 		circle.setAttribute("stroke-width", "2");
 		svg.appendChild(circle);
 
-		// Small text label for foot keys only
-		if (key.r < keyRadius - 2) {
+		// Small text label for thumb keys and foot keys
+		if (key.label && (key.r < keyRadius - 2 || key.label.includes("♮") || key.label.includes("♭"))) {
 			var text = document.createElementNS("http://www.w3.org/2000/svg", "text");
 			text.setAttribute("x", key.x);
 			text.setAttribute("y", key.y + 3);
@@ -375,11 +380,12 @@ function drawFluteFingering(container, fingering, isAlternate) {
 
 	leftKeys.forEach(drawKey);
 	rightKeys.forEach(drawKey);
+	thumbKeys.forEach(drawKey);
 	footKeys.forEach(drawKey);
 
 	// Hand labels
 	var leftLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
-	leftLabel.setAttribute("x", "85");
+	leftLabel.setAttribute("x", "100");
 	leftLabel.setAttribute("y", "15");
 	leftLabel.setAttribute("text-anchor", "middle");
 	leftLabel.setAttribute("font-size", "12");
@@ -405,14 +411,14 @@ function drawFluteFingering(container, fingering, isAlternate) {
 	footLabel.textContent = "Foot Keys";
 	svg.appendChild(footLabel);
 
-	// Thumb label
+	// Thumb keys label
 	var thumbLabel = document.createElementNS("http://www.w3.org/2000/svg", "text");
-	thumbLabel.setAttribute("x", "40");
-	thumbLabel.setAttribute("y", "15");
+	thumbLabel.setAttribute("x", "50");
+	thumbLabel.setAttribute("y", "110");
 	thumbLabel.setAttribute("text-anchor", "middle");
 	thumbLabel.setAttribute("font-size", "10");
 	thumbLabel.setAttribute("fill", "#666");
-	thumbLabel.textContent = "B key";
+	thumbLabel.textContent = "Thumb Keys";
 	svg.appendChild(thumbLabel);
 
 	container.appendChild(svg);
