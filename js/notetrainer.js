@@ -231,10 +231,33 @@ function yPositionToNote(yPos, clef) {
 	// Add semitone for sharp
 	if (noteName.includes("#")) {
 		midi += 1;
+	} else if (noteName.includes("b")) {
+		midi -= 1;
 	}
 
 	// Clamp to reasonable range
 	midi = Math.max(24, Math.min(96, midi));
+
+	// Convert awkward enharmonics to natural notes
+	// B# -> C, Cb -> B, E# -> F, Fb -> E
+	var noteNum = midi % 12;
+	if ((noteName === "B#" || noteName === "Cb") && noteNum === 0) {
+		// B# or Cb = C
+		noteName = "C";
+		octave = Math.floor(midi / 12) - 1;
+	} else if ((noteName === "E#" || noteName === "Fb") && noteNum === 5) {
+		// E# or Fb = F
+		noteName = "F";
+		octave = Math.floor(midi / 12) - 1;
+	} else if (noteName === "Cb" && noteNum === 11) {
+		// Cb = B
+		noteName = "B";
+		octave = Math.floor(midi / 12) - 1;
+	} else if (noteName === "Fb" && noteNum === 4) {
+		// Fb = E
+		noteName = "E";
+		octave = Math.floor(midi / 12) - 1;
+	}
 
 	return { note: noteName, octave: octave, midi: midi };
 }
