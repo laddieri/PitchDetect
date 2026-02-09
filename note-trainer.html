@@ -185,6 +185,14 @@
 				margin-top: 10px;
 			}
 
+			.staff-wrapper {
+				flex: 1;
+				display: flex;
+				gap: 10px;
+				align-items: stretch;
+				min-width: 0;
+			}
+
 			.staff-container {
 				flex: 1;
 				background-color: white;
@@ -197,6 +205,45 @@
 				min-width: 0;
 				overflow: hidden;
 				cursor: crosshair;
+			}
+
+			.pitch-controls {
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+				justify-content: center;
+			}
+
+			.pitch-button {
+				width: 50px;
+				height: 50px;
+				font-size: 24px;
+				background-color: #4CAF50;
+				color: white;
+				border: none;
+				border-radius: 8px;
+				cursor: pointer;
+				transition: background-color 0.2s;
+				box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+				display: none;
+			}
+
+			.pitch-button.active {
+				display: block;
+			}
+
+			.pitch-button:hover {
+				background-color: #45a049;
+			}
+
+			.pitch-button:active {
+				background-color: #3d8b40;
+				transform: scale(0.95);
+			}
+
+			.pitch-button:disabled {
+				background-color: #ccc;
+				cursor: not-allowed;
 			}
 
 			.fingering-container {
@@ -284,9 +331,25 @@
 					min-height: 150px;
 				}
 
+				.staff-wrapper {
+					flex: 1;
+					min-height: 200px;
+				}
+
 				.staff-container {
 					flex: 1;
 					min-height: 200px;
+				}
+
+				/* Show pitch buttons on mobile */
+				.pitch-button.active {
+					display: block;
+				}
+
+				.pitch-button {
+					width: 45px;
+					height: 45px;
+					font-size: 20px;
 				}
 
 				.fingering-container {
@@ -350,8 +413,14 @@
 					<div id="frequency-display"></div>
 				</div>
 
-				<div class="staff-container" id="staff-container">
-					<div id="staff-output"></div>
+				<div class="staff-wrapper">
+					<div class="staff-container" id="staff-container">
+						<div id="staff-output"></div>
+					</div>
+					<div class="pitch-controls">
+						<button id="pitchUpButton" class="pitch-button" onclick="adjustPitch(1)" title="Raise pitch by half step">▲</button>
+						<button id="pitchDownButton" class="pitch-button" onclick="adjustPitch(-1)" title="Lower pitch by half step">▼</button>
+					</div>
 				</div>
 			</div>
 
