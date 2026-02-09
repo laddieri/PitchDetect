@@ -493,11 +493,15 @@ function updatePitch( time ) {
 		if (detune == 0) {
 			detuneElem.className = "";
 			detuneAmount.innerHTML = "--";
+			detectorElem.className = "confident";
 		} else {
-			if (detune < 0)
+			if (detune < 0) {
 				detuneElem.className = "flat";
-			else
+				detectorElem.className = "confident flat";
+			} else {
 				detuneElem.className = "sharp";
+				detectorElem.className = "confident sharp";
+			}
 			detuneAmount.innerHTML = Math.abs(detune);
 		}
 	}
