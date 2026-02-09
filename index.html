@@ -105,6 +105,7 @@
 				justify-content: center;
 				align-items: center;
 				min-width: 0;
+				transition: background-color 0.2s ease;
 			}
 
 			#detector.confident {
@@ -115,12 +116,13 @@
 				border-color: #ddd;
 			}
 
+			/* Background colors now applied dynamically via JavaScript */
 			#detector.flat {
-				background-color: #ffeaea;  /* Light red for flat */
+				/* background-color set dynamically */
 			}
 
 			#detector.sharp {
-				background-color: #e3f2fd;  /* Light blue for sharp */
+				/* background-color set dynamically */
 			}
 
 			div.confident {
@@ -148,9 +150,6 @@
 				line-height: 1.1;
 				display: block;
 				margin: 10px 0;
-				padding: 10px 20px;
-				border-radius: 8px;
-				transition: background-color 0.2s ease;
 			}
 
 			#detune {
