@@ -11,7 +11,7 @@
 var trumpetFingerings = {
 	// Low register (written)
 	52: { primary: [], alternates: [] },           // E3 - open
-	53: { primary: [1, 2], alternates: [[3]] },    // F3
+	53: { primary: [1, 2], alternates: [] },       // F3
 	54: { primary: [1, 2, 3], alternates: [] },    // F#3
 	55: { primary: [1, 3], alternates: [] },       // G3
 	56: { primary: [2, 3], alternates: [] },       // G#3
@@ -24,12 +24,12 @@ var trumpetFingerings = {
 	61: { primary: [1, 2, 3], alternates: [] },    // C#4
 	62: { primary: [1, 3], alternates: [] },       // D4
 	63: { primary: [2, 3], alternates: [] },       // D#4
-	64: { primary: [1, 2], alternates: [[3]] },    // E4
+	64: { primary: [1, 2], alternates: [] },       // E4
 	65: { primary: [1], alternates: [] },          // F4
 	66: { primary: [2], alternates: [] },          // F#4
-	67: { primary: [], alternates: [[1, 2, 3]] },  // G4 - open
-	68: { primary: [2, 3], alternates: [[1, 2, 3]] }, // G#4
-	69: { primary: [1, 2], alternates: [[3]] },    // A4
+	67: { primary: [], alternates: [] },           // G4 - open
+	68: { primary: [2, 3], alternates: [] },       // G#4
+	69: { primary: [1, 2], alternates: [] },       // A4
 	70: { primary: [1], alternates: [] },          // A#4
 	71: { primary: [2], alternates: [] },          // B4
 
@@ -38,13 +38,13 @@ var trumpetFingerings = {
 	73: { primary: [1, 2], alternates: [] },       // C#5
 	74: { primary: [1], alternates: [] },          // D5
 	75: { primary: [], alternates: [] },           // D#5 - open
-	76: { primary: [1, 2], alternates: [[3]] },    // E5
-	77: { primary: [1], alternates: [[2]] },       // F5
+	76: { primary: [1, 2], alternates: [] },       // E5
+	77: { primary: [1], alternates: [] },          // F5
 	78: { primary: [2], alternates: [] },          // F#5
 	79: { primary: [], alternates: [] },           // G5 - open
-	80: { primary: [2, 3], alternates: [[1, 2]] }, // G#5
-	81: { primary: [1, 2], alternates: [[3]] },    // A5
-	82: { primary: [1], alternates: [[2]] },       // A#5
+	80: { primary: [2, 3], alternates: [] },       // G#5
+	81: { primary: [1, 2], alternates: [] },       // A5
+	82: { primary: [1], alternates: [] },          // A#5
 	83: { primary: [2], alternates: [] },          // B5
 	84: { primary: [], alternates: [] },           // C6 - open
 };
