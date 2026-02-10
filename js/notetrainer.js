@@ -167,8 +167,14 @@ function yPositionToNote(yPos, clef) {
 		// fraction close to 0 = on the current line/space (higher pitch)
 		// fraction close to 1 = approaching next line/space (lower pitch)
 
-		if (fraction > 0.2 && fraction < 0.8) {
-			// We're between two staff positions - check if there's a black key here
+		if (fraction >= 0.75) {
+			// Very close to next staff position (lower pitch) - advance to that note
+			var nextPos = (cyclePos + 1) % 7;
+			var nextCycleNum = cycleNum + (nextPos < cyclePos ? 1 : 0);
+			noteName = noteNames[nextPos];
+			octave = baseOctaves[nextPos] - nextCycleNum;
+		} else if (fraction > 0.25) {
+			// Between staff positions - check if there's a black key here
 			var currentMidi = noteToSemitone[noteName] + (octave + 1) * 12;
 
 			// Get the note below (next in sequence = lower pitch)
@@ -193,6 +199,7 @@ function yPositionToNote(yPos, clef) {
 			}
 			// If only half step (E-F or B-C), stick with the closer natural note
 		}
+		// If fraction < 0.25, we're on or very close to current position - use current note
 	} else {
 		// Bass clef: Top line = A3
 		var noteNames = ["A", "G", "F", "E", "D", "C", "B"];
@@ -204,7 +211,14 @@ function yPositionToNote(yPos, clef) {
 		noteName = noteNames[cyclePos];
 		octave = baseOctaves[cyclePos] - cycleNum;
 
-		if (fraction > 0.2 && fraction < 0.8) {
+		if (fraction >= 0.75) {
+			// Very close to next staff position (lower pitch) - advance to that note
+			var nextPos = (cyclePos + 1) % 7;
+			var nextCycleNum = cycleNum + (nextPos < cyclePos ? 1 : 0);
+			noteName = noteNames[nextPos];
+			octave = baseOctaves[nextPos] - nextCycleNum;
+		} else if (fraction > 0.25) {
+			// Between staff positions - check if there's a black key here
 			var currentMidi = noteToSemitone[noteName] + (octave + 1) * 12;
 
 			var nextPos = (cyclePos + 1) % 7;
@@ -222,6 +236,7 @@ function yPositionToNote(yPos, clef) {
 				}
 			}
 		}
+		// If fraction < 0.25, we're on or very close to current position - use current note
 	}
 
 	// Convert to MIDI
