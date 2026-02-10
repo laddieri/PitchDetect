@@ -186,16 +186,10 @@ function yPositionToNote(yPos, clef) {
 
 			// If there's a whole step between them (2 semitones), there's a black key
 			if (currentMidi - nextMidi === 2) {
-				// Determine which sharp to show based on which note we're closer to
-				if (fraction < 0.5) {
-					// Closer to current note (higher pitch) - show its sharp
-					noteName = noteName + "#";
-					// Sharp doesn't change the octave
-				} else {
-					// Closer to next note (lower pitch) - show it as the sharp of the note below
-					noteName = nextNoteName + "#";
-					octave = nextOctave;
-				}
+				// Show the sharp of the lower-pitched note (the chromatic note between them)
+				// E.g., between B and A, show A# (not B# which would be C)
+				noteName = nextNoteName + "#";
+				octave = nextOctave;
 			}
 			// If only half step (E-F or B-C), stick with the closer natural note
 		}
@@ -228,12 +222,9 @@ function yPositionToNote(yPos, clef) {
 			var nextMidi = noteToSemitone[nextNoteName] + (nextOctave + 1) * 12;
 
 			if (currentMidi - nextMidi === 2) {
-				if (fraction < 0.5) {
-					noteName = noteName + "#";
-				} else {
-					noteName = nextNoteName + "#";
-					octave = nextOctave;
-				}
+				// Show the sharp of the lower-pitched note (the chromatic note between them)
+				noteName = nextNoteName + "#";
+				octave = nextOctave;
 			}
 		}
 		// If fraction < 0.25, we're on or very close to current position - use current note
