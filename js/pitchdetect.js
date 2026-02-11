@@ -43,6 +43,7 @@ var detectorElem,
 
 var notetoDraw = "A";
 var octavetoDraw = "4"
+var tuningColorEnabled = true; // Track whether color tuner is enabled
 
 window.onload = function() {
 	audioContext = new AudioContext();
@@ -494,12 +495,16 @@ function updatePitch( time ) {
 		var detune = centsOffFromPitch(pitch, concertNote);
 
 		// Calculate background color intensity based on how out of tune
-		// 0 cents = white, 50+ cents = fully saturated color
+		// 0 cents = white, 100+ cents = fully saturated color (increased from 50 for less sensitivity)
 		var absDetune = Math.abs(detune);
-		var maxDetune = 50; // cents at which we reach maximum darkness
+		var maxDetune = 100; // cents at which we reach maximum darkness (doubled for less sensitivity)
 		var intensity = Math.min(absDetune / maxDetune, 1.0);
 
-		// Apply background color to detector container
+		// Apply a square root curve for more gradual color changes
+		// This makes the initial changes slower and more gentle
+		intensity = Math.sqrt(intensity);
+
+		// Apply background color to detector container only if tuning color is enabled
 		// Blue for flat (negative detune), red for sharp (positive detune)
 		if (detune == 0) {
 			detuneElem.className = "";
@@ -507,24 +512,29 @@ function updatePitch( time ) {
 			detectorElem.className = "confident";
 			detectorElem.style.backgroundColor = "white";
 		} else {
-			if (detune < 0) {
-				// Flat: dark blue gradient
-				detuneElem.className = "flat";
-				detectorElem.className = "confident flat";
-				// Blend from white to dark blue
-				var r = Math.round(255 - (255 - 30) * intensity);
-				var g = Math.round(255 - (255 - 60) * intensity);
-				var b = Math.round(255 - (255 - 120) * intensity);
-				detectorElem.style.backgroundColor = "rgb(" + r + ", " + g + ", " + b + ")";
+			if (tuningColorEnabled) {
+				if (detune < 0) {
+					// Flat: dark blue gradient
+					detuneElem.className = "flat";
+					detectorElem.className = "confident flat";
+					// Blend from white to dark blue
+					var r = Math.round(255 - (255 - 30) * intensity);
+					var g = Math.round(255 - (255 - 60) * intensity);
+					var b = Math.round(255 - (255 - 120) * intensity);
+					detectorElem.style.backgroundColor = "rgb(" + r + ", " + g + ", " + b + ")";
+				} else {
+					// Sharp: dark red gradient
+					detuneElem.className = "sharp";
+					detectorElem.className = "confident sharp";
+					// Blend from white to dark red
+					var r = Math.round(255 - (255 - 140) * intensity);
+					var g = Math.round(255 - (255 - 30) * intensity);
+					var b = Math.round(255 - (255 - 30) * intensity);
+					detectorElem.style.backgroundColor = "rgb(" + r + ", " + g + ", " + b + ")";
+				}
 			} else {
-				// Sharp: dark red gradient
-				detuneElem.className = "sharp";
-				detectorElem.className = "confident sharp";
-				// Blend from white to dark red
-				var r = Math.round(255 - (255 - 140) * intensity);
-				var g = Math.round(255 - (255 - 30) * intensity);
-				var b = Math.round(255 - (255 - 30) * intensity);
-				detectorElem.style.backgroundColor = "rgb(" + r + ", " + g + ", " + b + ")";
+				// Tuning color disabled - keep white background
+				detectorElem.style.backgroundColor = "white";
 			}
 			detuneAmount.innerHTML = Math.abs(detune);
 		}
@@ -812,6 +822,18 @@ document.addEventListener("DOMContentLoaded", function() {
 				if (!isPlaying) {
 					startPitchDetect();
 				}
+			}
+		});
+	}
+
+	// Handle tuning toggle
+	var tuningToggle = document.getElementById("tuningToggle");
+	if (tuningToggle) {
+		tuningToggle.addEventListener("change", function() {
+			tuningColorEnabled = tuningToggle.checked;
+			// If toggled off while playing, reset background color to white
+			if (!tuningColorEnabled && isPlaying) {
+				detectorElem.style.backgroundColor = "white";
 			}
 		});
 	}
