@@ -43,7 +43,7 @@ var detectorElem,
 
 var notetoDraw = "A";
 var octavetoDraw = "4"
-var tuningColorEnabled = true; // Track whether color tuner is enabled
+var tuningColorEnabled = false; // Track whether color tuner is enabled (off by default)
 
 window.onload = function() {
 	audioContext = new AudioContext();
