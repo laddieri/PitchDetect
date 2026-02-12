@@ -89,7 +89,10 @@
 				display: flex;
 				align-items: center;
 				gap: 10px;
-				font-size: 16px;
+				font-size: 14px;
+				margin-top: 20px;
+				padding-top: 15px;
+				border-top: 1px solid #ddd;
 			}
 
 			.toggle-switch {
@@ -295,12 +298,6 @@
 					max-width: 280px;
 				}
 
-				.tuning-toggle-container {
-					width: 100%;
-					max-width: 280px;
-					justify-content: center;
-				}
-
 				.main-display {
 					flex-direction: column;
 				}
@@ -351,13 +348,6 @@
 					<option value="tuba">Tuba</option>
 					<option value="glockenspiel">Glockenspiel</option>
 				</select>
-				<div class="tuning-toggle-container">
-					<label for="tuningToggle">Color Tuner:</label>
-					<label class="toggle-switch">
-						<input type="checkbox" id="tuningToggle" checked>
-						<span class="toggle-slider"></span>
-					</label>
-				</div>
 				<button id="stopButton" onclick="stopPitchDetect();">Stop</button>
 			</div>
 
@@ -369,6 +359,13 @@
 						<span id="detune_amt">--</span>
 						<span id="flat">cents &#9837;</span>
 						<span id="sharp">cents &#9839;</span>
+					</div>
+					<div class="tuning-toggle-container">
+						<label for="tuningToggle">Color Tuner:</label>
+						<label class="toggle-switch">
+							<input type="checkbox" id="tuningToggle" checked>
+							<span class="toggle-slider"></span>
+						</label>
 					</div>
 				</div>
 
