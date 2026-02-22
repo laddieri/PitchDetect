@@ -600,10 +600,26 @@
 			bubble1.style.display = 'none';
 			bubble2.style.display = 'block';
 
+			// Initial position (Stop button not yet visible — getUserMedia is async)
 			requestAnimationFrame(function() {
 				var controls = document.querySelector('.controls');
 				if (controls) positionBubble(bubble2, controls);
 			});
+
+			// Reposition once the Stop button appears (controls grows taller after mic grant)
+			var stopBtn = document.getElementById('stopButton');
+			if (stopBtn) {
+				var stopObserver = new MutationObserver(function() {
+					stopObserver.disconnect();
+					requestAnimationFrame(function() {
+						if (tutorialStep === 2) {
+							var controls = document.querySelector('.controls');
+							if (controls) positionBubble(bubble2, controls);
+						}
+					});
+				});
+				stopObserver.observe(stopBtn, { attributes: true, attributeFilter: ['style'] });
+			}
 		}
 
 		window.closeTutorial = function() {
