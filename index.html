@@ -275,6 +275,149 @@
 				height: auto;
 			}
 
+			/* ===== Tutorial Overlay ===== */
+			#tutorial-overlay {
+				position: fixed;
+				top: 0;
+				left: 0;
+				width: 100%;
+				height: 100%;
+				background: rgba(0, 0, 0, 0.65);
+				backdrop-filter: blur(4px);
+				-webkit-backdrop-filter: blur(4px);
+				z-index: 1000;
+				pointer-events: all;
+				opacity: 1;
+				transition: opacity 0.4s ease;
+			}
+
+			#tutorial-overlay.tutorial-hiding {
+				opacity: 0;
+				pointer-events: none;
+			}
+
+			/* Title visible above overlay */
+			body.tutorial-step-1 h1,
+			body.tutorial-step-2 h1 {
+				position: relative;
+				z-index: 1001;
+				background: #f5f5f5;
+				padding: 6px 24px;
+				border-radius: 10px;
+			}
+
+			/* Controls visible above overlay */
+			body.tutorial-step-1 .controls,
+			body.tutorial-step-2 .controls {
+				position: relative;
+				z-index: 1001;
+				background: #f5f5f5;
+				padding: 12px 24px;
+				border-radius: 12px;
+				box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+			}
+
+			/* Nav links visible above overlay in step 2 */
+			body.tutorial-step-2 .nav-links {
+				position: relative;
+				z-index: 1001;
+				background: #f5f5f5;
+				padding: 4px 16px;
+				border-radius: 8px;
+			}
+
+			/* Pulse animation on instrument select during step 1 */
+			body.tutorial-step-1 #instrument {
+				animation: tutorial-pulse 2s ease-in-out infinite;
+			}
+
+			@keyframes tutorial-pulse {
+				0%, 100% {
+					border-color: #ddd;
+					box-shadow: none;
+				}
+				50% {
+					border-color: #4CAF50;
+					box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.3);
+				}
+			}
+
+			/* Tooltip bubble */
+			.tutorial-bubble {
+				position: fixed;
+				background: white;
+				border-radius: 14px;
+				padding: 18px 22px;
+				max-width: 320px;
+				min-width: 220px;
+				box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+				z-index: 1002;
+				text-align: center;
+				line-height: 1.6;
+				font-size: 15px;
+				pointer-events: none;
+			}
+
+			.tutorial-bubble strong {
+				display: block;
+				margin-bottom: 8px;
+				font-size: 17px;
+				color: #222;
+			}
+
+			.tutorial-bubble p {
+				margin: 6px 0;
+				color: #444;
+			}
+
+			.tutorial-bubble a {
+				color: #4CAF50;
+				font-weight: bold;
+				text-decoration: none;
+				pointer-events: all;
+			}
+
+			.tutorial-bubble a:hover {
+				text-decoration: underline;
+			}
+
+			/* Arrow pointing up toward element above the bubble */
+			.bubble-arrow-up {
+				position: absolute;
+				top: -11px;
+				left: 50%;
+				transform: translateX(-50%);
+				width: 0;
+				height: 0;
+				border-left: 11px solid transparent;
+				border-right: 11px solid transparent;
+				border-bottom: 11px solid white;
+			}
+
+			/* Skip button */
+			#tutorial-skip {
+				position: fixed;
+				bottom: 28px;
+				right: 28px;
+				z-index: 1002;
+				background: transparent;
+				color: rgba(255, 255, 255, 0.75);
+				border: 1px solid rgba(255, 255, 255, 0.4);
+				border-radius: 20px;
+				padding: 8px 18px;
+				cursor: pointer;
+				font-size: 13px;
+				font-family: 'Alike', sans-serif;
+				letter-spacing: 0.3px;
+				transition: color 0.2s, border-color 0.2s, background 0.2s;
+			}
+
+			#tutorial-skip:hover {
+				color: white;
+				border-color: rgba(255, 255, 255, 0.8);
+				background: rgba(255, 255, 255, 0.1);
+			}
+
 			/* Mobile styles */
 			@media (max-width: 700px) {
 				body {
@@ -378,5 +521,151 @@
 		<a href="https://github.com/cwilso/pitchdetect" class="github-link">
 			<img src="img/forkme.png" alt="Fork me on GitHub">
 		</a>
+
+	<!-- Tutorial Overlay -->
+	<div id="tutorial-overlay" style="display:none">
+		<!-- Step 1: Select an instrument -->
+		<div id="tutorial-bubble-1" class="tutorial-bubble">
+			<strong>Welcome to Pitch Detector!</strong>
+			<p>Select your instrument from the dropdown above to get started.</p>
+			<div class="bubble-arrow-up"></div>
+		</div>
+
+		<!-- Step 2: Play a note or go to Note Trainer -->
+		<div id="tutorial-bubble-2" class="tutorial-bubble" style="display:none">
+			<strong>Ready to go!</strong>
+			<p>Play a note on your instrument &mdash; detection starts automatically.</p>
+			<p>Or <a href="note-trainer.html" id="tutorial-trainer-link">open Note Trainer</a> to place a note on the staff.</p>
+			<div class="bubble-arrow-up"></div>
+		</div>
+
+		<button id="tutorial-skip">Skip tutorial &times;</button>
+	</div>
+
+	<script>
+	// ===== Tutorial System =====
+	(function() {
+		var STORAGE_KEY = 'pitchdetect-tutorial-done';
+		var tutorialStep = 0;
+		var overlay, bubble1, bubble2;
+
+		function tryStorage(fn) {
+			try { return fn(); } catch (e) { return null; }
+		}
+
+		function positionBubble(bubble, anchorEl) {
+			var rect = anchorEl.getBoundingClientRect();
+			var bubbleW = bubble.offsetWidth || 280;
+
+			// Place bubble below the anchor
+			var top = rect.bottom + 20;
+			var targetCenter = rect.left + rect.width / 2;
+			var left = targetCenter - bubbleW / 2;
+
+			// Keep within viewport horizontally with padding
+			left = Math.max(16, Math.min(left, window.innerWidth - bubbleW - 16));
+
+			bubble.style.top = top + 'px';
+			bubble.style.left = left + 'px';
+
+			// Shift the arrow so it points at the anchor's center
+			var arrow = bubble.querySelector('.bubble-arrow-up');
+			if (arrow) {
+				var arrowPos = (targetCenter - left) - 11;
+				arrowPos = Math.max(12, Math.min(arrowPos, bubbleW - 24));
+				arrow.style.left = arrowPos + 'px';
+				arrow.style.transform = 'none';
+			}
+		}
+
+		function showStep1() {
+			tutorialStep = 1;
+			window.tutorialStep = 1;
+			document.body.classList.add('tutorial-step-1');
+			overlay.style.display = 'block';
+			bubble1.style.display = 'block';
+			bubble2.style.display = 'none';
+
+			requestAnimationFrame(function() {
+				var controls = document.querySelector('.controls');
+				if (controls) positionBubble(bubble1, controls);
+			});
+		}
+
+		function showStep2() {
+			tutorialStep = 2;
+			window.tutorialStep = 2;
+			document.body.classList.remove('tutorial-step-1');
+			document.body.classList.add('tutorial-step-2');
+			bubble1.style.display = 'none';
+			bubble2.style.display = 'block';
+
+			requestAnimationFrame(function() {
+				var controls = document.querySelector('.controls');
+				if (controls) positionBubble(bubble2, controls);
+			});
+		}
+
+		window.closeTutorial = function() {
+			if (tutorialStep === 0) return;
+			tutorialStep = 0;
+			window.tutorialStep = 0;
+			document.body.classList.remove('tutorial-step-1', 'tutorial-step-2');
+			overlay.classList.add('tutorial-hiding');
+			setTimeout(function() {
+				overlay.style.display = 'none';
+				overlay.classList.remove('tutorial-hiding');
+			}, 400);
+			tryStorage(function() {
+				localStorage.setItem(STORAGE_KEY, 'true');
+			});
+		};
+
+		document.addEventListener('DOMContentLoaded', function() {
+			// Skip if tutorial already completed
+			if (tryStorage(function() { return localStorage.getItem(STORAGE_KEY); }) === 'true') return;
+
+			overlay = document.getElementById('tutorial-overlay');
+			bubble1 = document.getElementById('tutorial-bubble-1');
+			bubble2 = document.getElementById('tutorial-bubble-2');
+			if (!overlay || !bubble1 || !bubble2) return;
+
+			showStep1();
+
+			// Advance to step 2 when an instrument is chosen
+			var instrumentSelect = document.getElementById('instrument');
+			if (instrumentSelect) {
+				instrumentSelect.addEventListener('change', function() {
+					if (tutorialStep === 1 && instrumentSelect.value !== '') {
+						showStep2();
+					}
+				});
+			}
+
+			// Skip button dismisses the tutorial
+			var skipBtn = document.getElementById('tutorial-skip');
+			if (skipBtn) {
+				skipBtn.addEventListener('click', window.closeTutorial);
+			}
+
+			// Mark tutorial done if navigating to Note Trainer via any link
+			document.querySelectorAll('a[href="note-trainer.html"]').forEach(function(link) {
+				link.addEventListener('click', function() {
+					tryStorage(function() {
+						localStorage.setItem(STORAGE_KEY, 'true');
+					});
+				});
+			});
+
+			// Reposition bubbles if the window is resized
+			window.addEventListener('resize', function() {
+				var controls = document.querySelector('.controls');
+				if (!controls) return;
+				if (tutorialStep === 1) positionBubble(bubble1, controls);
+				else if (tutorialStep === 2) positionBubble(bubble2, controls);
+			});
+		});
+	})();
+	</script>
 	</body>
 </html>
