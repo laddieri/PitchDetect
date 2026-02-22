@@ -817,6 +817,9 @@ document.addEventListener("DOMContentLoaded", function() {
 	var instrumentSelect = document.getElementById("instrument");
 	if (instrumentSelect) {
 		instrumentSelect.addEventListener("change", function() {
+			// Persist selection so the note trainer page (and future visits) stay in sync
+			try { localStorage.setItem('pitchdetect-instrument', instrumentSelect.value); } catch(e) {}
+
 			// If an instrument is selected, auto-start pitch detection
 			if (instrumentSelect.value !== "") {
 				// Force re-render with new clef
@@ -829,6 +832,19 @@ document.addEventListener("DOMContentLoaded", function() {
 				}
 			}
 		});
+
+		// Restore instrument saved from note trainer (or a previous session)
+		try {
+			var saved = localStorage.getItem('pitchdetect-instrument');
+			if (saved) {
+				instrumentSelect.value = saved;
+				if (instrumentSelect.value === saved) {
+					// Valid option restored — update notation to show correct clef
+					lastRenderedInstrument = null;
+					updateNotation();
+				}
+			}
+		} catch(e) {}
 	}
 
 	// Handle tuning toggle
