@@ -461,6 +461,11 @@ function updatePitch( time ) {
 		detuneElem.className = "";
 		detuneAmount.innerText = "--";
  	} else {
+	 	// Close the tutorial when the user plays their first note in step 2
+	 	if (window.tutorialStep === 2 && typeof window.closeTutorial === 'function') {
+	 		window.closeTutorial();
+	 	}
+
 	 	detectorElem.className = "confident";
 	 	pitch = detectedFreq;
 
