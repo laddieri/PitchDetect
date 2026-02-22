@@ -752,6 +752,9 @@ document.addEventListener("DOMContentLoaded", function() {
 	var instrument = document.getElementById("instrument");
 
 	instrument.addEventListener("change", function() {
+		// Persist selection so the pitch detector page stays in sync
+		try { localStorage.setItem('pitchdetect-instrument', instrument.value); } catch(e) {}
+
 		// Clear any existing note when instrument changes
 		ghostNote = null;
 		ghostOctave = null;
@@ -782,6 +785,16 @@ document.addEventListener("DOMContentLoaded", function() {
 	// Set up keyboard handler for arrow key navigation
 	document.addEventListener("keydown", handleKeyDown);
 
-	// Draw initial staff (empty, treble clef)
+	// Restore instrument saved from the pitch detector page (or a previous session)
+	try {
+		var saved = localStorage.getItem('pitchdetect-instrument');
+		if (saved) {
+			instrument.value = saved;
+			// Reset if the saved value isn't a valid option in this list
+			if (instrument.value !== saved) instrument.value = '';
+		}
+	} catch(e) {}
+
+	// Draw initial staff (uses restored instrument for correct clef)
 	drawStaff(null, null, null, null);
 });
