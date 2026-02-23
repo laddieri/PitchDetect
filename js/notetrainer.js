@@ -4,7 +4,7 @@
 
 // Audio context for playing sounds
 var audioContext = null;
-var currentOscillator = null;
+var activeAudioNodes = [];  // Track all active nodes for cleanup
 
 // Current note state
 var currentNote = null;
@@ -630,7 +630,306 @@ function adjustPitch(semitones) {
 	}
 }
 
-// Play the current note
+// Instrument timbre profiles for synthesis
+// Each profile defines harmonics, envelope, and character for realistic sound
+var instrumentTimbres = {
+	// Piano-like default for generic treble/bass clef
+	"default": {
+		type: "struck", gain: 0.35,
+		harmonics: [[1, 1.0], [2, 0.5], [3, 0.35], [4, 0.20], [5, 0.12], [6, 0.07], [7, 0.04], [8, 0.02]],
+		attack: 0.005, duration: 2.5, detuneSpread: 1.5,
+		inharmonicity: 0.0004, decayScale: 0.8, strikeNoise: 0.3
+	},
+	// Flute: very pure tone, strong fundamental, breathy
+	"flute": {
+		type: "wind", gain: 0.30,
+		harmonics: [[1, 1.0], [2, 0.08], [3, 0.12], [4, 0.03]],
+		attack: 0.06, duration: 2.0,
+		vibrato: { rate: 5, depth: 4, delay: 0.3 },
+		breathNoise: 0.12, breathFilterQ: 1
+	},
+	// Oboe: rich harmonics, nasal, reedy
+	"oboe": {
+		type: "wind", gain: 0.18,
+		harmonics: [[1, 1.0], [2, 0.7], [3, 0.6], [4, 0.5], [5, 0.35], [6, 0.25], [7, 0.15], [8, 0.1]],
+		attack: 0.04, duration: 2.0,
+		vibrato: { rate: 5.5, depth: 3, delay: 0.2 },
+		breathNoise: 0.04, breathFilterQ: 3
+	},
+	// Clarinet: strong odd harmonics, weak even (cylindrical bore characteristic)
+	"clarinet": {
+		type: "wind", gain: 0.22,
+		harmonics: [[1, 1.0], [2, 0.1], [3, 0.7], [4, 0.05], [5, 0.5], [6, 0.03], [7, 0.3]],
+		attack: 0.04, duration: 2.0,
+		vibrato: { rate: 5, depth: 2, delay: 0.5 },
+		breathNoise: 0.03, breathFilterQ: 2
+	},
+	// Bass clarinet: darker, more fundamental weight
+	"bass clarinet": {
+		type: "wind", gain: 0.22,
+		harmonics: [[1, 1.0], [2, 0.12], [3, 0.6], [4, 0.06], [5, 0.4], [6, 0.04], [7, 0.25]],
+		attack: 0.05, duration: 2.0,
+		vibrato: { rate: 4.5, depth: 2, delay: 0.5 },
+		breathNoise: 0.05, breathFilterQ: 1.5
+	},
+	// Alto sax: warm, rich, wider vibrato
+	"alto sax": {
+		type: "wind", gain: 0.20,
+		harmonics: [[1, 1.0], [2, 0.6], [3, 0.4], [4, 0.35], [5, 0.2], [6, 0.15]],
+		attack: 0.04, duration: 2.0,
+		vibrato: { rate: 5, depth: 6, delay: 0.2 },
+		breathNoise: 0.06, breathFilterQ: 2
+	},
+	// Tenor sax: similar to alto but darker
+	"tenor sax": {
+		type: "wind", gain: 0.20,
+		harmonics: [[1, 1.0], [2, 0.55], [3, 0.45], [4, 0.3], [5, 0.2], [6, 0.12]],
+		attack: 0.04, duration: 2.0,
+		vibrato: { rate: 5, depth: 6, delay: 0.2 },
+		breathNoise: 0.07, breathFilterQ: 1.5
+	},
+	// Bari sax: dark, powerful fundamental
+	"bari sax": {
+		type: "wind", gain: 0.22,
+		harmonics: [[1, 1.0], [2, 0.5], [3, 0.4], [4, 0.25], [5, 0.15], [6, 0.1]],
+		attack: 0.05, duration: 2.0,
+		vibrato: { rate: 4.5, depth: 5, delay: 0.25 },
+		breathNoise: 0.08, breathFilterQ: 1
+	},
+	// Trumpet: bright, strong upper harmonics
+	"trumpet": {
+		type: "wind", gain: 0.18,
+		harmonics: [[1, 1.0], [2, 0.8], [3, 0.6], [4, 0.45], [5, 0.3], [6, 0.2], [7, 0.1]],
+		attack: 0.03, duration: 2.0,
+		vibrato: { rate: 5.5, depth: 4, delay: 0.3 },
+		breathNoise: 0.03, breathFilterQ: 3
+	},
+	// French horn: warm, mellow
+	"horn": {
+		type: "wind", gain: 0.22,
+		harmonics: [[1, 1.0], [2, 0.6], [3, 0.35], [4, 0.2], [5, 0.1], [6, 0.05]],
+		attack: 0.05, duration: 2.0,
+		vibrato: { rate: 5, depth: 3, delay: 0.3 },
+		breathNoise: 0.03, breathFilterQ: 1.5
+	},
+	// Bassoon: rich, buzzy, reedy
+	"bassoon": {
+		type: "wind", gain: 0.16,
+		harmonics: [[1, 1.0], [2, 0.8], [3, 0.7], [4, 0.5], [5, 0.35], [6, 0.25], [7, 0.15]],
+		attack: 0.05, duration: 2.0,
+		vibrato: { rate: 5, depth: 3, delay: 0.3 },
+		breathNoise: 0.05, breathFilterQ: 2.5
+	},
+	// Trombone: rich, warm to bright
+	"trombone": {
+		type: "wind", gain: 0.18,
+		harmonics: [[1, 1.0], [2, 0.7], [3, 0.5], [4, 0.3], [5, 0.2], [6, 0.1]],
+		attack: 0.04, duration: 2.0,
+		vibrato: { rate: 5, depth: 5, delay: 0.3 },
+		breathNoise: 0.04, breathFilterQ: 2
+	},
+	// Euphonium: warm, round, mellow
+	"euphonium": {
+		type: "wind", gain: 0.22,
+		harmonics: [[1, 1.0], [2, 0.5], [3, 0.3], [4, 0.15], [5, 0.08]],
+		attack: 0.05, duration: 2.0,
+		vibrato: { rate: 5, depth: 4, delay: 0.3 },
+		breathNoise: 0.03, breathFilterQ: 1.5
+	},
+	// Tuba: dark, heavy fundamental
+	"tuba": {
+		type: "wind", gain: 0.25,
+		harmonics: [[1, 1.0], [2, 0.4], [3, 0.2], [4, 0.1], [5, 0.05]],
+		attack: 0.06, duration: 2.0,
+		vibrato: { rate: 4.5, depth: 3, delay: 0.4 },
+		breathNoise: 0.04, breathFilterQ: 1
+	},
+	// Glockenspiel: bright, metallic, inharmonic partials from struck bars
+	"glockenspiel": {
+		type: "struck", gain: 0.25,
+		harmonics: [[1, 1.0], [2.76, 0.55], [5.40, 0.3], [8.93, 0.12]],
+		attack: 0.001, duration: 3.5, detuneSpread: 0,
+		inharmonicity: 0, decayScale: 0.15, strikeNoise: 0.35,
+		strikeFilterMult: 8, strikeFilterQ: 4
+	}
+};
+
+function getTimbre(instrumentName) {
+	return instrumentTimbres[instrumentName] || instrumentTimbres["default"];
+}
+
+// Synthesize a wind/brass instrument tone
+function synthesizeWind(freq, timbre, t, dest) {
+	var duration = timbre.duration;
+	var releaseTime = 0.3;
+	var sustainEnd = t + duration - releaseTime;
+
+	// Create vibrato LFO shared by all harmonic oscillators
+	var vibratoGainNode = null;
+	if (timbre.vibrato) {
+		var vibratoOsc = audioContext.createOscillator();
+		vibratoGainNode = audioContext.createGain();
+		vibratoOsc.type = "sine";
+		vibratoOsc.frequency.setValueAtTime(timbre.vibrato.rate, t);
+		// Delayed onset: no vibrato at first, then ramp in
+		vibratoGainNode.gain.setValueAtTime(0, t);
+		vibratoGainNode.gain.setValueAtTime(0, t + timbre.vibrato.delay);
+		vibratoGainNode.gain.linearRampToValueAtTime(
+			timbre.vibrato.depth, t + timbre.vibrato.delay + 0.3
+		);
+		vibratoOsc.connect(vibratoGainNode);
+		vibratoOsc.start(t);
+		vibratoOsc.stop(t + duration);
+		activeAudioNodes.push(vibratoOsc);
+	}
+
+	// Create harmonic oscillators
+	timbre.harmonics.forEach(function(h) {
+		var harmonicNum = h[0];
+		var amplitude = h[1];
+		var harmonicFreq = freq * harmonicNum;
+
+		if (harmonicFreq > audioContext.sampleRate / 2) return;
+
+		var osc = audioContext.createOscillator();
+		var gain = audioContext.createGain();
+
+		osc.type = "sine";
+		osc.frequency.setValueAtTime(harmonicFreq, t);
+
+		// Connect vibrato LFO to oscillator detune (cents)
+		if (vibratoGainNode) {
+			vibratoGainNode.connect(osc.detune);
+		}
+
+		// Wind envelope: attack -> sustain -> release
+		gain.gain.setValueAtTime(0, t);
+		gain.gain.linearRampToValueAtTime(amplitude, t + timbre.attack);
+		gain.gain.setValueAtTime(amplitude, sustainEnd);
+		gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+		osc.connect(gain);
+		gain.connect(dest);
+
+		osc.start(t);
+		osc.stop(t + duration);
+		activeAudioNodes.push(osc);
+	});
+
+	// Breath noise: sustained filtered noise following the note envelope
+	if (timbre.breathNoise > 0) {
+		var noiseLen = Math.ceil(audioContext.sampleRate * duration);
+		var noiseBuf = audioContext.createBuffer(1, noiseLen, audioContext.sampleRate);
+		var noiseData = noiseBuf.getChannelData(0);
+		for (var i = 0; i < noiseLen; i++) {
+			noiseData[i] = Math.random() * 2 - 1;
+		}
+
+		var noiseSrc = audioContext.createBufferSource();
+		noiseSrc.buffer = noiseBuf;
+
+		var noiseFilter = audioContext.createBiquadFilter();
+		noiseFilter.type = "bandpass";
+		noiseFilter.frequency.setValueAtTime(freq * 2, t);
+		noiseFilter.Q.setValueAtTime(timbre.breathFilterQ || 1.5, t);
+
+		var noiseGain = audioContext.createGain();
+		noiseGain.gain.setValueAtTime(0, t);
+		noiseGain.gain.linearRampToValueAtTime(timbre.breathNoise, t + timbre.attack);
+		noiseGain.gain.setValueAtTime(timbre.breathNoise, sustainEnd);
+		noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+		noiseSrc.connect(noiseFilter);
+		noiseFilter.connect(noiseGain);
+		noiseGain.connect(dest);
+
+		noiseSrc.start(t);
+		noiseSrc.stop(t + duration + 0.01);
+		activeAudioNodes.push(noiseSrc);
+	}
+}
+
+// Synthesize a struck/percussive instrument tone (piano, glockenspiel)
+function synthesizeStruck(freq, timbre, t, dest) {
+	var duration = timbre.duration;
+	var detuneOffsets = timbre.detuneSpread > 0
+		? [-timbre.detuneSpread, timbre.detuneSpread] : [0];
+	var decayScale = timbre.decayScale || 0.8;
+
+	detuneOffsets.forEach(function(detuneCents) {
+		timbre.harmonics.forEach(function(h) {
+			var harmonicNum = h[0];
+			var amplitude = h[1];
+			var harmonicFreq = freq * harmonicNum;
+
+			if (harmonicFreq > audioContext.sampleRate / 2) return;
+
+			// Apply inharmonicity (piano string stiffness)
+			if (timbre.inharmonicity > 0) {
+				harmonicFreq *= 1 + timbre.inharmonicity * harmonicNum * harmonicNum;
+			}
+
+			var osc = audioContext.createOscillator();
+			var gain = audioContext.createGain();
+
+			osc.type = "sine";
+			osc.frequency.setValueAtTime(harmonicFreq, t);
+			if (detuneCents !== 0) {
+				osc.detune.setValueAtTime(detuneCents, t);
+			}
+
+			// Higher harmonics decay faster
+			var decayRate = 1 + harmonicNum * decayScale;
+			var peakLevel = amplitude / detuneOffsets.length;
+
+			gain.gain.setValueAtTime(0, t);
+			gain.gain.linearRampToValueAtTime(peakLevel, t + timbre.attack);
+			gain.gain.exponentialRampToValueAtTime(peakLevel * 0.4, t + 0.15 * decayRate);
+			gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+			osc.connect(gain);
+			gain.connect(dest);
+
+			osc.start(t);
+			osc.stop(t + duration);
+			activeAudioNodes.push(osc);
+		});
+	});
+
+	// Strike noise transient
+	if (timbre.strikeNoise > 0) {
+		var noiseLength = Math.ceil(audioContext.sampleRate * 0.04);
+		var noiseBuffer = audioContext.createBuffer(1, noiseLength, audioContext.sampleRate);
+		var noiseData = noiseBuffer.getChannelData(0);
+		for (var i = 0; i < noiseLength; i++) {
+			noiseData[i] = (Math.random() * 2 - 1) * 0.5;
+		}
+
+		var noiseSource = audioContext.createBufferSource();
+		noiseSource.buffer = noiseBuffer;
+
+		var noiseFilter = audioContext.createBiquadFilter();
+		noiseFilter.type = "bandpass";
+		noiseFilter.frequency.setValueAtTime(
+			freq * (timbre.strikeFilterMult || 4), t
+		);
+		noiseFilter.Q.setValueAtTime(timbre.strikeFilterQ || 2, t);
+
+		var noiseGain = audioContext.createGain();
+		noiseGain.gain.setValueAtTime(timbre.strikeNoise, t);
+		noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+
+		noiseSource.connect(noiseFilter);
+		noiseFilter.connect(noiseGain);
+		noiseGain.connect(dest);
+
+		noiseSource.start(t);
+		noiseSource.stop(t + 0.05);
+		activeAudioNodes.push(noiseSource);
+	}
+}
+
+// Play the current note with instrument-specific timbre
 function playNote() {
 	if (!currentFrequency) return;
 
@@ -647,40 +946,35 @@ function playNote() {
 		audioContext.resume();
 	}
 
-	// Create oscillator
-	currentOscillator = audioContext.createOscillator();
-	var gainNode = audioContext.createGain();
+	var instrument = document.getElementById("instrument").value;
+	var timbre = getTimbre(instrument);
+	var t = audioContext.currentTime;
+	var freq = currentFrequency;
 
-	currentOscillator.type = "sine";
-	currentOscillator.frequency.setValueAtTime(currentFrequency, audioContext.currentTime);
+	// Master gain for overall volume control
+	var masterGain = audioContext.createGain();
+	masterGain.gain.setValueAtTime(timbre.gain, t);
+	masterGain.connect(audioContext.destination);
+	activeAudioNodes.push(masterGain);
 
-	// Envelope for smoother sound
-	gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-	gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
-	gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.3);
-	gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.5);
-
-	currentOscillator.connect(gainNode);
-	gainNode.connect(audioContext.destination);
-
-	currentOscillator.start(audioContext.currentTime);
-	currentOscillator.stop(audioContext.currentTime + 1.5);
-
-	currentOscillator.onended = function() {
-		currentOscillator = null;
-	};
+	if (timbre.type === "wind") {
+		synthesizeWind(freq, timbre, t, masterGain);
+	} else {
+		synthesizeStruck(freq, timbre, t, masterGain);
+	}
 }
 
 // Stop the current note
 function stopNote() {
-	if (currentOscillator) {
+	activeAudioNodes.forEach(function(node) {
 		try {
-			currentOscillator.stop();
+			node.disconnect();
+			if (node.stop) node.stop();
 		} catch (e) {
-			// Already stopped
+			// Already stopped or disconnected
 		}
-		currentOscillator = null;
-	}
+	});
+	activeAudioNodes = [];
 }
 
 // Update fingering display for current note
