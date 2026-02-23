@@ -839,9 +839,12 @@ document.addEventListener("DOMContentLoaded", function() {
 			if (saved) {
 				instrumentSelect.value = saved;
 				if (instrumentSelect.value === saved) {
-					// Valid option restored — update notation to show correct clef
+					// Valid option restored — update notation and auto-start detection
 					lastRenderedInstrument = null;
 					updateNotation();
+					if (!isPlaying) {
+						startPitchDetect();
+					}
 				}
 			}
 		} catch(e) {}
