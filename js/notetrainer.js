@@ -4,7 +4,7 @@
 
 // Audio context for playing sounds
 var audioContext = null;
-var currentOscillator = null;
+var activeAudioNodes = [];  // Track all active nodes for cleanup
 
 // Current note state
 var currentNote = null;
@@ -630,7 +630,7 @@ function adjustPitch(semitones) {
 	}
 }
 
-// Play the current note
+// Play the current note using piano-like additive synthesis
 function playNote() {
 	if (!currentFrequency) return;
 
@@ -647,40 +647,123 @@ function playNote() {
 		audioContext.resume();
 	}
 
-	// Create oscillator
-	currentOscillator = audioContext.createOscillator();
-	var gainNode = audioContext.createGain();
+	var t = audioContext.currentTime;
+	var freq = currentFrequency;
+	var duration = 2.5;
 
-	currentOscillator.type = "sine";
-	currentOscillator.frequency.setValueAtTime(currentFrequency, audioContext.currentTime);
+	// Master gain to mix everything
+	var masterGain = audioContext.createGain();
+	masterGain.gain.setValueAtTime(0.35, t);
+	masterGain.connect(audioContext.destination);
 
-	// Envelope for smoother sound
-	gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-	gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
-	gainNode.gain.linearRampToValueAtTime(0.2, audioContext.currentTime + 0.3);
-	gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 1.5);
+	// Piano harmonic profile: each entry is [harmonic number, relative amplitude]
+	// Higher harmonics are progressively weaker, mimicking a struck string
+	var harmonics = [
+		[1, 1.0],
+		[2, 0.5],
+		[3, 0.35],
+		[4, 0.20],
+		[5, 0.12],
+		[6, 0.07],
+		[7, 0.04],
+		[8, 0.02]
+	];
 
-	currentOscillator.connect(gainNode);
-	gainNode.connect(audioContext.destination);
+	// Simulate 2 strings per note with slight detuning for warmth
+	var detuneOffsets = [-1.5, 1.5];  // cents
 
-	currentOscillator.start(audioContext.currentTime);
-	currentOscillator.stop(audioContext.currentTime + 1.5);
+	detuneOffsets.forEach(function(detuneCents) {
+		harmonics.forEach(function(h) {
+			var harmonicNum = h[0];
+			var amplitude = h[1];
 
-	currentOscillator.onended = function() {
-		currentOscillator = null;
-	};
+			var harmonicFreq = freq * harmonicNum;
+
+			// Skip harmonics above Nyquist
+			if (harmonicFreq > audioContext.sampleRate / 2) return;
+
+			// Piano inharmonicity: upper partials are slightly sharp
+			// B coefficient approximates a real piano string
+			var inharmonicity = 1 + 0.0004 * harmonicNum * harmonicNum;
+			harmonicFreq *= inharmonicity;
+
+			var osc = audioContext.createOscillator();
+			var gain = audioContext.createGain();
+
+			osc.type = "sine";
+			osc.frequency.setValueAtTime(harmonicFreq, t);
+			osc.detune.setValueAtTime(detuneCents, t);
+
+			// Higher harmonics decay faster (characteristic of piano timbre)
+			var decayRate = 1 + harmonicNum * 0.8;
+			var attackTime = 0.005;
+			var peakLevel = amplitude / detuneOffsets.length;
+
+			gain.gain.setValueAtTime(0, t);
+			gain.gain.linearRampToValueAtTime(peakLevel, t + attackTime);
+			gain.gain.exponentialRampToValueAtTime(peakLevel * 0.4, t + 0.15 * decayRate);
+			gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+			osc.connect(gain);
+			gain.connect(masterGain);
+
+			osc.start(t);
+			osc.stop(t + duration);
+
+			activeAudioNodes.push(osc);
+		});
+	});
+
+	// Hammer strike transient: brief burst of filtered noise
+	var noiseLength = audioContext.sampleRate * 0.04;
+	var noiseBuffer = audioContext.createBuffer(1, noiseLength, audioContext.sampleRate);
+	var noiseData = noiseBuffer.getChannelData(0);
+	for (var i = 0; i < noiseLength; i++) {
+		noiseData[i] = (Math.random() * 2 - 1) * 0.5;
+	}
+
+	var noiseSource = audioContext.createBufferSource();
+	noiseSource.buffer = noiseBuffer;
+
+	var noiseFilter = audioContext.createBiquadFilter();
+	noiseFilter.type = "bandpass";
+	noiseFilter.frequency.setValueAtTime(freq * 4, t);
+	noiseFilter.Q.setValueAtTime(2, t);
+
+	var noiseGain = audioContext.createGain();
+	noiseGain.gain.setValueAtTime(0.3, t);
+	noiseGain.gain.exponentialRampToValueAtTime(0.001, t + 0.04);
+
+	noiseSource.connect(noiseFilter);
+	noiseFilter.connect(noiseGain);
+	noiseGain.connect(masterGain);
+
+	noiseSource.start(t);
+	noiseSource.stop(t + 0.05);
+
+	activeAudioNodes.push(noiseSource);
+	activeAudioNodes.push(masterGain);
+
+	// Clean up when done
+	var lastOsc = activeAudioNodes[0];
+	if (lastOsc) {
+		lastOsc.onended = function() {
+			activeAudioNodes = [];
+		};
+	}
 }
 
 // Stop the current note
 function stopNote() {
-	if (currentOscillator) {
+	activeAudioNodes.forEach(function(node) {
 		try {
-			currentOscillator.stop();
+			node.disconnect();
+			if (node.stop) node.stop();
 		} catch (e) {
-			// Already stopped
+			// Already stopped or disconnected
 		}
-		currentOscillator = null;
-	}
+	});
+	activeAudioNodes = [];
 }
 
 // Update fingering display for current note
