@@ -146,7 +146,11 @@ function startPitchDetect() {
 	    isPlaying = true;
 	    updateToggleButton();
 
-	    updatePitch();
+	    // Resume the AudioContext in case it was suspended by the browser's
+	    // autoplay policy, then start the animation loop.
+	    audioContext.resume().then(() => {
+	    	updatePitch();
+	    });
     }).catch((err) => {
         // always check for errors at the end.
         console.error(`${err.name}: ${err.message}`);
@@ -866,16 +870,14 @@ document.addEventListener("DOMContentLoaded", function() {
 			if (saved) {
 				instrumentSelect.value = saved;
 				if (instrumentSelect.value === saved) {
-					// Valid option restored — update notation
+					// Valid option restored — update notation and show the Start
+					// button. We don't auto-start here: the page-load context has
+					// no user gesture, which leaves the AudioContext suspended and
+					// prevents audio processing even when getUserMedia succeeds.
+					// The user clicks Start to initiate properly.
 					lastRenderedInstrument = null;
 					updateNotation();
-					// Show the Start button immediately so the user can initiate
-					// detection even if the auto-start below is blocked by the
-					// browser's user-gesture requirement for getUserMedia.
 					updateToggleButton();
-					if (!isPlaying) {
-						startPitchDetect();
-					}
 				}
 			}
 		} catch(e) {}
