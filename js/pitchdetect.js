@@ -649,8 +649,11 @@ var resizeTimeout = null;
 
 // Fixed internal dimensions for VexFlow (maintains aspect ratio)
 // Smaller values = larger staff appearance (content fills more of the viewBox)
-var VEXFLOW_WIDTH = 180;
-var VEXFLOW_HEIGHT = 80;
+// staveY must leave ~22px above the top staff line so the treble clef curl
+// doesn't clip; VEXFLOW_HEIGHT must leave ~35px below the bottom line for
+// ledger lines and the bass clef symbol.
+var VEXFLOW_WIDTH = 220;
+var VEXFLOW_HEIGHT = 100;
 
 // Enharmonic equivalents: sharp -> flat mapping
 var enharmonicMap = {
@@ -715,7 +718,7 @@ function renderNotation(noteName, octave, instrument) {
 
 	// Fixed stave dimensions (will scale with viewBox)
 	var staveWidth = VEXFLOW_WIDTH - 20;
-	var staveY = 15;
+	var staveY = 22;
 
 	// Create stave
 	var stave = new VF.Stave(10, staveY, staveWidth);
