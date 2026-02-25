@@ -653,7 +653,7 @@ var resizeTimeout = null;
 // doesn't clip; VEXFLOW_HEIGHT must leave ~35px below the bottom line for
 // ledger lines and the bass clef symbol.
 var VEXFLOW_WIDTH = 220;
-var VEXFLOW_HEIGHT = 100;
+var VEXFLOW_HEIGHT = 120;
 
 // Enharmonic equivalents: sharp -> flat mapping
 var enharmonicMap = {
