@@ -649,8 +649,8 @@ var resizeTimeout = null;
 
 // Fixed internal dimensions for VexFlow (maintains aspect ratio)
 // Smaller values = larger staff appearance (content fills more of the viewBox)
-var VEXFLOW_WIDTH = 240;
-var VEXFLOW_HEIGHT = 120;
+var VEXFLOW_WIDTH = 180;
+var VEXFLOW_HEIGHT = 80;
 
 // Enharmonic equivalents: sharp -> flat mapping
 var enharmonicMap = {
@@ -715,7 +715,7 @@ function renderNotation(noteName, octave, instrument) {
 
 	// Fixed stave dimensions (will scale with viewBox)
 	var staveWidth = VEXFLOW_WIDTH - 20;
-	var staveY = 20;
+	var staveY = 15;
 
 	// Create stave
 	var stave = new VF.Stave(10, staveY, staveWidth);
