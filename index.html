@@ -70,6 +70,18 @@
 				background-color: #a93226;
 			}
 
+			#stopButton.start-mode {
+				background-color: #4CAF50;
+			}
+
+			#stopButton.start-mode:hover {
+				background-color: #388E3C;
+			}
+
+			#stopButton.start-mode:active {
+				background-color: #2E7D32;
+			}
+
 			#instrument {
 				padding: 12px 16px;
 				font-size: 16px;
@@ -506,7 +518,7 @@
 					<option value="tuba">Tuba</option>
 					<option value="glockenspiel">Glockenspiel</option>
 				</select>
-				<button id="stopButton" onclick="stopPitchDetect();">Stop</button>
+				<button id="stopButton" onclick="togglePitchDetect();">Start</button>
 			</div>
 
 			<div class="main-display">
