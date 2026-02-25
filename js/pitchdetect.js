@@ -86,6 +86,26 @@ window.onload = function() {
 	};
 
 }
+// Sync the Start/Stop toggle button with current playback and instrument state
+function updateToggleButton() {
+    var btn = document.getElementById("stopButton");
+    if (!btn) return;
+    var instrumentSelect = document.getElementById("instrument");
+    var hasInstrument = instrumentSelect && instrumentSelect.value !== "";
+    if (hasInstrument) {
+        btn.style.display = "inline-block";
+        if (isPlaying) {
+            btn.classList.remove("start-mode");
+            btn.textContent = "Stop";
+        } else {
+            btn.classList.add("start-mode");
+            btn.textContent = "Start";
+        }
+    } else {
+        btn.style.display = "none";
+    }
+}
+
 function togglePitchDetect() {
     if (isPlaying) {
         stopPitchDetect();
@@ -122,15 +142,16 @@ function startPitchDetect() {
 	    analyser.fftSize = 4096;  // Increased for better low frequency detection
 	    mediaStreamSource.connect( analyser );
 
-	    // Update state and show stop button
+	    // Update state and sync toggle button
 	    isPlaying = true;
-	    document.getElementById("stopButton").style.display = "inline-block";
+	    updateToggleButton();
 
 	    updatePitch();
     }).catch((err) => {
         // always check for errors at the end.
         console.error(`${err.name}: ${err.message}`);
         alert('Stream generation failed.');
+        updateToggleButton();
     });
 }
 
@@ -161,9 +182,8 @@ function stopPitchDetect() {
     isPlaying = false;
     pitchHistory = [];
 
-    // Hide stop button and reset instrument selector
-    document.getElementById("stopButton").style.display = "none";
-    document.getElementById("instrument").selectedIndex = 0;
+    // Sync toggle button (instrument stays selected so user can restart)
+    updateToggleButton();
 
     // Reset display
     detectorElem.className = "vague";
@@ -173,9 +193,10 @@ function stopPitchDetect() {
     detuneElem.className = "";
     detuneAmount.innerText = "--";
 
-    // Reset notation display
+    // Reset notation display (keep correct clef for selected instrument)
+    var instrumentSelect = document.getElementById("instrument");
     lastRenderedInstrument = null;
-    renderNotation(null, null, "");
+    renderNotation(null, null, instrumentSelect ? instrumentSelect.value : "");
 }
 
 function error() {
@@ -833,6 +854,9 @@ document.addEventListener("DOMContentLoaded", function() {
 				if (!isPlaying) {
 					startPitchDetect();
 				}
+			} else {
+				// No instrument selected — hide the button
+				updateToggleButton();
 			}
 		});
 
@@ -842,9 +866,13 @@ document.addEventListener("DOMContentLoaded", function() {
 			if (saved) {
 				instrumentSelect.value = saved;
 				if (instrumentSelect.value === saved) {
-					// Valid option restored — update notation and auto-start detection
+					// Valid option restored — update notation
 					lastRenderedInstrument = null;
 					updateNotation();
+					// Show the Start button immediately so the user can initiate
+					// detection even if the auto-start below is blocked by the
+					// browser's user-gesture requirement for getUserMedia.
+					updateToggleButton();
 					if (!isPlaying) {
 						startPitchDetect();
 					}
