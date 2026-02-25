@@ -408,39 +408,70 @@
 
 			/* Mobile styles */
 			@media (max-width: 700px) {
+				/* Allow page to scroll rather than clip when content is taller than viewport */
+				html {
+					height: auto;
+					min-height: 100%;
+				}
+
 				body {
 					padding: 10px;
+					height: auto;
+					min-height: 100vh;
+					overflow-y: auto;
 				}
 
 				h1 {
-					font-size: 1.4rem;
-					margin-bottom: 10px;
+					font-size: 1.3rem;
+					margin-bottom: 8px;
+				}
+
+				/* Override inline margin-bottom: 15px on nav-links div */
+				.nav-links {
+					margin-bottom: 8px !important;
 				}
 
 				.controls {
 					flex-direction: column;
-					gap: 10px;
-					margin-bottom: 10px;
+					gap: 8px;
+					margin-bottom: 8px;
 				}
 
 				#stopButton,
 				#instrument {
 					width: 100%;
-					max-width: 280px;
+					max-width: 320px;
 				}
 
+				/* Stack vertically; use natural height so body can scroll if needed */
 				.main-display {
 					flex-direction: column;
+					flex: none;
+					gap: 12px;
 				}
 
 				#detector {
 					flex: none;
-					min-height: 180px;
+					min-height: 0;
+					padding: 12px;
+				}
+
+				/* Shrink the note letter so the detector box stays compact */
+				#note {
+					font-size: clamp(36px, 12vw, 80px);
+					margin: 4px 0;
+				}
+
+				/* Tighten the tuning-color toggle row */
+				.tuning-toggle-container {
+					margin-top: 10px;
+					padding-top: 10px;
 				}
 
 				.canvas-container {
-					flex: 1;
-					min-height: 220px;
+					flex: none;
+					min-height: 200px;
+					height: 220px;
 				}
 			}
 		</style>
