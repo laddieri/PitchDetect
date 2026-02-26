@@ -994,9 +994,14 @@ function playNote() {
 	stopNote();
 	sustainPlaying = false;
 
-	// Create audio context if needed
-	if (!audioContext) {
-		audioContext = new (window.AudioContext || window.webkitAudioContext)();
+	// Create (or recreate) audio context if needed
+	if (!audioContext || audioContext.state === "closed") {
+		try {
+			audioContext = new (window.AudioContext || window.webkitAudioContext)();
+		} catch(e) {
+			console.error("PitchDetect: failed to create AudioContext:", e);
+			return;
+		}
 	}
 
 	// Capture values now (before any async gap)
@@ -1006,31 +1011,47 @@ function playNote() {
 	var sustain = document.getElementById("sustainToggle").checked;
 
 	function startAudio() {
-		var t = audioContext.currentTime;
+		try {
+			// Small lookahead ensures scheduled events are always in the future
+			var t = audioContext.currentTime + 0.05;
 
-		// Master gain for overall volume control
-		var masterGain = audioContext.createGain();
-		masterGain.gain.setValueAtTime(timbre.gain, t);
-		masterGain.connect(audioContext.destination);
-		activeAudioNodes.push(masterGain);
+			// Master gain for overall volume control
+			var masterGain = audioContext.createGain();
+			masterGain.gain.setValueAtTime(timbre.gain, t);
+			masterGain.connect(audioContext.destination);
+			activeAudioNodes.push(masterGain);
 
-		if (timbre.type === "wind") {
-			synthesizeWind(freq, timbre, t, masterGain, sustain);
-		} else {
-			synthesizeStruck(freq, timbre, t, masterGain, sustain);
-		}
+			if (timbre.type === "wind") {
+				synthesizeWind(freq, timbre, t, masterGain, sustain);
+			} else {
+				synthesizeStruck(freq, timbre, t, masterGain, sustain);
+			}
 
-		if (sustain) {
-			sustainPlaying = true;
-			var playButton = document.getElementById("playButton");
-			playButton.textContent = "Stop";
-			playButton.classList.add("sustaining");
+			if (sustain) {
+				sustainPlaying = true;
+				var playButton = document.getElementById("playButton");
+				playButton.textContent = "Stop";
+				playButton.classList.add("sustaining");
+			} else {
+				// Brief visual feedback so the user can see the click registered
+				var playButton = document.getElementById("playButton");
+				playButton.classList.add("playing-oneshot");
+				setTimeout(function() {
+					playButton.classList.remove("playing-oneshot");
+				}, timbre.duration * 1000 + 100);
+			}
+		} catch(e) {
+			console.error("PitchDetect: audio synthesis error:", e);
 		}
 	}
 
-	// Resume if suspended (browser autoplay policy), then schedule audio
-	if (audioContext.state === "suspended") {
-		audioContext.resume().then(startAudio);
+	// Resume if not running (handles suspended, interrupted, etc.), then schedule audio
+	if (audioContext.state !== "running") {
+		audioContext.resume()
+			.then(startAudio)
+			.catch(function(e) {
+				console.error("PitchDetect: AudioContext resume failed:", e);
+			});
 	} else {
 		startAudio();
 	}
