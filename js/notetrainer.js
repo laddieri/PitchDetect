@@ -21,6 +21,9 @@ var currentModifier = null;  // Track shift/alt for sharp/flat ghost notes
 // Fingering display state
 var showingAlternates = false;
 
+// Sustain state
+var sustainPlaying = false;
+
 // Staff rendering constants
 var STAFF_WIDTH = 400;
 var STAFF_HEIGHT = 200;
@@ -515,6 +518,11 @@ function handleStaffClick(event) {
 	var concertMidi = placeMidi - transposition;
 	var frequency = frequencyFromNoteNumber(concertMidi);
 
+	// If a note is currently sustaining, stop it before placing a new one
+	if (sustainPlaying) {
+		stopSustain();
+	}
+
 	// Store current note (written pitch)
 	currentNote = placeNote;
 	currentOctave = placeOctave;
@@ -563,6 +571,11 @@ function handleKeyDown(event) {
 
 	// Update note if it changed
 	if (newMidi !== currentMidi) {
+		// Stop sustaining note before changing pitch
+		if (sustainPlaying) {
+			stopSustain();
+		}
+
 		currentMidi = newMidi;
 		currentNote = noteStrings[currentMidi % 12];
 		currentOctave = Math.floor(currentMidi / 12) - 1;
@@ -612,6 +625,11 @@ function adjustPitch(semitones) {
 	newMidi = Math.max(24, Math.min(96, newMidi));
 
 	if (newMidi !== currentMidi) {
+		// Stop sustaining note before changing pitch
+		if (sustainPlaying) {
+			stopSustain();
+		}
+
 		currentMidi = newMidi;
 		currentNote = noteStrings[currentMidi % 12];
 		currentOctave = Math.floor(currentMidi / 12) - 1;
@@ -759,7 +777,8 @@ function getTimbre(instrumentName) {
 }
 
 // Synthesize a wind/brass instrument tone
-function synthesizeWind(freq, timbre, t, dest) {
+// sustain=true: hold note indefinitely (no release scheduled; nodes stopped via stopNote())
+function synthesizeWind(freq, timbre, t, dest, sustain) {
 	var duration = timbre.duration;
 	var releaseTime = 0.3;
 	var sustainEnd = t + duration - releaseTime;
@@ -779,7 +798,7 @@ function synthesizeWind(freq, timbre, t, dest) {
 		);
 		vibratoOsc.connect(vibratoGainNode);
 		vibratoOsc.start(t);
-		vibratoOsc.stop(t + duration);
+		if (!sustain) vibratoOsc.stop(t + duration);
 		activeAudioNodes.push(vibratoOsc);
 	}
 
@@ -802,23 +821,29 @@ function synthesizeWind(freq, timbre, t, dest) {
 			vibratoGainNode.connect(osc.detune);
 		}
 
-		// Wind envelope: attack -> sustain -> release
+		// Wind envelope: attack -> sustain level (hold if sustaining, else release)
 		gain.gain.setValueAtTime(0, t);
 		gain.gain.linearRampToValueAtTime(amplitude, t + timbre.attack);
-		gain.gain.setValueAtTime(amplitude, sustainEnd);
-		gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+		if (!sustain) {
+			gain.gain.setValueAtTime(amplitude, sustainEnd);
+			gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+			osc.stop(t + duration);
+		}
+		// In sustain mode: hold at amplitude indefinitely; stopped via stopNote()
 
 		osc.connect(gain);
 		gain.connect(dest);
 
 		osc.start(t);
-		osc.stop(t + duration);
 		activeAudioNodes.push(osc);
 	});
 
 	// Breath noise: sustained filtered noise following the note envelope
 	if (timbre.breathNoise > 0) {
-		var noiseLen = Math.ceil(audioContext.sampleRate * duration);
+		// In sustain mode use a short looping buffer; otherwise a one-shot for the duration
+		var noiseBufferDur = sustain ? 1.0 : duration;
+		var noiseLen = Math.ceil(audioContext.sampleRate * noiseBufferDur);
 		var noiseBuf = audioContext.createBuffer(1, noiseLen, audioContext.sampleRate);
 		var noiseData = noiseBuf.getChannelData(0);
 		for (var i = 0; i < noiseLen; i++) {
@@ -827,6 +852,7 @@ function synthesizeWind(freq, timbre, t, dest) {
 
 		var noiseSrc = audioContext.createBufferSource();
 		noiseSrc.buffer = noiseBuf;
+		if (sustain) noiseSrc.loop = true;
 
 		var noiseFilter = audioContext.createBiquadFilter();
 		noiseFilter.type = "bandpass";
@@ -836,21 +862,26 @@ function synthesizeWind(freq, timbre, t, dest) {
 		var noiseGain = audioContext.createGain();
 		noiseGain.gain.setValueAtTime(0, t);
 		noiseGain.gain.linearRampToValueAtTime(timbre.breathNoise, t + timbre.attack);
-		noiseGain.gain.setValueAtTime(timbre.breathNoise, sustainEnd);
-		noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+
+		if (!sustain) {
+			noiseGain.gain.setValueAtTime(timbre.breathNoise, sustainEnd);
+			noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
+			noiseSrc.stop(t + duration + 0.01);
+		}
+		// In sustain mode: hold at breathNoise level; stopped via stopNote()
 
 		noiseSrc.connect(noiseFilter);
 		noiseFilter.connect(noiseGain);
 		noiseGain.connect(dest);
 
 		noiseSrc.start(t);
-		noiseSrc.stop(t + duration + 0.01);
 		activeAudioNodes.push(noiseSrc);
 	}
 }
 
 // Synthesize a struck/percussive instrument tone (piano, glockenspiel)
-function synthesizeStruck(freq, timbre, t, dest) {
+// sustain parameter accepted for API consistency; struck tones decay naturally
+function synthesizeStruck(freq, timbre, t, dest, sustain) {
 	var duration = timbre.duration;
 	var detuneOffsets = timbre.detuneSpread > 0
 		? [-timbre.detuneSpread, timbre.detuneSpread] : [0];
@@ -929,12 +960,39 @@ function synthesizeStruck(freq, timbre, t, dest) {
 	}
 }
 
+// Handle play button click — delegates based on sustain state
+function handlePlayButton() {
+	if (sustainPlaying) {
+		stopSustain();
+	} else {
+		playNote();
+	}
+}
+
+// Stop a sustaining note and restore the play button label/style
+function stopSustain() {
+	stopNote();
+	sustainPlaying = false;
+	var playButton = document.getElementById("playButton");
+	playButton.textContent = "Play Sound";
+	playButton.classList.remove("sustaining");
+}
+
+// Called when the sustain toggle changes
+function onSustainChange() {
+	// If turned off while a note is sustaining, stop it immediately
+	if (sustainPlaying && !document.getElementById("sustainToggle").checked) {
+		stopSustain();
+	}
+}
+
 // Play the current note with instrument-specific timbre
 function playNote() {
 	if (!currentFrequency) return;
 
 	// Stop any currently playing note
 	stopNote();
+	sustainPlaying = false;
 
 	// Create audio context if needed
 	if (!audioContext) {
@@ -950,6 +1008,7 @@ function playNote() {
 	var timbre = getTimbre(instrument);
 	var t = audioContext.currentTime;
 	var freq = currentFrequency;
+	var sustain = document.getElementById("sustainToggle").checked;
 
 	// Master gain for overall volume control
 	var masterGain = audioContext.createGain();
@@ -958,9 +1017,16 @@ function playNote() {
 	activeAudioNodes.push(masterGain);
 
 	if (timbre.type === "wind") {
-		synthesizeWind(freq, timbre, t, masterGain);
+		synthesizeWind(freq, timbre, t, masterGain, sustain);
 	} else {
-		synthesizeStruck(freq, timbre, t, masterGain);
+		synthesizeStruck(freq, timbre, t, masterGain, sustain);
+	}
+
+	if (sustain) {
+		sustainPlaying = true;
+		var playButton = document.getElementById("playButton");
+		playButton.textContent = "Stop";
+		playButton.classList.add("sustaining");
 	}
 }
 
@@ -1019,6 +1085,7 @@ function toggleAlternateFingerings() {
 // Clear the current note
 function clearNote() {
 	stopNote();
+	sustainPlaying = false;
 
 	currentNote = null;
 	currentOctave = null;
@@ -1032,7 +1099,10 @@ function clearNote() {
 	updateNoteDisplay();
 	drawStaff(null, null, null, null);
 
-	document.getElementById("playButton").style.display = "none";
+	var playButton = document.getElementById("playButton");
+	playButton.textContent = "Play Sound";
+	playButton.classList.remove("sustaining");
+	playButton.style.display = "none";
 	document.getElementById("clearButton").style.display = "none";
 	document.getElementById("note-display").classList.remove("active");
 	document.getElementById("fingering-container").classList.remove("active");
@@ -1048,6 +1118,11 @@ document.addEventListener("DOMContentLoaded", function() {
 	instrument.addEventListener("change", function() {
 		// Persist selection so the pitch detector page stays in sync
 		try { localStorage.setItem('pitchdetect-instrument', instrument.value); } catch(e) {}
+
+		// Stop sustaining note if instrument changes
+		if (sustainPlaying) {
+			stopSustain();
+		}
 
 		// Clear any existing note when instrument changes
 		ghostNote = null;
