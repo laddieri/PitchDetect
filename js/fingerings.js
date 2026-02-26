@@ -258,13 +258,18 @@ function displayImageFingering(container, instrument, writtenMidi) {
 	img.style.display = "block";
 	img.style.margin = "0 auto";
 
+	img.onload = function() {
+		container.innerHTML = "";
+		container.appendChild(img);
+	};
+
 	img.onerror = function() {
 		container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">No fingering image available for this note</div>';
 	};
 
-	// Set src after attaching onerror so the handler is guaranteed to fire
+	// Set src after attaching handlers so they are guaranteed to fire.
+	// The image is pre-fetched in memory; the container is only replaced once loaded.
 	img.src = imgPath;
-	container.appendChild(img);
 
 	return false;  // No alternate fingerings for image-based instruments
 }
