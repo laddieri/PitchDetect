@@ -999,34 +999,40 @@ function playNote() {
 		audioContext = new (window.AudioContext || window.webkitAudioContext)();
 	}
 
-	// Resume if suspended (browser autoplay policy)
-	if (audioContext.state === "suspended") {
-		audioContext.resume();
-	}
-
+	// Capture values now (before any async gap)
 	var instrument = document.getElementById("instrument").value;
 	var timbre = getTimbre(instrument);
-	var t = audioContext.currentTime;
 	var freq = currentFrequency;
 	var sustain = document.getElementById("sustainToggle").checked;
 
-	// Master gain for overall volume control
-	var masterGain = audioContext.createGain();
-	masterGain.gain.setValueAtTime(timbre.gain, t);
-	masterGain.connect(audioContext.destination);
-	activeAudioNodes.push(masterGain);
+	function startAudio() {
+		var t = audioContext.currentTime;
 
-	if (timbre.type === "wind") {
-		synthesizeWind(freq, timbre, t, masterGain, sustain);
-	} else {
-		synthesizeStruck(freq, timbre, t, masterGain, sustain);
+		// Master gain for overall volume control
+		var masterGain = audioContext.createGain();
+		masterGain.gain.setValueAtTime(timbre.gain, t);
+		masterGain.connect(audioContext.destination);
+		activeAudioNodes.push(masterGain);
+
+		if (timbre.type === "wind") {
+			synthesizeWind(freq, timbre, t, masterGain, sustain);
+		} else {
+			synthesizeStruck(freq, timbre, t, masterGain, sustain);
+		}
+
+		if (sustain) {
+			sustainPlaying = true;
+			var playButton = document.getElementById("playButton");
+			playButton.textContent = "Stop";
+			playButton.classList.add("sustaining");
+		}
 	}
 
-	if (sustain) {
-		sustainPlaying = true;
-		var playButton = document.getElementById("playButton");
-		playButton.textContent = "Stop";
-		playButton.classList.add("sustaining");
+	// Resume if suspended (browser autoplay policy), then schedule audio
+	if (audioContext.state === "suspended") {
+		audioContext.resume().then(startAudio);
+	} else {
+		startAudio();
 	}
 }
 
