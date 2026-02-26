@@ -518,11 +518,6 @@ function handleStaffClick(event) {
 	var concertMidi = placeMidi - transposition;
 	var frequency = frequencyFromNoteNumber(concertMidi);
 
-	// If a note is currently sustaining, stop it before placing a new one
-	if (sustainPlaying) {
-		stopSustain();
-	}
-
 	// Store current note (written pitch)
 	currentNote = placeNote;
 	currentOctave = placeOctave;
@@ -550,6 +545,11 @@ function handleStaffClick(event) {
 	// Update fingering display
 	showingAlternates = false;
 	updateFingeringDisplay();
+
+	// If a note was sustaining, seamlessly switch to the new pitch
+	if (sustainPlaying) {
+		playNote();
+	}
 }
 
 // Handle keyboard input for arrow key navigation
@@ -571,11 +571,6 @@ function handleKeyDown(event) {
 
 	// Update note if it changed
 	if (newMidi !== currentMidi) {
-		// Stop sustaining note before changing pitch
-		if (sustainPlaying) {
-			stopSustain();
-		}
-
 		currentMidi = newMidi;
 		currentNote = noteStrings[currentMidi % 12];
 		currentOctave = Math.floor(currentMidi / 12) - 1;
@@ -591,6 +586,11 @@ function handleKeyDown(event) {
 
 		// Update fingering display
 		updateFingeringDisplay();
+
+		// If a note was sustaining, seamlessly switch to the new pitch
+		if (sustainPlaying) {
+			playNote();
+		}
 	}
 }
 
@@ -625,11 +625,6 @@ function adjustPitch(semitones) {
 	newMidi = Math.max(24, Math.min(96, newMidi));
 
 	if (newMidi !== currentMidi) {
-		// Stop sustaining note before changing pitch
-		if (sustainPlaying) {
-			stopSustain();
-		}
-
 		currentMidi = newMidi;
 		currentNote = noteStrings[currentMidi % 12];
 		currentOctave = Math.floor(currentMidi / 12) - 1;
@@ -645,6 +640,11 @@ function adjustPitch(semitones) {
 
 		// Update fingering display
 		updateFingeringDisplay();
+
+		// If a note was sustaining, seamlessly switch to the new pitch
+		if (sustainPlaying) {
+			playNote();
+		}
 	}
 }
 
