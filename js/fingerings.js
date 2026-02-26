@@ -221,6 +221,52 @@ var fluteFingerings = {
 };
 
 // ============================================================================
+// IMAGE-BASED FINGERING DISPLAY
+// ============================================================================
+
+// Map of instruments to their fingering image folders.
+// transposition: semitones to subtract from the written MIDI note to get the
+// image filename index.
+//   0  = use written pitch directly (C instruments & clarinet written pitch)
+//   9  = alto sax (written - 9 = concert pitch, which the images are indexed by)
+//   14 = tenor sax
+//   21 = bari sax
+var imageFingeringMap = {
+	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0  },
+	"clarinet":  { folder: "Clarinet",  ext: "png", transposition: 0  },
+	"flute":     { folder: "Flute",     ext: "png", transposition: 0  },
+	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0  },
+	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 9  },
+	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 14 },
+	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 21 },
+	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0  }
+};
+
+// Display fingering using an image file from img/Fingerings/
+function displayImageFingering(container, instrument, writtenMidi) {
+	var info = imageFingeringMap[instrument];
+	var imageMidi = writtenMidi - info.transposition;
+	var imgPath = "img/Fingerings/" + info.folder + "/" + imageMidi + "." + info.ext;
+
+	var img = document.createElement("img");
+	img.alt = "Fingering diagram";
+	img.style.maxWidth = "100%";
+	img.style.maxHeight = "280px";
+	img.style.display = "block";
+	img.style.margin = "0 auto";
+
+	img.onerror = function() {
+		container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">No fingering image available for this note</div>';
+	};
+
+	// Set src after attaching onerror so the handler is guaranteed to fire
+	img.src = imgPath;
+	container.appendChild(img);
+
+	return false;  // No alternate fingerings for image-based instruments
+}
+
+// ============================================================================
 // SVG DIAGRAM RENDERING
 // ============================================================================
 
@@ -444,6 +490,11 @@ function getFingering(instrument, midiNote) {
 function displayFingering(container, instrument, midiNote, showAlternates) {
 	container.innerHTML = "";
 
+	// Image-based instruments take priority
+	if (imageFingeringMap[instrument]) {
+		return displayImageFingering(container, instrument, midiNote);
+	}
+
 	var fingering = getFingering(instrument, midiNote);
 
 	if (!fingering) {
@@ -512,5 +563,5 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 
 // Check if instrument has fingering data
 function hasFingeringData(instrument) {
-	return instrument === "trumpet" || instrument === "flute";
+	return instrument === "trumpet" || instrument in imageFingeringMap;
 }
