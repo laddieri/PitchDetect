@@ -236,9 +236,12 @@ var imageFingeringMap = {
 	"clarinet":  { folder: "Clarinet",  ext: "png", transposition: 0  },
 	"flute":     { folder: "Flute",     ext: "png", transposition: 0  },
 	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0  },
-	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 9  },
-	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 14 },
-	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 21 },
+	// All saxophones share the same fingering images indexed at writtenMidi - 12.
+	// (The image set uses a MIDI numbering where C4 = 48 instead of 60,
+	//  so we subtract 12 regardless of which saxophone is selected.)
+	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12 },
+	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12 },
+	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12 },
 	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0  }
 };
 
