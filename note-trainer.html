@@ -139,6 +139,63 @@
 				background-color: #6a1b9a;
 			}
 
+			.sustain-switch {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				cursor: pointer;
+				user-select: none;
+				font-size: 16px;
+				font-family: 'Alike', sans-serif;
+			}
+
+			.sustain-switch input {
+				display: none;
+			}
+
+			.sustain-slider {
+				position: relative;
+				width: 46px;
+				height: 26px;
+				background-color: #ccc;
+				border-radius: 13px;
+				transition: background-color 0.2s;
+				flex-shrink: 0;
+			}
+
+			.sustain-slider::before {
+				content: "";
+				position: absolute;
+				width: 20px;
+				height: 20px;
+				left: 3px;
+				top: 3px;
+				background-color: white;
+				border-radius: 50%;
+				transition: transform 0.2s;
+				box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+			}
+
+			.sustain-switch input:checked + .sustain-slider {
+				background-color: #2196F3;
+			}
+
+			.sustain-switch input:checked + .sustain-slider::before {
+				transform: translateX(20px);
+			}
+
+			#playButton.sustaining {
+				background-color: #e74c3c;
+			}
+
+			#playButton.sustaining:hover {
+				background-color: #c0392b;
+			}
+
+			#playButton.sustaining:active {
+				background-color: #a93226;
+			}
+
 			.main-display {
 				flex: 1;
 				display: flex;
@@ -322,6 +379,10 @@
 					max-width: 280px;
 				}
 
+				.sustain-switch {
+					order: -1;
+				}
+
 				.main-display {
 					flex-direction: column;
 				}
@@ -402,7 +463,12 @@
 					<option value="tuba">Tuba</option>
 					<option value="glockenspiel">Glockenspiel</option>
 				</select>
-				<button id="playButton" onclick="playNote()">Play Sound</button>
+				<label class="sustain-switch" title="Hold note until stopped">
+				<input type="checkbox" id="sustainToggle" onchange="onSustainChange()">
+				<span class="sustain-slider"></span>
+				<span>Sustain</span>
+			</label>
+			<button id="playButton" onclick="handlePlayButton()">Play Sound</button>
 				<button id="clearButton" onclick="clearNote()">Clear</button>
 			</div>
 
