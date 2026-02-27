@@ -825,18 +825,17 @@ function synthesizeWind(freq, timbre, t, dest, sustain) {
 		gain.gain.setValueAtTime(0, t);
 		gain.gain.linearRampToValueAtTime(amplitude, t + timbre.attack);
 
+		osc.connect(gain);
+		gain.connect(dest);
+		osc.start(t);
+		activeAudioNodes.push(osc);
+
 		if (!sustain) {
 			gain.gain.setValueAtTime(amplitude, sustainEnd);
 			gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 			osc.stop(t + duration);
 		}
 		// In sustain mode: hold at amplitude indefinitely; stopped via stopNote()
-
-		osc.connect(gain);
-		gain.connect(dest);
-
-		osc.start(t);
-		activeAudioNodes.push(osc);
 	});
 
 	// Breath noise: sustained filtered noise following the note envelope
@@ -863,19 +862,18 @@ function synthesizeWind(freq, timbre, t, dest, sustain) {
 		noiseGain.gain.setValueAtTime(0, t);
 		noiseGain.gain.linearRampToValueAtTime(timbre.breathNoise, t + timbre.attack);
 
+		noiseSrc.connect(noiseFilter);
+		noiseFilter.connect(noiseGain);
+		noiseGain.connect(dest);
+		noiseSrc.start(t);
+		activeAudioNodes.push(noiseSrc);
+
 		if (!sustain) {
 			noiseGain.gain.setValueAtTime(timbre.breathNoise, sustainEnd);
 			noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 			noiseSrc.stop(t + duration + 0.01);
 		}
 		// In sustain mode: hold at breathNoise level; stopped via stopNote()
-
-		noiseSrc.connect(noiseFilter);
-		noiseFilter.connect(noiseGain);
-		noiseGain.connect(dest);
-
-		noiseSrc.start(t);
-		activeAudioNodes.push(noiseSrc);
 	}
 }
 
