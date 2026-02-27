@@ -462,54 +462,32 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		}
 	}
 
-	// Helper: build VexFlow key string from note name + octave
-	function makeVexKey(name, oct) {
-		var base = name.charAt(0).toLowerCase();
-		var acc = name.includes("#") ? "#" : (name.length > 1 && name.endsWith("b") ? "b" : "");
-		return base + acc + "/" + oct;
-	}
-
-	// Helper: add accidental to a VF.StaveNote if needed
-	function addAcc(vfNote, name) {
-		if (name.includes("#")) vfNote.addAccidental(0, new VF.Accidental("#"));
-		else if (name.length > 1 && name.endsWith("b")) vfNote.addAccidental(0, new VF.Accidental("b"));
-	}
-
-	// Render placed note alongside detected ghost note (side by side using two voices)
-	function renderWithDetectedNote(placedName, placedOct, detName, detOct) {
+	// Render the detected ghost note (gray whole note) at the same position as the placed note.
+	// Drawn first so the placed note renders on top and stays fully visible.
+	function renderDetectedGhostNote(detName, detOct) {
 		try {
-			// Voice 1: placed note (half note, left) + half rest (right)
-			var placedVFNote = new VF.StaveNote({ clef: clef, keys: [makeVexKey(placedName, placedOct)], duration: "h" });
-			addAcc(placedVFNote, placedName);
-			var rest1 = new VF.StaveNote({ clef: clef, keys: ["b/4"], duration: "hr" });
-
-			// Voice 2: half rest (left) + detected note (half note, right, gray)
-			var rest2 = new VF.StaveNote({ clef: clef, keys: ["b/4"], duration: "hr" });
-			var detVFNote = new VF.StaveNote({ clef: clef, keys: [makeVexKey(detName, detOct)], duration: "h" });
-			addAcc(detVFNote, detName);
+			var base = detName.charAt(0).toLowerCase();
+			var acc = detName.includes("#") ? "#" : (detName.length > 1 && detName.endsWith("b") ? "b" : "");
+			var detVFNote = new VF.StaveNote({ clef: clef, keys: [base + acc + "/" + detOct], duration: "w" });
+			if (detName.includes("#")) detVFNote.addAccidental(0, new VF.Accidental("#"));
+			else if (detName.length > 1 && detName.endsWith("b")) detVFNote.addAccidental(0, new VF.Accidental("b"));
 			detVFNote.setStyle({ fillStyle: "rgba(140,140,140,0.65)", strokeStyle: "rgba(140,140,140,0.65)" });
 
-			var voice1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
-			voice1.addTickables([placedVFNote, rest1]);
-			var voice2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
-			voice2.addTickables([rest2, detVFNote]);
-
-			new VF.Formatter().joinVoices([voice1, voice2]).format([voice1, voice2], staveWidth - 80);
-			voice1.draw(context, stave);
-			voice2.draw(context, stave);
+			var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+			voice.addTickables([detVFNote]);
+			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
+			voice.draw(context, stave);
 		} catch (e) {
-			console.log("Could not render with detected note:", e.message);
-			renderNotes(placedName, placedOct, false, null);
+			console.log("Could not render detected ghost note:", e.message);
 		}
 	}
 
-	// If we have a placed note to display, render it
+	// If we have a placed note to display, render it (ghost note drawn first so placed note sits on top)
 	if (noteName && octave !== null) {
 		if (detectedNoteName != null && detectedNoteOctave != null) {
-			renderWithDetectedNote(noteName, octave, detectedNoteName, detectedNoteOctave);
-		} else {
-			renderNotes(noteName, octave, false, null);
+			renderDetectedGhostNote(detectedNoteName, detectedNoteOctave);
 		}
+		renderNotes(noteName, octave, false, null);
 	}
 	// If we have a ghost note (no placed note), render it semi-transparent
 	else if (ghostNoteName && ghostNoteOctave !== null) {
