@@ -1369,7 +1369,13 @@ function updateListenPitch() {
 				isSuccess = false;
 			}
 
-			drawStaff(currentNote, currentOctave, null, null, null, detectedNote, detectedOctave);
+			if (currentNote === null) {
+				// No placed note — show detected note as a primary black note
+				drawStaff(detectedNote, detectedOctave, null, null, null, null, null);
+			} else {
+				// Placed note exists — show detected as gray ghost overlay
+				drawStaff(currentNote, currentOctave, null, null, null, detectedNote, detectedOctave);
+			}
 		}
 	} else {
 		// No clear pitch detected — clear the detected note display
@@ -1378,7 +1384,11 @@ function updateListenPitch() {
 			detectedNote = null;
 			detectedOctave = null;
 			isSuccess = false;
-			drawStaff(currentNote, currentOctave, null, null, null, null, null);
+			if (currentNote === null) {
+				drawStaff(null, null, null, null, null, null, null);
+			} else {
+				drawStaff(currentNote, currentOctave, null, null, null, null, null);
+			}
 		}
 	}
 
@@ -1454,6 +1464,8 @@ function stopListening() {
 	// Redraw staff without detected note
 	if (currentNote && currentOctave !== null) {
 		drawStaff(currentNote, currentOctave, null, null, null, null, null);
+	} else {
+		drawStaff(null, null, null, null, null, null, null);
 	}
 
 	var listenButton = document.getElementById("listenButton");
