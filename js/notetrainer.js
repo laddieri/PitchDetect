@@ -1370,7 +1370,11 @@ function updateListenPitch() {
 			}
 
 			if (currentNote === null) {
-				// No placed note — show detected note as a primary black note
+				// No placed note — show detected note as a primary black note and update name box
+				var noteNameElem = document.getElementById("note-name");
+				var enharmonic = enharmonicMap[detectedNote];
+				noteNameElem.textContent = enharmonic ? detectedNote + " / " + enharmonic : detectedNote;
+				noteNameElem.style.opacity = "1";
 				drawStaff(detectedNote, detectedOctave, null, null, null, null, null);
 			} else {
 				// Placed note exists — show detected as gray ghost overlay
@@ -1385,6 +1389,7 @@ function updateListenPitch() {
 			detectedOctave = null;
 			isSuccess = false;
 			if (currentNote === null) {
+				document.getElementById("note-name").textContent = "-";
 				drawStaff(null, null, null, null, null, null, null);
 			} else {
 				drawStaff(currentNote, currentOctave, null, null, null, null, null);
@@ -1465,6 +1470,7 @@ function stopListening() {
 	if (currentNote && currentOctave !== null) {
 		drawStaff(currentNote, currentOctave, null, null, null, null, null);
 	} else {
+		document.getElementById("note-name").textContent = "-";
 		drawStaff(null, null, null, null, null, null, null);
 	}
 
