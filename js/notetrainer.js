@@ -44,7 +44,7 @@ var fireworksParticles = [];
 var STAFF_WIDTH = 280;
 var STAFF_HEIGHT = 140;
 var STAFF_X = 10;
-var STAFF_Y = 35;
+var STAFF_Y = 50;
 var LINE_SPACING = 10;  // Space between staff lines in internal coordinates
 
 // Dynamic staff layout values (updated by drawStaff from VexFlow)
