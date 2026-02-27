@@ -243,10 +243,16 @@
 				border-color: #4CAF50;
 			}
 
-			.instruction {
-				font-size: 18px;
-				color: #666;
-				margin-bottom: 10px;
+			#staff-instruction {
+				position: absolute;
+				top: 50%;
+				left: 50%;
+				transform: translate(-50%, -50%);
+				font-size: 16px;
+				color: #999;
+				text-align: center;
+				pointer-events: none;
+				white-space: nowrap;
 			}
 
 			#note-name {
@@ -499,13 +505,13 @@
 
 			<div class="main-display">
 				<div id="note-display">
-					<div class="instruction">Click on the staff to place a note</div>
 					<span id="note-name">-</span>
 					<div id="frequency-display"></div>
 				</div>
 
 				<div class="staff-wrapper">
 					<div class="staff-container" id="staff-container">
+						<div id="staff-instruction">Click on the staff to place a note</div>
 						<div id="staff-output"></div>
 					</div>
 					<div class="pitch-controls">
