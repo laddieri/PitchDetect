@@ -230,6 +230,25 @@
 				color: #333;
 			}
 
+			.note-wrapper {
+				position: relative;
+				width: 100%;
+			}
+
+			#tuner-line {
+				position: absolute;
+				left: 8%;
+				right: 8%;
+				height: 4px;
+				background-color: rgba(255, 255, 255, 0.92);
+				box-shadow: 0 0 0 1.5px rgba(0, 0, 0, 0.28);
+				border-radius: 2px;
+				display: none;
+				pointer-events: none;
+				transition: top 0.1s ease-out;
+				z-index: 2;
+			}
+
 			#flat, #sharp {
 				display: none;
 			}
@@ -524,7 +543,10 @@
 			<div class="main-display">
 				<div id="detector" class="vague">
 					<div class="pitch"><span id="pitch">--</span> Hz</div>
+					<div class="note-wrapper">
 					<span id="note">--</span>
+					<div id="tuner-line"></div>
+				</div>
 					<div id="detune">
 						<span id="detune_amt">--</span>
 						<span id="flat">cents &#9837;</span>

@@ -39,7 +39,8 @@ var detectorElem,
 	noteElem,
 	detuneElem,
 	detuneAmount,
-	noteStringArray;
+	noteStringArray,
+	tunerLineElem;
 
 var notetoDraw = "A";
 var octavetoDraw = "4"
@@ -61,6 +62,7 @@ window.onload = function() {
 	noteElem = document.getElementById( "note" );
 	detuneElem = document.getElementById( "detune" );
 	detuneAmount = document.getElementById( "detune_amt" );
+	tunerLineElem = document.getElementById( "tuner-line" );
 
 	detectorElem.ondragenter = function () {
 		this.classList.add("droptarget");
@@ -196,6 +198,7 @@ function stopPitchDetect() {
     noteElem.innerText = "-";
     detuneElem.className = "";
     detuneAmount.innerText = "--";
+    if (tunerLineElem) tunerLineElem.style.display = "none";
 
     // Reset notation display (keep correct clef for selected instrument)
     var instrumentSelect = document.getElementById("instrument");
@@ -485,6 +488,7 @@ function updatePitch( time ) {
 		noteElem.innerText = "-";
 		detuneElem.className = "";
 		detuneAmount.innerText = "--";
+		if (tunerLineElem) tunerLineElem.style.display = "none";
  	} else {
 	 	// Close the tutorial when the user plays their first note in step 2
 	 	if (window.tutorialStep === 2 && typeof window.closeTutorial === 'function') {
@@ -541,6 +545,15 @@ function updatePitch( time ) {
 			detuneAmount.innerHTML = "--";
 			detectorElem.className = "confident";
 			detectorElem.style.backgroundColor = "white";
+			// Show line at center when in tune
+			if (tunerLineElem) {
+				if (tuningColorEnabled) {
+					tunerLineElem.style.top = '50%';
+					tunerLineElem.style.display = 'block';
+				} else {
+					tunerLineElem.style.display = 'none';
+				}
+			}
 		} else {
 			if (tuningColorEnabled) {
 				if (detune < 0) {
@@ -567,6 +580,20 @@ function updatePitch( time ) {
 				detectorElem.style.backgroundColor = "white";
 			}
 			detuneAmount.innerHTML = Math.abs(detune);
+		}
+
+		// Update tuner line position when color tuner is enabled
+		if (tunerLineElem) {
+			if (tuningColorEnabled) {
+				var maxCents = 50; // ±50 cents maps to full vertical range
+				var clamped = Math.max(-maxCents, Math.min(maxCents, detune));
+				// Center (50%) = in tune; sharp moves up (lower %); flat moves down (higher %)
+				var linePercent = 50 - (clamped / maxCents) * 45;
+				tunerLineElem.style.top = linePercent + '%';
+				tunerLineElem.style.display = 'block';
+			} else {
+				tunerLineElem.style.display = 'none';
+			}
 		}
 	}
 
@@ -891,6 +918,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			// If toggled off while playing, reset background color to white
 			if (!tuningColorEnabled && isPlaying) {
 				detectorElem.style.backgroundColor = "white";
+				if (tunerLineElem) tunerLineElem.style.display = "none";
 			}
 		});
 	}
