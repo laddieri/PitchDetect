@@ -538,6 +538,7 @@ function handleStaffClick(event) {
 	// Show buttons
 	document.getElementById("playButton").style.display = "inline-block";
 	document.getElementById("clearButton").style.display = "inline-block";
+	document.getElementById("sustainToggle").parentElement.style.display = "flex";
 	document.getElementById("note-display").classList.add("active");
 	document.getElementById("pitchUpButton").classList.add("active");
 	document.getElementById("pitchDownButton").classList.add("active");
@@ -1129,6 +1130,7 @@ function clearNote() {
 	playButton.classList.remove("sustaining");
 	playButton.style.display = "none";
 	document.getElementById("clearButton").style.display = "none";
+	document.getElementById("sustainToggle").parentElement.style.display = "none";
 	document.getElementById("note-display").classList.remove("active");
 	document.getElementById("fingering-container").classList.remove("active");
 	document.getElementById("pitchUpButton").classList.remove("active");
