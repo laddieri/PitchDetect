@@ -468,13 +468,13 @@
 					<option value="tuba">Tuba</option>
 					<option value="glockenspiel">Glockenspiel</option>
 				</select>
+			<button id="playButton" onclick="handlePlayButton()">Play Sound</button>
+				<button id="clearButton" onclick="clearNote()">Clear</button>
 				<label id="sustainSwitch" class="sustain-switch" title="Hold note until stopped">
 				<input type="checkbox" id="sustainToggle" onchange="onSustainChange()">
 				<span class="sustain-slider"></span>
 				<span>Sustain</span>
 			</label>
-			<button id="playButton" onclick="handlePlayButton()">Play Sound</button>
-				<button id="clearButton" onclick="clearNote()">Clear</button>
 			</div>
 
 			<div class="main-display">
