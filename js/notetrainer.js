@@ -24,6 +24,17 @@ var showingAlternates = false;
 // Sustain state
 var sustainPlaying = false;
 
+// Listen (mic pitch detection) state
+var listenActive = false;
+var listenAudioContext = null;
+var listenAnalyser = null;
+var listenStream = null;
+var listenRafID = null;
+var listenBuffer = new Float32Array(4096);
+var detectedNote = null;
+var detectedOctave = null;
+var detectedMidi = null;
+
 // Staff rendering constants
 var STAFF_WIDTH = 280;
 var STAFF_HEIGHT = 140;
@@ -271,8 +282,68 @@ function yPositionToNote(yPos, clef) {
 	return { note: noteName, octave: octave, midi: midi };
 }
 
+// Pitch detection using McLeod Pitch Method (MPM / Normalized Square Difference Function)
+function autoCorrelate(buf, sampleRate) {
+	var SIZE = buf.length;
+	var rms = 0;
+	for (var i = 0; i < SIZE; i++) {
+		var val = buf[i];
+		rms += val * val;
+	}
+	rms = Math.sqrt(rms / SIZE);
+	if (rms < 0.01) return { frequency: -1, confidence: 0 };
+
+	var maxLag = Math.floor(SIZE / 2);
+	var nsdf = new Float32Array(maxLag);
+	for (var tau = 0; tau < maxLag; tau++) {
+		var acf = 0, m = 0;
+		for (var j = 0; j < SIZE - tau; j++) {
+			acf += buf[j] * buf[j + tau];
+			m += buf[j] * buf[j] + buf[j + tau] * buf[j + tau];
+		}
+		nsdf[tau] = m > 0 ? 2 * acf / m : 0;
+	}
+
+	var peaks = [];
+	var pastInitial = false, inPositiveRegion = false;
+	var peakLag = 0, peakVal = -Infinity;
+	for (var tau = 1; tau < maxLag; tau++) {
+		if (!pastInitial) { if (nsdf[tau] < 0) pastInitial = true; continue; }
+		if (nsdf[tau] > 0 && nsdf[tau - 1] <= 0) {
+			inPositiveRegion = true; peakLag = tau; peakVal = nsdf[tau];
+		} else if (nsdf[tau] <= 0 && nsdf[tau - 1] > 0 && inPositiveRegion) {
+			peaks.push({ lag: peakLag, value: peakVal }); inPositiveRegion = false;
+		} else if (inPositiveRegion && nsdf[tau] > peakVal) {
+			peakLag = tau; peakVal = nsdf[tau];
+		}
+	}
+	if (inPositiveRegion) peaks.push({ lag: peakLag, value: peakVal });
+	if (peaks.length === 0) return { frequency: -1, confidence: 0 };
+
+	var maxPeakValue = 0;
+	for (var i = 0; i < peaks.length; i++) {
+		if (peaks[i].value > maxPeakValue) maxPeakValue = peaks[i].value;
+	}
+	var threshold = maxPeakValue * 0.93;
+	var bestPeak = null;
+	for (var i = 0; i < peaks.length; i++) {
+		if (peaks[i].value >= threshold) { bestPeak = peaks[i]; break; }
+	}
+	if (!bestPeak || bestPeak.value < 0.5) return { frequency: -1, confidence: 0 };
+
+	var T0 = bestPeak.lag;
+	var confidence = bestPeak.value;
+	if (T0 > 0 && T0 < maxLag - 1) {
+		var x1 = nsdf[T0 - 1], x2 = nsdf[T0], x3 = nsdf[T0 + 1];
+		var a = (x1 + x3 - 2 * x2) / 2;
+		var b = (x3 - x1) / 2;
+		if (a !== 0) T0 = T0 - b / (2 * a);
+	}
+	return { frequency: sampleRate / T0, confidence: confidence };
+}
+
 // Draw the staff with VexFlow
-function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifier) {
+function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifier, detectedNoteName, detectedNoteOctave) {
 	var outputDiv = document.getElementById("staff-output");
 	if (!outputDiv) return null;
 
@@ -391,9 +462,54 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		}
 	}
 
+	// Helper: build VexFlow key string from note name + octave
+	function makeVexKey(name, oct) {
+		var base = name.charAt(0).toLowerCase();
+		var acc = name.includes("#") ? "#" : (name.length > 1 && name.endsWith("b") ? "b" : "");
+		return base + acc + "/" + oct;
+	}
+
+	// Helper: add accidental to a VF.StaveNote if needed
+	function addAcc(vfNote, name) {
+		if (name.includes("#")) vfNote.addAccidental(0, new VF.Accidental("#"));
+		else if (name.length > 1 && name.endsWith("b")) vfNote.addAccidental(0, new VF.Accidental("b"));
+	}
+
+	// Render placed note alongside detected ghost note (side by side using two voices)
+	function renderWithDetectedNote(placedName, placedOct, detName, detOct) {
+		try {
+			// Voice 1: placed note (half note, left) + half rest (right)
+			var placedVFNote = new VF.StaveNote({ clef: clef, keys: [makeVexKey(placedName, placedOct)], duration: "h" });
+			addAcc(placedVFNote, placedName);
+			var rest1 = new VF.StaveNote({ clef: clef, keys: ["b/4"], duration: "hr" });
+
+			// Voice 2: half rest (left) + detected note (half note, right, gray)
+			var rest2 = new VF.StaveNote({ clef: clef, keys: ["b/4"], duration: "hr" });
+			var detVFNote = new VF.StaveNote({ clef: clef, keys: [makeVexKey(detName, detOct)], duration: "h" });
+			addAcc(detVFNote, detName);
+			detVFNote.setStyle({ fillStyle: "rgba(140,140,140,0.65)", strokeStyle: "rgba(140,140,140,0.65)" });
+
+			var voice1 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+			voice1.addTickables([placedVFNote, rest1]);
+			var voice2 = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+			voice2.addTickables([rest2, detVFNote]);
+
+			new VF.Formatter().joinVoices([voice1, voice2]).format([voice1, voice2], staveWidth - 80);
+			voice1.draw(context, stave);
+			voice2.draw(context, stave);
+		} catch (e) {
+			console.log("Could not render with detected note:", e.message);
+			renderNotes(placedName, placedOct, false, null);
+		}
+	}
+
 	// If we have a placed note to display, render it
 	if (noteName && octave !== null) {
-		renderNotes(noteName, octave, false, null);
+		if (detectedNoteName != null && detectedNoteOctave != null) {
+			renderWithDetectedNote(noteName, octave, detectedNoteName, detectedNoteOctave);
+		} else {
+			renderNotes(noteName, octave, false, null);
+		}
 	}
 	// If we have a ghost note (no placed note), render it semi-transparent
 	else if (ghostNoteName && ghostNoteOctave !== null) {
@@ -528,6 +644,11 @@ function handleStaffClick(event) {
 	ghostNote = null;
 	ghostOctave = null;
 
+	// Stop listening if active — user placed a new note
+	if (listenActive) {
+		stopListening();
+	}
+
 	// Update display
 	updateNoteDisplay();
 	document.getElementById("note-name").style.opacity = "1";
@@ -537,6 +658,7 @@ function handleStaffClick(event) {
 
 	// Show buttons
 	document.getElementById("playButton").style.display = "inline-block";
+	document.getElementById("listenButton").style.display = "inline-block";
 	document.getElementById("clearButton").style.display = "inline-block";
 	document.getElementById("sustainSwitch").style.display = "flex";
 	document.getElementById("note-display").classList.add("active");
@@ -580,6 +702,11 @@ function handleKeyDown(event) {
 		var transposition = getTransposition();
 		var concertMidi = currentMidi - transposition;
 		currentFrequency = frequencyFromNoteNumber(concertMidi);
+
+		// Stop listening if active — note changed via arrow key
+		if (listenActive) {
+			stopListening();
+		}
 
 		// Update display and redraw staff
 		updateNoteDisplay();
@@ -634,6 +761,11 @@ function adjustPitch(semitones) {
 		var transposition = getTransposition();
 		var concertMidi = currentMidi - transposition;
 		currentFrequency = frequencyFromNoteNumber(concertMidi);
+
+		// Stop listening if active — note changed via pitch button
+		if (listenActive) {
+			stopListening();
+		}
 
 		// Update display and redraw staff
 		updateNoteDisplay();
@@ -1069,6 +1201,116 @@ function stopNote() {
 	activeAudioNodes = [];
 }
 
+// Mic pitch detection animation loop
+function updateListenPitch() {
+	if (!listenActive) return;
+
+	listenAnalyser.getFloatTimeDomainData(listenBuffer);
+	var result = autoCorrelate(listenBuffer, listenAudioContext.sampleRate);
+
+	if (result.frequency > 0 && result.confidence > 0.85) {
+		var concertMidi = noteFromPitch(result.frequency);
+		// Convert concert pitch to written pitch for this instrument
+		var transposition = getTransposition();
+		var writtenMidi = concertMidi + transposition;
+		// Clamp to reasonable range
+		writtenMidi = Math.max(24, Math.min(96, writtenMidi));
+
+		if (writtenMidi !== detectedMidi) {
+			detectedMidi = writtenMidi;
+			detectedNote = noteStrings[writtenMidi % 12];
+			detectedOctave = Math.floor(writtenMidi / 12) - 1;
+			drawStaff(currentNote, currentOctave, null, null, null, detectedNote, detectedOctave);
+		}
+	} else {
+		// No clear pitch detected — clear the ghost note
+		if (detectedMidi !== null) {
+			detectedMidi = null;
+			detectedNote = null;
+			detectedOctave = null;
+			drawStaff(currentNote, currentOctave, null, null, null, null, null);
+		}
+	}
+
+	listenRafID = requestAnimationFrame(updateListenPitch);
+}
+
+// Start listening to the microphone
+function startListening() {
+	if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+		alert("Microphone access is not supported in this browser.");
+		return;
+	}
+
+	navigator.mediaDevices.getUserMedia({
+		audio: {
+			echoCancellation: false,
+			autoGainControl: false,
+			noiseSuppression: false
+		}
+	}).then(function(stream) {
+		listenStream = stream;
+		listenAudioContext = new (window.AudioContext || window.webkitAudioContext)();
+		var source = listenAudioContext.createMediaStreamSource(stream);
+		listenAnalyser = listenAudioContext.createAnalyser();
+		listenAnalyser.fftSize = 4096;
+		source.connect(listenAnalyser);
+		listenBuffer = new Float32Array(listenAnalyser.fftSize);
+
+		listenActive = true;
+		updateListenPitch();
+
+		var listenButton = document.getElementById("listenButton");
+		listenButton.textContent = "Stop Listening";
+		listenButton.classList.add("listening");
+	}).catch(function(err) {
+		console.error("Microphone access error:", err);
+		alert("Could not access microphone. Please allow microphone access and try again.");
+	});
+}
+
+// Stop microphone listening and clear detected note
+function stopListening() {
+	listenActive = false;
+
+	if (listenRafID) {
+		cancelAnimationFrame(listenRafID);
+		listenRafID = null;
+	}
+	if (listenStream) {
+		listenStream.getTracks().forEach(function(track) { track.stop(); });
+		listenStream = null;
+	}
+	if (listenAudioContext) {
+		listenAudioContext.close();
+		listenAudioContext = null;
+	}
+	listenAnalyser = null;
+	detectedMidi = null;
+	detectedNote = null;
+	detectedOctave = null;
+
+	// Redraw staff without detected note
+	if (currentNote && currentOctave !== null) {
+		drawStaff(currentNote, currentOctave, null, null, null, null, null);
+	}
+
+	var listenButton = document.getElementById("listenButton");
+	if (listenButton) {
+		listenButton.textContent = "Listen to me";
+		listenButton.classList.remove("listening");
+	}
+}
+
+// Handle Listen button click — toggle listening on/off
+function handleListenButton() {
+	if (listenActive) {
+		stopListening();
+	} else {
+		startListening();
+	}
+}
+
 // Update fingering display for current note
 function updateFingeringDisplay() {
 	var instrument = document.getElementById("instrument").value;
@@ -1113,6 +1355,11 @@ function clearNote() {
 	stopNote();
 	sustainPlaying = false;
 
+	// Stop listening if active
+	if (listenActive) {
+		stopListening();
+	}
+
 	currentNote = null;
 	currentOctave = null;
 	currentFrequency = null;
@@ -1129,6 +1376,7 @@ function clearNote() {
 	playButton.textContent = "Play Sound";
 	playButton.classList.remove("sustaining");
 	playButton.style.display = "none";
+	document.getElementById("listenButton").style.display = "none";
 	document.getElementById("clearButton").style.display = "none";
 	document.getElementById("sustainSwitch").style.display = "none";
 	document.getElementById("note-display").classList.remove("active");

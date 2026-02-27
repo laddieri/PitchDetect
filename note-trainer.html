@@ -201,6 +201,37 @@
 				background-color: #a93226;
 			}
 
+			#listenButton {
+				padding: 12px 32px;
+				font-size: 16px;
+				font-family: 'Alike', sans-serif;
+				background-color: #2196F3;
+				color: white;
+				border: none;
+				border-radius: 6px;
+				cursor: pointer;
+				transition: background-color 0.2s;
+				display: none;
+			}
+
+			#listenButton:hover {
+				background-color: #1976D2;
+			}
+
+			#listenButton.listening {
+				background-color: #e74c3c;
+				animation: pulse 1.5s ease-in-out infinite;
+			}
+
+			#listenButton.listening:hover {
+				background-color: #c0392b;
+			}
+
+			@keyframes pulse {
+				0%, 100% { opacity: 1; }
+				50% { opacity: 0.75; }
+			}
+
 			.main-display {
 				flex: 1;
 				display: flex;
@@ -383,6 +414,7 @@
 
 				#instrument,
 				#playButton,
+				#listenButton,
 				#clearButton {
 					width: 100%;
 					max-width: 280px;
@@ -470,6 +502,7 @@
 					<option value="glockenspiel">Glockenspiel</option>
 				</select>
 			<button id="playButton" onclick="handlePlayButton()">Play Sound</button>
+				<button id="listenButton" onclick="handleListenButton()">Listen to me</button>
 				<button id="clearButton" onclick="clearNote()">Clear</button>
 				<label id="sustainSwitch" class="sustain-switch" title="Hold note until stopped">
 				<input type="checkbox" id="sustainToggle" onchange="onSustainChange()">
