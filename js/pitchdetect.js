@@ -702,10 +702,10 @@ var resizeTimeout = null;
 // Fixed internal dimensions for VexFlow (maintains aspect ratio)
 // Smaller values = larger staff appearance (content fills more of the viewBox)
 // staveY must leave ~22px above the top staff line so the treble clef curl
-// doesn't clip; VEXFLOW_HEIGHT must leave ~35px below the bottom line for
-// ledger lines and the bass clef symbol.
+// doesn't clip; VEXFLOW_HEIGHT must leave enough space below the bottom line
+// for ledger lines (low bass notes can need 3+ ledger lines) and the bass clef symbol.
 var VEXFLOW_WIDTH = 220;
-var VEXFLOW_HEIGHT = 120;
+var VEXFLOW_HEIGHT = 160;
 
 // Enharmonic equivalents: sharp -> flat mapping
 var enharmonicMap = {
