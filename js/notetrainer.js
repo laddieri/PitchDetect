@@ -539,6 +539,12 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		}
 	}
 
+	// Show instruction text only when no note (placed or detected) is on the staff
+	var instructionEl = document.getElementById("staff-instruction");
+	if (instructionEl) {
+		instructionEl.style.display = noteName ? "none" : "";
+	}
+
 	// If we have a placed note to display, render it
 	if (noteName && octave !== null) {
 		if (isSuccess && detectedNoteName != null && detectedNoteOctave != null) {
