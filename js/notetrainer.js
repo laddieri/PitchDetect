@@ -1549,7 +1549,8 @@ function clearNote() {
 	playButton.textContent = "Play Sound";
 	playButton.classList.remove("sustaining");
 	playButton.style.display = "none";
-	document.getElementById("listenButton").style.display = "none";
+	var instrumentSelected = document.getElementById("instrument").value;
+	document.getElementById("listenButton").style.display = instrumentSelected ? "inline-block" : "none";
 	document.getElementById("clearButton").style.display = "none";
 	document.getElementById("sustainSwitch").style.display = "none";
 	document.getElementById("note-display").classList.remove("active");
