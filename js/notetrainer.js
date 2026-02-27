@@ -35,6 +35,11 @@ var detectedNote = null;
 var detectedOctave = null;
 var detectedMidi = null;
 
+// Success state (detected note matches placed note)
+var isSuccess = false;
+var fireworksAnimID = null;
+var fireworksParticles = [];
+
 // Staff rendering constants
 var STAFF_WIDTH = 280;
 var STAFF_HEIGHT = 140;
@@ -462,19 +467,40 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		}
 	}
 
-	// Render the detected ghost note (gray whole note) at the same position as the placed note.
+	// Render the detected note (gray) overlaid on the placed note.
+	// Shows both enharmonic spellings as half notes when applicable (mirrors pitch detect page behavior).
 	// Drawn first so the placed note renders on top and stays fully visible.
 	function renderDetectedGhostNote(detName, detOct) {
 		try {
-			var base = detName.charAt(0).toLowerCase();
-			var acc = detName.includes("#") ? "#" : (detName.length > 1 && detName.endsWith("b") ? "b" : "");
-			var detVFNote = new VF.StaveNote({ clef: clef, keys: [base + acc + "/" + detOct], duration: "w" });
-			if (detName.includes("#")) detVFNote.addAccidental(0, new VF.Accidental("#"));
-			else if (detName.length > 1 && detName.endsWith("b")) detVFNote.addAccidental(0, new VF.Accidental("b"));
-			detVFNote.setStyle({ fillStyle: "rgba(140,140,140,0.65)", strokeStyle: "rgba(140,140,140,0.65)" });
+			var grayStyle = { fillStyle: "rgba(140,140,140,0.65)", strokeStyle: "rgba(140,140,140,0.65)" };
+			var hasEnharmonic = enharmonicMap[detName];
+			var detectedNotes = [];
+
+			if (hasEnharmonic) {
+				// Show both enharmonic spellings as gray half notes (same as how placed accidental notes are shown)
+				var sharpKey = detName.toLowerCase() + "/" + detOct;
+				var sharpNote = new VF.StaveNote({ clef: clef, keys: [sharpKey], duration: "h" });
+				sharpNote.addAccidental(0, new VF.Accidental("#"));
+				sharpNote.setStyle(grayStyle);
+				detectedNotes.push(sharpNote);
+
+				var flatBase = hasEnharmonic.replace("b", "").toLowerCase();
+				var flatNote = new VF.StaveNote({ clef: clef, keys: [flatBase + "b/" + detOct], duration: "h" });
+				flatNote.addAccidental(0, new VF.Accidental("b"));
+				flatNote.setStyle(grayStyle);
+				detectedNotes.push(flatNote);
+			} else {
+				var base = detName.charAt(0).toLowerCase();
+				var acc = detName.includes("#") ? "#" : (detName.length > 1 && detName.endsWith("b") ? "b" : "");
+				var detVFNote = new VF.StaveNote({ clef: clef, keys: [base + acc + "/" + detOct], duration: "w" });
+				if (detName.includes("#")) detVFNote.addAccidental(0, new VF.Accidental("#"));
+				else if (detName.length > 1 && detName.endsWith("b")) detVFNote.addAccidental(0, new VF.Accidental("b"));
+				detVFNote.setStyle(grayStyle);
+				detectedNotes.push(detVFNote);
+			}
 
 			var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
-			voice.addTickables([detVFNote]);
+			voice.addTickables(detectedNotes);
 			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
 			voice.draw(context, stave);
 		} catch (e) {
@@ -482,12 +508,49 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		}
 	}
 
-	// If we have a placed note to display, render it (ghost note drawn first so placed note sits on top)
-	if (noteName && octave !== null) {
-		if (detectedNoteName != null && detectedNoteOctave != null) {
-			renderDetectedGhostNote(detectedNoteName, detectedNoteOctave);
+	// Render placed (black) and detected (gray) notes side by side for success feedback.
+	function renderSuccessNotes(placedName, placedOct, detName, detOct) {
+		try {
+			var notes = [];
+
+			// Placed note: black half note
+			var pBase = placedName.charAt(0).toLowerCase();
+			var pAcc = placedName.includes("#") ? "#" : (placedName.length > 1 && placedName.endsWith("b") ? "b" : "");
+			var pNote = new VF.StaveNote({ clef: clef, keys: [pBase + pAcc + "/" + placedOct], duration: "h" });
+			if (pAcc === "#") pNote.addAccidental(0, new VF.Accidental("#"));
+			else if (pAcc === "b") pNote.addAccidental(0, new VF.Accidental("b"));
+			notes.push(pNote);
+
+			// Detected note: gray half note (same pitch, confirming success)
+			var dBase = detName.charAt(0).toLowerCase();
+			var dAcc = detName.includes("#") ? "#" : (detName.length > 1 && detName.endsWith("b") ? "b" : "");
+			var dNote = new VF.StaveNote({ clef: clef, keys: [dBase + dAcc + "/" + detOct], duration: "h" });
+			if (dAcc === "#") dNote.addAccidental(0, new VF.Accidental("#"));
+			else if (dAcc === "b") dNote.addAccidental(0, new VF.Accidental("b"));
+			dNote.setStyle({ fillStyle: "rgba(140,140,140,0.65)", strokeStyle: "rgba(140,140,140,0.65)" });
+			notes.push(dNote);
+
+			var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+			voice.addTickables(notes);
+			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
+			voice.draw(context, stave);
+		} catch (e) {
+			console.log("Could not render success notes:", e.message);
 		}
-		renderNotes(noteName, octave, false, null);
+	}
+
+	// If we have a placed note to display, render it
+	if (noteName && octave !== null) {
+		if (isSuccess && detectedNoteName != null && detectedNoteOctave != null) {
+			// Success state: show placed (black) and detected (gray) notes side by side
+			renderSuccessNotes(noteName, octave, detectedNoteName, detectedNoteOctave);
+		} else {
+			// Normal state: gray detected note drawn first so placed note renders on top
+			if (detectedNoteName != null && detectedNoteOctave != null) {
+				renderDetectedGhostNote(detectedNoteName, detectedNoteOctave);
+			}
+			renderNotes(noteName, octave, false, null);
+		}
 	}
 	// If we have a ghost note (no placed note), render it semi-transparent
 	else if (ghostNoteName && ghostNoteOctave !== null) {
@@ -1179,6 +1242,104 @@ function stopNote() {
 	activeAudioNodes = [];
 }
 
+// Launch fireworks celebration on the staff canvas when user plays the correct note
+function launchFireworks() {
+	var staffContainer = document.getElementById("staff-container");
+	if (!staffContainer) return;
+
+	// Create or reuse the canvas overlay
+	var canvas = document.getElementById("fireworks-canvas");
+	if (!canvas) {
+		canvas = document.createElement("canvas");
+		canvas.id = "fireworks-canvas";
+		canvas.style.position = "absolute";
+		canvas.style.top = "0";
+		canvas.style.left = "0";
+		canvas.style.width = "100%";
+		canvas.style.height = "100%";
+		canvas.style.pointerEvents = "none";
+		canvas.style.borderRadius = "12px";
+		staffContainer.appendChild(canvas);
+	}
+
+	// Cancel any previous animation
+	if (fireworksAnimID) {
+		cancelAnimationFrame(fireworksAnimID);
+		fireworksAnimID = null;
+	}
+
+	// Match canvas pixel dimensions to the container
+	canvas.width = staffContainer.clientWidth;
+	canvas.height = staffContainer.clientHeight;
+
+	var colors = ["#ff6b6b", "#ffd93d", "#6bcb77", "#4d96ff", "#c77dff", "#ff9f1c", "#ff4d6d", "#00b4d8"];
+	fireworksParticles = [];
+
+	// Launch 3 bursts from different positions across the staff
+	var burstPoints = [
+		{ x: canvas.width * 0.25, y: canvas.height * 0.45 },
+		{ x: canvas.width * 0.5,  y: canvas.height * 0.35 },
+		{ x: canvas.width * 0.75, y: canvas.height * 0.45 }
+	];
+
+	burstPoints.forEach(function(pt) {
+		for (var i = 0; i < 25; i++) {
+			var angle = Math.random() * Math.PI * 2;
+			var speed = 1.5 + Math.random() * 4;
+			fireworksParticles.push({
+				x: pt.x, y: pt.y,
+				vx: Math.cos(angle) * speed,
+				vy: Math.sin(angle) * speed - 1,  // slight upward bias
+				color: colors[Math.floor(Math.random() * colors.length)],
+				radius: 2.5 + Math.random() * 3,
+				alpha: 1,
+				decay: 0.012 + Math.random() * 0.008,
+				gravity: 0.08 + Math.random() * 0.04
+			});
+		}
+	});
+
+	var startTime = performance.now();
+	var animDuration = 2500;
+
+	function step(timestamp) {
+		var elapsed = timestamp - startTime;
+		var ctx = canvas.getContext("2d");
+		ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+		if (elapsed > animDuration) {
+			fireworksAnimID = null;
+			return;
+		}
+
+		var allDone = true;
+		fireworksParticles.forEach(function(p) {
+			if (p.alpha <= 0) return;
+			allDone = false;
+			p.x += p.vx;
+			p.y += p.vy;
+			p.vy += p.gravity;
+			p.vx *= 0.98;
+			p.alpha -= p.decay;
+			ctx.save();
+			ctx.globalAlpha = Math.max(0, p.alpha);
+			ctx.fillStyle = p.color;
+			ctx.beginPath();
+			ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+			ctx.fill();
+			ctx.restore();
+		});
+
+		if (!allDone) {
+			fireworksAnimID = requestAnimationFrame(step);
+		} else {
+			fireworksAnimID = null;
+		}
+	}
+
+	fireworksAnimID = requestAnimationFrame(step);
+}
+
 // Mic pitch detection animation loop
 function updateListenPitch() {
 	if (!listenActive) return;
@@ -1198,14 +1359,25 @@ function updateListenPitch() {
 			detectedMidi = writtenMidi;
 			detectedNote = noteStrings[writtenMidi % 12];
 			detectedOctave = Math.floor(writtenMidi / 12) - 1;
+
+			// Check if detected note matches the placed note (success!)
+			var matched = (currentMidi !== null && detectedMidi === currentMidi);
+			if (matched && !isSuccess) {
+				isSuccess = true;
+				launchFireworks();
+			} else if (!matched) {
+				isSuccess = false;
+			}
+
 			drawStaff(currentNote, currentOctave, null, null, null, detectedNote, detectedOctave);
 		}
 	} else {
-		// No clear pitch detected — clear the ghost note
+		// No clear pitch detected — clear the detected note display
 		if (detectedMidi !== null) {
 			detectedMidi = null;
 			detectedNote = null;
 			detectedOctave = null;
+			isSuccess = false;
 			drawStaff(currentNote, currentOctave, null, null, null, null, null);
 		}
 	}
@@ -1267,6 +1439,17 @@ function stopListening() {
 	detectedMidi = null;
 	detectedNote = null;
 	detectedOctave = null;
+	isSuccess = false;
+
+	// Clear any active fireworks animation
+	if (fireworksAnimID) {
+		cancelAnimationFrame(fireworksAnimID);
+		fireworksAnimID = null;
+	}
+	var fireworksCanvas = document.getElementById("fireworks-canvas");
+	if (fireworksCanvas) {
+		fireworksCanvas.getContext("2d").clearRect(0, 0, fireworksCanvas.width, fireworksCanvas.height);
+	}
 
 	// Redraw staff without detected note
 	if (currentNote && currentOctave !== null) {
