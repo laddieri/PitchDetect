@@ -1555,6 +1555,9 @@ document.addEventListener("DOMContentLoaded", function() {
 		// Persist selection so the pitch detector page stays in sync
 		try { localStorage.setItem('pitchdetect-instrument', instrument.value); } catch(e) {}
 
+		// Show/hide listen button based on instrument selection
+		document.getElementById("listenButton").style.display = instrument.value ? "inline-block" : "none";
+
 		// Stop sustaining note if instrument changes
 		if (sustainPlaying) {
 			stopSustain();
@@ -1597,6 +1600,9 @@ document.addEventListener("DOMContentLoaded", function() {
 			instrument.value = saved;
 			// Reset if the saved value isn't a valid option in this list
 			if (instrument.value !== saved) instrument.value = '';
+			if (instrument.value) {
+				document.getElementById("listenButton").style.display = "inline-block";
+			}
 		}
 	} catch(e) {}
 
