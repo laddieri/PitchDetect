@@ -269,12 +269,28 @@
 				margin-top: 10px;
 			}
 
+			.staff-column {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				gap: 10px;
+				min-width: 0;
+				min-height: 0;
+			}
+
+			.staff-listen-row {
+				display: flex;
+				justify-content: center;
+				flex-shrink: 0;
+			}
+
 			.staff-wrapper {
 				flex: 1;
 				display: flex;
 				gap: 10px;
 				align-items: stretch;
 				min-width: 0;
+				min-height: 0;
 			}
 
 			.staff-container {
@@ -406,14 +422,14 @@
 
 				#instrument,
 				#playButton,
-				#listenButton,
 				#clearButton {
 					width: 100%;
 					max-width: 280px;
 				}
 
 				#listenButton {
-					order: 1;
+					width: 100%;
+					max-width: 280px;
 				}
 
 				.main-display {
@@ -423,6 +439,11 @@
 				#note-display {
 					flex: none;
 					min-height: 150px;
+				}
+
+				.staff-column {
+					flex: 1;
+					min-height: 220px;
 				}
 
 				.staff-wrapper {
@@ -494,7 +515,6 @@
 					<option value="glockenspiel">Glockenspiel</option>
 				</select>
 			<button id="playButton" onclick="handlePlayButton()">Play Sound</button>
-				<button id="listenButton" onclick="handleListenButton()">Listen to me</button>
 				<button id="clearButton" onclick="clearNote()">Clear</button>
 				<label id="sustainSwitch" class="sustain-switch" title="Hold note until stopped">
 				<input type="checkbox" id="sustainToggle" onchange="onSustainChange()">
@@ -509,14 +529,19 @@
 					<div id="frequency-display"></div>
 				</div>
 
-				<div class="staff-wrapper">
-					<div class="staff-container" id="staff-container">
-						<div id="staff-instruction">Click on the staff to place a note</div>
-						<div id="staff-output"></div>
+				<div class="staff-column">
+					<div class="staff-listen-row">
+						<button id="listenButton" onclick="handleListenButton()">Listen to me</button>
 					</div>
-					<div class="pitch-controls">
-						<button id="pitchUpButton" class="pitch-button" onclick="adjustPitch(1)" title="Raise pitch by half step">&#9650;</button>
-						<button id="pitchDownButton" class="pitch-button" onclick="adjustPitch(-1)" title="Lower pitch by half step">&#9660;</button>
+					<div class="staff-wrapper">
+						<div class="staff-container" id="staff-container">
+							<div id="staff-instruction">Click on the staff to place a note</div>
+							<div id="staff-output"></div>
+						</div>
+						<div class="pitch-controls">
+							<button id="pitchUpButton" class="pitch-button" onclick="adjustPitch(1)" title="Raise pitch by half step">&#9650;</button>
+							<button id="pitchDownButton" class="pitch-button" onclick="adjustPitch(-1)" title="Lower pitch by half step">&#9660;</button>
+						</div>
 					</div>
 				</div>
 			</div>
