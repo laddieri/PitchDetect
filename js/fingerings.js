@@ -37,8 +37,8 @@ var trumpetFingerings = {
 	72: { primary: [], alternates: [] },           // C5 - open
 	73: { primary: [1, 2], alternates: [] },       // C#5
 	74: { primary: [1], alternates: [] },          // D5
-	75: { primary: [], alternates: [] },           // D#5 - open
-	76: { primary: [1, 2], alternates: [] },       // E5
+	75: { primary: [2], alternates: [] },           // D#5
+	76: { primary: [], alternates: [] },            // E5 - open
 	77: { primary: [1], alternates: [] },          // F5
 	78: { primary: [2], alternates: [] },          // F#5
 	79: { primary: [], alternates: [] },           // G5 - open
