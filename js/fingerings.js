@@ -483,10 +483,21 @@ function drawFluteFingering(container, fingering, isAlternate) {
 // ============================================================================
 
 // Get fingering for a given instrument and MIDI note
+// Instruments that share trumpet 3-valve fingerings, with an offset
+// to map their concert-pitch MIDI note to the equivalent trumpet written MIDI.
+//   Euphonium: non-transposing, one octave below trumpet → offset +14
+//   Tuba (BBb): non-transposing, two octaves below trumpet → offset +26
+var threeValveOffset = {
+	"trumpet": 0,
+	"euphonium": 14,
+	"tuba": 26
+};
+
 function getFingering(instrument, midiNote) {
+	if (instrument in threeValveOffset) {
+		return trumpetFingerings[midiNote + threeValveOffset[instrument]] || null;
+	}
 	switch (instrument) {
-		case "trumpet":
-			return trumpetFingerings[midiNote] || null;
 		case "flute":
 			return fluteFingerings[midiNote] || null;
 		default:
@@ -531,7 +542,7 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 	primaryContainer.className = "primary-fingering";
 	container.appendChild(primaryContainer);
 
-	if (instrument === "trumpet") {
+	if (instrument in threeValveOffset) {
 		drawTrumpetFingering(primaryContainer, fingering.primary, false);
 	} else if (instrument === "flute") {
 		drawFluteFingering(primaryContainer, fingering.primary, false);
@@ -558,7 +569,7 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 			altContainer.style.marginTop = "10px";
 			container.appendChild(altContainer);
 
-			if (instrument === "trumpet") {
+			if (instrument in threeValveOffset) {
 				drawTrumpetFingering(altContainer, alt, true);
 			} else if (instrument === "flute") {
 				drawFluteFingering(altContainer, alt, true);
@@ -571,5 +582,5 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 
 // Check if instrument has fingering data
 function hasFingeringData(instrument) {
-	return instrument === "trumpet" || instrument in imageFingeringMap;
+	return instrument in threeValveOffset || instrument in imageFingeringMap;
 }
