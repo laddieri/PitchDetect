@@ -691,11 +691,6 @@ function handleStaffClick(event) {
 	ghostNote = null;
 	ghostOctave = null;
 
-	// Stop listening if active — user placed a new note
-	if (listenActive) {
-		stopListening();
-	}
-
 	// Update display
 	updateNoteDisplay();
 	document.getElementById("note-name").style.opacity = "1";
@@ -750,11 +745,6 @@ function handleKeyDown(event) {
 		var concertMidi = currentMidi - transposition;
 		currentFrequency = frequencyFromNoteNumber(concertMidi);
 
-		// Stop listening if active — note changed via arrow key
-		if (listenActive) {
-			stopListening();
-		}
-
 		// Update display and redraw staff
 		updateNoteDisplay();
 		drawStaff(currentNote, currentOctave, null, null);
@@ -808,11 +798,6 @@ function adjustPitch(semitones) {
 		var transposition = getTransposition();
 		var concertMidi = currentMidi - transposition;
 		currentFrequency = frequencyFromNoteNumber(concertMidi);
-
-		// Stop listening if active — note changed via pitch button
-		if (listenActive) {
-			stopListening();
-		}
 
 		// Update display and redraw staff
 		updateNoteDisplay();
