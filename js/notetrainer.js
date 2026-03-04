@@ -432,9 +432,12 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 	renderer.resize(renderWidth, renderHeight);
 	var context = renderer.getContext();
 
-	// Make SVG fill the container (no viewBox scaling needed — rendered at exact size)
+	// Set viewBox to match render dimensions so content maps correctly even if
+	// CSS stretches the SVG element (e.g. on first render before layout resolves)
 	var svgElement = outputDiv.querySelector("svg");
 	if (svgElement) {
+		svgElement.setAttribute("viewBox", "0 0 " + renderWidth + " " + renderHeight);
+		svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
 		svgElement.style.width = "100%";
 		svgElement.style.height = "100%";
 	}
@@ -572,6 +575,8 @@ function drawDetectedStaff(noteName, octave) {
 
 	var svgElement = outputDiv.querySelector("svg");
 	if (svgElement) {
+		svgElement.setAttribute("viewBox", "0 0 " + renderWidth2 + " " + renderHeight2);
+		svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
 		svgElement.style.width = "100%";
 		svgElement.style.height = "100%";
 	}
@@ -1487,6 +1492,8 @@ function startListening() {
 		if (currentNote !== null) {
 			document.getElementById("staff-panel-2").style.display = "flex";
 			document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "block"; });
+			// Re-render first staff at new (halved) width now that panel 2 is visible
+			drawStaff(currentNote, currentOctave, null, null, null);
 			drawDetectedStaff(null, null);
 		}
 
