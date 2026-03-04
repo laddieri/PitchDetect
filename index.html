@@ -529,6 +529,21 @@
 			<h1>Pitch Detector</h1>
 
 			<div class="controls">
+				<select id="key-select" onchange="onKeyChange()" title="Concert key signature">
+					<option value="Gb">Gb (6♭)</option>
+					<option value="Db">Db (5♭)</option>
+					<option value="Ab">Ab (4♭)</option>
+					<option value="Eb">Eb (3♭)</option>
+					<option value="Bb" selected>Bb (2♭)</option>
+					<option value="F">F (1♭)</option>
+					<option value="C">C</option>
+					<option value="G">G (1♯)</option>
+					<option value="D">D (2♯)</option>
+					<option value="A">A (3♯)</option>
+					<option value="E">E (4♯)</option>
+					<option value="B">B (5♯)</option>
+					<option value="F#">F♯ (6♯)</option>
+				</select>
 				<select name="Instrument" id="instrument">
 					<option value="">Select an instrument</option>
 					<option value="treble clef">Treble Clef</option>
