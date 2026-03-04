@@ -416,24 +416,33 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 	var instrument = document.getElementById("instrument").value;
 	var clef = getCurrentClef();
 
-	// Create renderer
+	// Measure the actual container to render at its exact size
+	var containerEl = document.getElementById("staff-container");
+	var containerW = containerEl.clientWidth;
+	var containerH = containerEl.clientHeight;
+	var renderWidth  = Math.max(containerW - 20, 150);  // subtract 10px padding each side
+	var renderHeight = containerH > 0 ? Math.max(containerH - 20, 80) : STAFF_HEIGHT;
+
+	// Center the 5 staff lines vertically: top line at (renderHeight/2 - 20)
+	var staffLinesSpan = 4 * LINE_SPACING;  // 40px
+	var dynamicStaffY = Math.round((renderHeight - staffLinesSpan) / 2);
+
+	// Create renderer at actual container size
 	var renderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
-	renderer.resize(STAFF_WIDTH, STAFF_HEIGHT);
+	renderer.resize(renderWidth, renderHeight);
 	var context = renderer.getContext();
 
-	// Set viewBox for scaling
+	// Make SVG fill the container (no viewBox scaling needed — rendered at exact size)
 	var svgElement = outputDiv.querySelector("svg");
 	if (svgElement) {
-		svgElement.setAttribute("viewBox", "0 0 " + STAFF_WIDTH + " " + STAFF_HEIGHT);
-		svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
 		svgElement.style.width = "100%";
 		svgElement.style.height = "100%";
 	}
 
 	// Create stave with key signature
-	var staveWidth = STAFF_WIDTH - 30;
+	var staveWidth = renderWidth - 30;
 	var writtenKey = getWrittenKey();
-	var stave = new VF.Stave(STAFF_X, STAFF_Y, staveWidth);
+	var stave = new VF.Stave(STAFF_X, dynamicStaffY, staveWidth);
 	stave.addClef(clef);
 	stave.addKeySignature(writtenKey);
 	stave.setContext(context).draw();
@@ -546,21 +555,30 @@ function drawDetectedStaff(noteName, octave) {
 	var VF = Vex.Flow;
 	var clef = getCurrentClef();
 
+	// Measure the actual container to render at its exact size
+	var containerEl2 = document.getElementById("staff-container-2");
+	var containerW2 = containerEl2.clientWidth;
+	var containerH2 = containerEl2.clientHeight;
+	var renderWidth2  = Math.max(containerW2 - 20, 150);
+	var renderHeight2 = containerH2 > 0 ? Math.max(containerH2 - 20, 80) : STAFF_HEIGHT;
+
+	// Center the 5 staff lines vertically
+	var staffLinesSpan2 = 4 * LINE_SPACING;
+	var dynamicStaffY2 = Math.round((renderHeight2 - staffLinesSpan2) / 2);
+
 	var renderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
-	renderer.resize(STAFF_WIDTH, STAFF_HEIGHT);
+	renderer.resize(renderWidth2, renderHeight2);
 	var context = renderer.getContext();
 
 	var svgElement = outputDiv.querySelector("svg");
 	if (svgElement) {
-		svgElement.setAttribute("viewBox", "0 0 " + STAFF_WIDTH + " " + STAFF_HEIGHT);
-		svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
 		svgElement.style.width = "100%";
 		svgElement.style.height = "100%";
 	}
 
-	var staveWidth = STAFF_WIDTH - 30;
+	var staveWidth = renderWidth2 - 30;
 	var writtenKey = getWrittenKey();
-	var stave = new VF.Stave(STAFF_X, STAFF_Y, staveWidth);
+	var stave = new VF.Stave(STAFF_X, dynamicStaffY2, staveWidth);
 	stave.addClef(clef);
 	stave.addKeySignature(writtenKey);
 	stave.setContext(context).draw();
