@@ -1342,11 +1342,11 @@ function updateListenPitch() {
 				isSuccess = false;
 			}
 
-			// Draw detected note on second staff
-			drawDetectedStaff(detectedNote, detectedOctave);
-
-			if (currentNote === null) {
-				// No placed note — update the note name display
+			// Draw detected note — on second staff if a note is placed, otherwise on the single staff
+			if (currentNote !== null) {
+				drawDetectedStaff(detectedNote, detectedOctave);
+			} else {
+				drawStaff(detectedNote, detectedOctave, null, null, null);
 				var noteNameElem = document.getElementById("note-name");
 				var enharmonic = enharmonicMap[detectedNote];
 				noteNameElem.textContent = enharmonic ? detectedNote + " / " + enharmonic : detectedNote;
@@ -1360,8 +1360,10 @@ function updateListenPitch() {
 			detectedNote = null;
 			detectedOctave = null;
 			isSuccess = false;
-			drawDetectedStaff(null, null);
-			if (currentNote === null) {
+			if (currentNote !== null) {
+				drawDetectedStaff(null, null);
+			} else {
+				drawStaff(null, null, null, null, null);
 				document.getElementById("note-name").textContent = "-";
 			}
 		}
@@ -1395,10 +1397,12 @@ function startListening() {
 		listenActive = true;
 		updateListenPitch();
 
-		// Show second staff and labels, then draw the empty staff now that it's visible
-		document.getElementById("staff-panel-2").style.display = "flex";
-		document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "block"; });
-		drawDetectedStaff(null, null);
+		// Only show second staff if the user has placed a note
+		if (currentNote !== null) {
+			document.getElementById("staff-panel-2").style.display = "flex";
+			document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "block"; });
+			drawDetectedStaff(null, null);
+		}
 
 		var listenButton = document.getElementById("listenButton");
 		listenButton.textContent = "Stop Listening";
@@ -1441,13 +1445,15 @@ function stopListening() {
 		fireworksCanvas.getContext("2d").clearRect(0, 0, fireworksCanvas.width, fireworksCanvas.height);
 	}
 
-	// Hide second staff and labels, clear it
-	document.getElementById("staff-panel-2").style.display = "none";
-	document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "none"; });
-	drawDetectedStaff(null, null);
-	if (currentNote && currentOctave !== null) {
+	// Hide second staff and labels if they were shown (note was placed)
+	if (currentNote !== null) {
+		document.getElementById("staff-panel-2").style.display = "none";
+		document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "none"; });
+		drawDetectedStaff(null, null);
 		drawStaff(currentNote, currentOctave, null, null, null);
 	} else {
+		// No placed note — clear the single staff and reset display
+		drawStaff(null, null, null, null, null);
 		document.getElementById("note-name").textContent = "-";
 	}
 
