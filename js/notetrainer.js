@@ -540,6 +540,15 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		renderNotes(ghostNoteName, ghostNoteOctave, true, ghostModifier);
 	}
 
+	// Center the rendered content vertically within the container
+	if (svgElement) {
+		var bbox = svgElement.getBBox();
+		var contentCenterY = bbox.y + bbox.height / 2;
+		var viewBoxCenterY = renderHeight / 2;
+		var offsetY = contentCenterY - viewBoxCenterY;
+		svgElement.setAttribute("viewBox", "0 " + offsetY + " " + renderWidth + " " + renderHeight);
+	}
+
 	// Return stave info for click calculations
 	return {
 		topY: STAFF_Y,
@@ -588,7 +597,17 @@ function drawDetectedStaff(noteName, octave) {
 	stave.addKeySignature(writtenKey);
 	stave.setContext(context).draw();
 
-	if (!noteName || octave === null) return;
+	if (!noteName || octave === null) {
+		// Center the empty stave vertically
+		var svgEl = outputDiv.querySelector("svg");
+		if (svgEl) {
+			var bb = svgEl.getBBox();
+			var ccY = bb.y + bb.height / 2;
+			var oY = ccY - renderHeight2 / 2;
+			svgEl.setAttribute("viewBox", "0 " + oY + " " + renderWidth2 + " " + renderHeight2);
+		}
+		return;
+	}
 
 	try {
 		var keySigList = keySignatureNotes[writtenKey] || [];
@@ -641,6 +660,16 @@ function drawDetectedStaff(noteName, octave) {
 		voice.draw(context, stave);
 	} catch (e) {
 		console.log("Could not render detected note on staff 2:", noteName, octave, e.message);
+	}
+
+	// Center the rendered content vertically within the container
+	var svgElement2 = outputDiv.querySelector("svg");
+	if (svgElement2) {
+		var bbox2 = svgElement2.getBBox();
+		var contentCenterY2 = bbox2.y + bbox2.height / 2;
+		var viewBoxCenterY2 = renderHeight2 / 2;
+		var offsetY2 = contentCenterY2 - viewBoxCenterY2;
+		svgElement2.setAttribute("viewBox", "0 " + offsetY2 + " " + renderWidth2 + " " + renderHeight2);
 	}
 }
 
