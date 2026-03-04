@@ -348,7 +348,7 @@ function autoCorrelate(buf, sampleRate) {
 }
 
 // Draw the staff with VexFlow
-function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifier, detectedNoteName, detectedNoteOctave) {
+function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifier) {
 	var outputDiv = document.getElementById("staff-output");
 	if (!outputDiv) return null;
 
@@ -467,99 +467,16 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		}
 	}
 
-	// Render the detected note (gray) overlaid on the placed note.
-	// Shows both enharmonic spellings as half notes when applicable (mirrors pitch detect page behavior).
-	// Drawn first so the placed note renders on top and stays fully visible.
-	function renderDetectedGhostNote(detName, detOct) {
-		try {
-			var grayStyle = { fillStyle: "rgba(140,140,140,0.65)", strokeStyle: "rgba(140,140,140,0.65)" };
-			var hasEnharmonic = enharmonicMap[detName];
-			var detectedNotes = [];
-
-			if (hasEnharmonic) {
-				// Show both enharmonic spellings as gray half notes (same as how placed accidental notes are shown)
-				var sharpKey = detName.toLowerCase() + "/" + detOct;
-				var sharpNote = new VF.StaveNote({ clef: clef, keys: [sharpKey], duration: "h" });
-				sharpNote.addAccidental(0, new VF.Accidental("#"));
-				sharpNote.setStyle(grayStyle);
-				detectedNotes.push(sharpNote);
-
-				var flatBase = hasEnharmonic.replace("b", "").toLowerCase();
-				var flatNote = new VF.StaveNote({ clef: clef, keys: [flatBase + "b/" + detOct], duration: "h" });
-				flatNote.addAccidental(0, new VF.Accidental("b"));
-				flatNote.setStyle(grayStyle);
-				detectedNotes.push(flatNote);
-			} else {
-				var base = detName.charAt(0).toLowerCase();
-				var acc = detName.includes("#") ? "#" : (detName.length > 1 && detName.endsWith("b") ? "b" : "");
-				var detVFNote = new VF.StaveNote({ clef: clef, keys: [base + acc + "/" + detOct], duration: "w" });
-				if (detName.includes("#")) detVFNote.addAccidental(0, new VF.Accidental("#"));
-				else if (detName.length > 1 && detName.endsWith("b")) detVFNote.addAccidental(0, new VF.Accidental("b"));
-				detVFNote.setStyle(grayStyle);
-				detectedNotes.push(detVFNote);
-			}
-
-			var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
-			voice.addTickables(detectedNotes);
-			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
-			voice.draw(context, stave);
-		} catch (e) {
-			console.log("Could not render detected ghost note:", e.message);
-		}
-	}
-
-	// Render placed (black) and detected (gray) notes side by side for success feedback.
-	function renderSuccessNotes(placedName, placedOct, detName, detOct) {
-		try {
-			var notes = [];
-
-			// Placed note: black half note
-			var pBase = placedName.charAt(0).toLowerCase();
-			var pAcc = placedName.includes("#") ? "#" : (placedName.length > 1 && placedName.endsWith("b") ? "b" : "");
-			var pNote = new VF.StaveNote({ clef: clef, keys: [pBase + pAcc + "/" + placedOct], duration: "h" });
-			if (pAcc === "#") pNote.addAccidental(0, new VF.Accidental("#"));
-			else if (pAcc === "b") pNote.addAccidental(0, new VF.Accidental("b"));
-			notes.push(pNote);
-
-			// Detected note: gray half note (same pitch, confirming success)
-			var dBase = detName.charAt(0).toLowerCase();
-			var dAcc = detName.includes("#") ? "#" : (detName.length > 1 && detName.endsWith("b") ? "b" : "");
-			var dNote = new VF.StaveNote({ clef: clef, keys: [dBase + dAcc + "/" + detOct], duration: "h" });
-			if (dAcc === "#") dNote.addAccidental(0, new VF.Accidental("#"));
-			else if (dAcc === "b") dNote.addAccidental(0, new VF.Accidental("b"));
-			dNote.setStyle({ fillStyle: "rgba(140,140,140,0.65)", strokeStyle: "rgba(140,140,140,0.65)" });
-			notes.push(dNote);
-
-			var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
-			voice.addTickables(notes);
-			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
-			voice.draw(context, stave);
-		} catch (e) {
-			console.log("Could not render success notes:", e.message);
-		}
-	}
-
-	// Show instruction text only when no note (placed or detected) is on the staff
+	// Show instruction text only when no placed or ghost note is on the staff
 	var instructionEl = document.getElementById("staff-instruction");
 	if (instructionEl) {
 		instructionEl.style.display = noteName ? "none" : "";
 	}
 
-	// If we have a placed note to display, render it
+	// Render placed note or ghost note
 	if (noteName && octave !== null) {
-		if (isSuccess && detectedNoteName != null && detectedNoteOctave != null) {
-			// Success state: show placed (black) and detected (gray) notes side by side
-			renderSuccessNotes(noteName, octave, detectedNoteName, detectedNoteOctave);
-		} else {
-			// Normal state: gray detected note drawn first so placed note renders on top
-			if (detectedNoteName != null && detectedNoteOctave != null) {
-				renderDetectedGhostNote(detectedNoteName, detectedNoteOctave);
-			}
-			renderNotes(noteName, octave, false, null);
-		}
-	}
-	// If we have a ghost note (no placed note), render it semi-transparent
-	else if (ghostNoteName && ghostNoteOctave !== null) {
+		renderNotes(noteName, octave, false, null);
+	} else if (ghostNoteName && ghostNoteOctave !== null) {
 		renderNotes(ghostNoteName, ghostNoteOctave, true, ghostModifier);
 	}
 
@@ -569,6 +486,71 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		lineSpacing: 10,  // VexFlow default
 		clef: clef
 	};
+}
+
+// Draw the detected (live mic) note on the second staff
+function drawDetectedStaff(noteName, octave) {
+	var outputDiv = document.getElementById("staff-output-2");
+	if (!outputDiv) return;
+
+	outputDiv.innerHTML = "";
+
+	var VF = Vex.Flow;
+	var clef = getCurrentClef();
+
+	var renderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
+	renderer.resize(STAFF_WIDTH, STAFF_HEIGHT);
+	var context = renderer.getContext();
+
+	var svgElement = outputDiv.querySelector("svg");
+	if (svgElement) {
+		svgElement.setAttribute("viewBox", "0 0 " + STAFF_WIDTH + " " + STAFF_HEIGHT);
+		svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
+		svgElement.style.width = "100%";
+		svgElement.style.height = "100%";
+	}
+
+	var staveWidth = STAFF_WIDTH - 30;
+	var stave = new VF.Stave(STAFF_X, STAFF_Y, staveWidth);
+	stave.addClef(clef);
+	stave.setContext(context).draw();
+
+	if (!noteName || octave === null) return;
+
+	try {
+		var hasEnharmonic = enharmonicMap[noteName];
+		var notes = [];
+
+		if (hasEnharmonic) {
+			// Show both enharmonic spellings as half notes
+			var sharpKey = noteName.toLowerCase() + "/" + octave;
+			var sharpNote = new VF.StaveNote({ clef: clef, keys: [sharpKey], duration: "h" });
+			sharpNote.addAccidental(0, new VF.Accidental("#"));
+			notes.push(sharpNote);
+
+			var flatBase = hasEnharmonic.replace("b", "").toLowerCase();
+			var flatNote = new VF.StaveNote({ clef: clef, keys: [flatBase + "b/" + octave], duration: "h" });
+			flatNote.addAccidental(0, new VF.Accidental("b"));
+			notes.push(flatNote);
+		} else {
+			var vexNote = noteName.toLowerCase();
+			var noteKey = vexNote + "/" + octave;
+			var note = new VF.StaveNote({ clef: clef, keys: [noteKey], duration: "w" });
+			if (noteName.includes("#")) {
+				note.addAccidental(0, new VF.Accidental("#"));
+			} else if (noteName.length > 1 && noteName.endsWith("b")) {
+				note.addAccidental(0, new VF.Accidental("b"));
+			}
+			notes.push(note);
+		}
+
+		var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+		voice.addTickables(notes);
+		new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
+		voice.draw(context, stave);
+	} catch (e) {
+		console.log("Could not render detected note on staff 2:", noteName, octave, e.message);
+	}
 }
 
 // Get SVG coordinates from mouse event
@@ -1360,16 +1342,15 @@ function updateListenPitch() {
 				isSuccess = false;
 			}
 
+			// Draw detected note on second staff
+			drawDetectedStaff(detectedNote, detectedOctave);
+
 			if (currentNote === null) {
-				// No placed note — show detected note as a primary black note and update name box
+				// No placed note — update the note name display
 				var noteNameElem = document.getElementById("note-name");
 				var enharmonic = enharmonicMap[detectedNote];
 				noteNameElem.textContent = enharmonic ? detectedNote + " / " + enharmonic : detectedNote;
 				noteNameElem.style.opacity = "1";
-				drawStaff(detectedNote, detectedOctave, null, null, null, null, null);
-			} else {
-				// Placed note exists — show detected as gray ghost overlay
-				drawStaff(currentNote, currentOctave, null, null, null, detectedNote, detectedOctave);
 			}
 		}
 	} else {
@@ -1379,11 +1360,9 @@ function updateListenPitch() {
 			detectedNote = null;
 			detectedOctave = null;
 			isSuccess = false;
+			drawDetectedStaff(null, null);
 			if (currentNote === null) {
 				document.getElementById("note-name").textContent = "-";
-				drawStaff(null, null, null, null, null, null, null);
-			} else {
-				drawStaff(currentNote, currentOctave, null, null, null, null, null);
 			}
 		}
 	}
@@ -1457,12 +1436,12 @@ function stopListening() {
 		fireworksCanvas.getContext("2d").clearRect(0, 0, fireworksCanvas.width, fireworksCanvas.height);
 	}
 
-	// Redraw staff without detected note
+	// Clear second staff and redraw first staff without detected note
+	drawDetectedStaff(null, null);
 	if (currentNote && currentOctave !== null) {
-		drawStaff(currentNote, currentOctave, null, null, null, null, null);
+		drawStaff(currentNote, currentOctave, null, null, null);
 	} else {
 		document.getElementById("note-name").textContent = "-";
-		drawStaff(null, null, null, null, null, null, null);
 	}
 
 	var listenButton = document.getElementById("listenButton");
@@ -1592,6 +1571,7 @@ document.addEventListener("DOMContentLoaded", function() {
 			document.getElementById("fingering-container").classList.remove("active");
 		}
 		drawStaff(currentNote, currentOctave, null, null);
+		drawDetectedStaff(detectedNote, detectedOctave);
 	});
 
 	// Set up event handlers for staff interaction
@@ -1616,6 +1596,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 	} catch(e) {}
 
-	// Draw initial staff (uses restored instrument for correct clef)
+	// Draw initial staffs (uses restored instrument for correct clef)
 	drawStaff(null, null, null, null);
+	drawDetectedStaff(null, null);
 });
