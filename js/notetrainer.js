@@ -46,6 +46,8 @@ var STAFF_HEIGHT = 140;
 var STAFF_X = 10;
 var STAFF_Y = 50;
 var LINE_SPACING = 10;  // Space between staff lines in internal coordinates
+var MAX_INTERNAL_WIDTH = 380;  // Max VexFlow coordinate width (allows scaling up in wide containers)
+var STAFF_VIEWBOX_HEIGHT = 120;  // Tight viewBox height around staff lines
 
 // Dynamic staff layout values (updated by drawStaff from VexFlow)
 var staffTopLineY = null;
@@ -416,34 +418,35 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 	var instrument = document.getElementById("instrument").value;
 	var clef = getCurrentClef();
 
-	// Measure the actual container to render at its exact size
+	// Use a fixed internal coordinate space so the SVG scales up to fill the container.
+	// Cap the internal width so wide containers (single staff) produce a larger visual.
 	var containerEl = document.getElementById("staff-container");
 	var containerW = containerEl.clientWidth;
 	var containerH = containerEl.clientHeight;
-	var renderWidth  = Math.max(containerW - 20, 150);  // subtract 10px padding each side
-	var renderHeight = containerH > 0 ? Math.max(containerH - 20, 80) : STAFF_HEIGHT;
+	var rawWidth = Math.max(containerW - 20, 150);
+	var internalWidth = Math.min(rawWidth, MAX_INTERNAL_WIDTH);
+	var internalHeight = STAFF_VIEWBOX_HEIGHT;
 
-	// Center the 5 staff lines vertically: top line at (renderHeight/2 - 20)
+	// Place staff lines centered in the internal coordinate space
 	var staffLinesSpan = 4 * LINE_SPACING;  // 40px
-	var dynamicStaffY = Math.round((renderHeight - staffLinesSpan) / 2);
+	var dynamicStaffY = Math.round((internalHeight - staffLinesSpan) / 2);
 
-	// Create renderer at actual container size
+	// Create renderer at internal coordinate size
 	var renderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
-	renderer.resize(renderWidth, renderHeight);
+	renderer.resize(internalWidth, internalHeight);
 	var context = renderer.getContext();
 
-	// Set viewBox to match render dimensions so content maps correctly even if
-	// CSS stretches the SVG element (e.g. on first render before layout resolves)
+	// Let the SVG scale to fill the container; xMidYMid meet keeps aspect ratio
 	var svgElement = outputDiv.querySelector("svg");
 	if (svgElement) {
-		svgElement.setAttribute("viewBox", "0 0 " + renderWidth + " " + renderHeight);
+		svgElement.setAttribute("viewBox", "0 0 " + internalWidth + " " + internalHeight);
 		svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
 		svgElement.style.width = "100%";
 		svgElement.style.height = "100%";
 	}
 
 	// Create stave with key signature
-	var staveWidth = renderWidth - 30;
+	var staveWidth = internalWidth - 30;
 	var writtenKey = getWrittenKey();
 	var stave = new VF.Stave(STAFF_X, dynamicStaffY, staveWidth);
 	stave.addClef(clef);
@@ -458,9 +461,9 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 
 	// Center the 5 staff lines vertically within the viewBox (fixed position)
 	var staffCenter = (stave.getYForLine(0) + stave.getYForLine(4)) / 2;
-	var viewBoxOffsetY = staffCenter - renderHeight / 2;
+	var viewBoxOffsetY = staffCenter - internalHeight / 2;
 	if (svgElement) {
-		svgElement.setAttribute("viewBox", "0 " + viewBoxOffsetY + " " + renderWidth + " " + renderHeight);
+		svgElement.setAttribute("viewBox", "0 " + viewBoxOffsetY + " " + internalWidth + " " + internalHeight);
 	}
 
 	// Note area width (after clef + key signature)
@@ -565,30 +568,30 @@ function drawDetectedStaff(noteName, octave) {
 	var VF = Vex.Flow;
 	var clef = getCurrentClef();
 
-	// Measure the actual container to render at its exact size
+	// Use a fixed internal coordinate space so the SVG scales to fill the container
 	var containerEl2 = document.getElementById("staff-container-2");
 	var containerW2 = containerEl2.clientWidth;
-	var containerH2 = containerEl2.clientHeight;
-	var renderWidth2  = Math.max(containerW2 - 20, 150);
-	var renderHeight2 = containerH2 > 0 ? Math.max(containerH2 - 20, 80) : STAFF_HEIGHT;
+	var rawWidth2 = Math.max(containerW2 - 20, 150);
+	var internalWidth2 = Math.min(rawWidth2, MAX_INTERNAL_WIDTH);
+	var internalHeight2 = STAFF_VIEWBOX_HEIGHT;
 
-	// Center the 5 staff lines vertically
+	// Place staff lines centered in the internal coordinate space
 	var staffLinesSpan2 = 4 * LINE_SPACING;
-	var dynamicStaffY2 = Math.round((renderHeight2 - staffLinesSpan2) / 2);
+	var dynamicStaffY2 = Math.round((internalHeight2 - staffLinesSpan2) / 2);
 
 	var renderer = new VF.Renderer(outputDiv, VF.Renderer.Backends.SVG);
-	renderer.resize(renderWidth2, renderHeight2);
+	renderer.resize(internalWidth2, internalHeight2);
 	var context = renderer.getContext();
 
 	var svgElement = outputDiv.querySelector("svg");
 	if (svgElement) {
-		svgElement.setAttribute("viewBox", "0 0 " + renderWidth2 + " " + renderHeight2);
+		svgElement.setAttribute("viewBox", "0 0 " + internalWidth2 + " " + internalHeight2);
 		svgElement.setAttribute("preserveAspectRatio", "xMidYMid meet");
 		svgElement.style.width = "100%";
 		svgElement.style.height = "100%";
 	}
 
-	var staveWidth = renderWidth2 - 30;
+	var staveWidth = internalWidth2 - 30;
 	var writtenKey = getWrittenKey();
 	var stave = new VF.Stave(STAFF_X, dynamicStaffY2, staveWidth);
 	stave.addClef(clef);
@@ -597,9 +600,9 @@ function drawDetectedStaff(noteName, octave) {
 
 	// Center the 5 staff lines vertically within the viewBox (fixed position)
 	var staffCenter2 = (stave.getYForLine(0) + stave.getYForLine(4)) / 2;
-	var viewBoxOffsetY2 = staffCenter2 - renderHeight2 / 2;
+	var viewBoxOffsetY2 = staffCenter2 - internalHeight2 / 2;
 	if (svgElement) {
-		svgElement.setAttribute("viewBox", "0 " + viewBoxOffsetY2 + " " + renderWidth2 + " " + renderHeight2);
+		svgElement.setAttribute("viewBox", "0 " + viewBoxOffsetY2 + " " + internalWidth2 + " " + internalHeight2);
 	}
 
 	if (!noteName || octave === null) return;
