@@ -41,7 +41,7 @@ var fireworksAnimID = null;
 var fireworksParticles = [];
 
 // Staff rendering constants
-var STAFF_WIDTH = 280;
+var STAFF_WIDTH = 340;
 var STAFF_HEIGHT = 200;
 var STAFF_X = 10;
 var STAFF_Y = 55;
@@ -86,6 +86,62 @@ var transpositionMap = {
 
 // Note names
 var noteStrings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+
+// Key signature state (concert key)
+var concertKey = "Bb"; // Default: B-flat major concert
+
+// Circle of fifths: key name → number of sharps(+) or flats(-)
+var keyToFifths = {
+	"Gb": -6, "Db": -5, "Ab": -4, "Eb": -3, "Bb": -2, "F": -1,
+	"C":   0,  "G":  1,  "D":  2,  "A":  3,  "E":  4, "B":  5, "F#": 6
+};
+
+// Circle of fifths: fifths count → key name
+var fifthsToKey = {
+	"-6": "Gb", "-5": "Db", "-4": "Ab", "-3": "Eb", "-2": "Bb", "-1": "F",
+	"0": "C", "1": "G", "2": "D", "3": "A", "4": "E", "5": "B", "6": "F#"
+};
+
+// Instrument transposition semitones → change in circle-of-fifths position
+var transpositionFifthsDelta = { 0: 0, 2: 2, 7: 1, 9: 3 };
+
+// Notes that have accidentals in each key signature
+var keySignatureNotes = {
+	"C":  [],
+	"G":  ["F#"],
+	"D":  ["F#", "C#"],
+	"A":  ["F#", "C#", "G#"],
+	"E":  ["F#", "C#", "G#", "D#"],
+	"B":  ["F#", "C#", "G#", "D#", "A#"],
+	"F#": ["F#", "C#", "G#", "D#", "A#", "E#"],
+	"F":  ["Bb"],
+	"Bb": ["Bb", "Eb"],
+	"Eb": ["Bb", "Eb", "Ab"],
+	"Ab": ["Bb", "Eb", "Ab", "Db"],
+	"Db": ["Bb", "Eb", "Ab", "Db", "Gb"],
+	"Gb": ["Bb", "Eb", "Ab", "Db", "Gb", "Cb"]
+};
+
+// Pitch class → note name, sharp and flat spellings
+var sharpNoteSpellings = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+var flatNoteSpellings  = ["C", "Db", "D", "Eb", "E", "F", "Gb", "G", "Ab", "A", "Bb", "B"];
+var flatKeyNames = ["Gb", "Db", "Ab", "Eb", "Bb", "F"];
+
+// Return the VexFlow written key name for the current instrument + concert key
+function getWrittenKey() {
+	var transposition = getTransposition();
+	var fifthsDelta = transpositionFifthsDelta[transposition] !== undefined ? transpositionFifthsDelta[transposition] : 0;
+	var concertFifths = keyToFifths[concertKey] !== undefined ? keyToFifths[concertKey] : 0;
+	var writtenFifths = concertFifths + fifthsDelta;
+	if (writtenFifths > 6) writtenFifths -= 12;
+	if (writtenFifths < -6) writtenFifths += 12;
+	return fifthsToKey[String(writtenFifths)] || "C";
+}
+
+// Return the spelled note name for pitch class pc, using the key's accidental preference
+function spellNoteForKey(pc, writtenKey) {
+	return (flatKeyNames.indexOf(writtenKey) >= 0 ? flatNoteSpellings : sharpNoteSpellings)[pc];
+}
 
 // Enharmonic equivalents
 var enharmonicMap = {
@@ -372,10 +428,12 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		svgElement.style.height = "100%";
 	}
 
-	// Create stave
+	// Create stave with key signature
 	var staveWidth = STAFF_WIDTH - 30;
+	var writtenKey = getWrittenKey();
 	var stave = new VF.Stave(STAFF_X, STAFF_Y, staveWidth);
 	stave.addClef(clef);
+	stave.addKeySignature(writtenKey);
 	stave.setContext(context).draw();
 
 	// Capture actual staff positions for accurate mouse-to-note mapping
@@ -384,83 +442,71 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 	staffNoteStartX = stave.getNoteStartX();
 	staffNoteEndX = stave.getNoteEndX();
 
-	// Helper function to render notes (handles enharmonic display)
+	// Note area width (after clef + key signature)
+	var noteAreaWidth = stave.getNoteEndX() - stave.getNoteStartX() - 20;
+
+	// Helper function to render notes (key-signature-aware)
 	function renderNotes(noteName, noteOctave, isGhost, modifier) {
 		try {
 			var notes = [];
-			var hasEnharmonic = enharmonicMap[noteName];
+			var keySigList = keySignatureNotes[writtenKey] || [];
+			var pc = noteStrings.indexOf(noteName);
 
 			if (isGhost && modifier) {
-				// Ghost note with explicit accidental - render single note
+				// Explicit shift/alt modifier — override key signature
 				var baseNote = noteName.charAt(0).toLowerCase();
 				var accidental = modifier === "sharp" ? "#" : "b";
-				var noteKey = baseNote + accidental + "/" + noteOctave;
-				var note = new VF.StaveNote({
-					clef: clef,
-					keys: [noteKey],
-					duration: "w"
-				});
+				var note = new VF.StaveNote({ clef: clef, keys: [baseNote + accidental + "/" + noteOctave], duration: "w" });
 				note.addAccidental(0, new VF.Accidental(accidental));
 				note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
 				notes.push(note);
-			} else if (hasEnharmonic) {
-				// Render both sharp and flat versions as half notes
-				var flatName = enharmonicMap[noteName];
-
-				// Sharp note
-				var sharpKey = noteName.toLowerCase() + "/" + noteOctave;
-				var sharpNote = new VF.StaveNote({
-					clef: clef,
-					keys: [sharpKey],
-					duration: "h"
-				});
-				sharpNote.addAccidental(0, new VF.Accidental("#"));
-				if (isGhost) {
-					sharpNote.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
-				}
-				notes.push(sharpNote);
-
-				// Flat note
-				var flatBase = flatName.replace("b", "").toLowerCase();
-				var flatKey = flatBase + "b/" + noteOctave;
-				var flatNote = new VF.StaveNote({
-					clef: clef,
-					keys: [flatKey],
-					duration: "h"
-				});
-				flatNote.addAccidental(0, new VF.Accidental("b"));
-				if (isGhost) {
-					flatNote.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
-				}
-				notes.push(flatNote);
 			} else {
-				// Single note (natural or accidental without enharmonic entry)
-				var vexNote = noteName.toLowerCase();
-				var noteKey = vexNote + "/" + noteOctave;
-				var note = new VF.StaveNote({
-					clef: clef,
-					keys: [noteKey],
-					duration: "w"
-				});
-				// Add accidental if present in note name
-				if (noteName.includes("#")) {
-					note.addAccidental(0, new VF.Accidental("#"));
-				} else if (noteName.length > 1 && noteName.endsWith("b")) {
-					note.addAccidental(0, new VF.Accidental("b"));
+				var spelledName = spellNoteForKey(pc, writtenKey);
+				var firstLetter = spelledName.charAt(0);
+				var isInKeySig = keySigList.indexOf(spelledName) >= 0;
+				var isNatural = spelledName.length === 1 || (spelledName.length > 1 && spelledName.charAt(1) !== "#" && spelledName.charAt(1) !== "b");
+				var isNaturalContraKey = !isInKeySig && isNatural &&
+					keySigList.some(function(n) { return n.charAt(0) === firstLetter; });
+
+				if (isInKeySig) {
+					// In key signature — no explicit accidental needed
+					var note = new VF.StaveNote({ clef: clef, keys: [spelledName.toLowerCase() + "/" + noteOctave], duration: "w" });
+					if (isGhost) note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
+					notes.push(note);
+				} else if (isNaturalContraKey) {
+					// Natural note that the key would otherwise alter — show natural sign
+					var note = new VF.StaveNote({ clef: clef, keys: [firstLetter.toLowerCase() + "/" + noteOctave], duration: "w" });
+					note.addAccidental(0, new VF.Accidental("n"));
+					if (isGhost) note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
+					notes.push(note);
+				} else if (enharmonicMap[noteName] && !isGhost) {
+					// Enharmonic note not covered by key — show both spellings as half notes
+					var sharpSpelled = sharpNoteSpellings[pc];
+					var flatSpelled  = flatNoteSpellings[pc];
+
+					var sharpNote = new VF.StaveNote({ clef: clef, keys: [sharpSpelled.toLowerCase() + "/" + noteOctave], duration: "h" });
+					sharpNote.addAccidental(0, new VF.Accidental("#"));
+					notes.push(sharpNote);
+
+					var flatNote = new VF.StaveNote({ clef: clef, keys: [flatSpelled.toLowerCase() + "/" + noteOctave], duration: "h" });
+					flatNote.addAccidental(0, new VF.Accidental("b"));
+					notes.push(flatNote);
+				} else {
+					// Normal note — add explicit accidental only if note has one and is not in key
+					var note = new VF.StaveNote({ clef: clef, keys: [spelledName.toLowerCase() + "/" + noteOctave], duration: "w" });
+					if (spelledName.includes("#")) {
+						note.addAccidental(0, new VF.Accidental("#"));
+					} else if (spelledName.length > 1 && spelledName.charAt(1) === "b") {
+						note.addAccidental(0, new VF.Accidental("b"));
+					}
+					if (isGhost) note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
+					notes.push(note);
 				}
-				if (isGhost) {
-					note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
-				}
-				notes.push(note);
 			}
 
-			var voice = new VF.Voice({
-				num_beats: 4,
-				beat_value: 4
-			}).setStrict(false);
+			var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
 			voice.addTickables(notes);
-
-			new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
+			new VF.Formatter().joinVoices([voice]).format([voice], noteAreaWidth);
 			voice.draw(context, stave);
 		} catch (e) {
 			console.log("Could not render note:", noteName, noteOctave, e.message);
@@ -511,34 +557,54 @@ function drawDetectedStaff(noteName, octave) {
 	}
 
 	var staveWidth = STAFF_WIDTH - 30;
+	var writtenKey = getWrittenKey();
 	var stave = new VF.Stave(STAFF_X, STAFF_Y, staveWidth);
 	stave.addClef(clef);
+	stave.addKeySignature(writtenKey);
 	stave.setContext(context).draw();
 
 	if (!noteName || octave === null) return;
 
 	try {
-		var hasEnharmonic = enharmonicMap[noteName];
-		var notes = [];
+		var keySigList = keySignatureNotes[writtenKey] || [];
+		var pc = noteStrings.indexOf(noteName);
+		var spelledName = spellNoteForKey(pc, writtenKey);
+		var firstLetter = spelledName.charAt(0);
+		var isInKeySig = keySigList.indexOf(spelledName) >= 0;
+		var isNatural = spelledName.length === 1 || (spelledName.length > 1 && spelledName.charAt(1) !== "#" && spelledName.charAt(1) !== "b");
+		var isNaturalContraKey = !isInKeySig && isNatural &&
+			keySigList.some(function(n) { return n.charAt(0) === firstLetter; });
 
-		if (hasEnharmonic) {
-			// Show both enharmonic spellings as half notes
-			var sharpKey = noteName.toLowerCase() + "/" + octave;
-			var sharpNote = new VF.StaveNote({ clef: clef, keys: [sharpKey], duration: "h" });
+		var notes = [];
+		var noteAreaWidth = stave.getNoteEndX() - stave.getNoteStartX() - 20;
+
+		if (isInKeySig) {
+			// In key signature — no explicit accidental
+			var note = new VF.StaveNote({ clef: clef, keys: [spelledName.toLowerCase() + "/" + octave], duration: "w" });
+			notes.push(note);
+		} else if (isNaturalContraKey) {
+			// Natural sign needed
+			var note = new VF.StaveNote({ clef: clef, keys: [firstLetter.toLowerCase() + "/" + octave], duration: "w" });
+			note.addAccidental(0, new VF.Accidental("n"));
+			notes.push(note);
+		} else if (enharmonicMap[noteName]) {
+			// Enharmonic note not covered by key — show both spellings
+			var sharpSpelled = sharpNoteSpellings[pc];
+			var flatSpelled  = flatNoteSpellings[pc];
+
+			var sharpNote = new VF.StaveNote({ clef: clef, keys: [sharpSpelled.toLowerCase() + "/" + octave], duration: "h" });
 			sharpNote.addAccidental(0, new VF.Accidental("#"));
 			notes.push(sharpNote);
 
-			var flatBase = hasEnharmonic.replace("b", "").toLowerCase();
-			var flatNote = new VF.StaveNote({ clef: clef, keys: [flatBase + "b/" + octave], duration: "h" });
+			var flatNote = new VF.StaveNote({ clef: clef, keys: [flatSpelled.toLowerCase() + "/" + octave], duration: "h" });
 			flatNote.addAccidental(0, new VF.Accidental("b"));
 			notes.push(flatNote);
 		} else {
-			var vexNote = noteName.toLowerCase();
-			var noteKey = vexNote + "/" + octave;
-			var note = new VF.StaveNote({ clef: clef, keys: [noteKey], duration: "w" });
-			if (noteName.includes("#")) {
+			// Normal note with explicit accidental if needed
+			var note = new VF.StaveNote({ clef: clef, keys: [spelledName.toLowerCase() + "/" + octave], duration: "w" });
+			if (spelledName.includes("#")) {
 				note.addAccidental(0, new VF.Accidental("#"));
-			} else if (noteName.length > 1 && noteName.endsWith("b")) {
+			} else if (spelledName.length > 1 && spelledName.charAt(1) === "b") {
 				note.addAccidental(0, new VF.Accidental("b"));
 			}
 			notes.push(note);
@@ -546,7 +612,7 @@ function drawDetectedStaff(noteName, octave) {
 
 		var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
 		voice.addTickables(notes);
-		new VF.Formatter().joinVoices([voice]).format([voice], staveWidth - 80);
+		new VF.Formatter().joinVoices([voice]).format([voice], noteAreaWidth);
 		voice.draw(context, stave);
 	} catch (e) {
 		console.log("Could not render detected note on staff 2:", noteName, octave, e.message);
@@ -1464,6 +1530,20 @@ function stopListening() {
 	}
 }
 
+// Handle concert key signature change
+function onKeyChange() {
+	concertKey = document.getElementById("key-select").value;
+	try { localStorage.setItem("pitchdetect-key", concertKey); } catch(e) {}
+	drawStaff(currentNote, currentOctave, null, null, null);
+	if (listenActive) {
+		if (currentNote !== null) {
+			drawDetectedStaff(detectedNote, detectedOctave);
+		} else {
+			drawStaff(detectedNote, detectedOctave, null, null, null);
+		}
+	}
+}
+
 // Handle Listen button click — toggle listening on/off
 function handleListenButton() {
 	if (listenActive) {
@@ -1609,6 +1689,15 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 	} catch(e) {}
 
-	// Draw initial staff (uses restored instrument for correct clef)
+	// Restore saved concert key
+	try {
+		var savedKey = localStorage.getItem("pitchdetect-key");
+		if (savedKey && keyToFifths[savedKey] !== undefined) {
+			concertKey = savedKey;
+			document.getElementById("key-select").value = savedKey;
+		}
+	} catch(e) {}
+
+	// Draw initial staff (uses restored instrument and key for correct clef/key sig)
 	drawStaff(null, null, null, null);
 });
