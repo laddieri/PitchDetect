@@ -1395,9 +1395,10 @@ function startListening() {
 		listenActive = true;
 		updateListenPitch();
 
-		// Show second staff and labels
+		// Show second staff and labels, then draw the empty staff now that it's visible
 		document.getElementById("staff-panel-2").style.display = "flex";
 		document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "block"; });
+		drawDetectedStaff(null, null);
 
 		var listenButton = document.getElementById("listenButton");
 		listenButton.textContent = "Stop Listening";
@@ -1602,7 +1603,6 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 	} catch(e) {}
 
-	// Draw initial staffs (uses restored instrument for correct clef)
+	// Draw initial staff (uses restored instrument for correct clef)
 	drawStaff(null, null, null, null);
-	drawDetectedStaff(null, null);
 });
