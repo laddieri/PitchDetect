@@ -1395,6 +1395,10 @@ function startListening() {
 		listenActive = true;
 		updateListenPitch();
 
+		// Show second staff and labels
+		document.getElementById("staff-panel-2").style.display = "flex";
+		document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "block"; });
+
 		var listenButton = document.getElementById("listenButton");
 		listenButton.textContent = "Stop Listening";
 		listenButton.classList.add("listening");
@@ -1436,7 +1440,9 @@ function stopListening() {
 		fireworksCanvas.getContext("2d").clearRect(0, 0, fireworksCanvas.width, fireworksCanvas.height);
 	}
 
-	// Clear second staff and redraw first staff without detected note
+	// Hide second staff and labels, clear it
+	document.getElementById("staff-panel-2").style.display = "none";
+	document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "none"; });
 	drawDetectedStaff(null, null);
 	if (currentNote && currentOctave !== null) {
 		drawStaff(currentNote, currentOctave, null, null, null);
