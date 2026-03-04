@@ -309,6 +309,11 @@
 				font-family: 'Alike', sans-serif;
 				flex-shrink: 0;
 				letter-spacing: 0.03em;
+				display: none;
+			}
+
+			#staff-panel-2 {
+				display: none;
 			}
 
 			.staff-container {
@@ -481,7 +486,11 @@
 					min-height: 200px;
 				}
 
-				/* Show pitch buttons on mobile */
+				/* Show pitch buttons on mobile, moved left of the target staff */
+				.pitch-controls {
+					order: -1;
+				}
+
 				.pitch-button.active {
 					display: block;
 				}
@@ -566,7 +575,7 @@
 								<div id="staff-output"></div>
 							</div>
 						</div>
-						<div class="staff-panel">
+						<div class="staff-panel" id="staff-panel-2">
 							<div class="staff-label">Your Playing</div>
 							<div class="staff-container" id="staff-container-2">
 								<div id="staff-output-2"></div>
