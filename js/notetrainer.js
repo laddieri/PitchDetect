@@ -46,7 +46,7 @@ var STAFF_HEIGHT = 140;
 var STAFF_X = 10;
 var STAFF_Y = 50;
 var LINE_SPACING = 10;  // Space between staff lines in internal coordinates
-var MAX_INTERNAL_WIDTH = 380;  // Max VexFlow coordinate width (allows scaling up in wide containers)
+var MAX_INTERNAL_WIDTH = 260;  // Max VexFlow coordinate width — kept narrow so staff scales up tall
 var STAFF_VIEWBOX_HEIGHT = 120;  // Tight viewBox height around staff lines
 
 // Dynamic staff layout values (updated by drawStaff from VexFlow)
