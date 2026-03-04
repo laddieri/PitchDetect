@@ -244,15 +244,12 @@
 			}
 
 			#staff-instruction {
-				position: absolute;
-				top: 50%;
-				left: 50%;
-				transform: translate(-50%, -50%);
-				font-size: 16px;
-				color: #999;
 				text-align: center;
+				font-size: 14px;
+				color: #999;
 				pointer-events: none;
 				white-space: nowrap;
+				flex-shrink: 0;
 			}
 
 			#note-name {
@@ -628,8 +625,8 @@
 					<div class="staff-wrapper">
 						<div class="staff-panel">
 							<div class="staff-label">Target Note</div>
+							<div id="staff-instruction">Click on the staff to place a note</div>
 							<div class="staff-container" id="staff-container">
-								<div id="staff-instruction">Click on the staff to place a note</div>
 								<div id="staff-output"></div>
 								<div id="key-sig-popup" class="key-sig-popup" onclick="event.stopPropagation()">
 									<div class="key-sig-popup-label">Key Signature</div>
