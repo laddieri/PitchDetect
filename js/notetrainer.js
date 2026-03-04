@@ -129,8 +129,10 @@ var flatKeyNames = ["Gb", "Db", "Ab", "Eb", "Bb", "F"];
 
 // Return the VexFlow written key name for the current instrument + concert key
 function getWrittenKey() {
-	var transposition = getTransposition();
-	var fifthsDelta = transpositionFifthsDelta[transposition] !== undefined ? transpositionFifthsDelta[transposition] : 0;
+	var t = getTransposition();
+	// Use mod-12 so octave-shifted instruments (bass clarinet=14, bari sax=21, glockenspiel=-24) map correctly
+	var tMod = ((t % 12) + 12) % 12;
+	var fifthsDelta = { 0: 0, 2: 2, 7: 1, 9: 3 }[tMod] || 0;
 	var concertFifths = keyToFifths[concertKey] !== undefined ? keyToFifths[concertKey] : 0;
 	var writtenFifths = concertFifths + fifthsDelta;
 	if (writtenFifths > 6) writtenFifths -= 12;
@@ -1530,6 +1532,60 @@ function stopListening() {
 	}
 }
 
+// Format a key name for display, replacing b/# with ♭/♯
+function keyDisplayName(key) {
+	if (key.length > 1 && key.charAt(key.length - 1) === "b") {
+		return key.charAt(0) + "\u266d";  // ♭
+	}
+	if (key.charAt(key.length - 1) === "#") {
+		return key.charAt(0) + "\u266f";  // ♯
+	}
+	return key;
+}
+
+// Rebuild the key-select dropdown using written keys for the current instrument
+function updateKeyDropdown() {
+	var select = document.getElementById("key-select");
+	if (!select) return;
+
+	var t = getTransposition();
+	var tMod = ((t % 12) + 12) % 12;
+	var fifthsDelta = { 0: 0, 2: 2, 7: 1, 9: 3 }[tMod] || 0;
+
+	var allConcertKeys = ["Gb", "Db", "Ab", "Eb", "Bb", "F", "C", "G", "D", "A", "E", "B", "F#"];
+	var accidentalCount = { "Gb": 6, "Db": 5, "Ab": 4, "Eb": 3, "Bb": 2, "F": 1,
+	                        "C": 0, "G": 1, "D": 2, "A": 3, "E": 4, "B": 5, "F#": 6 };
+
+	select.innerHTML = "";
+
+	allConcertKeys.forEach(function(ck) {
+		var concertFifths = keyToFifths[ck];
+		var writtenFifths = concertFifths + fifthsDelta;
+		if (writtenFifths > 6) writtenFifths -= 12;
+		if (writtenFifths < -6) writtenFifths += 12;
+		var wk = fifthsToKey[String(writtenFifths)] || "C";
+
+		var count = accidentalCount[wk] || 0;
+		var isFlat = flatKeyNames.indexOf(wk) >= 0;
+		var accDesc;
+		if (count === 0) {
+			accDesc = "no sharps or flats";
+		} else if (count === 1) {
+			accDesc = "1 " + (isFlat ? "flat" : "sharp");
+		} else {
+			accDesc = count + " " + (isFlat ? "flats" : "sharps");
+		}
+
+		var label = keyDisplayName(wk) + " \u2013 " + accDesc + " (" + keyDisplayName(ck) + " concert)";
+		var option = document.createElement("option");
+		option.value = ck;
+		option.textContent = label;
+		select.appendChild(option);
+	});
+
+	select.value = concertKey;
+}
+
 // Handle concert key signature change
 function onKeyChange() {
 	concertKey = document.getElementById("key-select").value;
@@ -1663,6 +1719,7 @@ document.addEventListener("DOMContentLoaded", function() {
 		} else {
 			document.getElementById("fingering-container").classList.remove("active");
 		}
+		updateKeyDropdown();
 		drawStaff(currentNote, currentOctave, null, null);
 		drawDetectedStaff(detectedNote, detectedOctave);
 	});
@@ -1689,14 +1746,14 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 	} catch(e) {}
 
-	// Restore saved concert key
+	// Restore saved concert key, then build dropdown using correct transposition
 	try {
 		var savedKey = localStorage.getItem("pitchdetect-key");
 		if (savedKey && keyToFifths[savedKey] !== undefined) {
 			concertKey = savedKey;
-			document.getElementById("key-select").value = savedKey;
 		}
 	} catch(e) {}
+	updateKeyDropdown();
 
 	// Draw initial staff (uses restored instrument and key for correct clef/key sig)
 	drawStaff(null, null, null, null);
