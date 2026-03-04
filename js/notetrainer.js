@@ -1586,10 +1586,21 @@ function updateKeyDropdown() {
 	select.value = concertKey;
 }
 
+// Toggle the key signature popup panel
+function toggleKeySigPopup(event) {
+	event.stopPropagation();
+	var popup = document.getElementById("key-sig-popup");
+	if (popup) {
+		popup.style.display = popup.style.display === "block" ? "none" : "block";
+	}
+}
+
 // Handle concert key signature change
 function onKeyChange() {
 	concertKey = document.getElementById("key-select").value;
 	try { localStorage.setItem("pitchdetect-key", concertKey); } catch(e) {}
+	var popup = document.getElementById("key-sig-popup");
+	if (popup) popup.style.display = "none";
 	drawStaff(currentNote, currentOctave, null, null, null);
 	if (listenActive) {
 		if (currentNote !== null) {
@@ -1732,6 +1743,12 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	// Set up keyboard handler for arrow key navigation
 	document.addEventListener("keydown", handleKeyDown);
+
+	// Close key sig popup when clicking anywhere outside it
+	document.addEventListener("click", function() {
+		var popup = document.getElementById("key-sig-popup");
+		if (popup) popup.style.display = "none";
+	});
 
 	// Restore instrument saved from the pitch detector page (or a previous session)
 	try {
