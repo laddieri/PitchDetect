@@ -537,10 +537,11 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		}
 	}
 
-	// Show instruction text only when no placed or ghost note is on the staff
+	// Only hide instruction after user has placed a note by clicking
+	// (detecting a mic note should not remove it)
 	var instructionEl = document.getElementById("staff-instruction");
 	if (instructionEl) {
-		instructionEl.style.display = noteName ? "none" : "";
+		instructionEl.style.display = currentNote !== null ? "none" : "";
 	}
 
 	// Render placed note or ghost note
