@@ -390,6 +390,9 @@
 			}
 
 			#note-name {
+				/* clamp() sets the ceiling; fitNoteName() in JS shrinks from here
+				   so a longer label (e.g. "C♯ / D♭") stays on one line instead of
+				   wrapping and growing the box. */
 				font-size: clamp(60px, 15vw, 140px);
 				line-height: 1.05;
 				font-weight: 700;
@@ -397,6 +400,7 @@
 				display: block;
 				margin: 10px 0;
 				color: var(--text);
+				white-space: nowrap;
 				transition: opacity 0.15s;
 			}
 
