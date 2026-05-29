@@ -775,6 +775,7 @@ function handleStaffMouseMove(event) {
 		}
 		noteNameElem.style.opacity = "0.5";
 		updateConcertPitchDisplay(ghostMidi);
+		updatePianoDisplay(ghostMidi);
 	}
 }
 
@@ -799,6 +800,7 @@ function handleStaffMouseLeave(event) {
 	noteNameElem.textContent = "-";
 	noteNameElem.style.opacity = "1";
 	updateConcertPitchDisplay(null);
+	updatePianoDisplay(null);
 }
 
 // Handle click on staff
@@ -906,6 +908,81 @@ function handleKeyDown(event) {
 	}
 }
 
+// Draw a one-octave piano keyboard SVG highlighting concertPc (0–11)
+function drawPianoKeyboard(concertPc, concertNoteDisplay) {
+	var display = document.getElementById("piano-display");
+	if (!display) return;
+
+	var W = 36, WH = 84, BW = 20, BH = 52, labelH = 22;
+	var totalWidth = 7 * W;
+	var totalHeight = WH + labelH;
+	var cs = getComputedStyle(document.documentElement);
+	var accent = cs.getPropertyValue("--accent").trim() || "#4f46e5";
+	var border = cs.getPropertyValue("--border-strong").trim() || "#cdd5e0";
+
+	// [pitch class, left-edge x]
+	var wk = [[0,0],[2,W],[4,2*W],[5,3*W],[7,4*W],[9,5*W],[11,6*W]];
+	var bk = [
+		[1,  1*W - Math.round(BW/2)],
+		[3,  2*W - Math.round(BW/2)],
+		[6,  4*W - Math.round(BW/2)],
+		[8,  5*W - Math.round(BW/2)],
+		[10, 6*W - Math.round(BW/2)]
+	];
+
+	var labelX = totalWidth / 2;
+	var s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + totalWidth + ' ' + totalHeight + '" style="display:block">';
+
+	// White key background with outer border
+	s += '<rect x="0" y="0" width="' + totalWidth + '" height="' + WH + '" fill="#fff" stroke="' + border + '" stroke-width="1" rx="4"/>';
+
+	// Highlight active white key
+	for (var i = 0; i < wk.length; i++) {
+		if (wk[i][0] === concertPc) {
+			s += '<rect x="' + (wk[i][1]+1) + '" y="1" width="' + (W-2) + '" height="' + (WH-2) + '" fill="' + accent + '" rx="3"/>';
+			labelX = wk[i][1] + W / 2;
+		}
+	}
+
+	// White key dividers
+	for (var i = 1; i < 7; i++) {
+		s += '<line x1="' + (i*W) + '" y1="0" x2="' + (i*W) + '" y2="' + WH + '" stroke="' + border + '" stroke-width="1"/>';
+	}
+
+	// Redraw outer border on top of dividers
+	s += '<rect x="0" y="0" width="' + totalWidth + '" height="' + WH + '" fill="none" stroke="' + border + '" stroke-width="1" rx="4"/>';
+
+	// Black keys
+	for (var i = 0; i < bk.length; i++) {
+		var pc = bk[i][0], x = bk[i][1];
+		var active = pc === concertPc;
+		s += '<rect x="' + x + '" y="0" width="' + BW + '" height="' + BH + '" fill="' + (active ? accent : "#1e293b") + '" rx="2"/>';
+		if (active) labelX = x + BW / 2;
+	}
+
+	// Note label below keyboard
+	s += '<text x="' + labelX + '" y="' + (WH + labelH - 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="' + accent + '" font-family="Inter,-apple-system,BlinkMacSystemFont,sans-serif">' + concertNoteDisplay + '</text>';
+
+	s += '</svg>';
+	display.innerHTML = s;
+}
+
+// Show/hide the piano keyboard and update it for the given written MIDI note
+function updatePianoDisplay(writtenMidi) {
+	var container = document.getElementById("piano-container");
+	if (!container) return;
+	if (writtenMidi === null || writtenMidi === undefined) {
+		container.classList.remove("active");
+		return;
+	}
+	var transposition = getTransposition();
+	var concertMidi = writtenMidi - transposition;
+	var concertPc = ((concertMidi % 12) + 12) % 12;
+	var concertNoteName = spellNoteForKey(concertPc, concertKey);
+	container.classList.add("active");
+	drawPianoKeyboard(concertPc, keyDisplayName(concertNoteName));
+}
+
 // Show concert pitch note name below the note box when the instrument transposes
 function updateConcertPitchDisplay(writtenMidi) {
 	var elem = document.getElementById("concert-pitch-display");
@@ -936,10 +1013,12 @@ function updateNoteDisplay() {
 		noteNameElem.textContent = displayName;
 		freqElem.textContent = Math.round(currentFrequency) + " Hz (concert pitch)";
 		updateConcertPitchDisplay(currentMidi);
+		updatePianoDisplay(currentMidi);
 	} else {
 		noteNameElem.textContent = "-";
 		freqElem.textContent = "";
 		updateConcertPitchDisplay(null);
+		updatePianoDisplay(null);
 	}
 }
 
@@ -1652,6 +1731,7 @@ function updateListenPitch() {
 				noteNameElem.textContent = enharmonic ? detectedNote + " / " + enharmonic : detectedNote;
 				noteNameElem.style.opacity = "1";
 				updateConcertPitchDisplay(detectedMidi);
+				updatePianoDisplay(detectedMidi);
 			}
 		}
 	} else {
@@ -1667,6 +1747,7 @@ function updateListenPitch() {
 				drawStaff(null, null, null, null, null);
 				document.getElementById("note-name").textContent = "-";
 				updateConcertPitchDisplay(null);
+				updatePianoDisplay(null);
 			}
 		}
 	}

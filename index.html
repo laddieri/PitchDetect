@@ -667,6 +667,32 @@
 				padding-top: 30px;
 			}
 
+			/* ---------- Piano keyboard ---------- */
+			.piano-container {
+				background-color: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				padding: 18px;
+				box-shadow: var(--shadow-sm);
+				margin-top: 18px;
+				display: none;
+			}
+
+			.piano-container.active {
+				display: block;
+			}
+
+			#piano-display {
+				display: flex;
+				justify-content: center;
+			}
+
+			#piano-display svg {
+				max-width: 260px;
+				width: 100%;
+				height: auto;
+			}
+
 			#staff-output,
 			#staff-output-2 {
 				flex: 1;
@@ -872,6 +898,11 @@
 						<button id="alternateButton" onclick="toggleAlternateFingerings()">Show Alternate Fingerings</button>
 					</div>
 				</div>
+			</div>
+
+			<div class="piano-container" id="piano-container">
+				<div class="fingering-title">Concert Pitch on Piano</div>
+				<div id="piano-display"></div>
 			</div>
 		</div>
 
