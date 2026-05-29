@@ -1681,8 +1681,9 @@ function startListening() {
 		// Only show second staff if the user has placed a note
 		if (currentNote !== null) {
 			document.getElementById("staff-panel-2").style.display = "flex";
+			document.querySelector(".main-display").classList.add("dual-staff");
 			document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "block"; });
-			// Re-render first staff at new (halved) width now that panel 2 is visible
+			// Re-render first staff at new (wider) width now that panel 2 is visible
 			drawStaff(currentNote, currentOctave, null, null, null);
 			drawDetectedStaff(null, null);
 		}
@@ -1731,6 +1732,7 @@ function stopListening() {
 	// Hide second staff and labels if they were shown (note was placed)
 	if (currentNote !== null) {
 		document.getElementById("staff-panel-2").style.display = "none";
+		document.querySelector(".main-display").classList.remove("dual-staff");
 		document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "none"; });
 		drawDetectedStaff(null, null);
 		drawStaff(currentNote, currentOctave, null, null, null);
