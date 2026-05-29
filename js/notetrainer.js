@@ -557,12 +557,56 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		renderNotes(ghostNoteName, ghostNoteOctave, true, ghostModifier);
 	}
 
+	// Position the clickable key-signature overlay over the clef + key signature
+	positionKeySigHotspot();
+
 	// Return stave info for click calculations
 	return {
 		topY: STAFF_Y,
 		lineSpacing: 10,  // VexFlow default
 		clef: clef
 	};
+}
+
+// Size and position the transparent key-signature hotspot over the start of
+// the staff (clef + key signature). Uses the staff coordinates captured by
+// drawStaff so it can also be re-run on resize without re-rendering. Including
+// the clef guarantees a stable click target even for keys with no accidentals.
+function positionKeySigHotspot() {
+	var hotspot = document.getElementById("key-sig-hotspot");
+	var container = document.getElementById("staff-container");
+	var outputDiv = document.getElementById("staff-output");
+	if (!hotspot || !container || !outputDiv) return;
+
+	var svg = outputDiv.querySelector("svg");
+	var ctm = svg && svg.getScreenCTM ? svg.getScreenCTM() : null;
+	if (!ctm || staffNoteStartX === null || staffTopLineY === null) {
+		hotspot.classList.remove("active");
+		return;
+	}
+
+	var lineSpan = staffHalfSpacing * 2;
+	var x1 = STAFF_X;
+	var x2 = staffNoteStartX;            // note start = just after clef + key sig
+	var yTop = staffTopLineY - lineSpan * 2;
+	var yBot = staffTopLineY + 6 * lineSpan; // line 4 (+4 spans) plus a 2-span margin
+
+	function toScreen(x, y) {
+		var p = svg.createSVGPoint();
+		p.x = x;
+		p.y = y;
+		return p.matrixTransform(ctm);
+	}
+
+	var tl = toScreen(x1, yTop);
+	var br = toScreen(x2, yBot);
+	var crect = container.getBoundingClientRect();
+
+	hotspot.style.left = (tl.x - crect.left) + "px";
+	hotspot.style.top = (tl.y - crect.top) + "px";
+	hotspot.style.width = Math.max(0, br.x - tl.x) + "px";
+	hotspot.style.height = Math.max(0, br.y - tl.y) + "px";
+	hotspot.classList.add("active");
 }
 
 // Draw the detected (live mic) note on the second staff
@@ -1914,6 +1958,9 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	// Set up keyboard handler for arrow key navigation
 	document.addEventListener("keydown", handleKeyDown);
+
+	// The staff SVG self-scales on resize; realign the key-signature hotspot
+	window.addEventListener("resize", positionKeySigHotspot);
 
 	// Close key sig popup when clicking anywhere outside it
 	document.addEventListener("click", function() {
