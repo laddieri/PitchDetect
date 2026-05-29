@@ -3,8 +3,46 @@
 	<head>
 		<title>Pitch Detector</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<link href='https://fonts.googleapis.com/css?family=Alike' rel='stylesheet' type='text/css'>
+		<link rel="preconnect" href="https://fonts.googleapis.com">
+		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 		<style>
+			:root {
+				/* Surfaces & text */
+				--bg: #eef1f6;
+				--bg-accent: #e7ebf4;
+				--surface: #ffffff;
+				--surface-2: #f8fafc;
+				--border: #e3e8ef;
+				--border-strong: #cdd5e0;
+				--text: #1a2233;
+				--text-muted: #5b6675;
+				--text-faint: #9aa4b2;
+
+				/* Brand accent (single, cohesive) */
+				--accent: #4f46e5;
+				--accent-hover: #4338ca;
+				--accent-active: #3730a3;
+				--accent-soft: #eef0fe;
+				--accent-ring: rgba(79, 70, 229, 0.28);
+
+				/* Semantic */
+				--danger: #e11d48;
+				--danger-hover: #be123c;
+				--danger-soft: #fff1f3;
+
+				/* Shape & depth */
+				--radius: 12px;
+				--radius-sm: 9px;
+				--radius-pill: 999px;
+				--shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.05), 0 1px 3px rgba(16, 24, 40, 0.08);
+				--shadow-md: 0 6px 18px rgba(16, 24, 40, 0.08);
+				--shadow-lg: 0 16px 40px rgba(16, 24, 40, 0.14);
+				--ring: 0 0 0 3px var(--accent-ring);
+
+				--font: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+			}
+
 			* {
 				box-sizing: border-box;
 			}
@@ -15,11 +53,16 @@
 			}
 
 			body {
-				font: 14pt 'Alike', sans-serif;
-				padding: 20px;
-				background-color: #f5f5f5;
+				font-family: var(--font);
+				font-size: 16px;
+				color: var(--text);
+				padding: 24px;
+				background: radial-gradient(1200px 600px at 50% -10%, var(--bg-accent), var(--bg));
+				background-attachment: fixed;
 				display: flex;
 				flex-direction: column;
+				-webkit-font-smoothing: antialiased;
+				text-rendering: optimizeLegibility;
 			}
 
 			.container {
@@ -31,107 +74,216 @@
 				margin: 0 auto;
 			}
 
-			h1 {
+			.app-header {
 				text-align: center;
-				color: #333;
-				margin: 0 0 15px 0;
-				font-size: 1.8rem;
 				flex-shrink: 0;
+				margin-bottom: 18px;
 			}
 
+			h1 {
+				color: var(--text);
+				margin: 0;
+				font-size: 1.85rem;
+				font-weight: 700;
+				letter-spacing: -0.02em;
+			}
+
+			.app-subtitle {
+				margin: 4px 0 0;
+				color: var(--text-muted);
+				font-size: 0.9rem;
+				font-weight: 400;
+			}
+
+			/* ---------- Controls toolbar ---------- */
 			.controls {
 				display: flex;
 				flex-wrap: wrap;
-				gap: 15px;
+				gap: 12px;
 				justify-content: center;
 				align-items: center;
-				margin-bottom: 15px;
+				margin: 0 auto 18px;
+				padding: 12px 14px;
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				box-shadow: var(--shadow-sm);
 				flex-shrink: 0;
 			}
 
+			/* Shared control sizing */
+			#instrument,
+			#playButton,
+			#clearButton,
+			#listenButton,
+			#alternateButton,
+			.sustain-switch {
+				font-family: var(--font);
+				font-size: 0.95rem;
+				font-weight: 500;
+			}
+
+			button {
+				font-family: var(--font);
+			}
+
+			/* ---------- Instrument select ---------- */
 			#instrument {
-				padding: 12px 16px;
-				font-size: 16px;
-				font-family: 'Alike', sans-serif;
-				border: 2px solid #ddd;
-				border-radius: 6px;
-				background-color: white;
+				padding: 11px 40px 11px 16px;
+				color: var(--text);
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background-color: var(--surface);
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24' fill='none' stroke='%235b6675' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+				background-repeat: no-repeat;
+				background-position: right 14px center;
+				-webkit-appearance: none;
+				-moz-appearance: none;
+				appearance: none;
 				cursor: pointer;
+				transition: border-color 0.15s, box-shadow 0.15s;
 			}
 
-			#instrument:focus {
+			#instrument:hover {
+				border-color: var(--accent);
+			}
+
+			#instrument:focus-visible {
 				outline: none;
-				border-color: #4CAF50;
+				border-color: var(--accent);
+				box-shadow: var(--ring);
 			}
 
-			#playButton {
-				padding: 12px 32px;
-				font-size: 16px;
-				font-family: 'Alike', sans-serif;
-				background-color: #4CAF50;
-				color: white;
-				border: none;
-				border-radius: 6px;
+			/* ---------- Buttons ---------- */
+			#playButton,
+			#clearButton,
+			#listenButton,
+			#alternateButton {
+				border-radius: var(--radius-sm);
 				cursor: pointer;
-				transition: background-color 0.2s;
+				transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.05s;
 				display: none;
+			}
+
+			#playButton:focus-visible,
+			#clearButton:focus-visible,
+			#listenButton:focus-visible,
+			#alternateButton:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			/* Primary: Play */
+			#playButton {
+				padding: 11px 28px;
+				background-color: var(--accent);
+				color: #fff;
+				border: 1px solid transparent;
+				box-shadow: var(--shadow-sm);
 			}
 
 			#playButton:hover {
-				background-color: #45a049;
+				background-color: var(--accent-hover);
 			}
 
 			#playButton:active {
-				background-color: #3d8b40;
+				background-color: var(--accent-active);
+				transform: translateY(1px);
 			}
 
+			#playButton.sustaining {
+				background-color: var(--danger);
+			}
+
+			#playButton.sustaining:hover {
+				background-color: var(--danger-hover);
+			}
+
+			#playButton.sustaining:active {
+				background-color: var(--danger-hover);
+			}
+
+			#playButton.playing-oneshot {
+				background-color: var(--accent-active);
+			}
+
+			/* Secondary outline: Listen */
+			#listenButton {
+				padding: 11px 28px;
+				background-color: var(--surface);
+				color: var(--accent);
+				border: 1px solid var(--border-strong);
+			}
+
+			#listenButton:hover {
+				border-color: var(--accent);
+				background-color: var(--accent-soft);
+			}
+
+			#listenButton.listening {
+				background-color: var(--danger);
+				border-color: transparent;
+				color: #fff;
+				animation: pulse 1.6s ease-in-out infinite;
+			}
+
+			#listenButton.listening:hover {
+				background-color: var(--danger-hover);
+			}
+
+			@keyframes pulse {
+				0%, 100% { box-shadow: 0 0 0 0 rgba(225, 29, 72, 0.4); }
+				50% { box-shadow: 0 0 0 8px rgba(225, 29, 72, 0); }
+			}
+
+			/* Ghost destructive: Clear */
 			#clearButton {
-				padding: 12px 32px;
-				font-size: 16px;
-				font-family: 'Alike', sans-serif;
-				background-color: #e74c3c;
-				color: white;
-				border: none;
-				border-radius: 6px;
-				cursor: pointer;
-				transition: background-color 0.2s;
-				display: none;
+				padding: 11px 24px;
+				background-color: transparent;
+				color: var(--text-muted);
+				border: 1px solid var(--border-strong);
 			}
 
 			#clearButton:hover {
-				background-color: #c0392b;
+				background-color: var(--danger-soft);
+				border-color: var(--danger);
+				color: var(--danger);
 			}
 
+			#clearButton:active {
+				transform: translateY(1px);
+			}
+
+			/* Secondary outline: Alternate fingerings */
 			#alternateButton {
-				padding: 8px 16px;
-				font-size: 14px;
-				font-family: 'Alike', sans-serif;
-				background-color: #9c27b0;
-				color: white;
-				border: none;
-				border-radius: 6px;
-				cursor: pointer;
-				transition: background-color 0.2s;
-				display: none;
+				padding: 9px 18px;
+				font-size: 0.875rem;
+				background-color: var(--surface);
+				color: var(--accent);
+				border: 1px solid var(--border-strong);
 				white-space: nowrap;
+				display: none;
 			}
 
 			#alternateButton:hover {
-				background-color: #7b1fa2;
+				border-color: var(--accent);
+				background-color: var(--accent-soft);
 			}
 
 			#alternateButton.active {
-				background-color: #6a1b9a;
+				background-color: var(--accent);
+				color: #fff;
+				border-color: transparent;
 			}
 
+			/* ---------- Sustain toggle ---------- */
 			.sustain-switch {
 				display: none;
 				align-items: center;
-				gap: 8px;
+				gap: 9px;
 				cursor: pointer;
 				user-select: none;
-				font-size: 16px;
-				font-family: 'Alike', sans-serif;
+				color: var(--text-muted);
 			}
 
 			.sustain-switch input {
@@ -140,10 +292,10 @@
 
 			.sustain-slider {
 				position: relative;
-				width: 46px;
-				height: 26px;
-				background-color: #ccc;
-				border-radius: 13px;
+				width: 44px;
+				height: 25px;
+				background-color: var(--border-strong);
+				border-radius: var(--radius-pill);
 				transition: background-color 0.2s;
 				flex-shrink: 0;
 			}
@@ -151,102 +303,57 @@
 			.sustain-slider::before {
 				content: "";
 				position: absolute;
-				width: 20px;
-				height: 20px;
+				width: 19px;
+				height: 19px;
 				left: 3px;
 				top: 3px;
-				background-color: white;
+				background-color: #fff;
 				border-radius: 50%;
 				transition: transform 0.2s;
-				box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+				box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 			}
 
 			.sustain-switch input:checked + .sustain-slider {
-				background-color: #2196F3;
+				background-color: var(--accent);
 			}
 
 			.sustain-switch input:checked + .sustain-slider::before {
-				transform: translateX(20px);
+				transform: translateX(19px);
 			}
 
-			#playButton.sustaining {
-				background-color: #e74c3c;
-			}
-
-			#playButton.playing-oneshot {
-				background-color: #2980b9;
-				opacity: 0.85;
-			}
-
-			#playButton.sustaining:hover {
-				background-color: #c0392b;
-			}
-
-			#playButton.sustaining:active {
-				background-color: #a93226;
-			}
-
-			#listenButton {
-				padding: 12px 32px;
-				font-size: 16px;
-				font-family: 'Alike', sans-serif;
-				background-color: #2196F3;
-				color: white;
-				border: none;
-				border-radius: 6px;
-				cursor: pointer;
-				transition: background-color 0.2s;
-				display: none;
-			}
-
-			#listenButton:hover {
-				background-color: #1976D2;
-			}
-
-			#listenButton.listening {
-				background-color: #e74c3c;
-				animation: pulse 1.5s ease-in-out infinite;
-			}
-
-			#listenButton.listening:hover {
-				background-color: #c0392b;
-			}
-
-			@keyframes pulse {
-				0%, 100% { opacity: 1; }
-				50% { opacity: 0.75; }
-			}
-
+			/* ---------- Main display ---------- */
 			.main-display {
 				flex: 1;
 				display: flex;
-				gap: 20px;
+				gap: 18px;
 				min-height: 0;
 			}
 
 			#note-display {
 				flex: 1;
-				background-color: white;
-				border: 4px solid #ddd;
-				border-radius: 12px;
+				background: linear-gradient(180deg, var(--surface), var(--surface-2));
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
 				text-align: center;
-				padding: 20px;
-				box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+				padding: 24px;
+				box-shadow: var(--shadow-sm);
 				display: flex;
 				flex-direction: column;
 				justify-content: center;
 				align-items: center;
 				min-width: 0;
+				transition: border-color 0.2s, box-shadow 0.2s;
 			}
 
 			#note-display.active {
-				border-color: #4CAF50;
+				border-color: var(--accent);
+				box-shadow: var(--shadow-md), 0 0 0 1px var(--accent);
 			}
 
 			#staff-instruction {
 				text-align: center;
-				font-size: 14px;
-				color: #999;
+				font-size: 0.85rem;
+				color: var(--text-faint);
 				pointer-events: none;
 				white-space: nowrap;
 				flex-shrink: 0;
@@ -255,16 +362,21 @@
 
 			#note-name {
 				font-size: clamp(60px, 15vw, 140px);
-				line-height: 1.1;
+				line-height: 1.05;
+				font-weight: 700;
+				letter-spacing: -0.03em;
 				display: block;
 				margin: 10px 0;
-				color: #333;
+				color: var(--text);
+				transition: opacity 0.15s;
 			}
 
 			#frequency-display {
-				font-size: 18px;
-				color: #666;
-				margin-top: 10px;
+				font-size: 0.95rem;
+				font-variant-numeric: tabular-nums;
+				color: var(--text-muted);
+				margin-top: 8px;
+				min-height: 1.2em;
 			}
 
 			.staff-column {
@@ -282,62 +394,67 @@
 				flex-shrink: 0;
 			}
 
+			/* ---------- Key signature popup ---------- */
 			.key-sig-gear {
 				position: absolute;
-				bottom: 7px;
-				right: 9px;
+				bottom: 8px;
+				right: 10px;
 				background: none;
 				border: none;
 				cursor: pointer;
 				font-size: 17px;
-				color: #ccc;
+				color: var(--text-faint);
 				padding: 2px;
 				line-height: 1;
-				transition: color 0.2s;
+				transition: color 0.15s, transform 0.2s;
 				z-index: 10;
 				user-select: none;
 			}
 
 			.key-sig-gear:hover {
-				color: #666;
+				color: var(--accent);
+				transform: rotate(45deg);
 			}
 
 			.key-sig-popup {
 				position: absolute;
-				bottom: 34px;
+				bottom: 36px;
 				right: 8px;
-				background: white;
-				border: 1px solid #ccc;
-				border-radius: 8px;
-				padding: 10px 12px;
-				box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius-sm);
+				padding: 12px;
+				box-shadow: var(--shadow-lg);
 				z-index: 20;
 				display: none;
 				min-width: 240px;
 			}
 
 			.key-sig-popup-label {
-				font-size: 12px;
-				color: #888;
-				margin-bottom: 6px;
+				font-size: 0.7rem;
+				color: var(--text-muted);
+				margin-bottom: 7px;
 				text-transform: uppercase;
-				letter-spacing: 0.05em;
+				letter-spacing: 0.06em;
+				font-weight: 600;
 			}
 
 			#key-select {
 				width: 100%;
-				padding: 6px 8px;
-				font-size: 13px;
-				font-family: 'Alike', sans-serif;
-				border: 1px solid #ddd;
-				border-radius: 4px;
-				background-color: white;
+				padding: 8px 10px;
+				font-size: 0.875rem;
+				font-family: var(--font);
+				color: var(--text);
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background-color: var(--surface);
 				cursor: pointer;
 			}
 
-			#key-select:focus {
+			#key-select:focus-visible {
 				outline: none;
-				border-color: #4CAF50;
+				border-color: var(--accent);
+				box-shadow: var(--ring);
 			}
 
 			.staff-wrapper {
@@ -353,18 +470,20 @@
 				flex: 1;
 				display: flex;
 				flex-direction: column;
-				gap: 4px;
+				gap: 6px;
 				min-width: 0;
 				min-height: 0;
 			}
 
 			.staff-label {
 				text-align: center;
-				font-size: 13px;
-				color: #888;
-				font-family: 'Alike', sans-serif;
+				font-size: 0.72rem;
+				color: var(--text-muted);
+				font-family: var(--font);
+				font-weight: 600;
 				flex-shrink: 0;
-				letter-spacing: 0.03em;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
 				display: none;
 			}
 
@@ -374,10 +493,11 @@
 
 			.staff-container {
 				flex: 1;
-				background-color: white;
-				border-radius: 12px;
-				padding: 10px;
-				box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+				background-color: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				padding: 12px;
+				box-shadow: var(--shadow-sm);
 				display: flex;
 				flex-direction: column;
 				align-items: stretch;
@@ -388,6 +508,7 @@
 				position: relative;
 			}
 
+			/* ---------- Pitch nudge buttons ---------- */
 			.pitch-controls {
 				display: flex;
 				flex-direction: column;
@@ -396,16 +517,16 @@
 			}
 
 			.pitch-button {
-				width: 50px;
-				height: 50px;
-				font-size: 24px;
-				background-color: #4CAF50;
-				color: white;
-				border: none;
-				border-radius: 8px;
+				width: 48px;
+				height: 48px;
+				font-size: 18px;
+				background-color: var(--surface);
+				color: var(--accent);
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-sm);
 				cursor: pointer;
-				transition: background-color 0.2s;
-				box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+				transition: background-color 0.15s, border-color 0.15s, transform 0.05s, box-shadow 0.15s;
+				box-shadow: var(--shadow-sm);
 				display: none;
 			}
 
@@ -414,25 +535,37 @@
 			}
 
 			.pitch-button:hover {
-				background-color: #45a049;
+				background-color: var(--accent-soft);
+				border-color: var(--accent);
+			}
+
+			.pitch-button:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
 			}
 
 			.pitch-button:active {
-				background-color: #3d8b40;
-				transform: scale(0.95);
+				background-color: var(--accent);
+				color: #fff;
+				transform: scale(0.94);
 			}
 
 			.pitch-button:disabled {
-				background-color: #ccc;
+				background-color: var(--surface-2);
+				color: var(--text-faint);
+				border-color: var(--border);
 				cursor: not-allowed;
+				box-shadow: none;
 			}
 
+			/* ---------- Fingering chart ---------- */
 			.fingering-container {
-				background-color: white;
-				border-radius: 12px;
-				padding: 15px;
-				box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-				margin-top: 15px;
+				background-color: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				padding: 18px;
+				box-shadow: var(--shadow-sm);
+				margin-top: 18px;
 				display: none;
 			}
 
@@ -442,10 +575,12 @@
 
 			.fingering-title {
 				text-align: center;
-				font-size: 16px;
-				font-weight: bold;
-				color: #333;
-				margin-bottom: 10px;
+				font-size: 0.78rem;
+				font-weight: 600;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--text-muted);
+				margin-bottom: 12px;
 			}
 
 			.fingering-content {
@@ -486,21 +621,29 @@
 				max-height: 100%;
 			}
 
-			/* Mobile styles */
+			/* ---------- Mobile ---------- */
 			@media (max-width: 700px) {
 				body {
-					padding: 10px;
+					padding: 12px;
 				}
 
 				h1 {
 					font-size: 1.4rem;
-					margin-bottom: 10px;
+				}
+
+				.app-subtitle {
+					font-size: 0.82rem;
+				}
+
+				.app-header {
+					margin-bottom: 12px;
 				}
 
 				.controls {
 					flex-direction: column;
 					gap: 10px;
-					margin-bottom: 10px;
+					margin-bottom: 12px;
+					padding: 12px;
 				}
 
 				#instrument,
@@ -554,13 +697,13 @@
 				}
 
 				.pitch-button {
-					width: 45px;
-					height: 45px;
-					font-size: 20px;
+					width: 44px;
+					height: 44px;
+					font-size: 16px;
 				}
 
 				.fingering-container {
-					padding: 10px;
+					padding: 14px;
 				}
 
 				.fingering-content {
@@ -584,7 +727,10 @@
 		<script src="js/fingerings.js"></script>
 
 		<div class="container">
-			<h1>Pitch Detector</h1>
+			<header class="app-header">
+				<h1>Pitch Detector</h1>
+				<p class="app-subtitle">Real-time pitch &amp; note trainer for your instrument</p>
+			</header>
 
 			<div class="controls">
 				<select name="Instrument" id="instrument">
@@ -606,13 +752,13 @@
 					<option value="tuba">Tuba</option>
 					<option value="glockenspiel">Glockenspiel</option>
 				</select>
-			<button id="playButton" onclick="handlePlayButton()">Play Sound</button>
+				<button id="playButton" onclick="handlePlayButton()">Play Sound</button>
 				<button id="clearButton" onclick="clearNote()">Clear</button>
 				<label id="sustainSwitch" class="sustain-switch" title="Hold note until stopped">
-				<input type="checkbox" id="sustainToggle" onchange="onSustainChange()">
-				<span class="sustain-slider"></span>
-				<span>Sustain</span>
-			</label>
+					<input type="checkbox" id="sustainToggle" onchange="onSustainChange()">
+					<span class="sustain-slider"></span>
+					<span>Sustain</span>
+				</label>
 			</div>
 
 			<div class="main-display">
