@@ -1312,17 +1312,82 @@ function playNote() {
 	}
 }
 
-// Stop the current note
-function stopNote() {
-	activeAudioNodes.forEach(function(node) {
+// Smoothly ramp an AudioParam down to silence, anchoring at its current
+// value so there is no instantaneous jump (which would click).
+function rampGainToZero(param, now, fade) {
+	try {
+		if (param.cancelAndHoldAtTime) {
+			param.cancelAndHoldAtTime(now);
+		} else {
+			param.cancelScheduledValues(now);
+			param.setValueAtTime(param.value, now);
+		}
+	} catch (e) {
 		try {
-			node.disconnect();
-			if (node.stop) node.stop();
-		} catch (e) {
-			// Already stopped or disconnected
+			param.cancelScheduledValues(now);
+			param.setValueAtTime(param.value, now);
+		} catch (e2) {
+			// Param automation unavailable; nothing more we can do here
+		}
+	}
+	param.linearRampToValueAtTime(0, now + fade);
+}
+
+// Stop the current note. Rather than cutting the signal instantly (which
+// leaves a waveform discontinuity the speakers reproduce as a "pop"), fade
+// the master gain to zero over a few milliseconds, then stop and disconnect
+// the nodes once the fade has completed.
+function stopNote() {
+	if (activeAudioNodes.length === 0) return;
+
+	// Hand ownership of the current nodes to this stop operation so that a
+	// new note started immediately afterwards gets its own clean list.
+	var nodesToStop = activeAudioNodes;
+	activeAudioNodes = [];
+
+	var FADE = 0.02; // 20 ms release — inaudible but enough to kill clicks
+
+	// If we have no usable audio clock, fall back to an immediate teardown.
+	if (!audioContext || audioContext.state === "closed") {
+		nodesToStop.forEach(function(node) {
+			try {
+				node.disconnect();
+				if (node.stop) node.stop();
+			} catch (e) {
+				// Already stopped or disconnected
+			}
+		});
+		return;
+	}
+
+	var now = audioContext.currentTime;
+	var stopTime = now + FADE + 0.005;
+
+	// Fade every gain node (the master gain routes all sound, so this
+	// silences the output smoothly) before anything is stopped.
+	nodesToStop.forEach(function(node) {
+		if (node.gain) {
+			rampGainToZero(node.gain, now, FADE);
 		}
 	});
-	activeAudioNodes = [];
+
+	// Schedule sources/oscillators to stop just after the fade finishes.
+	nodesToStop.forEach(function(node) {
+		if (node.stop) {
+			try {
+				node.stop(stopTime);
+			} catch (e) {
+				try { node.stop(); } catch (e2) { /* already stopped */ }
+			}
+		}
+	});
+
+	// Disconnect after the fade + stop have completed.
+	setTimeout(function() {
+		nodesToStop.forEach(function(node) {
+			try { node.disconnect(); } catch (e) { /* already disconnected */ }
+		});
+	}, (FADE + 0.02) * 1000);
 }
 
 // Launch fireworks celebration on the staff canvas when user plays the correct note
