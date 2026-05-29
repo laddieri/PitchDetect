@@ -161,8 +161,7 @@
 			#alternateButton {
 				border-radius: var(--radius-sm);
 				cursor: pointer;
-				transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.05s;
-				display: none;
+				transition: background-color 0.15s, border-color 0.15s, color 0.15s, box-shadow 0.15s, transform 0.05s, opacity 0.15s;
 			}
 
 			#playButton:focus-visible,
@@ -171,6 +170,29 @@
 			#alternateButton:focus-visible {
 				outline: none;
 				box-shadow: var(--ring);
+			}
+
+			/* Disabled controls stay in place (no layout shift) but read as inert.
+			   :disabled rules outrank the :hover rules below by specificity, so a
+			   disabled button never picks up a hover treatment. */
+			#playButton:disabled,
+			#clearButton:disabled,
+			#listenButton:disabled {
+				cursor: not-allowed;
+				opacity: 0.45;
+				transform: none;
+				box-shadow: none;
+			}
+
+			#playButton:disabled {
+				background-color: var(--accent);
+			}
+
+			#listenButton:disabled,
+			#clearButton:disabled {
+				background-color: var(--surface);
+				border-color: var(--border-strong);
+				color: var(--text-muted);
 			}
 
 			/* Primary: Play */
@@ -278,12 +300,19 @@
 
 			/* ---------- Sustain toggle ---------- */
 			.sustain-switch {
-				display: none;
+				display: inline-flex;
 				align-items: center;
 				gap: 9px;
 				cursor: pointer;
 				user-select: none;
 				color: var(--text-muted);
+				transition: opacity 0.15s;
+			}
+
+			.sustain-switch.is-disabled {
+				opacity: 0.45;
+				cursor: not-allowed;
+				pointer-events: none;
 			}
 
 			.sustain-switch input {
@@ -387,14 +416,11 @@
 				font-style: italic;
 			}
 
-			/* When listening, two staves share the right half — give them more
-			   room by shrinking the note-letter box and its glyph. */
+			/* When listening, two staves share the right half. The column grows to
+			   give them room; the transition lets it glide instead of snapping.
+			   The big note letter keeps its size — only the layout shifts. */
 			.main-display.dual-staff .staff-column {
-				flex: 2.6;
-			}
-
-			.main-display.dual-staff #note-name {
-				font-size: clamp(40px, 8vw, 92px);
+				flex-grow: 2.6;
 			}
 
 			.staff-column {
@@ -404,6 +430,7 @@
 				gap: 10px;
 				min-width: 0;
 				min-height: 0;
+				transition: flex-grow 0.25s ease;
 			}
 
 			.staff-listen-row {
@@ -550,8 +577,25 @@
 				display: none;
 			}
 
+			/* Labels only make sense once both staves are showing. */
+			.main-display.dual-staff .staff-label {
+				display: block;
+			}
+
+			/* The second staff is always in the layout but collapsed to zero width
+			   until listening begins, so the staves slide apart instead of the panel
+			   popping into existence. The reserved gap is constant in both states. */
 			#staff-panel-2 {
-				display: none;
+				flex-grow: 0;
+				flex-basis: 0;
+				opacity: 0;
+				overflow: hidden;
+				transition: flex-grow 0.25s ease, opacity 0.25s ease;
+			}
+
+			.main-display.dual-staff #staff-panel-2 {
+				flex-grow: 1;
+				opacity: 1;
 			}
 
 			.staff-container {
@@ -588,12 +632,8 @@
 				border: 1px solid var(--border-strong);
 				border-radius: var(--radius-sm);
 				cursor: pointer;
-				transition: background-color 0.15s, border-color 0.15s, transform 0.05s, box-shadow 0.15s;
+				transition: background-color 0.15s, border-color 0.15s, transform 0.05s, box-shadow 0.15s, opacity 0.15s;
 				box-shadow: var(--shadow-sm);
-				display: none;
-			}
-
-			.pitch-button.active {
 				display: block;
 			}
 
@@ -669,6 +709,16 @@
 				justify-content: center;
 			}
 
+			/* Shown in the reserved fingering/piano boxes when an instrument is
+			   selected but no note is placed yet — keeps the panel's footprint
+			   stable so placing a note fills it rather than growing the page. */
+			.panel-placeholder {
+				color: var(--text-faint);
+				font-size: 0.85rem;
+				text-align: center;
+				padding: 20px;
+			}
+
 			.alternate-button-container {
 				display: flex;
 				align-items: center;
@@ -693,6 +743,8 @@
 			#piano-display {
 				display: flex;
 				justify-content: center;
+				align-items: center;
+				min-height: 106px;
 			}
 
 			#piano-display svg {
@@ -784,13 +836,9 @@
 					min-height: 200px;
 				}
 
-				/* Show pitch buttons on mobile, moved left of the target staff */
+				/* Pitch buttons sit left of the target staff on mobile */
 				.pitch-controls {
 					order: -1;
-				}
-
-				.pitch-button.active {
-					display: block;
 				}
 
 				.pitch-button {

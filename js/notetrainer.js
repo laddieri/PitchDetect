@@ -844,14 +844,9 @@ function handleStaffClick(event) {
 	// Redraw staff with placed note
 	drawStaff(currentNote, currentOctave, null, null);
 
-	// Show buttons
-	document.getElementById("playButton").style.display = "inline-block";
-	document.getElementById("listenButton").style.display = "inline-block";
-	document.getElementById("clearButton").style.display = "inline-block";
-	document.getElementById("sustainSwitch").style.display = "flex";
+	// Enable the controls now that a note is placed
 	document.getElementById("note-display").classList.add("active");
-	document.getElementById("pitchUpButton").classList.add("active");
-	document.getElementById("pitchDownButton").classList.add("active");
+	updateControlStates();
 
 	// Update fingering display
 	showingAlternates = false;
@@ -971,15 +966,28 @@ function drawPianoKeyboard(concertPc, concertNoteDisplay) {
 function updatePianoDisplay(writtenMidi) {
 	var container = document.getElementById("piano-container");
 	if (!container) return;
-	if (writtenMidi === null || writtenMidi === undefined) {
+
+	// Reserve the panel as soon as an instrument is selected (the piano shows
+	// for every instrument), so placing a note fills the box rather than
+	// expanding the bottom row.
+	var instrumentSelected = !!document.getElementById("instrument").value;
+	if (!instrumentSelected) {
 		container.classList.remove("active");
 		return;
 	}
+
+	container.classList.add("active");
+
+	if (writtenMidi === null || writtenMidi === undefined) {
+		document.getElementById("piano-display").innerHTML =
+			'<div class="panel-placeholder">Place a note to see its concert pitch</div>';
+		return;
+	}
+
 	var transposition = getTransposition();
 	var concertMidi = writtenMidi - transposition;
 	var concertPc = ((concertMidi % 12) + 12) % 12;
 	var concertNoteName = spellNoteForKey(concertPc, concertKey);
-	container.classList.add("active");
 	drawPianoKeyboard(concertPc, keyDisplayName(concertNoteName));
 }
 
@@ -1020,6 +1028,25 @@ function updateNoteDisplay() {
 		updateConcertPitchDisplay(null);
 		updatePianoDisplay(null);
 	}
+}
+
+// Enable or disable the toolbar/pitch controls for the current state. The
+// controls are always present in the layout so nothing shifts as the app
+// moves between states; they are simply disabled until they become usable.
+function updateControlStates() {
+	var instrumentSelected = !!document.getElementById("instrument").value;
+	var hasNote = currentNote !== null && currentMidi !== null;
+
+	document.getElementById("playButton").disabled = !hasNote;
+	document.getElementById("clearButton").disabled = !hasNote;
+	document.getElementById("listenButton").disabled = !instrumentSelected;
+	document.getElementById("pitchUpButton").disabled = !hasNote;
+	document.getElementById("pitchDownButton").disabled = !hasNote;
+
+	var sustainSwitch = document.getElementById("sustainSwitch");
+	var sustainToggle = document.getElementById("sustainToggle");
+	sustainSwitch.classList.toggle("is-disabled", !hasNote);
+	sustainToggle.disabled = !hasNote;
 }
 
 // Adjust pitch by semitones (for mobile pitch control buttons)
@@ -1780,11 +1807,12 @@ function startListening() {
 		listenActive = true;
 		updateListenPitch();
 
-		// Only show second staff if the user has placed a note
+		// Only expand to the second staff if the user has placed a note. The
+		// .dual-staff class drives the panel and labels in CSS (the second staff
+		// is always reserved in the layout and slides open), so we just toggle
+		// the class and re-render the staves at their new widths.
 		if (currentNote !== null) {
-			document.getElementById("staff-panel-2").style.display = "flex";
 			document.querySelector(".main-display").classList.add("dual-staff");
-			document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "block"; });
 			// Re-render first staff at new (wider) width now that panel 2 is visible
 			drawStaff(currentNote, currentOctave, null, null, null);
 			drawDetectedStaff(null, null);
@@ -1831,11 +1859,10 @@ function stopListening() {
 		fireworksCanvas.getContext("2d").clearRect(0, 0, fireworksCanvas.width, fireworksCanvas.height);
 	}
 
-	// Hide second staff and labels if they were shown (note was placed)
+	// Collapse the second staff if it was shown (note was placed). Removing
+	// .dual-staff slides panel 2 back to zero width and hides the labels via CSS.
 	if (currentNote !== null) {
-		document.getElementById("staff-panel-2").style.display = "none";
 		document.querySelector(".main-display").classList.remove("dual-staff");
-		document.querySelectorAll(".staff-label").forEach(function(el) { el.style.display = "none"; });
 		drawDetectedStaff(null, null);
 		drawStaff(currentNote, currentOctave, null, null, null);
 	} else {
@@ -1985,29 +2012,39 @@ function updateFingeringDisplay() {
 	var fingeringDisplay = document.getElementById("fingering-display");
 	var alternateButton = document.getElementById("alternateButton");
 
-	// Check if this instrument has fingering data
-	if (!hasFingeringData(instrument) || currentMidi === null) {
+	// Instruments without fingering data never reserve the box.
+	if (!hasFingeringData(instrument)) {
 		fingeringContainer.classList.remove("active");
 		return;
 	}
 
-	// Show the fingering container
+	// Reserve the box as soon as the instrument is chosen. Before a note is
+	// placed, show a placeholder so the panel keeps its footprint and placing
+	// a note fills it rather than growing the page.
 	fingeringContainer.classList.add("active");
+
+	if (currentMidi === null) {
+		fingeringDisplay.innerHTML = '<div class="panel-placeholder">Place a note on the staff to see its fingering</div>';
+		alternateButton.style.display = "none";
+		return;
+	}
 
 	// Display the fingering
 	var hasAlternates = displayFingering(fingeringDisplay, instrument, currentMidi, showingAlternates);
 
-	// Show/hide alternate button based on whether alternates exist
-	if (hasAlternates) {
-		alternateButton.style.display = "inline-block";
-		alternateButton.textContent = showingAlternates ? "Hide Alternate Fingerings" : "Show Alternate Fingerings";
-		if (showingAlternates) {
-			alternateButton.classList.add("active");
-		} else {
-			alternateButton.classList.remove("active");
-		}
-	} else {
+	// Reveal the alternate-fingering button when this note has alternates. For
+	// valve instruments the button's slot stays reserved (visibility) even when
+	// a note has no alternates, so the fingering glyph doesn't shift sideways as
+	// you move between notes. Image-based instruments never have alternates, so
+	// their button is removed entirely rather than leaving a blank slot.
+	var imageBased = (typeof imageFingeringMap !== "undefined") && (instrument in imageFingeringMap);
+	if (imageBased) {
 		alternateButton.style.display = "none";
+	} else {
+		alternateButton.style.display = "inline-block";
+		alternateButton.style.visibility = hasAlternates ? "visible" : "hidden";
+		alternateButton.textContent = showingAlternates ? "Hide Alternate Fingerings" : "Show Alternate Fingerings";
+		alternateButton.classList.toggle("active", showingAlternates && hasAlternates);
 	}
 }
 
@@ -2042,15 +2079,14 @@ function clearNote() {
 	var playButton = document.getElementById("playButton");
 	playButton.textContent = "Play Sound";
 	playButton.classList.remove("sustaining");
-	playButton.style.display = "none";
-	var instrumentSelected = document.getElementById("instrument").value;
-	document.getElementById("listenButton").style.display = instrumentSelected ? "inline-block" : "none";
-	document.getElementById("clearButton").style.display = "none";
-	document.getElementById("sustainSwitch").style.display = "none";
 	document.getElementById("note-display").classList.remove("active");
-	document.getElementById("fingering-container").classList.remove("active");
-	document.getElementById("pitchUpButton").classList.remove("active");
-	document.getElementById("pitchDownButton").classList.remove("active");
+	updateControlStates();
+
+	// Keep the fingering box reserved (showing its placeholder) when the
+	// selected instrument supports fingerings, so clearing a note doesn't
+	// collapse the bottom panels. updateNoteDisplay() above already reset the
+	// piano panel to its placeholder via updatePianoDisplay(null).
+	updateFingeringDisplay();
 }
 
 // Initialize
@@ -2062,8 +2098,8 @@ document.addEventListener("DOMContentLoaded", function() {
 		// Persist selection so the pitch detector page stays in sync
 		try { localStorage.setItem('pitchdetect-instrument', instrument.value); } catch(e) {}
 
-		// Show/hide listen button based on instrument selection
-		document.getElementById("listenButton").style.display = instrument.value ? "inline-block" : "none";
+		// Enable the listen button once an instrument is selected
+		updateControlStates();
 
 		// Stop sustaining note if instrument changes
 		if (sustainPlaying) {
@@ -2084,10 +2120,11 @@ document.addEventListener("DOMContentLoaded", function() {
 			var transposition = getTransposition();
 			currentFrequency = frequencyFromNoteNumber(fullMidi - transposition);
 			updateNoteDisplay();
-			updateFingeringDisplay();
-		} else {
-			document.getElementById("fingering-container").classList.remove("active");
 		}
+		// Reserve the fingering/piano panels for the newly selected instrument
+		// (placeholders when no note is placed) so they don't pop in later.
+		updateFingeringDisplay();
+		updatePianoDisplay(currentMidi);
 		updateKeyDropdown();
 		drawStaff(currentNote, currentOctave, null, null);
 		drawDetectedStaff(detectedNote, detectedOctave);
@@ -2118,11 +2155,15 @@ document.addEventListener("DOMContentLoaded", function() {
 			instrument.value = saved;
 			// Reset if the saved value isn't a valid option in this list
 			if (instrument.value !== saved) instrument.value = '';
-			if (instrument.value) {
-				document.getElementById("listenButton").style.display = "inline-block";
-			}
 		}
 	} catch(e) {}
+
+	// Set the initial control/panel state: every control is present but
+	// disabled until usable, and the fingering/piano panels reserve their
+	// space (with placeholders) for the restored instrument.
+	updateControlStates();
+	updateFingeringDisplay();
+	updatePianoDisplay(null);
 
 	// Restore saved concert key, then build dropdown using correct transposition
 	try {
