@@ -6,6 +6,12 @@
 var audioContext = null;
 var activeAudioNodes = [];  // Track all active nodes for cleanup
 
+// References to the currently sustaining wind voice, so a pitch change can
+// glide the existing oscillators to the new pitch (portamento) instead of
+// tearing down and rebuilding the graph — which causes audible clicks/pops.
+var sustainVoiceOscillators = [];   // [{ osc, ratio }] harmonic oscillators
+var sustainVoiceNoiseFilter = null; // breath-noise bandpass filter (retuned too)
+
 // Current note state
 var currentNote = null;
 var currentOctave = null;
@@ -844,9 +850,12 @@ function handleKeyDown(event) {
 		// Update fingering display
 		updateFingeringDisplay();
 
-		// If a note was sustaining, seamlessly switch to the new pitch
+		// If a note was sustaining, glide it to the new pitch (click-free).
+		// Fall back to restarting if there's no live voice to retune.
 		if (sustainPlaying) {
-			playNote();
+			if (!retuneSustainedNote(currentFrequency)) {
+				playNote();
+			}
 		}
 	}
 }
@@ -898,9 +907,12 @@ function adjustPitch(semitones) {
 		// Update fingering display
 		updateFingeringDisplay();
 
-		// If a note was sustaining, seamlessly switch to the new pitch
+		// If a note was sustaining, glide it to the new pitch (click-free).
+		// Fall back to restarting if there's no live voice to retune.
 		if (sustainPlaying) {
-			playNote();
+			if (!retuneSustainedNote(currentFrequency)) {
+				playNote();
+			}
 		}
 	}
 }
@@ -1091,8 +1103,11 @@ function synthesizeWind(freq, timbre, t, dest, sustain) {
 			gain.gain.setValueAtTime(amplitude, sustainEnd);
 			gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 			osc.stop(t + duration);
+		} else {
+			// In sustain mode: hold at amplitude indefinitely (stopped via
+			// stopNote). Track the oscillator so its pitch can be glided.
+			sustainVoiceOscillators.push({ osc: osc, ratio: harmonicNum });
 		}
-		// In sustain mode: hold at amplitude indefinitely; stopped via stopNote()
 	});
 
 	// Breath noise: sustained filtered noise following the note envelope
@@ -1129,8 +1144,11 @@ function synthesizeWind(freq, timbre, t, dest, sustain) {
 			noiseGain.gain.setValueAtTime(timbre.breathNoise, sustainEnd);
 			noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 			noiseSrc.stop(t + duration + 0.01);
+		} else {
+			// In sustain mode: hold at breathNoise level (stopped via stopNote).
+			// Track the filter so its center frequency tracks pitch changes.
+			sustainVoiceNoiseFilter = noiseFilter;
 		}
-		// In sustain mode: hold at breathNoise level; stopped via stopNote()
 	}
 }
 
@@ -1312,6 +1330,45 @@ function playNote() {
 	}
 }
 
+// Glide the currently sustaining wind voice to a new concert-pitch frequency
+// instead of restarting it. Frequency automation is phase-continuous, so this
+// is inherently click-free and gapless (a short portamento). Returns false if
+// there is no live sustaining voice to retune (e.g. a struck instrument), in
+// which case the caller should fall back to restarting the note.
+function retuneSustainedNote(newFreq) {
+	if (!audioContext || audioContext.state === "closed") return false;
+	if (sustainVoiceOscillators.length === 0) return false;
+
+	var now = audioContext.currentTime;
+	var glide = 0.04; // 40 ms portamento — smooth, no zipper noise
+	var nyquist = audioContext.sampleRate / 2;
+
+	sustainVoiceOscillators.forEach(function(voice) {
+		try {
+			var target = Math.min(newFreq * voice.ratio, nyquist);
+			var param = voice.osc.frequency;
+			param.cancelScheduledValues(now);
+			param.setValueAtTime(param.value, now);
+			param.linearRampToValueAtTime(target, now + glide);
+		} catch (e) {
+			// Oscillator may have been stopped; ignore
+		}
+	});
+
+	if (sustainVoiceNoiseFilter) {
+		try {
+			var fParam = sustainVoiceNoiseFilter.frequency;
+			fParam.cancelScheduledValues(now);
+			fParam.setValueAtTime(fParam.value, now);
+			fParam.linearRampToValueAtTime(newFreq * 2, now + glide);
+		} catch (e) {
+			// Filter gone; ignore
+		}
+	}
+
+	return true;
+}
+
 // Smoothly ramp an AudioParam down to silence, anchoring at its current
 // value so there is no instantaneous jump (which would click).
 function rampGainToZero(param, now, fade) {
@@ -1344,6 +1401,11 @@ function stopNote() {
 	// new note started immediately afterwards gets its own clean list.
 	var nodesToStop = activeAudioNodes;
 	activeAudioNodes = [];
+
+	// These nodes are about to be torn down — drop the sustaining-voice
+	// references so a later retune never touches stopped oscillators.
+	sustainVoiceOscillators = [];
+	sustainVoiceNoiseFilter = null;
 
 	var FADE = 0.02; // 20 ms release — inaudible but enough to kill clicks
 
