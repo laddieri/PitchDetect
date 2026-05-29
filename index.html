@@ -622,13 +622,21 @@
 			}
 
 			/* ---------- Fingering chart ---------- */
+			.bottom-panels {
+				display: flex;
+				gap: 18px;
+				align-items: flex-start;
+				margin-top: 18px;
+			}
+
 			.fingering-container {
+				flex: 1;
+				min-width: 0;
 				background-color: var(--surface);
 				border: 1px solid var(--border);
 				border-radius: var(--radius);
 				padding: 18px;
 				box-shadow: var(--shadow-sm);
-				margin-top: 18px;
 				display: none;
 			}
 
@@ -669,12 +677,12 @@
 
 			/* ---------- Piano keyboard ---------- */
 			.piano-container {
+				flex: 0 0 auto;
 				background-color: var(--surface);
 				border: 1px solid var(--border);
 				border-radius: var(--radius);
 				padding: 18px;
 				box-shadow: var(--shadow-sm);
-				margin-top: 18px;
 				display: none;
 			}
 
@@ -791,6 +799,10 @@
 					font-size: 16px;
 				}
 
+				.bottom-panels {
+					flex-direction: column;
+				}
+
 				.fingering-container {
 					padding: 14px;
 				}
@@ -890,19 +902,21 @@
 				</div>
 			</div>
 
-			<div class="fingering-container" id="fingering-container">
-				<div class="fingering-title">Fingering Chart</div>
-				<div class="fingering-content">
-					<div id="fingering-display"></div>
-					<div class="alternate-button-container">
-						<button id="alternateButton" onclick="toggleAlternateFingerings()">Show Alternate Fingerings</button>
+			<div class="bottom-panels">
+				<div class="fingering-container" id="fingering-container">
+					<div class="fingering-title">Fingering Chart</div>
+					<div class="fingering-content">
+						<div id="fingering-display"></div>
+						<div class="alternate-button-container">
+							<button id="alternateButton" onclick="toggleAlternateFingerings()">Show Alternate Fingerings</button>
+						</div>
 					</div>
 				</div>
-			</div>
 
-			<div class="piano-container" id="piano-container">
-				<div class="fingering-title">Concert Pitch on Piano</div>
-				<div id="piano-display"></div>
+				<div class="piano-container" id="piano-container">
+					<div class="fingering-title">Concert Pitch on Piano</div>
+					<div id="piano-display"></div>
+				</div>
 			</div>
 		</div>
 
