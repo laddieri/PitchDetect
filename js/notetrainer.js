@@ -1803,13 +1803,52 @@ function updateKeyDropdown() {
 	select.value = concertKey;
 }
 
-// Toggle the key signature popup panel
+// Toggle the key signature popup panel, anchored near the clicked key signature
 function toggleKeySigPopup(event) {
-	event.stopPropagation();
+	if (event) event.stopPropagation();
 	var popup = document.getElementById("key-sig-popup");
-	if (popup) {
-		popup.style.display = popup.style.display === "block" ? "none" : "block";
+	if (!popup) return;
+
+	if (popup.style.display === "block") {
+		popup.style.display = "none";
+		return;
 	}
+
+	// Anchor just below the key-signature hotspot the user clicked; fall back
+	// to the click point, then to a fixed corner.
+	var hotspot = document.getElementById("key-sig-hotspot");
+	var anchorLeft, anchorTop, anchorRect = null;
+	if (hotspot && hotspot.classList.contains("active")) {
+		anchorRect = hotspot.getBoundingClientRect();
+		anchorLeft = anchorRect.left;
+		anchorTop = anchorRect.bottom + 6;
+	} else if (event && event.clientX) {
+		anchorLeft = event.clientX;
+		anchorTop = event.clientY + 6;
+	} else {
+		anchorLeft = 20;
+		anchorTop = 20;
+	}
+
+	// Reveal first so we can measure it, then clamp within the viewport.
+	popup.style.left = "0px";
+	popup.style.top = "0px";
+	popup.style.display = "block";
+
+	var margin = 8;
+	var pw = popup.offsetWidth;
+	var ph = popup.offsetHeight;
+	var left = Math.max(margin, Math.min(anchorLeft, window.innerWidth - pw - margin));
+	var top = Math.min(anchorTop, window.innerHeight - ph - margin);
+
+	// If it would spill below the viewport, flip it above the key signature.
+	if (anchorRect && anchorTop > window.innerHeight - ph - margin) {
+		top = anchorRect.top - ph - 6;
+	}
+	top = Math.max(margin, top);
+
+	popup.style.left = left + "px";
+	popup.style.top = top + "px";
 }
 
 // Handle concert key signature change
