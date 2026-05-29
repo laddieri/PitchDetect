@@ -416,8 +416,17 @@
 				font-size: 0.82rem;
 				color: var(--text-faint);
 				margin-top: 4px;
-				min-height: 1.2em;
 				font-style: italic;
+				/* The flat/sharp symbol (♭/♯) falls back to a font with taller
+				   metrics, which would grow this line and shift the layout below
+				   it. A fixed height with centered, clipped content keeps the box
+				   the same size whether or not an accidental is shown. */
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 1.5em;
+				line-height: 1;
+				overflow: hidden;
 			}
 
 			/* When listening, two staves share the right half. The column grows to
