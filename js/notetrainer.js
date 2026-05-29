@@ -1030,6 +1030,33 @@ function updateNoteDisplay() {
 	}
 }
 
+// Shrink the note-name text so longer labels (sharps/flats shown with their
+// enharmonic spelling, e.g. "C♯ / D♭") fit on a single line. Without this the
+// text wraps and the note box grows taller, shifting the rest of the layout.
+// The CSS clamp() defines the maximum size; this only ever scales down from it,
+// and is re-run whenever the text or the box width changes.
+function fitNoteName() {
+	var el = document.getElementById("note-name");
+	if (!el) return;
+	var parent = el.parentElement;
+	if (!parent) return;
+
+	// Measure against the CSS-defined size each time so we recover the full size
+	// for short labels and on wider layouts.
+	el.style.fontSize = "";
+	var cs = getComputedStyle(parent);
+	var available = parent.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+	if (available <= 0) return;
+
+	// scrollWidth is the single-line width (white-space: nowrap); when it exceeds
+	// the box, scale the font down proportionally with a hair of breathing room.
+	var contentWidth = el.scrollWidth;
+	if (contentWidth > available) {
+		var baseSize = parseFloat(getComputedStyle(el).fontSize);
+		el.style.fontSize = (baseSize * (available / contentWidth) * 0.98) + "px";
+	}
+}
+
 // Enable or disable the toolbar/pitch controls for the current state. The
 // controls are always present in the layout so nothing shifts as the app
 // moves between states; they are simply disabled until they become usable.
@@ -2141,6 +2168,21 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	// The staff SVG self-scales on resize; realign the key-signature hotspot
 	window.addEventListener("resize", positionKeySigHotspot);
+
+	// Keep the note-name text fitted on one line. A MutationObserver re-fits
+	// whenever the label changes; a ResizeObserver re-fits as the note box's
+	// width changes (window resize, mobile reflow, the dual-staff slide). Both
+	// fall back to a window resize listener on older browsers.
+	var noteNameEl = document.getElementById("note-name");
+	if (noteNameEl) {
+		if (window.MutationObserver) {
+			new MutationObserver(fitNoteName).observe(noteNameEl, { childList: true, characterData: true, subtree: true });
+		}
+		if (window.ResizeObserver) {
+			new ResizeObserver(fitNoteName).observe(noteNameEl.parentElement);
+		}
+	}
+	window.addEventListener("resize", fitNoteName);
 
 	// Close key sig popup when clicking anywhere outside it
 	document.addEventListener("click", function() {
