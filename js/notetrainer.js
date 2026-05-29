@@ -774,6 +774,7 @@ function handleStaffMouseMove(event) {
 			noteNameElem.textContent = ghostNote;
 		}
 		noteNameElem.style.opacity = "0.5";
+		updateConcertPitchDisplay(ghostMidi);
 	}
 }
 
@@ -797,6 +798,7 @@ function handleStaffMouseLeave(event) {
 	var noteNameElem = document.getElementById("note-name");
 	noteNameElem.textContent = "-";
 	noteNameElem.style.opacity = "1";
+	updateConcertPitchDisplay(null);
 }
 
 // Handle click on staff
@@ -904,6 +906,21 @@ function handleKeyDown(event) {
 	}
 }
 
+// Show concert pitch note name below the note box when the instrument transposes
+function updateConcertPitchDisplay(writtenMidi) {
+	var elem = document.getElementById("concert-pitch-display");
+	if (!elem) return;
+	var transposition = getTransposition();
+	if (transposition === 0 || writtenMidi === null || writtenMidi === undefined) {
+		elem.textContent = "";
+		return;
+	}
+	var concertMidi = writtenMidi - transposition;
+	var concertPc = ((concertMidi % 12) + 12) % 12;
+	var concertNoteName = spellNoteForKey(concertPc, concertKey);
+	elem.textContent = "Concert " + keyDisplayName(concertNoteName);
+}
+
 // Update the note name display
 function updateNoteDisplay() {
 	var noteNameElem = document.getElementById("note-name");
@@ -918,9 +935,11 @@ function updateNoteDisplay() {
 
 		noteNameElem.textContent = displayName;
 		freqElem.textContent = Math.round(currentFrequency) + " Hz (concert pitch)";
+		updateConcertPitchDisplay(currentMidi);
 	} else {
 		noteNameElem.textContent = "-";
 		freqElem.textContent = "";
+		updateConcertPitchDisplay(null);
 	}
 }
 
@@ -1632,6 +1651,7 @@ function updateListenPitch() {
 				var enharmonic = enharmonicMap[detectedNote];
 				noteNameElem.textContent = enharmonic ? detectedNote + " / " + enharmonic : detectedNote;
 				noteNameElem.style.opacity = "1";
+				updateConcertPitchDisplay(detectedMidi);
 			}
 		}
 	} else {
@@ -1646,6 +1666,7 @@ function updateListenPitch() {
 			} else {
 				drawStaff(null, null, null, null, null);
 				document.getElementById("note-name").textContent = "-";
+				updateConcertPitchDisplay(null);
 			}
 		}
 	}
