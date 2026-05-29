@@ -253,8 +253,8 @@ function displayImageFingering(container, instrument, writtenMidi) {
 
 	var img = document.createElement("img");
 	img.alt = "Fingering diagram";
-	img.style.maxWidth = "100%";
-	img.style.maxHeight = "280px";
+	// Sizing (incl. a viewport-relative max-height cap) is handled in CSS via
+	// "#fingering-display img" so the chart scales to fit the window.
 	img.style.display = "block";
 	img.style.margin = "0 auto";
 
