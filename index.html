@@ -395,25 +395,70 @@
 			}
 
 			/* ---------- Key signature popup ---------- */
-			.key-sig-gear {
+			/* Clickable key-signature region overlaid on the staff */
+			.key-sig-hotspot {
 				position: absolute;
-				bottom: 8px;
-				right: 10px;
-				background: none;
-				border: none;
+				display: none;
 				cursor: pointer;
-				font-size: 17px;
-				color: var(--text-faint);
-				padding: 2px;
-				line-height: 1;
-				transition: color 0.15s, transform 0.2s;
-				z-index: 10;
-				user-select: none;
+				z-index: 6;
 			}
 
-			.key-sig-gear:hover {
-				color: var(--accent);
-				transform: rotate(45deg);
+			.key-sig-hotspot.active {
+				display: block;
+			}
+
+			/* Subtle highlight so users discover the key signature is clickable */
+			.key-sig-hotspot::after {
+				content: "";
+				position: absolute;
+				inset: -2px;
+				border-radius: 6px;
+				background: var(--accent-soft);
+				opacity: 0;
+				transition: opacity 0.15s;
+				pointer-events: none;
+			}
+
+			.key-sig-tooltip {
+				position: absolute;
+				bottom: 100%;
+				left: 50%;
+				transform: translateX(-50%);
+				margin-bottom: 9px;
+				background: var(--text);
+				color: #fff;
+				padding: 6px 10px;
+				border-radius: 6px;
+				font-size: 0.72rem;
+				font-weight: 500;
+				line-height: 1.2;
+				white-space: nowrap;
+				opacity: 0;
+				pointer-events: none;
+				transition: opacity 0.15s;
+				box-shadow: var(--shadow-md);
+				z-index: 7;
+			}
+
+			.key-sig-tooltip::after {
+				content: "";
+				position: absolute;
+				top: 100%;
+				left: 50%;
+				transform: translateX(-50%);
+				border: 5px solid transparent;
+				border-top-color: var(--text);
+			}
+
+			/* Only reveal the highlight/tooltip on devices that can hover */
+			@media (hover: hover) {
+				.key-sig-hotspot:hover::after {
+					opacity: 0.55;
+				}
+
+				.key-sig-hotspot:hover .key-sig-tooltip {
+					opacity: 1;
+				}
 			}
 
 			.key-sig-popup {
@@ -777,11 +822,13 @@
 							<div id="staff-instruction">Click on the staff to place a note</div>
 							<div class="staff-container" id="staff-container">
 								<div id="staff-output"></div>
+								<div id="key-sig-hotspot" class="key-sig-hotspot" onclick="toggleKeySigPopup(event)" onmousemove="event.stopPropagation()" title="Click to set a new key signature">
+									<span class="key-sig-tooltip">Click to set a new key signature</span>
+								</div>
 								<div id="key-sig-popup" class="key-sig-popup" onclick="event.stopPropagation()">
 									<div class="key-sig-popup-label">Key Signature</div>
 									<select id="key-select" onchange="onKeyChange()"></select>
 								</div>
-								<button id="key-sig-gear" class="key-sig-gear" onclick="toggleKeySigPopup(event)" title="Change key signature">&#9881;</button>
 							</div>
 						</div>
 						<div class="staff-panel" id="staff-panel-2">
