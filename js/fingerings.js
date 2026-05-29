@@ -231,18 +231,21 @@ var fluteFingerings = {
 //   9  = alto sax (written - 9 = concert pitch, which the images are indexed by)
 //   14 = tenor sax
 //   21 = bari sax
+// w/h are a representative intrinsic size for the set, used to reserve the
+// image's aspect-ratio box before it loads so the panel doesn't resize while
+// the image downloads. (Trombone images are a uniform 534x112.)
 var imageFingeringMap = {
-	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0  },
-	"clarinet":  { folder: "Clarinet",  ext: "png", transposition: 0  },
-	"flute":     { folder: "Flute",     ext: "png", transposition: 0  },
-	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0  },
+	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0,  w: 331, h: 476 },
+	"clarinet":  { folder: "Clarinet",  ext: "png", transposition: 0,  w: 190, h: 532 },
+	"flute":     { folder: "Flute",     ext: "png", transposition: 0,  w: 496, h: 130 },
+	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0,  w: 223, h: 451 },
 	// All saxophones share the same fingering images indexed at writtenMidi - 12.
 	// (The image set uses a MIDI numbering where C4 = 48 instead of 60,
 	//  so we subtract 12 regardless of which saxophone is selected.)
-	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12 },
-	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12 },
-	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12 },
-	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0  }
+	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
+	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
+	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
+	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0,  w: 534, h: 112 }
 };
 
 // Display fingering using an image file from img/Fingerings/
@@ -251,24 +254,32 @@ function displayImageFingering(container, instrument, writtenMidi) {
 	var imageMidi = writtenMidi - info.transposition;
 	var imgPath = "img/Fingerings/" + info.folder + "/" + imageMidi + "." + info.ext;
 
-	var img = document.createElement("img");
-	img.alt = "Fingering diagram";
-	// Sizing (incl. a viewport-relative max-height cap) is handled in CSS via
-	// "#fingering-display img" so the chart scales to fit the window.
-	img.style.display = "block";
-	img.style.margin = "0 auto";
-
-	img.onload = function() {
+	// Reuse a persistent <img> and just swap its src. The browser keeps showing
+	// the current image until the new one finishes loading, so the panel never
+	// collapses to empty (and back) while the image downloads.
+	var img = container.querySelector("img.fingering-image");
+	if (!img) {
 		container.innerHTML = "";
+		img = document.createElement("img");
+		img.className = "fingering-image";
+		img.alt = "Fingering diagram";
+		// Sizing (incl. a viewport-relative max-height cap) is handled in CSS via
+		// "#fingering-display img" so the chart scales to fit the window.
+		img.style.display = "block";
+		img.style.margin = "0 auto";
+		img.onerror = function() {
+			container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">No fingering image available for this note</div>';
+		};
 		container.appendChild(img);
-	};
+	}
 
-	img.onerror = function() {
-		container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">No fingering image available for this note</div>';
-	};
+	// Reserve the aspect-ratio box up front (via width/height attributes) so even
+	// the first load doesn't shift the layout. CSS keeps it responsive.
+	if (info.w && info.h) {
+		img.width = info.w;
+		img.height = info.h;
+	}
 
-	// Set src after attaching handlers so they are guaranteed to fire.
-	// The image is pre-fetched in memory; the container is only replaced once loaded.
 	img.src = imgPath;
 
 	return false;  // No alternate fingerings for image-based instruments
@@ -507,12 +518,14 @@ function getFingering(instrument, midiNote) {
 
 // Display fingering in the specified container
 function displayFingering(container, instrument, midiNote, showAlternates) {
-	container.innerHTML = "";
-
-	// Image-based instruments take priority
+	// Image-based instruments manage their own content (they reuse a persistent
+	// <img> and swap its src to avoid a load-time layout collapse), so don't
+	// clear the container here for them.
 	if (imageFingeringMap[instrument]) {
 		return displayImageFingering(container, instrument, midiNote);
 	}
+
+	container.innerHTML = "";
 
 	var fingering = getFingering(instrument, midiNote);
 
