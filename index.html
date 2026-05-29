@@ -379,6 +379,16 @@
 				min-height: 1.2em;
 			}
 
+			/* When listening, two staves share the right half — give them more
+			   room by shrinking the note-letter box and its glyph. */
+			.main-display.dual-staff .staff-column {
+				flex: 2.6;
+			}
+
+			.main-display.dual-staff #note-name {
+				font-size: clamp(40px, 8vw, 92px);
+			}
+
 			.staff-column {
 				flex: 1;
 				display: flex;
