@@ -737,6 +737,9 @@
 			#fingering-display img {
 				max-width: 100%;
 				max-height: min(280px, 34vh);
+				/* height: auto lets the loaded image use its own aspect ratio
+				   (the width/height attributes only reserve space pre-load). */
+				height: auto;
 			}
 
 			#fingering-display svg {
