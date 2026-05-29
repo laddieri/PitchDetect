@@ -379,6 +379,14 @@
 				min-height: 1.2em;
 			}
 
+			#concert-pitch-display {
+				font-size: 0.82rem;
+				color: var(--text-faint);
+				margin-top: 4px;
+				min-height: 1.2em;
+				font-style: italic;
+			}
+
 			/* When listening, two staves share the right half — give them more
 			   room by shrinking the note-letter box and its glyph. */
 			.main-display.dual-staff .staff-column {
@@ -820,6 +828,7 @@
 				<div id="note-display">
 					<span id="note-name">-</span>
 					<div id="frequency-display"></div>
+					<div id="concert-pitch-display"></div>
 				</div>
 
 				<div class="staff-column">
