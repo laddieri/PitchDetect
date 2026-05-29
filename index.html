@@ -77,7 +77,7 @@
 			.app-header {
 				text-align: center;
 				flex-shrink: 0;
-				margin-bottom: 18px;
+				margin-bottom: 14px;
 			}
 
 			h1 {
@@ -102,7 +102,7 @@
 				gap: 12px;
 				justify-content: center;
 				align-items: center;
-				margin: 0 auto 18px;
+				margin: 0 auto 14px;
 				padding: 12px 14px;
 				background: var(--surface);
 				border: 1px solid var(--border);
@@ -371,6 +371,7 @@
 				justify-content: center;
 				align-items: center;
 				min-width: 0;
+				min-height: 0;
 				transition: border-color 0.2s, box-shadow 0.2s;
 			}
 
@@ -675,20 +676,26 @@
 			}
 
 			/* ---------- Fingering chart ---------- */
+			/* The bottom panels share the leftover height with the main display
+			   and can shrink (min-height: 0) so the whole app fits the window
+			   without scrolling. Their media is height-capped below. */
 			.bottom-panels {
 				display: flex;
 				gap: 18px;
 				align-items: flex-start;
-				margin-top: 18px;
+				margin-top: 14px;
+				min-height: 0;
+				flex-shrink: 0;
 			}
 
 			.fingering-container {
 				flex: 1;
 				min-width: 0;
+				min-height: 0;
 				background-color: var(--surface);
 				border: 1px solid var(--border);
 				border-radius: var(--radius);
-				padding: 18px;
+				padding: 14px 18px;
 				box-shadow: var(--shadow-sm);
 				display: none;
 			}
@@ -712,14 +719,33 @@
 				align-items: flex-start;
 				justify-content: center;
 				gap: 20px;
+				min-height: 0;
 			}
 
 			#fingering-display {
 				flex: 0 1 auto;
-				min-height: 280px;
+				min-height: 0;
 				display: flex;
 				align-items: center;
 				justify-content: center;
+			}
+
+			/* Cap the fingering media to a fraction of the viewport so a tall
+			   image chart (or stacked valve diagrams) can't force the page to
+			   scroll. min() keeps the original size on tall windows and scales
+			   down on shorter ones. */
+			#fingering-display img {
+				max-width: 100%;
+				max-height: min(280px, 34vh);
+			}
+
+			#fingering-display svg {
+				display: block;
+				width: auto;
+				height: auto;
+				max-width: 100%;
+				max-height: min(120px, 16vh);
+				margin: 0 auto;
 			}
 
 			/* Shown in the reserved fingering/piano boxes when an instrument is
