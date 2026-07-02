@@ -1,6 +1,7 @@
 <!doctype html>
 <html>
 	<head>
+		<meta charset="utf-8">
 		<title>Pitch Detector</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link rel="preconnect" href="https://fonts.googleapis.com">
@@ -30,6 +31,9 @@
 				--danger: #e11d48;
 				--danger-hover: #be123c;
 				--danger-soft: #fff1f3;
+				--success: #16a34a;
+				--success-soft: rgba(22, 163, 74, 0.12);
+				--warning: #d97706;
 
 				/* Shape & depth */
 				--radius: 12px;
@@ -570,6 +574,123 @@
 				min-height: 0;
 			}
 
+			/* ---------- Tuner meter ---------- */
+			/* Collapsed until listening starts, then slides open beneath the
+			   staves (same treatment as the second staff) so nothing pops into
+			   existence. Shows how far the detected pitch is from the nearest
+			   semitone, in cents. */
+			.tuner-meter {
+				height: 0;
+				opacity: 0;
+				overflow: hidden;
+				flex-shrink: 0;
+				transition: height 0.25s ease, opacity 0.25s ease;
+			}
+
+			.tuner-meter.active {
+				height: 52px;
+				opacity: 1;
+			}
+
+			.tuner-track {
+				position: relative;
+				height: 26px;
+				margin: 2px 2px 6px;
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius-pill);
+				overflow: hidden;
+			}
+
+			/* The ±10¢ "in tune" zone at the center of the ±50¢ scale */
+			.tuner-zone {
+				position: absolute;
+				left: 40%;
+				width: 20%;
+				top: 0;
+				bottom: 0;
+				background: var(--success-soft);
+			}
+
+			.tuner-center {
+				position: absolute;
+				left: 50%;
+				top: 0;
+				bottom: 0;
+				width: 2px;
+				margin-left: -1px;
+				background: var(--border-strong);
+			}
+
+			.tuner-needle {
+				position: absolute;
+				top: 3px;
+				bottom: 3px;
+				width: 4px;
+				left: 50%;
+				transform: translateX(-50%);
+				border-radius: 2px;
+				background: var(--border-strong);
+				transition: left 0.08s linear, background-color 0.15s, opacity 0.15s;
+			}
+
+			.tuner-labels {
+				display: flex;
+				justify-content: space-between;
+				align-items: baseline;
+				font-size: 0.72rem;
+				color: var(--text-faint);
+				padding: 0 6px;
+			}
+
+			#tuner-readout {
+				font-size: 0.8rem;
+				font-weight: 600;
+				font-variant-numeric: tabular-nums;
+				color: var(--text-muted);
+			}
+
+			.tuner-meter.idle .tuner-needle { opacity: 0.4; }
+			.tuner-meter.in-tune .tuner-needle { background: var(--success); }
+			.tuner-meter.close   .tuner-needle { background: var(--warning); }
+			.tuner-meter.off     .tuner-needle { background: var(--danger); }
+			.tuner-meter.in-tune #tuner-readout { color: var(--success); }
+			.tuner-meter.close   #tuner-readout { color: var(--warning); }
+			.tuner-meter.off     #tuner-readout { color: var(--danger); }
+
+			/* ---------- Key chip ---------- */
+			/* Always-visible entry point to the key-signature picker. The
+			   hotspot over the drawn key signature still works, but its hover
+			   affordance is undiscoverable on touch devices — this chip isn't. */
+			.key-chip {
+				position: absolute;
+				top: 8px;
+				right: 8px;
+				z-index: 6;
+				padding: 4px 11px;
+				font-family: var(--font);
+				font-size: 0.75rem;
+				font-weight: 600;
+				color: var(--text-muted);
+				background-color: var(--surface-2);
+				border: 1px solid var(--border);
+				border-radius: var(--radius-pill);
+				cursor: pointer;
+				white-space: nowrap;
+				transition: color 0.15s, border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+			}
+
+			.key-chip:hover {
+				color: var(--accent);
+				border-color: var(--accent);
+				background-color: var(--accent-soft);
+			}
+
+			.key-chip:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
 			.staff-panel {
 				flex: 1;
 				display: flex;
@@ -976,6 +1097,7 @@
 									<div class="key-sig-popup-label">Key Signature</div>
 									<select id="key-select" onchange="onKeyChange()"></select>
 								</div>
+								<button id="key-chip" class="key-chip" onclick="toggleKeySigPopup(event)" onmousemove="event.stopPropagation()" title="Click to change the key signature">Key: B&#9837; &#9662;</button>
 							</div>
 						</div>
 						<div class="staff-panel" id="staff-panel-2">
@@ -987,6 +1109,18 @@
 						<div class="pitch-controls">
 							<button id="pitchUpButton" class="pitch-button" onclick="adjustPitch(1)" title="Raise pitch by half step">&#9650;</button>
 							<button id="pitchDownButton" class="pitch-button" onclick="adjustPitch(-1)" title="Lower pitch by half step">&#9660;</button>
+						</div>
+					</div>
+					<div id="tuner-meter" class="tuner-meter idle">
+						<div class="tuner-track">
+							<div class="tuner-zone"></div>
+							<div class="tuner-center"></div>
+							<div class="tuner-needle" id="tuner-needle"></div>
+						</div>
+						<div class="tuner-labels">
+							<span>&#9837; flat</span>
+							<span id="tuner-readout">&ndash;</span>
+							<span>sharp &#9839;</span>
 						</div>
 					</div>
 				</div>
