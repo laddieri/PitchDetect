@@ -41,6 +41,18 @@ var detectedNote = null;
 var detectedOctave = null;
 var detectedMidi = null;
 
+// Detected-note debouncing: a new note must hold for a few consecutive frames
+// before the display switches to it, and a brief dropout (breath, transition)
+// keeps the last note on screen instead of blanking it.
+var pendingMidi = null;
+var pendingFrames = 0;
+var lastPitchTime = 0;
+var NOTE_CONFIRM_FRAMES = 3;
+var NOTE_CLEAR_HOLD_MS = 300;
+
+// Smoothed cents-offset value driving the tuner meter needle
+var smoothedCents = null;
+
 // Success state (detected note matches placed note)
 var isSuccess = false;
 var fireworksAnimID = null;
@@ -186,6 +198,11 @@ function noteFromPitch(frequency) {
 // Convert MIDI note number to frequency
 function frequencyFromNoteNumber(note) {
 	return 440 * Math.pow(2, (note - 69) / 12);
+}
+
+// Cents offset of a frequency from the exact pitch of a MIDI note
+function centsOffFromPitch(frequency, note) {
+	return 1200 * Math.log(frequency / frequencyFromNoteNumber(note)) / Math.log(2);
 }
 
 // Get staff line/space position for a note
@@ -1746,14 +1763,96 @@ function launchFireworks() {
 	fireworksAnimID = requestAnimationFrame(step);
 }
 
+// Show a confirmed detected note on the staff and note displays
+function commitDetectedNote(writtenMidi) {
+	detectedMidi = writtenMidi;
+	detectedNote = noteStrings[writtenMidi % 12];
+	detectedOctave = Math.floor(writtenMidi / 12) - 1;
+
+	// Check if detected note matches the placed note (success!)
+	var matched = (currentMidi !== null && detectedMidi === currentMidi);
+	if (matched && !isSuccess) {
+		isSuccess = true;
+		launchFireworks();
+	} else if (!matched) {
+		isSuccess = false;
+	}
+
+	// Draw detected note — on second staff if a note is placed, otherwise on the single staff
+	if (currentNote !== null) {
+		drawDetectedStaff(detectedNote, detectedOctave);
+	} else {
+		drawStaff(detectedNote, detectedOctave, null, null, null);
+		var noteNameElem = document.getElementById("note-name");
+		var enharmonic = enharmonicMap[detectedNote];
+		noteNameElem.textContent = enharmonic ? detectedNote + " / " + enharmonic : detectedNote;
+		noteNameElem.style.opacity = "1";
+		updateConcertPitchDisplay(detectedMidi);
+		updatePianoDisplay(detectedMidi);
+	}
+}
+
+// Clear the detected note from the staff and note displays
+function clearDetectedNote() {
+	detectedMidi = null;
+	detectedNote = null;
+	detectedOctave = null;
+	isSuccess = false;
+	if (currentNote !== null) {
+		drawDetectedStaff(null, null);
+	} else {
+		drawStaff(null, null, null, null, null);
+		document.getElementById("note-name").textContent = "-";
+		updateConcertPitchDisplay(null);
+		updatePianoDisplay(null);
+	}
+}
+
+// Update the tuner meter with a cents offset (-50..+50 shown), or null when
+// no pitch is detected. Smooths the value so the needle glides, and colors
+// the needle/readout by how close to in-tune the player is.
+function updateTunerMeter(cents) {
+	var meter = document.getElementById("tuner-meter");
+	var needle = document.getElementById("tuner-needle");
+	var readout = document.getElementById("tuner-readout");
+	if (!meter || !needle || !readout) return;
+
+	if (cents === null) {
+		smoothedCents = null;
+		meter.classList.add("idle");
+		meter.classList.remove("in-tune", "close", "off");
+		needle.style.left = "50%";
+		readout.textContent = "\u2013";  // en dash
+		return;
+	}
+
+	// Light exponential smoothing so the needle glides instead of jittering
+	smoothedCents = smoothedCents === null ? cents : smoothedCents * 0.6 + cents * 0.4;
+	var c = Math.max(-50, Math.min(50, smoothedCents));
+	var absC = Math.abs(c);
+
+	meter.classList.remove("idle");
+	meter.classList.toggle("in-tune", absC <= 10);
+	meter.classList.toggle("close", absC > 10 && absC <= 25);
+	meter.classList.toggle("off", absC > 25);
+
+	// The track spans ±50¢, so 1¢ = 1% of the width
+	needle.style.left = (50 + c) + "%";
+
+	var rounded = Math.round(c);
+	readout.textContent = (rounded > 0 ? "+" : "") + rounded + "\u00a2";  // cents sign
+}
+
 // Mic pitch detection animation loop
 function updateListenPitch() {
 	if (!listenActive) return;
 
 	listenAnalyser.getFloatTimeDomainData(listenBuffer);
 	var result = autoCorrelate(listenBuffer, listenAudioContext.sampleRate);
+	var now = performance.now();
 
 	if (result.frequency > 0 && result.confidence > 0.85) {
+		lastPitchTime = now;
 		var concertMidi = noteFromPitch(result.frequency);
 		// Convert concert pitch to written pitch for this instrument
 		var transposition = getTransposition();
@@ -1761,48 +1860,34 @@ function updateListenPitch() {
 		// Clamp to reasonable range
 		writtenMidi = Math.max(24, Math.min(96, writtenMidi));
 
-		if (writtenMidi !== detectedMidi) {
-			detectedMidi = writtenMidi;
-			detectedNote = noteStrings[writtenMidi % 12];
-			detectedOctave = Math.floor(writtenMidi / 12) - 1;
+		// Intonation relative to the nearest semitone (standard tuner behavior)
+		updateTunerMeter(centsOffFromPitch(result.frequency, concertMidi));
 
-			// Check if detected note matches the placed note (success!)
-			var matched = (currentMidi !== null && detectedMidi === currentMidi);
-			if (matched && !isSuccess) {
-				isSuccess = true;
-				launchFireworks();
-			} else if (!matched) {
-				isSuccess = false;
+		// Debounce note changes: only switch the displayed note once the same
+		// new note has held for a few consecutive frames, so brief detection
+		// wobbles (attacks, transitions) don't flicker the staff.
+		if (writtenMidi === detectedMidi) {
+			pendingMidi = null;
+			pendingFrames = 0;
+		} else if (writtenMidi === pendingMidi) {
+			pendingFrames++;
+			if (pendingFrames >= NOTE_CONFIRM_FRAMES) {
+				pendingMidi = null;
+				pendingFrames = 0;
+				commitDetectedNote(writtenMidi);
 			}
-
-			// Draw detected note — on second staff if a note is placed, otherwise on the single staff
-			if (currentNote !== null) {
-				drawDetectedStaff(detectedNote, detectedOctave);
-			} else {
-				drawStaff(detectedNote, detectedOctave, null, null, null);
-				var noteNameElem = document.getElementById("note-name");
-				var enharmonic = enharmonicMap[detectedNote];
-				noteNameElem.textContent = enharmonic ? detectedNote + " / " + enharmonic : detectedNote;
-				noteNameElem.style.opacity = "1";
-				updateConcertPitchDisplay(detectedMidi);
-				updatePianoDisplay(detectedMidi);
-			}
+		} else {
+			pendingMidi = writtenMidi;
+			pendingFrames = 1;
 		}
 	} else {
-		// No clear pitch detected — clear the detected note display
-		if (detectedMidi !== null) {
-			detectedMidi = null;
-			detectedNote = null;
-			detectedOctave = null;
-			isSuccess = false;
-			if (currentNote !== null) {
-				drawDetectedStaff(null, null);
-			} else {
-				drawStaff(null, null, null, null, null);
-				document.getElementById("note-name").textContent = "-";
-				updateConcertPitchDisplay(null);
-				updatePianoDisplay(null);
-			}
+		// No clear pitch this frame — idle the meter immediately, but hold the
+		// displayed note briefly so short dropouts don't blank the display.
+		pendingMidi = null;
+		pendingFrames = 0;
+		updateTunerMeter(null);
+		if (detectedMidi !== null && now - lastPitchTime > NOTE_CLEAR_HOLD_MS) {
+			clearDetectedNote();
 		}
 	}
 
@@ -1832,7 +1917,15 @@ function startListening() {
 		listenBuffer = new Float32Array(listenAnalyser.fftSize);
 
 		listenActive = true;
+		pendingMidi = null;
+		pendingFrames = 0;
+		lastPitchTime = 0;
 		updateListenPitch();
+
+		// Slide the tuner meter open (idle until a pitch is detected)
+		updateTunerMeter(null);
+		var meter = document.getElementById("tuner-meter");
+		if (meter) meter.classList.add("active");
 
 		// Only expand to the second staff if the user has placed a note. The
 		// .dual-staff class drives the panel and labels in CSS (the second staff
@@ -1875,6 +1968,13 @@ function stopListening() {
 	detectedNote = null;
 	detectedOctave = null;
 	isSuccess = false;
+	pendingMidi = null;
+	pendingFrames = 0;
+
+	// Collapse and reset the tuner meter
+	updateTunerMeter(null);
+	var meter = document.getElementById("tuner-meter");
+	if (meter) meter.classList.remove("active");
 
 	// Clear any active fireworks animation
 	if (fireworksAnimID) {
@@ -1957,6 +2057,18 @@ function updateKeyDropdown() {
 	});
 
 	select.value = concertKey;
+	updateKeyChip();
+}
+
+// Keep the always-visible key chip in sync with the staff's written key.
+// The chip shows the written key (matching the drawn key signature); the
+// tooltip carries the concert key for transposing instruments.
+function updateKeyChip() {
+	var chip = document.getElementById("key-chip");
+	if (!chip) return;
+	var written = keyDisplayName(getWrittenKey());
+	chip.textContent = "Key: " + written + " \u25be";  // small down triangle
+	chip.title = keyDisplayName(concertKey) + " concert \u2014 click to change the key signature";
 }
 
 // Toggle the key signature popup panel, anchored near the clicked key signature
@@ -1970,12 +2082,18 @@ function toggleKeySigPopup(event) {
 		return;
 	}
 
-	// Anchor just below the key-signature hotspot the user clicked; fall back
-	// to the click point, then to a fixed corner.
-	var hotspot = document.getElementById("key-sig-hotspot");
+	// Anchor just below whatever opened the popup (the key chip or the staff's
+	// key-signature hotspot); fall back to the hotspot, then the click point,
+	// then a fixed corner.
+	var anchorEl = (event && event.currentTarget && event.currentTarget.getBoundingClientRect)
+		? event.currentTarget : null;
+	if (!anchorEl) {
+		var hotspot = document.getElementById("key-sig-hotspot");
+		if (hotspot && hotspot.classList.contains("active")) anchorEl = hotspot;
+	}
 	var anchorLeft, anchorTop, anchorRect = null;
-	if (hotspot && hotspot.classList.contains("active")) {
-		anchorRect = hotspot.getBoundingClientRect();
+	if (anchorEl) {
+		anchorRect = anchorEl.getBoundingClientRect();
 		anchorLeft = anchorRect.left;
 		anchorTop = anchorRect.bottom + 6;
 	} else if (event && event.clientX) {
@@ -2011,6 +2129,7 @@ function toggleKeySigPopup(event) {
 function onKeyChange() {
 	concertKey = document.getElementById("key-select").value;
 	try { localStorage.setItem("pitchdetect-key", concertKey); } catch(e) {}
+	updateKeyChip();
 	var popup = document.getElementById("key-sig-popup");
 	if (popup) popup.style.display = "none";
 	drawStaff(currentNote, currentOctave, null, null, null);
