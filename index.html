@@ -213,7 +213,21 @@
 				color: #fff;
 				border: 1px solid transparent;
 				box-shadow: var(--shadow-sm);
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
 			}
+
+			#playButton svg,
+			#clearButton svg {
+				flex-shrink: 0;
+			}
+
+			/* Play swaps to a stop glyph while a note sustains */
+			#playButton .icon-stop { display: none; }
+			#playButton.sustaining .icon-play { display: none; }
+			#playButton.sustaining .icon-stop { display: block; }
 
 			#playButton:hover {
 				background-color: var(--accent-hover);
@@ -291,6 +305,44 @@
 				background-color: transparent;
 				color: var(--text-muted);
 				border: 1px solid var(--border-strong);
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+			}
+
+			/* ---------- Overflow menu (mobile only) ---------- */
+			/* Holds low-frequency settings (Sustain) that don't earn toolbar
+			   space on small screens. The button/popover are hidden on desktop,
+			   where Sustain lives in the toolbar. */
+			#overflowButton {
+				display: none;
+				align-items: center;
+				justify-content: center;
+				background-color: transparent;
+				color: var(--text-muted);
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				cursor: pointer;
+				transition: border-color 0.15s, color 0.15s, box-shadow 0.15s;
+			}
+
+			#overflowButton:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.overflow-popover {
+				display: none;
+				position: absolute;
+				top: calc(100% + 8px);
+				right: 8px;
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius-sm);
+				box-shadow: var(--shadow-lg);
+				padding: 12px 16px;
+				z-index: 45;
 			}
 
 			#clearButton:hover {
@@ -1022,6 +1074,15 @@
 				height: auto;
 			}
 
+			/* ---------- Bottom sheet chrome (mobile only) ---------- */
+			/* On desktop the fingering/piano panels sit inline in the page, so
+			   the sheet handle, tabs, and scrim are hidden entirely. */
+			#sheet-handle,
+			.sheet-tabs,
+			#sheet-scrim {
+				display: none;
+			}
+
 			#staff-output,
 			#staff-output-2 {
 				flex: 1;
@@ -1039,110 +1100,329 @@
 				max-height: 100%;
 			}
 
-			/* ---------- Mobile ---------- */
+			/* ---------- Mobile: one-screen layout ---------- */
+			/* Everything essential fits the viewport without scrolling: a
+			   compact header, a single-row icon toolbar, a one-line note strip,
+			   the staff as the hero taking all remaining height, and the
+			   fingering/piano panels in a slide-up bottom sheet. */
 			@media (max-width: 700px) {
 				body {
-					padding: 12px;
+					padding: 10px;
 				}
 
+				/* Compact header: subtitle dropped, title shrunk */
 				h1 {
-					font-size: 1.4rem;
+					font-size: 1.15rem;
 				}
 
 				.app-subtitle {
-					font-size: 0.82rem;
+					display: none;
 				}
 
 				.app-header {
-					margin-bottom: 12px;
+					margin-bottom: 8px;
 				}
 
+				/* Single-row toolbar: the select keeps width for long instrument
+				   names; buttons collapse to 44px icons (labels hidden) */
 				.controls {
-					flex-direction: column;
-					gap: 10px;
-					margin-bottom: 12px;
-					padding: 12px;
+					position: relative;
+					flex-wrap: nowrap;
+					gap: 8px;
+					margin-bottom: 10px;
+					padding: 8px;
+					width: 100%;
 				}
 
-				#instrument,
+				#instrument {
+					flex: 1;
+					min-width: 0;
+					padding: 10px 30px 10px 12px;
+					background-position: right 10px center;
+					font-size: 0.9rem;
+				}
+
 				#playButton,
-				#clearButton {
-					width: 100%;
-					max-width: 280px;
+				#clearButton,
+				#listenButton,
+				#overflowButton {
+					flex: 0 0 44px;
+					width: 44px;
+					height: 44px;
+					padding: 0;
 				}
 
-				#listenButton {
-					width: 100%;
-					max-width: 280px;
+				#overflowButton {
+					display: inline-flex;
 				}
 
-				/* Stacked toolbar: the divider becomes a horizontal hairline */
+				.overflow-popover.open {
+					display: block;
+				}
+
+				.controls .btn-label {
+					display: none;
+				}
+
 				.controls-divider {
-					width: 100%;
-					max-width: 280px;
-					height: 1px;
+					display: none;
 				}
 
+				/* Note strip: the tall panel becomes one compact line */
 				.main-display {
 					flex-direction: column;
+					gap: 10px;
 				}
 
 				#note-display {
 					flex: none;
-					min-height: 150px;
+					flex-direction: row;
+					flex-wrap: wrap;
+					align-items: baseline;
+					justify-content: center;
+					column-gap: 12px;
+					padding: 8px 12px;
+					min-height: 54px;
 				}
 
+				#note-name {
+					font-size: 32px;
+					margin: 0;
+				}
+
+				#frequency-display {
+					margin-top: 0;
+					font-size: 0.82rem;
+					min-height: 0;
+				}
+
+				#concert-pitch-display {
+					margin-top: 0;
+					font-size: 0.78rem;
+				}
+
+				/* Compact guide */
+				.gs-title {
+					margin-bottom: 8px;
+					font-size: 0.7rem;
+				}
+
+				.getting-started ol {
+					gap: 8px;
+				}
+
+				.getting-started li {
+					font-size: 0.85rem;
+					gap: 9px;
+				}
+
+				.gs-num {
+					width: 22px;
+					height: 22px;
+					font-size: 0.75rem;
+				}
+
+				/* Staff is the hero: it absorbs all remaining height */
 				.staff-column {
 					flex: 1;
-					min-height: 260px;
+					min-height: 0;
 				}
 
 				.staff-wrapper {
 					flex: 1;
-					min-height: 240px;
+					min-height: 0;
+					position: relative;
 				}
 
 				.staff-panel {
 					flex: 1;
-					min-height: 240px;
+					min-height: 0;
 				}
 
 				.staff-container {
 					flex: 1;
-					min-height: 200px;
+					min-height: 140px;
 				}
 
-				/* Pitch buttons sit left of the target staff on mobile */
+				/* Nudge buttons overlay the staff edge instead of costing a column */
 				.pitch-controls {
-					order: -1;
+					position: absolute;
+					right: 8px;
+					top: 50%;
+					transform: translateY(-50%);
+					z-index: 5;
+					gap: 8px;
 				}
 
 				.pitch-button {
-					width: 44px;
-					height: 44px;
-					font-size: 16px;
+					width: 42px;
+					height: 42px;
+					font-size: 15px;
+					opacity: 0.92;
 				}
 
+				/* ---------- Bottom sheet ---------- */
+				/* Fixed to the bottom edge; only the 52px handle peeks until
+				   opened, then it slides up over the staff. */
 				.bottom-panels {
+					position: fixed;
+					left: 0;
+					right: 0;
+					bottom: 0;
+					margin: 0;
 					flex-direction: column;
+					align-items: stretch;
+					gap: 0;
+					background: var(--surface);
+					border: 1px solid var(--border);
+					border-bottom: none;
+					border-radius: 16px 16px 0 0;
+					box-shadow: var(--shadow-lg);
+					z-index: 40;
+					max-height: 75vh;
+					transform: translateY(calc(100% - 52px));
+					transition: transform 0.28s ease;
+					padding-bottom: env(safe-area-inset-bottom, 0px);
 				}
 
-				.fingering-container {
-					padding: 14px;
+				.bottom-panels.open {
+					transform: translateY(0);
+				}
+
+				/* No instrument yet: nothing to show, so no handle either */
+				.bottom-panels.sheet-hidden {
+					display: none;
+				}
+
+				#sheet-handle {
+					display: flex;
+					flex-direction: column;
+					align-items: center;
+					justify-content: center;
+					gap: 5px;
+					height: 52px;
+					flex-shrink: 0;
+					width: 100%;
+					background: none;
+					border: none;
+					cursor: pointer;
+					font-family: var(--font);
+				}
+
+				.sheet-grip {
+					width: 36px;
+					height: 4px;
+					border-radius: 2px;
+					background: var(--border-strong);
+				}
+
+				.sheet-handle-row {
+					display: flex;
+					align-items: center;
+					gap: 7px;
+				}
+
+				#sheet-handle-label {
+					font-size: 0.8rem;
+					font-weight: 600;
+					color: var(--text-muted);
+				}
+
+				.sheet-caret {
+					font-size: 0.55rem;
+					color: var(--text-faint);
+					transition: transform 0.28s;
+				}
+
+				.bottom-panels.open .sheet-caret {
+					transform: rotate(180deg);
+				}
+
+				.sheet-tabs {
+					display: flex;
+					gap: 8px;
+					padding: 0 14px 10px;
+					flex-shrink: 0;
+				}
+
+				.sheet-tab {
+					flex: 1;
+					padding: 9px;
+					font-family: var(--font);
+					font-size: 0.85rem;
+					font-weight: 600;
+					color: var(--text-muted);
+					background-color: var(--surface-2);
+					border: 1px solid var(--border);
+					border-radius: var(--radius-sm);
+					cursor: pointer;
+				}
+
+				.sheet-tab.active {
+					color: var(--accent);
+					background-color: var(--accent-soft);
+					border-color: var(--accent);
+				}
+
+				/* Panels inside the sheet: flat cards, scrollable if tall */
+				.fingering-container,
+				.piano-container {
+					border: none;
+					box-shadow: none;
+					border-radius: 0;
+					padding: 4px 14px 14px;
+					overflow-y: auto;
+				}
+
+				/* Tab switching (outranks the .active display rules) */
+				.bottom-panels.tab-piano .fingering-container.active {
+					display: none;
+				}
+
+				.bottom-panels.tab-fingering .piano-container.active {
+					display: none;
+				}
+
+				/* The tabs already name the panels */
+				.fingering-container .fingering-title,
+				.piano-container .fingering-title {
+					display: none;
 				}
 
 				.fingering-content {
 					flex-direction: column;
 					align-items: center;
+					gap: 10px;
 				}
 
 				.alternate-button-container {
-					padding-top: 10px;
+					padding-top: 4px;
 				}
 
 				#alternateButton {
 					width: 100%;
 					max-width: 280px;
+				}
+
+				/* Keep the staff clear of the fixed handle */
+				.container {
+					padding-bottom: 56px;
+				}
+
+				#sheet-scrim {
+					display: block;
+					position: fixed;
+					inset: 0;
+					background: rgba(16, 24, 40, 0.35);
+					z-index: 39;
+					opacity: 0;
+					pointer-events: none;
+					transition: opacity 0.28s;
+				}
+
+				#sheet-scrim.active {
+					opacity: 1;
+					pointer-events: auto;
 				}
 			}
 		</style>
@@ -1185,18 +1465,29 @@
 						<option value="glockenspiel">Glockenspiel</option>
 					</optgroup>
 				</select>
-				<button id="playButton" onclick="handlePlayButton()">Play Sound</button>
-				<button id="clearButton" onclick="clearNote()">Clear</button>
+				<button id="playButton" onclick="handlePlayButton()" title="Play the placed note" aria-label="Play the placed note">
+					<svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21"/></svg>
+					<svg class="icon-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+					<span class="btn-label" id="playLabel">Play Sound</span>
+				</button>
+				<button id="clearButton" onclick="clearNote()" title="Clear the placed note" aria-label="Clear the placed note">
+					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
+					<span class="btn-label">Clear</span>
+				</button>
 				<label id="sustainSwitch" class="sustain-switch" title="Hold note until stopped">
 					<input type="checkbox" id="sustainToggle" onchange="onSustainChange()">
 					<span class="sustain-slider"></span>
 					<span>Sustain</span>
 				</label>
 				<div class="controls-divider"></div>
-				<button id="listenButton" onclick="handleListenButton()">
+				<button id="listenButton" onclick="handleListenButton()" title="Listen to your playing through the microphone" aria-label="Listen to your playing through the microphone">
 					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-					<span id="listenLabel">Listen to me</span>
+					<span class="btn-label" id="listenLabel">Listen to me</span>
 				</button>
+				<button id="overflowButton" onclick="toggleOverflowMenu(event)" title="More settings" aria-label="More settings" aria-expanded="false">
+					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
+				</button>
+				<div id="overflow-popover" class="overflow-popover" onclick="event.stopPropagation()"></div>
 			</div>
 
 			<div class="main-display">
@@ -1257,7 +1548,18 @@
 				</div>
 			</div>
 
-			<div class="bottom-panels">
+			<div class="bottom-panels tab-fingering" id="bottom-panels">
+				<button id="sheet-handle" onclick="toggleSheet()" aria-expanded="false">
+					<span class="sheet-grip"></span>
+					<span class="sheet-handle-row">
+						<span id="sheet-handle-label">Fingering &amp; Piano</span>
+						<span class="sheet-caret">&#9650;</span>
+					</span>
+				</button>
+				<div class="sheet-tabs">
+					<button id="tab-fingering" class="sheet-tab active" onclick="setSheetTab('fingering')">Fingering</button>
+					<button id="tab-piano" class="sheet-tab" onclick="setSheetTab('piano')">Piano</button>
+				</div>
 				<div class="fingering-container" id="fingering-container">
 					<div class="fingering-title">Fingering Chart</div>
 					<div class="fingering-content">
@@ -1274,6 +1576,8 @@
 				</div>
 			</div>
 		</div>
+
+		<div id="sheet-scrim" onclick="toggleSheet(false)"></div>
 
 		<script src="js/notetrainer.js"></script>
 	</body>

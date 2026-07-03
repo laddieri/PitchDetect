@@ -1498,9 +1498,8 @@ function handlePlayButton() {
 function stopSustain() {
 	stopNote();
 	sustainPlaying = false;
-	var playButton = document.getElementById("playButton");
-	playButton.textContent = "Play Sound";
-	playButton.classList.remove("sustaining");
+	document.getElementById("playLabel").textContent = "Play Sound";
+	document.getElementById("playButton").classList.remove("sustaining");
 }
 
 // Called when the sustain toggle changes
@@ -1554,9 +1553,8 @@ function playNote() {
 
 			if (sustain) {
 				sustainPlaying = true;
-				var playButton = document.getElementById("playButton");
-				playButton.textContent = "Stop";
-				playButton.classList.add("sustaining");
+				document.getElementById("playLabel").textContent = "Stop";
+				document.getElementById("playButton").classList.add("sustaining");
 			} else {
 				// Brief visual feedback so the user can see the click registered
 				var playButton = document.getElementById("playButton");
@@ -2203,6 +2201,7 @@ function updateFingeringDisplay() {
 	// Instruments without fingering data never reserve the box.
 	if (!hasFingeringData(instrument)) {
 		fingeringContainer.classList.remove("active");
+		updateSheetState();
 		return;
 	}
 
@@ -2210,6 +2209,7 @@ function updateFingeringDisplay() {
 	// placed, show a placeholder so the panel keeps its footprint and placing
 	// a note fills it rather than growing the page.
 	fingeringContainer.classList.add("active");
+	updateSheetState();
 
 	if (currentMidi === null) {
 		fingeringDisplay.innerHTML = '<div class="panel-placeholder">Place a note on the staff to see its fingering</div>';
@@ -2242,6 +2242,111 @@ function toggleAlternateFingerings() {
 	updateFingeringDisplay();
 }
 
+// ---------------------------------------------------------------------------
+// Mobile bottom sheet & overflow menu
+// On small screens the fingering/piano panels live in a slide-up sheet and
+// Sustain moves to an overflow menu; on desktop none of this chrome shows.
+// ---------------------------------------------------------------------------
+
+// True when the current sheet tab was switched automatically (instrument has
+// no fingering data), so it can switch back when fingerings return.
+var sheetTabAuto = false;
+
+// Open/close the bottom sheet. Pass a boolean to force a state.
+function toggleSheet(force) {
+	var panels = document.getElementById("bottom-panels");
+	var scrim = document.getElementById("sheet-scrim");
+	var handle = document.getElementById("sheet-handle");
+	if (!panels) return;
+	var open = typeof force === "boolean" ? force : !panels.classList.contains("open");
+	panels.classList.toggle("open", open);
+	if (scrim) scrim.classList.toggle("active", open);
+	if (handle) handle.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+// Switch which panel the sheet shows. isAuto marks programmatic switches
+// (instrument without fingering data) so a user's own choice is respected.
+function setSheetTab(tab, isAuto) {
+	if (!isAuto) sheetTabAuto = false;
+	var panels = document.getElementById("bottom-panels");
+	if (!panels) return;
+	panels.classList.toggle("tab-fingering", tab === "fingering");
+	panels.classList.toggle("tab-piano", tab === "piano");
+	document.getElementById("tab-fingering").classList.toggle("active", tab === "fingering");
+	document.getElementById("tab-piano").classList.toggle("active", tab === "piano");
+}
+
+// Keep the sheet in sync with the app state: hidden until an instrument is
+// chosen, fingering tab only for instruments with fingering data, and a live
+// mini-summary on the handle so common lookups don't need opening the sheet.
+function updateSheetState() {
+	var panels = document.getElementById("bottom-panels");
+	var handleLabel = document.getElementById("sheet-handle-label");
+	var tabFingering = document.getElementById("tab-fingering");
+	if (!panels || !handleLabel || !tabFingering) return;
+
+	var instrument = document.getElementById("instrument").value;
+	var hasFingering = !!instrument && hasFingeringData(instrument);
+
+	panels.classList.toggle("sheet-hidden", !instrument);
+	tabFingering.style.display = hasFingering ? "" : "none";
+	if (!hasFingering && panels.classList.contains("tab-fingering")) {
+		setSheetTab("piano", true);
+		sheetTabAuto = true;
+	} else if (hasFingering && sheetTabAuto) {
+		setSheetTab("fingering", true);
+		sheetTabAuto = false;
+	}
+
+	var label = hasFingering ? "Fingering & Piano" : "Piano";
+	if (hasFingering && currentMidi !== null &&
+			typeof threeValveOffset !== "undefined" && (instrument in threeValveOffset)) {
+		var fingering = getFingering(instrument, currentMidi);
+		if (fingering && fingering.primary) {
+			label = (fingering.primary.length ? "Valves " + fingering.primary.join("-") : "Open")
+				+ " \u00b7 Piano";
+		}
+	}
+	handleLabel.textContent = label;
+}
+
+// Toggle the mobile overflow menu (holds the Sustain switch)
+function toggleOverflowMenu(event) {
+	if (event) event.stopPropagation();
+	var popover = document.getElementById("overflow-popover");
+	var button = document.getElementById("overflowButton");
+	if (!popover) return;
+	var open = !popover.classList.contains("open");
+	popover.classList.toggle("open", open);
+	if (button) button.setAttribute("aria-expanded", open ? "true" : "false");
+}
+
+// Adapt the toolbar to the breakpoint. Sustain lives in the toolbar on
+// desktop and in the overflow menu on mobile, where toolbar space is scarce —
+// moving the same node between the two homes keeps a single checkbox as the
+// source of truth.
+var mobileLayoutMq = window.matchMedia ? window.matchMedia("(max-width: 700px)") : null;
+function applyResponsiveControls() {
+	var sustain = document.getElementById("sustainSwitch");
+	var popover = document.getElementById("overflow-popover");
+	var divider = document.querySelector(".controls .controls-divider");
+	if (sustain && popover && divider) {
+		if (mobileLayoutMq && mobileLayoutMq.matches) {
+			popover.appendChild(sustain);
+		} else {
+			divider.parentNode.insertBefore(sustain, divider);
+		}
+	}
+
+	// The compact single-row toolbar clips the long placeholder; shorten it
+	// there (the getting-started guide already says what to do)
+	var placeholder = document.querySelector('#instrument option[value=""]');
+	if (placeholder) {
+		placeholder.textContent = (mobileLayoutMq && mobileLayoutMq.matches)
+			? "Instrument\u2026" : "Select an instrument";
+	}
+}
+
 // Clear the current note
 function clearNote() {
 	stopNote();
@@ -2264,9 +2369,8 @@ function clearNote() {
 	updateNoteDisplay();
 	drawStaff(null, null, null, null);
 
-	var playButton = document.getElementById("playButton");
-	playButton.textContent = "Play Sound";
-	playButton.classList.remove("sustaining");
+	document.getElementById("playLabel").textContent = "Play Sound";
+	document.getElementById("playButton").classList.remove("sustaining");
 	document.getElementById("note-display").classList.remove("active");
 	updateControlStates();
 
@@ -2353,11 +2457,26 @@ document.addEventListener("DOMContentLoaded", function() {
 	}
 	window.addEventListener("resize", fitNoteName);
 
-	// Close key sig popup when clicking anywhere outside it
+	// Close key sig popup and overflow menu when clicking anywhere outside them
 	document.addEventListener("click", function() {
 		var popup = document.getElementById("key-sig-popup");
 		if (popup) popup.style.display = "none";
+		var overflow = document.getElementById("overflow-popover");
+		if (overflow) overflow.classList.remove("open");
+		var overflowButton = document.getElementById("overflowButton");
+		if (overflowButton) overflowButton.setAttribute("aria-expanded", "false");
 	});
+
+	// Toolbar adapts to the breakpoint (sustain placement, placeholder text)
+	// and follows it live (rotation, window resize)
+	applyResponsiveControls();
+	if (mobileLayoutMq) {
+		if (mobileLayoutMq.addEventListener) {
+			mobileLayoutMq.addEventListener("change", applyResponsiveControls);
+		} else if (mobileLayoutMq.addListener) {
+			mobileLayoutMq.addListener(applyResponsiveControls);
+		}
+	}
 
 	// Restore instrument saved from the pitch detector page (or a previous session)
 	try {
