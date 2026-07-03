@@ -783,16 +783,11 @@ function handleStaffMouseMove(event) {
 
 		// Update display with ghost note info
 		var noteNameElem = document.getElementById("note-name");
-		// Show enharmonic equivalent if it exists
-		var enharmonic = enharmonicMap[ghostNote];
-		if (enharmonic) {
-			noteNameElem.textContent = ghostNote + " / " + enharmonic;
-		} else {
-			noteNameElem.textContent = ghostNote;
-		}
+		noteNameElem.innerHTML = writtenNoteHTML(ghostNote, ghostOctave);
 		noteNameElem.style.opacity = "0.5";
 		updateConcertPitchDisplay(ghostMidi);
 		updatePianoDisplay(ghostMidi);
+		updateGettingStarted();
 	}
 }
 
@@ -818,6 +813,7 @@ function handleStaffMouseLeave(event) {
 	noteNameElem.style.opacity = "1";
 	updateConcertPitchDisplay(null);
 	updatePianoDisplay(null);
+	updateGettingStarted();
 }
 
 // Handle click on staff
@@ -1008,43 +1004,63 @@ function updatePianoDisplay(writtenMidi) {
 	drawPianoKeyboard(concertPc, keyDisplayName(concertNoteName));
 }
 
-// Show concert pitch note name below the note box when the instrument transposes
+// Build the big note label as HTML: note letters with real sharp/flat glyphs
+// and a smaller octave number, e.g. A4 or C(sharp)4 / D(flat)4 for enharmonics
+function writtenNoteHTML(noteName, octave) {
+	var html = keyDisplayName(noteName) + '<span class="note-octave">' + octave + '</span>';
+	if (enharmonicMap[noteName]) {
+		html += ' / ' + keyDisplayName(enharmonicMap[noteName]) + '<span class="note-octave">' + octave + '</span>';
+	}
+	return html;
+}
+
+// Update the two lines under the big note name. The first shows the sounding
+// concert pitch (with octave) and its frequency; the second labels the big
+// note as written pitch when the instrument transposes, so written vs concert
+// is never ambiguous.
 function updateConcertPitchDisplay(writtenMidi) {
-	var elem = document.getElementById("concert-pitch-display");
-	if (!elem) return;
-	var transposition = getTransposition();
-	if (transposition === 0 || writtenMidi === null || writtenMidi === undefined) {
-		elem.textContent = "";
+	var freqElem = document.getElementById("frequency-display");
+	var writtenElem = document.getElementById("concert-pitch-display");
+	if (!freqElem || !writtenElem) return;
+
+	if (writtenMidi === null || writtenMidi === undefined) {
+		freqElem.textContent = "";
+		writtenElem.textContent = "";
 		return;
 	}
+
+	var transposition = getTransposition();
 	var concertMidi = writtenMidi - transposition;
 	var concertPc = ((concertMidi % 12) + 12) % 12;
+	var concertOctave = Math.floor(concertMidi / 12) - 1;
 	var concertNoteName = spellNoteForKey(concertPc, concertKey);
-	elem.textContent = "Concert " + keyDisplayName(concertNoteName);
+	var freq = frequencyFromNoteNumber(concertMidi);
+	freqElem.textContent = "Concert " + keyDisplayName(concertNoteName) + concertOctave +
+		" \u00b7 " + Math.round(freq) + " Hz";
+
+	if (transposition !== 0) {
+		var sel = document.getElementById("instrument");
+		var label = sel.selectedIndex >= 0 ? sel.options[sel.selectedIndex].text : "";
+		writtenElem.textContent = "as written for " + label;
+	} else {
+		writtenElem.textContent = "";
+	}
 }
 
 // Update the note name display
 function updateNoteDisplay() {
 	var noteNameElem = document.getElementById("note-name");
-	var freqElem = document.getElementById("frequency-display");
 
 	if (currentNote && currentOctave !== null) {
-		// Check for enharmonic equivalent
-		var displayName = currentNote;
-		if (enharmonicMap[currentNote]) {
-			displayName = currentNote + " / " + enharmonicMap[currentNote];
-		}
-
-		noteNameElem.textContent = displayName;
-		freqElem.textContent = Math.round(currentFrequency) + " Hz (concert pitch)";
+		noteNameElem.innerHTML = writtenNoteHTML(currentNote, currentOctave);
 		updateConcertPitchDisplay(currentMidi);
 		updatePianoDisplay(currentMidi);
 	} else {
 		noteNameElem.textContent = "-";
-		freqElem.textContent = "";
 		updateConcertPitchDisplay(null);
 		updatePianoDisplay(null);
 	}
+	updateGettingStarted();
 }
 
 // Shrink the note-name text so longer labels (sharps/flats shown with their
@@ -1091,6 +1107,29 @@ function updateControlStates() {
 	var sustainToggle = document.getElementById("sustainToggle");
 	sustainSwitch.classList.toggle("is-disabled", !hasNote);
 	sustainToggle.disabled = !hasNote;
+
+	// Point the first-time user at the one control that does something
+	document.getElementById("instrument").classList.toggle("attention", !instrumentSelected);
+	updateGettingStarted();
+}
+
+// Show the "How it works" steps in the note panel until any note exists
+// (placed, hovered ghost, or mic-detected), and keep step progress current.
+function updateGettingStarted() {
+	var display = document.getElementById("note-display");
+	var step1 = document.getElementById("gs-step-1");
+	var step2 = document.getElementById("gs-step-2");
+	if (!display || !step1 || !step2) return;
+
+	var hasAnyNote = currentNote !== null || ghostNote !== null || detectedMidi !== null;
+	display.classList.toggle("show-guide", !hasAnyNote);
+	if (hasAnyNote) return;
+
+	var instrumentSelected = !!document.getElementById("instrument").value;
+	step1.classList.toggle("done", instrumentSelected);
+	step1.classList.toggle("current", !instrumentSelected);
+	step1.querySelector(".gs-num").textContent = instrumentSelected ? "\u2713" : "1";
+	step2.classList.toggle("current", instrumentSelected);
 }
 
 // Adjust pitch by semitones (for mobile pitch control buttons)
@@ -1784,12 +1823,12 @@ function commitDetectedNote(writtenMidi) {
 	} else {
 		drawStaff(detectedNote, detectedOctave, null, null, null);
 		var noteNameElem = document.getElementById("note-name");
-		var enharmonic = enharmonicMap[detectedNote];
-		noteNameElem.textContent = enharmonic ? detectedNote + " / " + enharmonic : detectedNote;
+		noteNameElem.innerHTML = writtenNoteHTML(detectedNote, detectedOctave);
 		noteNameElem.style.opacity = "1";
 		updateConcertPitchDisplay(detectedMidi);
 		updatePianoDisplay(detectedMidi);
 	}
+	updateGettingStarted();
 }
 
 // Clear the detected note from the staff and note displays
@@ -1806,6 +1845,7 @@ function clearDetectedNote() {
 		updateConcertPitchDisplay(null);
 		updatePianoDisplay(null);
 	}
+	updateGettingStarted();
 }
 
 // Update the tuner meter with a cents offset (-50..+50 shown), or null when
@@ -1939,7 +1979,7 @@ function startListening() {
 		}
 
 		var listenButton = document.getElementById("listenButton");
-		listenButton.textContent = "Stop Listening";
+		document.getElementById("listenLabel").textContent = "Stop Listening";
 		listenButton.classList.add("listening");
 	}).catch(function(err) {
 		console.error("Microphone access error:", err);
@@ -2000,9 +2040,11 @@ function stopListening() {
 
 	var listenButton = document.getElementById("listenButton");
 	if (listenButton) {
-		listenButton.textContent = "Listen to me";
+		document.getElementById("listenLabel").textContent = "Listen to me";
 		listenButton.classList.remove("listening");
 	}
+
+	updateGettingStarted();
 }
 
 // Format a key name for display, replacing b/# with ♭/♯
@@ -2284,6 +2326,14 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	// Set up keyboard handler for arrow key navigation
 	document.addEventListener("keydown", handleKeyDown);
+
+	// "Click" reads wrong on touch devices — swap the instructional wording
+	if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
+		var stepLabel = document.getElementById("gs-step-2-label");
+		if (stepLabel) stepLabel.textContent = "Tap a note on the staff";
+		var instructionEl = document.getElementById("staff-instruction");
+		if (instructionEl) instructionEl.textContent = "Tap the staff to place a note";
+	}
 
 	// The staff SVG self-scales on resize; realign the key-signature hotspot
 	window.addEventListener("resize", positionKeySigHotspot);
