@@ -152,6 +152,13 @@
 				border-color: var(--accent);
 			}
 
+			/* Until an instrument is chosen it is the only usable control, so
+			   give it an accent treatment that points the first-time user at it. */
+			#instrument.attention {
+				border-color: var(--accent);
+				box-shadow: 0 0 0 3px var(--accent-ring);
+			}
+
 			#instrument:focus-visible {
 				outline: none;
 				border-color: var(--accent);
@@ -235,10 +242,26 @@
 
 			/* Secondary outline: Listen */
 			#listenButton {
-				padding: 11px 28px;
+				padding: 11px 24px;
 				background-color: var(--surface);
 				color: var(--accent);
 				border: 1px solid var(--border-strong);
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+			}
+
+			#listenButton svg {
+				flex-shrink: 0;
+			}
+
+			/* Separates note playback controls from the mic control */
+			.controls-divider {
+				width: 1px;
+				height: 26px;
+				background: var(--border-strong);
+				flex-shrink: 0;
 			}
 
 			#listenButton:hover {
@@ -396,7 +419,7 @@
 
 			#note-name {
 				/* clamp() sets the ceiling; fitNoteName() in JS shrinks from here
-				   so a longer label (e.g. "C♯ / D♭") stays on one line instead of
+				   so a longer label (e.g. "C♯4 / D♭4") stays on one line instead of
 				   wrapping and growing the box. */
 				font-size: clamp(60px, 15vw, 140px);
 				line-height: 1.05;
@@ -409,12 +432,101 @@
 				transition: opacity 0.15s;
 			}
 
+			/* Octave number rendered smaller than the note letter */
+			.note-octave {
+				font-size: 0.45em;
+				font-weight: 600;
+				color: var(--text-muted);
+			}
+
 			#frequency-display {
 				font-size: 0.95rem;
 				font-variant-numeric: tabular-nums;
 				color: var(--text-muted);
 				margin-top: 8px;
 				min-height: 1.2em;
+			}
+
+			/* ---------- Getting-started guide ---------- */
+			/* Fills the note panel until any note (placed, ghost, or detected)
+			   exists; the note readouts take over from there. */
+			.getting-started {
+				display: none;
+				text-align: left;
+			}
+
+			#note-display.show-guide #note-name,
+			#note-display.show-guide #frequency-display,
+			#note-display.show-guide #concert-pitch-display {
+				display: none;
+			}
+
+			#note-display.show-guide .getting-started {
+				display: block;
+			}
+
+			.gs-title {
+				text-align: center;
+				font-size: 0.78rem;
+				font-weight: 600;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+				color: var(--text-muted);
+				margin-bottom: 18px;
+			}
+
+			.getting-started ol {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 16px;
+			}
+
+			.getting-started li {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				color: var(--text-muted);
+				font-size: 0.95rem;
+				transition: color 0.2s;
+			}
+
+			.gs-num {
+				width: 28px;
+				height: 28px;
+				border-radius: 50%;
+				border: 1.5px solid var(--border-strong);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				font-weight: 600;
+				font-size: 0.85rem;
+				color: var(--text-muted);
+				flex-shrink: 0;
+				transition: background-color 0.2s, border-color 0.2s, color 0.2s;
+			}
+
+			.getting-started li.current {
+				color: var(--text);
+				font-weight: 500;
+			}
+
+			.getting-started li.current .gs-num {
+				background-color: var(--accent);
+				border-color: var(--accent);
+				color: #fff;
+			}
+
+			.getting-started li.done {
+				color: var(--text-faint);
+			}
+
+			.getting-started li.done .gs-num {
+				background-color: var(--success-soft);
+				border-color: var(--success);
+				color: var(--success);
 			}
 
 			#concert-pitch-display {
@@ -449,12 +561,6 @@
 				min-width: 0;
 				min-height: 0;
 				transition: flex-grow 0.25s ease;
-			}
-
-			.staff-listen-row {
-				display: flex;
-				justify-content: center;
-				flex-shrink: 0;
 			}
 
 			/* ---------- Key signature popup ---------- */
@@ -970,6 +1076,13 @@
 					max-width: 280px;
 				}
 
+				/* Stacked toolbar: the divider becomes a horizontal hairline */
+				.controls-divider {
+					width: 100%;
+					max-width: 280px;
+					height: 1px;
+				}
+
 				.main-display {
 					flex-direction: column;
 				}
@@ -1047,22 +1160,30 @@
 			<div class="controls">
 				<select name="Instrument" id="instrument">
 					<option value="">Select an instrument</option>
-					<option value="treble clef">Treble Clef</option>
-					<option value="bass clef">Bass Clef</option>
-					<option value="flute">Flute</option>
-					<option value="oboe">Oboe</option>
-					<option value="clarinet">Clarinet</option>
-					<option value="bass clarinet">Bass Clarinet</option>
-					<option value="bassoon">Bassoon</option>
-					<option value="alto sax">Alto Sax</option>
-					<option value="tenor sax">Tenor Sax</option>
-					<option value="bari sax">Bari Sax</option>
-					<option value="trumpet">Trumpet</option>
-					<option value="horn">Horn</option>
-					<option value="trombone">Trombone</option>
-					<option value="euphonium">Euphonium</option>
-					<option value="tuba">Tuba</option>
-					<option value="glockenspiel">Glockenspiel</option>
+					<optgroup label="Clefs">
+						<option value="treble clef">Treble Clef</option>
+						<option value="bass clef">Bass Clef</option>
+					</optgroup>
+					<optgroup label="Woodwinds">
+						<option value="flute">Flute</option>
+						<option value="oboe">Oboe</option>
+						<option value="clarinet">Clarinet</option>
+						<option value="bass clarinet">Bass Clarinet</option>
+						<option value="bassoon">Bassoon</option>
+						<option value="alto sax">Alto Sax</option>
+						<option value="tenor sax">Tenor Sax</option>
+						<option value="bari sax">Bari Sax</option>
+					</optgroup>
+					<optgroup label="Brass">
+						<option value="trumpet">Trumpet</option>
+						<option value="horn">Horn</option>
+						<option value="trombone">Trombone</option>
+						<option value="euphonium">Euphonium</option>
+						<option value="tuba">Tuba</option>
+					</optgroup>
+					<optgroup label="Percussion">
+						<option value="glockenspiel">Glockenspiel</option>
+					</optgroup>
 				</select>
 				<button id="playButton" onclick="handlePlayButton()">Play Sound</button>
 				<button id="clearButton" onclick="clearNote()">Clear</button>
@@ -1071,6 +1192,11 @@
 					<span class="sustain-slider"></span>
 					<span>Sustain</span>
 				</label>
+				<div class="controls-divider"></div>
+				<button id="listenButton" onclick="handleListenButton()">
+					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+					<span id="listenLabel">Listen to me</span>
+				</button>
 			</div>
 
 			<div class="main-display">
@@ -1078,12 +1204,17 @@
 					<span id="note-name">-</span>
 					<div id="frequency-display"></div>
 					<div id="concert-pitch-display"></div>
+					<div id="getting-started" class="getting-started">
+						<div class="gs-title">How it works</div>
+						<ol>
+							<li id="gs-step-1"><span class="gs-num">1</span><span>Choose your instrument</span></li>
+							<li id="gs-step-2"><span class="gs-num">2</span><span id="gs-step-2-label">Click a note on the staff</span></li>
+							<li id="gs-step-3"><span class="gs-num">3</span><span>Play it back, or press Listen and play it yourself</span></li>
+						</ol>
+					</div>
 				</div>
 
 				<div class="staff-column">
-					<div class="staff-listen-row">
-						<button id="listenButton" onclick="handleListenButton()">Listen to me</button>
-					</div>
 					<div class="staff-wrapper">
 						<div class="staff-panel">
 							<div class="staff-label">Target Note</div>
