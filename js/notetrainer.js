@@ -2005,7 +2005,7 @@ function startListening() {
 		}
 
 		var listenButton = document.getElementById("listenButton");
-		document.getElementById("listenLabel").textContent = "Stop Listening";
+		document.getElementById("listenLabel").textContent = "Stop";
 		listenButton.classList.add("listening");
 	}).catch(function(err) {
 		console.error("Microphone access error:", err);
@@ -2066,7 +2066,7 @@ function stopListening() {
 
 	var listenButton = document.getElementById("listenButton");
 	if (listenButton) {
-		document.getElementById("listenLabel").textContent = "Listen to me";
+		document.getElementById("listenLabel").textContent = "Listen";
 		listenButton.classList.remove("listening");
 	}
 
@@ -2362,7 +2362,9 @@ function applyResponsiveControls() {
 		if (mobileLayoutMq && mobileLayoutMq.matches) {
 			popover.appendChild(sustain);
 		} else {
-			divider.parentNode.insertBefore(sustain, divider);
+			// Desktop home: end of the playback group, just before the
+			// (hidden) overflow button
+			divider.parentNode.insertBefore(sustain, document.getElementById("overflowButton"));
 		}
 	}
 
@@ -2459,12 +2461,15 @@ document.addEventListener("DOMContentLoaded", function() {
 	// Set up keyboard handler for arrow key navigation
 	document.addEventListener("keydown", handleKeyDown);
 
-	// "Click" reads wrong on touch devices — swap the instructional wording
+	// "Click"/"press" reads wrong on touch devices — swap the wording, and
+	// name the mic by its icon since the compact toolbar hides button labels
 	if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
-		var stepLabel = document.getElementById("gs-step-2-label");
-		if (stepLabel) stepLabel.textContent = "Tap a note on the staff";
+		var step2Label = document.getElementById("gs-step-2-label");
+		if (step2Label) step2Label.textContent = "Tap the mic button and play a note \u2014 it appears on the staff";
+		var step3Label = document.getElementById("gs-step-3-label");
+		if (step3Label) step3Label.textContent = "Or tap the staff to set a target note to practice";
 		var instructionEl = document.getElementById("staff-instruction");
-		if (instructionEl) instructionEl.textContent = "Tap the staff to place a note";
+		if (instructionEl) instructionEl.textContent = "Tap the staff to set a target note";
 	}
 
 	// Re-render the staves whenever their containers change size. The SVGs
