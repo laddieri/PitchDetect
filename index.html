@@ -1107,12 +1107,12 @@
 			   fingering/piano panels in a slide-up bottom sheet. */
 			@media (max-width: 700px) {
 				body {
-					padding: 10px;
+					padding: 12px;
 				}
 
 				/* Compact header: subtitle dropped, title shrunk */
 				h1 {
-					font-size: 1.15rem;
+					font-size: 1.25rem;
 				}
 
 				.app-subtitle {
@@ -1120,7 +1120,7 @@
 				}
 
 				.app-header {
-					margin-bottom: 8px;
+					margin-bottom: 10px;
 				}
 
 				/* Single-row toolbar: the select keeps width for long instrument
@@ -1128,9 +1128,9 @@
 				.controls {
 					position: relative;
 					flex-wrap: nowrap;
-					gap: 8px;
-					margin-bottom: 10px;
-					padding: 8px;
+					gap: 9px;
+					margin-bottom: 12px;
+					padding: 10px;
 					width: 100%;
 				}
 
@@ -1168,37 +1168,55 @@
 					display: none;
 				}
 
-				/* Note strip: the tall panel becomes one compact line */
+				/* Note strip: the tall panel becomes one compact line. The height
+				   is FIXED and wrapping is off so long labels (A♯4 / B♭4) can
+				   never reflow onto a second line and shift the layout below. */
 				.main-display {
 					flex-direction: column;
-					gap: 10px;
+					gap: 12px;
 				}
 
 				#note-display {
 					flex: none;
 					flex-direction: row;
-					flex-wrap: wrap;
+					flex-wrap: nowrap;
 					align-items: baseline;
 					justify-content: center;
-					column-gap: 12px;
+					column-gap: 10px;
 					padding: 8px 12px;
-					min-height: 54px;
+					height: 54px;
+					min-height: 0;
+					overflow: hidden;
+				}
+
+				/* The guide is the one taller state; it shows only before any
+				   interaction, so growing for it never shifts a placed note. */
+				#note-display.show-guide {
+					height: auto;
+					padding: 12px;
 				}
 
 				#note-name {
 					font-size: 32px;
 					margin: 0;
+					flex-shrink: 0;
 				}
 
 				#frequency-display {
 					margin-top: 0;
 					font-size: 0.82rem;
 					min-height: 0;
+					min-width: 0;
+					white-space: nowrap;
+					overflow: hidden;
+					text-overflow: ellipsis;
 				}
 
+				/* "as written for X" adds little on mobile (the instrument is
+				   named in the toolbar right above) and is the line that used
+				   to force wrapping — drop it from the strip. */
 				#concert-pitch-display {
-					margin-top: 0;
-					font-size: 0.78rem;
+					display: none;
 				}
 
 				/* Compact guide */
@@ -1222,10 +1240,13 @@
 					font-size: 0.75rem;
 				}
 
-				/* Staff is the hero: it absorbs all remaining height */
+				/* The staff takes the remaining height, but capped — past ~460px
+				   the extra tap area adds nothing, and the cap keeps the top
+				   controls from being crowded by an ever-stretching card. */
 				.staff-column {
 					flex: 1;
 					min-height: 0;
+					max-height: min(48vh, 460px);
 				}
 
 				.staff-wrapper {
