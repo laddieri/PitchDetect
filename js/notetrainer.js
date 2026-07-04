@@ -878,6 +878,18 @@ function handleStaffClick(event) {
 	// Redraw staff with placed note
 	drawStaff(currentNote, currentOctave, null, null);
 
+	// If listening started before a target existed, the layout is still
+	// single-staff — open the second staff now so detected notes have
+	// somewhere visible to go, and move the current detection onto it.
+	if (listenActive && !document.querySelector(".main-display").classList.contains("dual-staff")) {
+		document.querySelector(".main-display").classList.add("dual-staff");
+		drawDetectedStaff(detectedNote, detectedOctave);
+	}
+
+	// The success state belongs to the previous target — re-evaluate it
+	// against the new one (celebrating immediately on a live match)
+	reevaluateMatch();
+
 	// Enable the controls now that a note is placed
 	document.getElementById("note-display").classList.add("active");
 	updateControlStates();
@@ -926,6 +938,9 @@ function handleKeyDown(event) {
 
 		// Update fingering display
 		updateFingeringDisplay();
+
+		// The success state belongs to the previous target — re-evaluate
+		reevaluateMatch();
 
 		// If a note was sustaining, glide it to the new pitch (click-free).
 		// Fall back to restarting if there's no live voice to retune.
@@ -1182,6 +1197,9 @@ function adjustPitch(semitones) {
 
 		// Update fingering display
 		updateFingeringDisplay();
+
+		// The success state belongs to the previous target — re-evaluate
+		reevaluateMatch();
 
 		// If a note was sustaining, glide it to the new pitch (click-free).
 		// Fall back to restarting if there's no live voice to retune.
@@ -1822,6 +1840,20 @@ function launchFireworks() {
 	}
 
 	fireworksAnimID = requestAnimationFrame(step);
+}
+
+// Re-evaluate the success state after the target note changes. The previous
+// match verdict belongs to the old target: without this, a stale success
+// suppresses fireworks for the next genuine match, and a live detection that
+// already equals the new target would never celebrate (the detection loop
+// only re-checks when the DETECTED note changes).
+function reevaluateMatch() {
+	var wasSuccess = isSuccess;
+	isSuccess = listenActive && detectedMidi !== null &&
+		currentMidi !== null && detectedMidi === currentMidi;
+	if (isSuccess && !wasSuccess) {
+		launchFireworks();
+	}
 }
 
 // Show a confirmed detected note on the staff and note displays
