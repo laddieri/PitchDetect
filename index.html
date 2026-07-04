@@ -195,24 +195,58 @@
 				box-shadow: none;
 			}
 
-			#playButton:disabled {
+			#listenButton:disabled {
 				background-color: var(--accent);
 			}
 
-			#listenButton:disabled,
+			#playButton:disabled,
 			#clearButton:disabled {
 				background-color: var(--surface);
 				border-color: var(--border-strong);
 				color: var(--text-muted);
 			}
 
-			/* Primary: Play */
-			#playButton {
+			/* Primary: Listen — the app's main feature is naming the notes
+			   you play, so the mic control leads the toolbar */
+			#listenButton {
 				padding: 11px 28px;
 				background-color: var(--accent);
 				color: #fff;
 				border: 1px solid transparent;
 				box-shadow: var(--shadow-sm);
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+			}
+
+			#listenButton svg {
+				flex-shrink: 0;
+			}
+
+			#listenButton:hover {
+				background-color: var(--accent-hover);
+			}
+
+			#listenButton:active {
+				background-color: var(--accent-active);
+				transform: translateY(1px);
+			}
+
+			/* Separates the mic control from the target-note playback controls */
+			.controls-divider {
+				width: 1px;
+				height: 26px;
+				background: var(--border-strong);
+				flex-shrink: 0;
+			}
+
+			/* Secondary outline: Play (target-note playback) */
+			#playButton {
+				padding: 11px 24px;
+				background-color: var(--surface);
+				color: var(--accent);
+				border: 1px solid var(--border-strong);
 				display: inline-flex;
 				align-items: center;
 				justify-content: center;
@@ -230,16 +264,18 @@
 			#playButton.sustaining .icon-stop { display: block; }
 
 			#playButton:hover {
-				background-color: var(--accent-hover);
+				border-color: var(--accent);
+				background-color: var(--accent-soft);
 			}
 
 			#playButton:active {
-				background-color: var(--accent-active);
 				transform: translateY(1px);
 			}
 
 			#playButton.sustaining {
 				background-color: var(--danger);
+				border-color: transparent;
+				color: #fff;
 			}
 
 			#playButton.sustaining:hover {
@@ -251,36 +287,8 @@
 			}
 
 			#playButton.playing-oneshot {
-				background-color: var(--accent-active);
-			}
-
-			/* Secondary outline: Listen */
-			#listenButton {
-				padding: 11px 24px;
-				background-color: var(--surface);
-				color: var(--accent);
-				border: 1px solid var(--border-strong);
-				display: inline-flex;
-				align-items: center;
-				justify-content: center;
-				gap: 8px;
-			}
-
-			#listenButton svg {
-				flex-shrink: 0;
-			}
-
-			/* Separates note playback controls from the mic control */
-			.controls-divider {
-				width: 1px;
-				height: 26px;
-				background: var(--border-strong);
-				flex-shrink: 0;
-			}
-
-			#listenButton:hover {
-				border-color: var(--accent);
 				background-color: var(--accent-soft);
+				border-color: var(--accent);
 			}
 
 			#listenButton.listening {
@@ -1455,7 +1463,7 @@
 		<div class="container">
 			<header class="app-header">
 				<h1>Pitch Detector</h1>
-				<p class="app-subtitle">Real-time pitch &amp; note trainer for your instrument</p>
+				<p class="app-subtitle">Play a note and the app names it &mdash; or set a target note to practice</p>
 			</header>
 
 			<div class="controls">
@@ -1486,12 +1494,17 @@
 						<option value="glockenspiel">Glockenspiel</option>
 					</optgroup>
 				</select>
-				<button id="playButton" onclick="handlePlayButton()" title="Play the placed note" aria-label="Play the placed note">
+				<button id="listenButton" onclick="handleListenButton()" title="Listen through the microphone and name the notes you play" aria-label="Listen through the microphone and name the notes you play">
+					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+					<span class="btn-label" id="listenLabel">Listen</span>
+				</button>
+				<div class="controls-divider"></div>
+				<button id="playButton" onclick="handlePlayButton()" title="Play the target note" aria-label="Play the target note">
 					<svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21"/></svg>
 					<svg class="icon-stop" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
 					<span class="btn-label" id="playLabel">Play Sound</span>
 				</button>
-				<button id="clearButton" onclick="clearNote()" title="Clear the placed note" aria-label="Clear the placed note">
+				<button id="clearButton" onclick="clearNote()" title="Clear the target note" aria-label="Clear the target note">
 					<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>
 					<span class="btn-label">Clear</span>
 				</button>
@@ -1500,11 +1513,6 @@
 					<span class="sustain-slider"></span>
 					<span>Sustain</span>
 				</label>
-				<div class="controls-divider"></div>
-				<button id="listenButton" onclick="handleListenButton()" title="Listen to your playing through the microphone" aria-label="Listen to your playing through the microphone">
-					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
-					<span class="btn-label" id="listenLabel">Listen to me</span>
-				</button>
 				<button id="overflowButton" onclick="toggleOverflowMenu(event)" title="More settings" aria-label="More settings" aria-expanded="false">
 					<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/></svg>
 				</button>
@@ -1520,8 +1528,8 @@
 						<div class="gs-title">How it works</div>
 						<ol>
 							<li id="gs-step-1"><span class="gs-num">1</span><span>Choose your instrument</span></li>
-							<li id="gs-step-2"><span class="gs-num">2</span><span id="gs-step-2-label">Click a note on the staff</span></li>
-							<li id="gs-step-3"><span class="gs-num">3</span><span>Play it back, or press Listen and play it yourself</span></li>
+							<li id="gs-step-2"><span class="gs-num">2</span><span id="gs-step-2-label">Press Listen and play a note &mdash; it appears on the staff</span></li>
+							<li id="gs-step-3"><span class="gs-num">3</span><span id="gs-step-3-label">Or click the staff to set a target note to practice</span></li>
 						</ol>
 					</div>
 				</div>
@@ -1530,7 +1538,7 @@
 					<div class="staff-wrapper">
 						<div class="staff-panel">
 							<div class="staff-label">Target Note</div>
-							<div id="staff-instruction">Click on the staff to place a note</div>
+							<div id="staff-instruction">Click the staff to set a target note</div>
 							<div class="staff-container" id="staff-container">
 								<div id="staff-output"></div>
 								<div id="key-sig-hotspot" class="key-sig-hotspot" onclick="toggleKeySigPopup(event)" onmousemove="event.stopPropagation()" title="Click to set a new key signature">
