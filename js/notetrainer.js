@@ -730,6 +730,27 @@ function drawDetectedStaff(noteName, octave) {
 
 }
 
+// Redraw both staves from the current app state at their containers' present
+// size. Used when the containers change size (window resize, the dual-staff
+// slide), since a staff rendered at a stale width scales differently than
+// its neighbor.
+function redrawStavesForCurrentState() {
+	if (currentNote !== null) {
+		drawStaff(currentNote, currentOctave, null, null, null);
+	} else if (ghostNote !== null) {
+		drawStaff(null, null, ghostNote, ghostOctave, currentModifier);
+	} else if (listenActive && detectedNote !== null) {
+		drawStaff(detectedNote, detectedOctave, null, null, null);
+	} else {
+		drawStaff(null, null, null, null, null);
+	}
+
+	// The second staff only participates while the dual-staff layout is open
+	if (document.querySelector(".main-display").classList.contains("dual-staff")) {
+		drawDetectedStaff(detectedNote, detectedOctave);
+	}
+}
+
 // Get SVG coordinates from mouse event
 function getSvgCoordinates(event) {
 	var outputDiv = document.getElementById("staff-output");
@@ -2439,7 +2460,28 @@ document.addEventListener("DOMContentLoaded", function() {
 		if (instructionEl) instructionEl.textContent = "Tap the staff to place a note";
 	}
 
-	// The staff SVG self-scales on resize; realign the key-signature hotspot
+	// Re-render the staves whenever their containers change size. The SVGs
+	// stretch to fill their container, but their internal coordinate width is
+	// chosen from the container width at render time — so a staff drawn
+	// mid-transition (the dual-staff slide) or before a resize ends up at a
+	// different scale than its neighbor. Observing the containers redraws at
+	// the final size; the rAF collapses transition bursts to one redraw per
+	// frame. (This also realigns the key-signature hotspot via drawStaff.)
+	if (window.ResizeObserver) {
+		var staffRedrawPending = false;
+		var staffObserver = new ResizeObserver(function() {
+			if (staffRedrawPending) return;
+			staffRedrawPending = true;
+			requestAnimationFrame(function() {
+				staffRedrawPending = false;
+				redrawStavesForCurrentState();
+			});
+		});
+		staffObserver.observe(document.getElementById("staff-container"));
+		staffObserver.observe(document.getElementById("staff-container-2"));
+	} else {
+		window.addEventListener("resize", redrawStavesForCurrentState);
+	}
 	window.addEventListener("resize", positionKeySigHotspot);
 
 	// Keep the note-name text fitted on one line. A MutationObserver re-fits
