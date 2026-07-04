@@ -1142,7 +1142,10 @@ function updateGettingStarted() {
 	var step2 = document.getElementById("gs-step-2");
 	if (!display || !step1 || !step2) return;
 
-	var hasAnyNote = currentNote !== null || ghostNote !== null || detectedMidi !== null;
+	// While listening, stay in note mode even during silence — flipping back
+	// to the (taller) guide every time detection drops would make the layout
+	// below jump between sizes.
+	var hasAnyNote = currentNote !== null || ghostNote !== null || detectedMidi !== null || listenActive;
 	display.classList.toggle("show-guide", !hasAnyNote);
 	if (hasAnyNote) return;
 
@@ -1980,6 +1983,10 @@ function startListening() {
 		pendingFrames = 0;
 		lastPitchTime = 0;
 		updateListenPitch();
+
+		// Switch the note panel out of the guide immediately (it stays in
+		// note mode for the whole session; see updateGettingStarted)
+		updateGettingStarted();
 
 		// Slide the tuner meter open (idle until a pitch is detected)
 		updateTunerMeter(null);
