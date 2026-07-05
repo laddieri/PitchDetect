@@ -2,9 +2,15 @@
 
 ## Project Overview
 
-**PitchDetect** is a real-time pitch detection web application that analyzes audio input from a microphone and displays the detected musical pitch. Originally created by Chris Wilson in 2014, this project demonstrates the Web Audio API's capabilities for audio analysis.
+**PitchDetect** is a note identification and practice web app for band/orchestra
+students. Its primary feature: press **Listen**, play a note on your instrument,
+and the app names it and shows it on a staff (with a cents tuner meter).
+Secondary feature: click/tap the staff to set a **target note** — the app shows
+its fingering, concert pitch, and plays it back with an instrument-like timbre;
+playing the matching note into the mic triggers a fireworks celebration.
 
-**Live Demo:** https://webaudiodemos.appspot.com/pitchdetect/
+The repo began as Chris Wilson's 2014 pitch detector demo but has been fully
+rebuilt; the original `js/pitchdetect.js` / p5.js code no longer exists.
 
 **License:** MIT
 
@@ -12,207 +18,129 @@
 
 ```
 PitchDetect/
-├── index.html          # Main HTML entry point with UI elements
+├── index.html          # Single page: all CSS (inline <style>) + markup
 ├── js/
-│   └── pitchdetect.js  # Core pitch detection logic (~400 lines)
-├── img/
-│   └── forkme.png      # GitHub fork ribbon image
-├── README.md           # Original project readme
-├── LICENSE.txt         # MIT License
-├── _config.yml         # Jekyll theme config for GitHub Pages
-└── CLAUDE.md           # This file
+│   ├── notetrainer.js  # All app logic (~2,700 lines, global scope)
+│   ├── fingerings.js   # Fingering data + diagram rendering
+│   └── vendor/
+│       └── vexflow-min.js  # VexFlow (staff/notation rendering)
+├── img/Fingerings/     # Fingering chart images per instrument
+├── CLAUDE.md           # This file
+└── _config.yml         # Jekyll config for GitHub Pages hosting
 ```
 
-## Technology Stack
+There is **no build system, no package.json, no tests in-repo**. The page runs
+directly in a browser.
 
-| Technology | Purpose |
-|------------|---------|
-| **JavaScript (ES6)** | Core application logic |
-| **Web Audio API** | Real-time audio capture and analysis |
-| **p5.js v0.7.3** | Canvas-based musical staff visualization |
-| **HTML5/CSS** | UI structure and styling |
-| **Jekyll** | GitHub Pages hosting (minimal theme) |
+## Architecture (`js/notetrainer.js`)
 
-## Key Files and Their Responsibilities
+All state is module-global. The main clusters:
 
-### `index.html`
-- Entry point for the application
-- Contains inline CSS styles for UI states (confident/vague)
-- Includes Start button, instrument selector dropdown
-- Detector box displays pitch, note, and detuning
-- Loads p5.js from CDN for visualization
+| Area | Key functions / state |
+|---|---|
+| **Written/concert pitch** | `transpositionMap`, `getTransposition()`, `getWrittenKey()`, `keyToFifths`. Placed/detected notes are stored as *written* pitch (`currentMidi`, `detectedMidi`); concert = written − transposition. |
+| **Staff rendering** | `drawStaff()` (target staff, ghost notes, key signature), `drawDetectedStaff()` (second staff), `redrawStavesForCurrentState()`. SVGs use a fixed internal coordinate width (capped by `MAX_INTERNAL_WIDTH`) and stretch to fill their container — a ResizeObserver re-renders on container size changes so the two staves stay at equal scale. |
+| **Note placement** | `handleStaffClick()`, `handleStaffMouseMove()` (ghost preview), `yPositionToNote()` (click Y → note, chromatic between lines), `adjustPitch()` / `handleKeyDown()` (▲▼ buttons, arrow keys). No instrument required — the default is concert-pitch treble clef. |
+| **Pitch detection** | `autoCorrelate()` — McLeod Pitch Method (NSDF); returns `{frequency, confidence}`; gated at confidence > 0.85. `updateListenPitch()` is the rAF loop with debouncing: a new note must hold `NOTE_CONFIRM_FRAMES` (3) frames; dropouts under `NOTE_CLEAR_HOLD_MS` (300) keep the last note displayed. |
+| **Tuner meter** | `updateTunerMeter()` — cents vs nearest semitone via `centsOffFromPitch()`, EMA-smoothed needle, in-tune/close/off color states. |
+| **Match/fireworks** | `commitDetectedNote()` fires `launchFireworks()` on target match; `reevaluateMatch()` re-checks whenever the *target* changes. |
+| **Synthesis** | `instrumentTimbres` (per-instrument harmonic stacks, vibrato, breath noise), `synthesizeWind()` / `synthesizeStruck()`, sustain mode with click-free portamento (`retuneSustainedNote()`), fade-out teardown in `stopNote()`. |
+| **UI state sync** | `updateControlStates()` (enable/disable), `updateGettingStarted()` (first-run guide), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updateKeyChip()` / `updateKeyDropdown()`, `updateSheetState()` (mobile bottom sheet), `applyResponsiveControls()` (breakpoint DOM moves), `showToast()` (inline errors — never use `alert()`). |
 
-### `js/pitchdetect.js`
-Core JavaScript file containing all pitch detection logic:
+### `js/fingerings.js`
 
-| Function | Line | Purpose |
-|----------|------|---------|
-| `startPitchDetect()` | 87 | Initiates getUserMedia for live audio input |
-| `updatePitch()` | 261 | Main animation loop processing audio data |
-| `autoCorrelate(buf, sampleRate)` | 216 | ACF2+ pitch detection algorithm |
-| `noteFromPitch(frequency)` | 176 | Converts Hz to MIDI note number |
-| `octaveFromPitch(frequency)` | 185 | Determines octave (0-7) from frequency |
-| `frequencyFromNoteNumber(note)` | 181 | Converts MIDI note back to Hz |
-| `centsOffFromPitch(frequency, note)` | 212 | Calculates detuning in cents |
-| `setup()` / `draw()` | 335/342 | p5.js canvas initialization and rendering |
-| `drawStaff()` / `drawNote()` | 371/380 | Musical staff visualization helpers |
-| `drawTrebleClef(x, y)` | 408 | Draws treble clef symbol at position |
-| `drawBassClef(x, y)` | 452 | Draws bass clef symbol at position |
+- `trumpetFingerings` (3-valve map, shared via `threeValveOffset` with euphonium/tuba)
+- `fluteFingerings` (key diagrams)
+- `imageFingeringMap` — instruments using chart images from `img/Fingerings/`
+  (bassoon, clarinet, flute, oboe, saxes, trombone)
+- `hasFingeringData()`, `displayFingering()` — entry points used by the app.
+- Instruments with **no** fingering data: bare clefs, bass clarinet, horn,
+  glockenspiel (they get piano-only panels).
 
-## Core Algorithm: ACF2+ (Auto-Correlation)
+## Layout System
 
-The pitch detection uses an auto-correlation algorithm:
-1. Calculates RMS of the audio buffer
-2. Returns -1 if signal is below threshold (RMS < 0.01)
-3. Trims buffer edges below threshold (0.2)
-4. Computes auto-correlation coefficients
-5. Finds the peak correlation after the first minimum
-6. Uses parabolic interpolation for sub-sample accuracy
-7. Returns detected frequency as `sampleRate / T0`
+- **Desktop (>700px):** note panel left, staff column right, fingering/piano
+  panels inline at the bottom. Everything fits the viewport without scrolling
+  (`html, body { height: 100% }`, flex columns, `min-height: 0`).
+- **Mobile (≤700px, single `@media` block):** one-screen layout — compact
+  header, single-row icon toolbar, fixed-height one-line note strip, staff card
+  capped at `min(48vh, 460px)`, and a **bottom sheet** (`.bottom-panels`)
+  holding fingering/piano behind a 52px handle with tabs. Sustain relocates
+  into an overflow (⋯) popover — `applyResponsiveControls()` physically moves
+  the same DOM node between homes at the breakpoint.
+- The **dual-staff** listen layout (`.main-display.dual-staff`) slides the
+  second staff open; it's opened by `startListening()` *and* by
+  `handleStaffClick()` when a target is placed mid-listen.
 
-**Musical Constants:**
-- Reference pitch: A4 = 440 Hz
-- FFT Size: 2048 samples
-- Note strings: `["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]`
+### Layout stability rules (load-bearing conventions)
+
+1. **Reserve, don't pop:** panels keep their footprint with placeholders;
+   controls are disabled, not hidden; the second staff and tuner meter slide
+   open from zero rather than appearing.
+2. **Fixed-height text slots:** the mobile note strip is a hard 54px with
+   `nowrap`; `#concert-pitch-display` has a fixed em-height on desktop —
+   accidental glyphs (♯/♭) fall back to taller fonts and would otherwise
+   reflow the layout. `fitNoteName()` shrinks the big note label to one line.
+3. **The guide never flickers:** an active listen session counts as "has a
+   note" so silence doesn't flip the note panel back to the taller guide.
+
+## Code Conventions
+
+- **Indentation:** tabs. **Naming:** camelCase. Global scope, no modules.
+- **Non-ASCII in JS strings must use `\uXXXX` escapes** (e.g. `✓` for the
+  checkmark, `·` middle dot, `♭` flat, `—` em dash). Literals
+  are fine in comments and in HTML (the page declares UTF-8), but string
+  escapes are the established convention.
+- Inline `onclick` handlers in HTML call global functions.
+- User-visible errors go through `showToast()`, never `alert()`.
 
 ## Development Workflow
 
-### No Build System
-This is a static web application with no build process:
-- No package.json or npm dependencies
-- No bundler or transpilation
-- Direct browser execution
-- Open `index.html` in a browser to run
-
-### Local Development
 ```bash
-# Serve locally with any HTTP server
-python -m http.server 8000
-# or
-npx serve .
-
-# Then open http://localhost:8000
+# Serve locally (any static server)
+python3 -m http.server 8000
+# open http://localhost:8000
 ```
 
-### Testing
-- No automated tests exist
-- Manual testing: Click "Start", grant microphone access, whistle or play an instrument
-- Verify pitch display updates in real-time
-- Check that note names and detuning are accurate
+### Testing (manual + scripted)
 
-## Browser Requirements
+No test suite exists. Changes are verified by driving the real app, ideally
+with Playwright + Chromium using a WAV file as a fake microphone:
 
-- Modern browser with Web Audio API support
-- `navigator.mediaDevices.getUserMedia()` API
-- Canvas support (for p5.js visualization)
-- `requestAnimationFrame` support
+```
+--use-fake-ui-for-media-stream
+--use-fake-device-for-media-stream
+--use-file-for-fake-audio-capture=/path/tone.wav   # e.g. 440 Hz sine
+```
 
-**Tested on:** Chrome, Firefox, Safari, Edge (modern versions)
-
-## UI States
-
-The detector element has two CSS states:
-- **`.confident`** - Black text, valid pitch detected
-- **`.vague`** - Light grey text, no valid pitch (silence or noise)
-
-Detuning states:
-- **`.flat`** - Shows flat symbol (♭) when pitch is below target note
-- **`.sharp`** - Shows sharp symbol (♯) when pitch is above target note
+A 440 Hz tone reads as A4 concert (written B4 on trumpet, 0¢ on the meter);
+445 Hz reads ≈ +20¢ sharp. Tones with silent gaps exercise the detection
+hold/debounce paths. Check both 390×844 (mobile) and ~1280×800 (desktop),
+and assert no page scroll overflow on mobile.
 
 ## Common Modifications
 
-### Adding a New Instrument
-Edit `index.html` to add an option to the instrument selector:
-```html
-<option value="new_instrument">new instrument</option>
-```
+**Add an instrument:**
+1. `index.html`: add an `<option>` inside the right `<optgroup>`.
+2. `notetrainer.js`: add to `trebleClefInstruments` or `bassClefInstruments`,
+   `transpositionMap` (semitones, written − concert), and `instrumentTimbres`
+   (or it falls back to the piano-like default).
+3. `fingerings.js` (optional): valve map via `threeValveOffset`, or images via
+   `imageFingeringMap`; otherwise it's piano-only automatically.
 
-If the instrument reads treble clef, add it to the `trebleClefInstruments` array in `js/pitchdetect.js`:
-```javascript
-var trebleClefInstruments = ["flute", "clarinet", "alto sax", "trumpet", "horn", "new_instrument"];
-```
-
-If the instrument reads bass clef, add it to the `bassClefInstruments` array:
-```javascript
-var bassClefInstruments = ["trombone", "euphonium", "new_instrument"];
-```
-
-**Treble clef instruments:** flute, clarinet, alto sax, trumpet, horn
-**Bass clef instruments:** trombone, euphonium
-
-### Adjusting Detection Sensitivity
-In `js/pitchdetect.js`:
-- Line 226: Change RMS threshold (`0.01`) for signal detection sensitivity
-- Line 229: Change edge threshold (`0.2`) for buffer trimming
-
-### Changing Reference Pitch
-In `js/pitchdetect.js`:
-- Line 177: A4 reference is `440` Hz - modify for alternate tuning systems
+**Change reference pitch / detection sensitivity:** A4=440 in
+`frequencyFromNoteNumber()` / `noteFromPitch()`; RMS gate (0.01) and
+confidence threshold (0.85) in `autoCorrelate()` / `updateListenPitch()`.
 
 ## Known Limitations
 
-1. **Monophonic only** - Works best with single-note sources (whistling, flute, guitar tuning)
-2. **Strong harmonics** - May throw off detection accuracy
-3. **No polyphonic detection** - Cannot detect chords
-4. **Instrument selector** - Displays appropriate clef for instruments, but no transposition implemented yet
-
-## Code Style Conventions
-
-- **Indentation:** Tabs
-- **Naming:** camelCase for functions and variables
-- **Global variables:** Used extensively (audioContext, analyser, etc.)
-- **Comments:** Minimal inline comments
-- **No modules:** All code in global scope
-
-## Important Implementation Notes
-
-1. **getUserMedia constraints:** Uses deprecated Chrome-specific constraints (`googEchoCancellation`, etc.) - may need updating for cross-browser compatibility
-
-2. **AudioContext resumption:** Browser autoplay policies require user interaction before audio context starts - handled by Start button click
-
-3. **Animation loop:** Uses `requestAnimationFrame` for ~60 FPS updates with webkit fallback
-
-4. **p5.js integration:** Runs in global mode, not instance mode - `setup()` and `draw()` are global functions
-
-## Potential Improvements for AI Assistants
-
-When working on this codebase, consider:
-
-1. **Modernization opportunities:**
-   - Convert to ES modules
-   - Replace deprecated getUserMedia constraints
-   - Add TypeScript types
-   - Use modern async/await patterns consistently
-
-2. **Feature additions:**
-   - Implement instrument transposition
-   - Add pitch history/graph
-   - Improve visualization
-   - Add tuning modes (equal temperament, just intonation)
-
-3. **Code quality:**
-   - Reduce global variables
-   - Add error handling
-   - Add unit tests for pitch calculation functions
-   - Document algorithm implementation
+1. Monophonic detection only (MPM); no chords.
+2. Touch note placement has no drag preview — tap, then nudge with ▲▼.
+3. No dark mode yet (CSS custom properties are in place for it).
+4. Screen-reader support is partial: no `aria-live` announcements of detected
+   notes; staff placement is pointer-only.
 
 ## Git Workflow
 
-- Main branch: `master`
-- Commits should be descriptive of changes
-- No CI/CD pipeline configured
-- Deploy by pushing to GitHub Pages or hosting static files
-
-## Quick Reference
-
-```javascript
-// Convert frequency to note name
-const noteNum = noteFromPitch(440);  // Returns 69 (A4)
-const noteName = noteStrings[noteNum % 12];  // Returns "A"
-
-// Check detuning
-const cents = centsOffFromPitch(442, 69);  // Returns positive (sharp)
-
-// Pitch detection from audio buffer
-const frequency = autoCorrelate(buf, sampleRate);  // Returns Hz or -1
-```
+- Default branch: `master`; deployed via GitHub Pages (static hosting).
+- No CI. Verify by running the app before pushing.
