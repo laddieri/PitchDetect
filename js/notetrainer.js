@@ -53,6 +53,10 @@ var NOTE_CLEAR_HOLD_MS = 300;
 // Smoothed cents-offset value driving the tuner meter needle
 var smoothedCents = null;
 
+// True once the user has started listening at least once (getting-started
+// guide progress)
+var hasEverListened = false;
+
 // Success state (detected note matches placed note)
 var isSuccess = false;
 var fireworksAnimID = null;
@@ -775,9 +779,6 @@ function getSvgCoordinates(event) {
 
 // Handle mouse move over staff (show ghost note)
 function handleStaffMouseMove(event) {
-	var instrument = document.getElementById("instrument").value;
-	if (!instrument) return;
-
 	// Don't show ghost note if we already have a placed note
 	if (currentNote !== null) return;
 
@@ -839,12 +840,6 @@ function handleStaffMouseLeave(event) {
 
 // Handle click on staff
 function handleStaffClick(event) {
-	var instrument = document.getElementById("instrument").value;
-	if (!instrument) {
-		alert("Please select an instrument first");
-		return;
-	}
-
 	var coords = getSvgCoordinates(event);
 	if (!coords) return;
 
@@ -877,6 +872,18 @@ function handleStaffClick(event) {
 
 	// Redraw staff with placed note
 	drawStaff(currentNote, currentOctave, null, null);
+
+	// If listening started before a target existed, the layout is still
+	// single-staff — open the second staff now so detected notes have
+	// somewhere visible to go, and move the current detection onto it.
+	if (listenActive && !document.querySelector(".main-display").classList.contains("dual-staff")) {
+		document.querySelector(".main-display").classList.add("dual-staff");
+		drawDetectedStaff(detectedNote, detectedOctave);
+	}
+
+	// The success state belongs to the previous target — re-evaluate it
+	// against the new one (celebrating immediately on a live match)
+	reevaluateMatch();
 
 	// Enable the controls now that a note is placed
 	document.getElementById("note-display").classList.add("active");
@@ -926,6 +933,9 @@ function handleKeyDown(event) {
 
 		// Update fingering display
 		updateFingeringDisplay();
+
+		// The success state belongs to the previous target — re-evaluate
+		reevaluateMatch();
 
 		// If a note was sustaining, glide it to the new pitch (click-free).
 		// Fall back to restarting if there's no live voice to retune.
@@ -1115,12 +1125,10 @@ function fitNoteName() {
 // controls are always present in the layout so nothing shifts as the app
 // moves between states; they are simply disabled until they become usable.
 function updateControlStates() {
-	var instrumentSelected = !!document.getElementById("instrument").value;
 	var hasNote = currentNote !== null && currentMidi !== null;
 
 	document.getElementById("playButton").disabled = !hasNote;
 	document.getElementById("clearButton").disabled = !hasNote;
-	document.getElementById("listenButton").disabled = !instrumentSelected;
 	document.getElementById("pitchUpButton").disabled = !hasNote;
 	document.getElementById("pitchDownButton").disabled = !hasNote;
 
@@ -1129,8 +1137,6 @@ function updateControlStates() {
 	sustainSwitch.classList.toggle("is-disabled", !hasNote);
 	sustainToggle.disabled = !hasNote;
 
-	// Point the first-time user at the one control that does something
-	document.getElementById("instrument").classList.toggle("attention", !instrumentSelected);
 	updateGettingStarted();
 }
 
@@ -1150,10 +1156,16 @@ function updateGettingStarted() {
 	if (hasAnyNote) return;
 
 	var instrumentSelected = !!document.getElementById("instrument").value;
-	step1.classList.toggle("done", instrumentSelected);
-	step1.classList.toggle("current", !instrumentSelected);
-	step1.querySelector(".gs-num").textContent = instrumentSelected ? "\u2713" : "1";
-	step2.classList.toggle("current", instrumentSelected);
+
+	// Step 1 is Listen (the primary feature \u2014 no instrument required);
+	// step 2 is picking an instrument, which refines clef and key.
+	step1.classList.toggle("done", hasEverListened);
+	step1.classList.toggle("current", !hasEverListened);
+	step1.querySelector(".gs-num").textContent = hasEverListened ? "\u2713" : "1";
+
+	step2.classList.toggle("done", instrumentSelected);
+	step2.classList.toggle("current", hasEverListened && !instrumentSelected);
+	step2.querySelector(".gs-num").textContent = instrumentSelected ? "\u2713" : "2";
 }
 
 // Adjust pitch by semitones (for mobile pitch control buttons)
@@ -1182,6 +1194,9 @@ function adjustPitch(semitones) {
 
 		// Update fingering display
 		updateFingeringDisplay();
+
+		// The success state belongs to the previous target — re-evaluate
+		reevaluateMatch();
 
 		// If a note was sustaining, glide it to the new pitch (click-free).
 		// Fall back to restarting if there's no live voice to retune.
@@ -1824,6 +1839,20 @@ function launchFireworks() {
 	fireworksAnimID = requestAnimationFrame(step);
 }
 
+// Re-evaluate the success state after the target note changes. The previous
+// match verdict belongs to the old target: without this, a stale success
+// suppresses fireworks for the next genuine match, and a live detection that
+// already equals the new target would never celebrate (the detection loop
+// only re-checks when the DETECTED note changes).
+function reevaluateMatch() {
+	var wasSuccess = isSuccess;
+	isSuccess = listenActive && detectedMidi !== null &&
+		currentMidi !== null && detectedMidi === currentMidi;
+	if (isSuccess && !wasSuccess) {
+		launchFireworks();
+	}
+}
+
 // Show a confirmed detected note on the staff and note displays
 function commitDetectedNote(writtenMidi) {
 	detectedMidi = writtenMidi;
@@ -1959,7 +1988,7 @@ function updateListenPitch() {
 // Start listening to the microphone
 function startListening() {
 	if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-		alert("Microphone access is not supported in this browser.");
+		showToast("Microphone access is not supported in this browser.");
 		return;
 	}
 
@@ -1979,6 +2008,7 @@ function startListening() {
 		listenBuffer = new Float32Array(listenAnalyser.fftSize);
 
 		listenActive = true;
+		hasEverListened = true;
 		pendingMidi = null;
 		pendingFrames = 0;
 		lastPitchTime = 0;
@@ -2009,7 +2039,7 @@ function startListening() {
 		listenButton.classList.add("listening");
 	}).catch(function(err) {
 		console.error("Microphone access error:", err);
-		alert("Could not access microphone. Please allow microphone access and try again.");
+		showToast("Could not access the microphone. Check the browser's mic permission and try again.");
 	});
 }
 
@@ -2338,6 +2368,20 @@ function updateSheetState() {
 	handleLabel.textContent = label;
 }
 
+// Show a transient inline error notice (replaces alert(), which blocks the
+// page and reads as a browser failure rather than an app message)
+var toastTimer = null;
+function showToast(message) {
+	var toast = document.getElementById("toast");
+	if (!toast) return;
+	toast.textContent = message;
+	toast.classList.add("visible");
+	if (toastTimer) clearTimeout(toastTimer);
+	toastTimer = setTimeout(function() {
+		toast.classList.remove("visible");
+	}, 4000);
+}
+
 // Toggle the mobile overflow menu (holds the Sustain switch)
 function toggleOverflowMenu(event) {
 	if (event) event.stopPropagation();
@@ -2464,8 +2508,8 @@ document.addEventListener("DOMContentLoaded", function() {
 	// "Click"/"press" reads wrong on touch devices — swap the wording, and
 	// name the mic by its icon since the compact toolbar hides button labels
 	if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
-		var step2Label = document.getElementById("gs-step-2-label");
-		if (step2Label) step2Label.textContent = "Tap the mic button and play a note \u2014 it appears on the staff";
+		var step1Label = document.getElementById("gs-step-1-label");
+		if (step1Label) step1Label.textContent = "Tap the mic button and play a note \u2014 it appears on the staff";
 		var step3Label = document.getElementById("gs-step-3-label");
 		if (step3Label) step3Label.textContent = "Or tap the staff to set a target note to practice";
 		var instructionEl = document.getElementById("staff-instruction");
