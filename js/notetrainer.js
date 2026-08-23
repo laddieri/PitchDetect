@@ -71,6 +71,14 @@ var LINE_SPACING = 10;  // Space between staff lines in internal coordinates
 var MAX_INTERNAL_WIDTH = 260;  // Max VexFlow coordinate width — kept narrow so staff scales up tall
 var STAFF_VIEWBOX_HEIGHT = 120;  // Tight viewBox height around staff lines
 
+// Hover-based ghost preview only makes sense with a real hovering pointer.
+// On touch devices a tap synthesizes a mousemove immediately before the click;
+// letting that render a ghost note collapses the getting-started guide and
+// shifts the staff up, so the click (using the original coordinate) lands well
+// below where the user touched. Touch placement has no drag preview by design,
+// so skip the hover preview entirely there.
+var staffHoverEnabled = !(window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches);
+
 // Dynamic staff layout values (updated by drawStaff from VexFlow)
 var staffTopLineY = null;
 var staffHalfSpacing = 5;
@@ -779,6 +787,10 @@ function getSvgCoordinates(event) {
 
 // Handle mouse move over staff (show ghost note)
 function handleStaffMouseMove(event) {
+	// Skip the hover preview on touch devices — the synthetic mousemove a tap
+	// fires would shift the staff before the click reads its coordinates.
+	if (!staffHoverEnabled) return;
+
 	// Don't show ghost note if we already have a placed note
 	if (currentNote !== null) return;
 
