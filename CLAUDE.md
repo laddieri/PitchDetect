@@ -52,9 +52,9 @@ All state is module-global. The main clusters:
 - `trumpetFingerings` (3-valve map, shared via `threeValveOffset` with euphonium/tuba)
 - `fluteFingerings` (key diagrams)
 - `imageFingeringMap` — instruments using chart images from `img/Fingerings/`
-  (bassoon, clarinet, flute, oboe, saxes, trombone)
+  (bassoon, clarinet, flute, oboe, saxes, trombone, double horn)
 - `hasFingeringData()`, `displayFingering()` — entry points used by the app.
-- Instruments with **no** fingering data: bare clefs, bass clarinet, horn,
+- Instruments with **no** fingering data: bare clefs, bass clarinet,
   glockenspiel (they get piano-only panels).
 
 ## Layout System
