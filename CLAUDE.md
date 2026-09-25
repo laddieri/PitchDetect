@@ -92,6 +92,10 @@ All state is module-global. The main clusters:
    `nowrap`; `#concert-pitch-display` has a fixed em-height on desktop —
    accidental glyphs (♯/♭) fall back to taller fonts and would otherwise
    reflow the layout. `fitNoteName()` shrinks the big note label to one line.
+   The desktop fingering panel has a fixed height per instrument
+   (`fingeringBoxHeight()` → `--fingering-h`); image charts draw in a box sized
+   to the set's largest chart (`imageFingeringMap` w/h), and out-of-range notes
+   show a message inside that box instead of collapsing it.
 3. **The idle state never flickers:** an active listen session counts as "has
    a note" so silence doesn't flip the note panel back to the Listen button.
 

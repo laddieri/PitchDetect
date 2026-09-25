@@ -1016,28 +1016,37 @@
 				min-height: 0;
 			}
 
+			/* A fixed height per instrument (--fingering-h, set by
+			   updateFingeringDisplay() from fingeringBoxHeight()) rather than
+			   the height of whatever chart is showing: charts within a set
+			   differ in size, and out-of-range notes show a one-line message,
+			   so a content-sized panel would resize on every note and shift
+			   the note panel and staff above it. */
 			#fingering-display {
 				flex: 0 1 auto;
 				min-height: 0;
+				height: var(--fingering-h, auto);
 				display: flex;
 				align-items: center;
 				justify-content: center;
 			}
 
-			/* Cap the fingering media to a fraction of the viewport so a tall
-			   image chart (or stacked valve diagrams) can't force the page to
-			   scroll. min() keeps the original size on tall windows and scales
-			   down on shorter ones. */
+			/* The image fills a box of the set's largest chart (aspect-ratio
+			   set inline) at the reserved height; the height caps it to a
+			   fraction of the viewport so a tall chart can't force the page to
+			   scroll. scale-down draws each chart at its natural size when it
+			   fits, and shrinks it to fit otherwise. */
 			#fingering-display img {
 				max-width: 100%;
-				max-height: min(280px, 34vh);
-				/* width/height auto let the loaded image keep its own aspect
-				   ratio when the max-height cap applies (the width/height
-				   attributes only reserve space pre-load); contain guards the
-				   pre-load box too. */
 				width: auto;
-				height: auto;
-				object-fit: contain;
+				height: 100%;
+				object-fit: scale-down;
+			}
+
+			.no-fingering {
+				text-align: center;
+				color: var(--text-faint);
+				padding: 20px;
 			}
 
 			#fingering-display svg {
@@ -1452,6 +1461,7 @@
 				#fingering-display {
 					flex: 1;
 					min-height: 0;
+					height: auto;
 					flex-direction: column;
 					overflow: hidden;
 				}
