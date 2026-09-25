@@ -45,7 +45,7 @@ All state is module-global. The main clusters:
 | **Tuner meter** | `updateTunerMeter()` — cents vs nearest semitone via `centsOffFromPitch()`, EMA-smoothed needle, in-tune/close/off color states. |
 | **Match/fireworks** | `commitDetectedNote()` fires `launchFireworks()` on target match; `reevaluateMatch()` re-checks whenever the *target* changes. |
 | **Synthesis** | `instrumentTimbres` (per-instrument harmonic stacks, vibrato, breath noise), `synthesizeWind()` / `synthesizeStruck()`, sustain mode with click-free portamento (`retuneSustainedNote()`), fade-out teardown in `stopNote()`. |
-| **UI state sync** | `updateControlStates()` (enable/disable), `updateIdleState()` (note panel becomes a big Listen button when there's nothing to show), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast()` (inline errors — never use `alert()`). |
+| **UI state sync** | `updateControlStates()` (enable/disable), `updateIdleState()` (note panel becomes a big Listen button when there's nothing to show), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updatePanePager()` (mobile fingering/piano pages), `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast()` (inline errors — never use `alert()`). |
 
 ### `js/fingerings.js`
 
@@ -64,10 +64,13 @@ All state is module-global. The main clusters:
   (`html, body { height: 100% }`, flex columns, `min-height: 0`).
 - **Mobile (≤700px, single `@media` block):** one-screen layout — compact
   header, single-row icon toolbar, fixed-height one-line note strip, a compact
-  staff (`clamp(140px, 30vh, 250px)`), and fingering + piano **inline** below
-  it, side by side, sharing the remaining height (charts scale to fit). Wide
-  charts (flute, trombone) toggle `.bottom-panels.wide-fingering`, which
-  stacks the piano underneath. Sustain relocates into an overflow (⋯) popover
+  staff (`clamp(140px, 30vh, 250px)`), and below it a **swipeable pager**
+  (`#pane-pager`, CSS scroll-snap) filling the remaining height: fingering
+  first, swipe left for the piano, with page dots (`.pane-dots`, tappable)
+  shown only when both panes exist (`.bottom-panels.has-pages`). Charts scale
+  to fit the pane. `showPane()` / `updatePanePager()` drive it; an instrument
+  change returns to the fingering pane. On desktop the same `#pane-pager` is a
+  plain row showing both panels. Sustain relocates into an overflow (⋯) popover
   — `applyResponsiveControls()` physically moves the same DOM node between
   homes at the breakpoint.
 - **No instruction text.** The UI explains itself: the empty note panel *is*

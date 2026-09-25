@@ -963,12 +963,23 @@
 			   and can shrink (min-height: 0) so the whole app fits the window
 			   without scrolling. Their media is height-capped below. */
 			.bottom-panels {
-				display: flex;
-				gap: 18px;
-				align-items: flex-start;
 				margin-top: 14px;
 				min-height: 0;
 				flex-shrink: 0;
+			}
+
+			/* Desktop: fingering and piano side by side. On mobile this same
+			   row becomes a swipeable pager (see the mobile block). */
+			.pane-pager {
+				display: flex;
+				gap: 18px;
+				align-items: flex-start;
+				min-height: 0;
+			}
+
+			/* Page dots for the mobile pager; desktop shows both panes */
+			.pane-dots {
+				display: none;
 			}
 
 			.fingering-container {
@@ -1321,12 +1332,15 @@
 					opacity: 0.92;
 				}
 
-				/* ---------- Fingering & piano, inline ---------- */
-				/* Side by side, filling the rest of the screen; tall chart
-				   images scale down to fit rather than scroll. The tuner meter
-				   sliding open simply takes its height from this row. */
-				/* Let the page column shrink to the viewport so the panels below
-				   get a definite height to scale their charts into */
+				/* ---------- Fingering & piano pager ---------- */
+				/* One pane at a time, filling the rest of the screen:
+				   fingering first, swipe left for the piano. Scroll snapping
+				   does the swiping natively; the dots show there's a second
+				   pane and switch to it on tap. Tall chart images scale down to
+				   fit rather than scroll, and the tuner meter sliding open
+				   simply takes its height from here. */
+				/* Let the page column shrink to the viewport so the panes get a
+				   definite height to scale their charts into */
 				.container {
 					min-height: 0;
 				}
@@ -1335,21 +1349,36 @@
 					flex: 1;
 					min-height: 0;
 					margin-top: 12px;
-					gap: 10px;
-					align-items: stretch;
+					display: flex;
+					flex-direction: column;
 					padding-bottom: env(safe-area-inset-bottom, 0px);
 				}
 
-				/* Wide charts (flute, trombone) get the full width, piano below */
-				.bottom-panels.wide-fingering {
-					flex-direction: column;
+				.pane-pager {
+					flex: 1;
+					position: relative;
+					gap: 12px;
+					align-items: stretch;
+					overflow-x: auto;
+					overflow-y: hidden;
+					scroll-snap-type: x mandatory;
+					overscroll-behavior-x: contain;
+					scrollbar-width: none;
+				}
+
+				.pane-pager::-webkit-scrollbar {
+					display: none;
 				}
 
 				.fingering-container,
 				.piano-container {
+					flex: 0 0 100%;
 					min-height: 0;
+					margin-left: 0;
 					padding: 10px;
 					overflow: hidden;
+					scroll-snap-align: start;
+					scroll-snap-stop: always;
 				}
 
 				.fingering-container.active,
@@ -1358,33 +1387,58 @@
 					flex-direction: column;
 				}
 
-				.fingering-container {
-					flex: 1 1 0;
-				}
-
 				.piano-container {
-					flex: 1 1 0;
-					margin-left: 0;
 					justify-content: center;
 				}
 
-				.bottom-panels.wide-fingering .piano-container {
-					flex: none;
+				/* Only shown when there are two panes to page between */
+				.bottom-panels.has-pages .pane-dots {
+					display: flex;
+					justify-content: center;
+					gap: 4px;
+					flex-shrink: 0;
+					padding-top: 4px;
 				}
 
-				/* Nothing to pair with (no fingering data): piano takes the row */
-				.fingering-container:not(.active) + .piano-container {
-					flex: 1 1 auto;
+				/* 24px tap targets around 8px dots */
+				.pane-dot {
+					width: 24px;
+					height: 20px;
+					padding: 0;
+					background: none;
+					border: none;
+					cursor: pointer;
+					display: flex;
+					align-items: center;
+					justify-content: center;
+				}
+
+				.pane-dot::before {
+					content: "";
+					width: 8px;
+					height: 8px;
+					border-radius: 50%;
+					background-color: var(--border-strong);
+					transition: background-color 0.2s, transform 0.2s;
+				}
+
+				.pane-dot.active::before {
+					background-color: var(--accent);
+					transform: scale(1.15);
+				}
+
+				.pane-dot:focus-visible {
+					outline: none;
+				}
+
+				.pane-dot:focus-visible::before {
+					box-shadow: var(--ring);
 				}
 
 				.fingering-title {
 					font-size: 0.68rem;
 					margin-bottom: 6px;
 					flex-shrink: 0;
-				}
-
-				.fingering-title .title-extra {
-					display: none;
 				}
 
 				.fingering-content {
@@ -1437,13 +1491,9 @@
 					min-height: 0;
 				}
 
-				.bottom-panels.wide-fingering #piano-display svg {
-					max-width: 190px;
-				}
-
 				.panel-placeholder {
 					padding: 8px;
-					font-size: 0.8rem;
+					font-size: 1.4rem;
 				}
 			}
 
@@ -1593,19 +1643,25 @@
 			</div>
 
 			<div class="bottom-panels" id="bottom-panels">
-				<div class="fingering-container" id="fingering-container">
-					<div class="fingering-title">Fingering Chart</div>
-					<div class="fingering-content">
-						<div id="fingering-display"></div>
-						<div class="alternate-button-container">
-							<button id="alternateButton" onclick="toggleAlternateFingerings()">Show Alternate Fingerings</button>
+				<div class="pane-pager" id="pane-pager">
+					<div class="fingering-container" id="fingering-container">
+						<div class="fingering-title">Fingering Chart</div>
+						<div class="fingering-content">
+							<div id="fingering-display"></div>
+							<div class="alternate-button-container">
+								<button id="alternateButton" onclick="toggleAlternateFingerings()">Show Alternate Fingerings</button>
+							</div>
 						</div>
 					</div>
-				</div>
 
-				<div class="piano-container" id="piano-container">
-					<div class="fingering-title">Concert Pitch<span class="title-extra"> on Piano</span></div>
-					<div id="piano-display"></div>
+					<div class="piano-container" id="piano-container">
+						<div class="fingering-title">Concert Pitch on Piano</div>
+						<div id="piano-display"></div>
+					</div>
+				</div>
+				<div class="pane-dots" id="pane-dots">
+					<button class="pane-dot active" id="pane-dot-0" onclick="showPane(0)" aria-label="Show fingering" aria-current="true"></button>
+					<button class="pane-dot" id="pane-dot-1" onclick="showPane(1)" aria-label="Show piano"></button>
 				</div>
 			</div>
 		</div>
