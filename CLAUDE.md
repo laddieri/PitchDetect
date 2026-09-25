@@ -96,6 +96,13 @@ ignored, entering kid mode clears any target, note labels use one spelling
 is held in tune for `KID_CELEBRATE_MS`. Elements with `.std-only` / `.kid-only`
 swap text between modes.
 
+Kid mode has a cartoon theme: `body.kid-mode` redefines the color/radius
+tokens and `--font` (Fredoka; the note name uses Baloo 2, whose letters keep
+open counters under the outline), adds `--cartoon-border` / `--cartoon-shadow`
+(thick ink outlines, hard offset shadows), and a polka-dot sky background.
+Text outlines are stacked `text-shadow`s, not `-webkit-text-stroke`, which
+traces the overlapping contours inside variable-font glyphs.
+
 ### Layout stability rules (load-bearing conventions)
 
 1. **Reserve, don't pop:** panels keep their footprint with placeholders;
