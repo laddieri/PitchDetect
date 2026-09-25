@@ -1317,6 +1317,14 @@
 					transform: translateY(-50%);
 					z-index: 5;
 					gap: 8px;
+					transition: right 0.25s ease;
+				}
+
+				/* In the dual-staff layout, keep the nudge buttons on the target
+				   staff they adjust instead of covering "Your Playing" (panel 1's
+				   right edge sits at 50% + half the 10px wrapper gap) */
+				.main-display.dual-staff .pitch-controls {
+					right: calc(50% + 13px);
 				}
 
 				.pitch-button {
@@ -1490,6 +1498,34 @@
 					pointer-events: auto;
 				}
 			}
+
+			/* Very narrow phones (e.g. 320px): tighten the toolbar so the
+			   instrument select keeps room for its name instead of clipping
+			   to a couple of letters */
+			@media (max-width: 360px) {
+				body {
+					padding: 8px;
+				}
+
+				.controls {
+					gap: 6px;
+					padding: 8px;
+				}
+
+				#instrument {
+					padding: 10px 24px 10px 10px;
+					background-position: right 7px center;
+				}
+
+				#playButton,
+				#clearButton,
+				#listenButton,
+				#overflowButton {
+					flex-basis: 38px;
+					width: 38px;
+					height: 40px;
+				}
+			}
 		</style>
 	</head>
 	<body>
@@ -1580,7 +1616,7 @@
 								<div id="key-sig-hotspot" class="key-sig-hotspot" onclick="toggleKeySigPopup(event)" onmousemove="event.stopPropagation()" title="Click to set a new key signature">
 									<span class="key-sig-tooltip">Click to set a new key signature</span>
 								</div>
-								<div id="key-sig-popup" class="key-sig-popup" onclick="event.stopPropagation()">
+								<div id="key-sig-popup" class="key-sig-popup" onclick="event.stopPropagation()" onmousemove="event.stopPropagation()">
 									<div class="key-sig-popup-label">Key Signature</div>
 									<select id="key-select" onchange="onKeyChange()"></select>
 								</div>
