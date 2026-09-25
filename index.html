@@ -6,7 +6,7 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fredoka:wght@500;600;700&family=Baloo+2:wght@800&display=swap" rel="stylesheet">
 		<style>
 			:root {
 				/* Surfaces & text */
@@ -79,9 +79,27 @@
 			}
 
 			.app-header {
+				position: relative;
 				text-align: center;
 				flex-shrink: 0;
 				margin-bottom: 14px;
+			}
+
+			/* Kid mode switch: top-right of the header, clear of the centered
+			   title (styled like the Sustain switch) */
+			.mode-switch {
+				position: absolute;
+				top: 50%;
+				right: 0;
+				transform: translateY(-50%);
+				display: inline-flex;
+				align-items: center;
+				gap: 9px;
+				cursor: pointer;
+				user-select: none;
+				color: var(--text-muted);
+				font-size: 0.9rem;
+				font-weight: 500;
 			}
 
 			h1 {
@@ -398,7 +416,8 @@
 
 			/* Visually hidden but still focusable, so the switch stays in the
 			   keyboard tab order (display:none would remove it) */
-			.sustain-switch input {
+			.sustain-switch input,
+			.mode-switch input {
 				position: absolute;
 				width: 1px;
 				height: 1px;
@@ -410,7 +429,8 @@
 				white-space: nowrap;
 			}
 
-			.sustain-switch input:focus-visible + .sustain-slider {
+			.sustain-switch input:focus-visible + .sustain-slider,
+			.mode-switch input:focus-visible + .sustain-slider {
 				box-shadow: var(--ring);
 			}
 
@@ -437,11 +457,13 @@
 				box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 			}
 
-			.sustain-switch input:checked + .sustain-slider {
+			.sustain-switch input:checked + .sustain-slider,
+			.mode-switch input:checked + .sustain-slider {
 				background-color: var(--accent);
 			}
 
-			.sustain-switch input:checked + .sustain-slider::before {
+			.sustain-switch input:checked + .sustain-slider::before,
+			.mode-switch input:checked + .sustain-slider::before {
 				transform: translateX(19px);
 			}
 
@@ -1169,8 +1191,21 @@
 					display: none;
 				}
 
+				/* Title left, Kid mode switch right, on one row */
 				.app-header {
 					margin-bottom: 10px;
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					gap: 10px;
+				}
+
+				.mode-switch {
+					position: static;
+					transform: none;
+					flex-shrink: 0;
+					font-size: 0.85rem;
+					gap: 7px;
 				}
 
 				/* Single-row toolbar: the select keeps width for long instrument
@@ -1534,6 +1569,397 @@
 					height: 40px;
 				}
 			}
+
+			/* ---------- Kid mode ---------- */
+			/* Just the basics: pick an instrument, press Listen, play. The note
+			   name is big and color-coded by letter, the staff shows where it
+			   sits, and the meter says "Too low / Just right! / Too high".
+			   Target notes, playback, key signatures, fingerings, and the piano
+			   are hidden; the staff isn't tappable. */
+			.kid-only {
+				display: none;
+			}
+
+			body.kid-mode .kid-only {
+				display: inline;
+			}
+
+			body.kid-mode .std-only,
+			body.kid-mode .app-subtitle,
+			body.kid-mode .controls-divider,
+			body.kid-mode #playButton,
+			body.kid-mode #clearButton,
+			body.kid-mode #sustainSwitch,
+			body.kid-mode #overflowButton,
+			body.kid-mode #overflow-popover,
+			body.kid-mode #frequency-display,
+			body.kid-mode #concert-pitch-display,
+			body.kid-mode .key-sig-hotspot,
+			body.kid-mode .key-chip,
+			body.kid-mode .key-sig-popup,
+			body.kid-mode .pitch-controls,
+			body.kid-mode #staff-panel-2,
+			body.kid-mode .staff-label,
+			body.kid-mode .bottom-panels {
+				display: none !important;
+			}
+
+			body.kid-mode .staff-container {
+				cursor: default;
+			}
+
+			/* Cartoon theme: a rounded font, chunky dark outlines with hard
+			   offset "sticker" shadows, and a polka-dot sky */
+			body.kid-mode {
+				--font: 'Fredoka', 'Chalkboard SE', 'Comic Sans MS', sans-serif;
+				--ink: #2b2140;
+				--text: #2b2140;
+				--text-muted: #5a4f73;
+				--text-faint: #8a80a3;
+				--accent: #ff7a45;
+				--accent-hover: #ff6a2f;
+				--accent-active: #f25a1d;
+				--accent-soft: #fff0e8;
+				--accent-ring: rgba(255, 122, 69, 0.4);
+				--danger: #ff4d6d;
+				--danger-hover: #f23a5c;
+				--success: #2fbf4f;
+				--warning: #ff9f1c;
+				--radius: 24px;
+				--radius-sm: 16px;
+				--cartoon-border: 3px solid var(--ink);
+				--cartoon-shadow: 5px 5px 0 var(--ink);
+				background:
+					radial-gradient(rgba(255, 255, 255, 0.55) 3px, transparent 3.5px) 0 0 / 30px 30px,
+					linear-gradient(180deg, #8fd3ff 0%, #c8ecff 60%, #e4f6ff 100%);
+				background-attachment: fixed;
+			}
+
+			body.kid-mode h1 {
+				font-size: 2.3rem;
+				font-weight: 700;
+				letter-spacing: 0.01em;
+				color: #ffd23f;
+				/* Outline via stacked shadows: -webkit-text-stroke would also
+				   trace the overlapping contours inside this variable font's
+				   letters */
+				text-shadow:
+					3.5px 0 0 var(--ink),
+					3.2336px 1.3394px 0 var(--ink),
+					2.4749px 2.4749px 0 var(--ink),
+					1.3394px 3.2336px 0 var(--ink),
+					0 3.5px 0 var(--ink),
+					-1.3394px 3.2336px 0 var(--ink),
+					-2.4749px 2.4749px 0 var(--ink),
+					-3.2336px 1.3394px 0 var(--ink),
+					-3.5px 0 0 var(--ink),
+					-3.2336px -1.3394px 0 var(--ink),
+					-2.4749px -2.4749px 0 var(--ink),
+					-1.3394px -3.2336px 0 var(--ink),
+					-0 -3.5px 0 var(--ink),
+					1.3394px -3.2336px 0 var(--ink),
+					2.4749px -2.4749px 0 var(--ink),
+					3.2336px -1.3394px 0 var(--ink),
+					6px 6px 0 var(--ink);
+				transform: rotate(-2deg);
+				display: inline-block;
+			}
+
+			body.kid-mode .mode-switch {
+				color: var(--ink);
+				font-weight: 600;
+			}
+
+			body.kid-mode .mode-switch .sustain-slider {
+				border: var(--cartoon-border);
+				height: 29px;
+				width: 50px;
+				background-color: #fff;
+			}
+
+			body.kid-mode .mode-switch .sustain-slider::before {
+				top: 2px;
+				left: 2px;
+				background-color: var(--ink);
+				box-shadow: none;
+			}
+
+			body.kid-mode .mode-switch input:checked + .sustain-slider {
+				background-color: #7ee081;
+			}
+
+			body.kid-mode .mode-switch input:checked + .sustain-slider::before {
+				transform: translateX(21px);
+				background-color: #fff;
+				box-shadow: 0 0 0 3px var(--ink);
+			}
+
+			body.kid-mode .controls,
+			body.kid-mode #note-display,
+			body.kid-mode .staff-container {
+				border: var(--cartoon-border);
+				box-shadow: var(--cartoon-shadow);
+			}
+
+			body.kid-mode .controls {
+				background: #fff;
+			}
+
+			body.kid-mode #note-display {
+				background: #fffbea;
+			}
+
+			body.kid-mode #instrument {
+				border: var(--cartoon-border);
+				border-radius: 14px;
+				font-weight: 600;
+				color: var(--ink);
+				background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%232b2140' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+			}
+
+			/* Chunky push-button: pressing sinks it into its shadow */
+			body.kid-mode #listenButton {
+				font-size: 1.2rem;
+				font-weight: 700;
+				padding: 11px 32px;
+				border: var(--cartoon-border);
+				border-radius: 14px;
+				box-shadow: 4px 4px 0 var(--ink);
+			}
+
+			body.kid-mode #listenButton:active {
+				transform: translate(3px, 3px);
+				box-shadow: 1px 1px 0 var(--ink);
+			}
+
+			body.kid-mode #listenButton.listening {
+				border-color: var(--ink);
+				animation: none;
+			}
+
+			body.kid-mode .listen-cta-icon {
+				border: 4px solid var(--ink);
+				box-shadow: 5px 5px 0 var(--ink);
+				animation: kid-bob 2.2s ease-in-out infinite;
+			}
+
+			body.kid-mode .listen-cta:active .listen-cta-icon {
+				transform: translate(3px, 3px);
+				box-shadow: 2px 2px 0 var(--ink);
+				animation: none;
+			}
+
+			body.kid-mode .listen-cta-label {
+				font-size: 1.4rem;
+				font-weight: 700;
+				color: var(--ink);
+			}
+
+			@keyframes kid-bob {
+				0%, 100% { transform: translateY(0) rotate(-3deg); }
+				50% { transform: translateY(-8px) rotate(3deg); }
+			}
+
+			/* One color per letter, so kids can recognize notes at a glance.
+			   The ink outline keeps the lighter colors (E, yellow) readable. */
+			body.kid-mode #note-name {
+				color: #fff;
+				/* em-sized outline (stacked shadows, as on the title) plus a
+				   drop shadow */
+				text-shadow:
+					0.025em 0 0 var(--ink),
+					0.0231em 0.0096em 0 var(--ink),
+					0.0177em 0.0177em 0 var(--ink),
+					0.0096em 0.0231em 0 var(--ink),
+					0 0.025em 0 var(--ink),
+					-0.0096em 0.0231em 0 var(--ink),
+					-0.0177em 0.0177em 0 var(--ink),
+					-0.0231em 0.0096em 0 var(--ink),
+					-0.025em 0 0 var(--ink),
+					-0.0231em -0.0096em 0 var(--ink),
+					-0.0177em -0.0177em 0 var(--ink),
+					-0.0096em -0.0231em 0 var(--ink),
+					-0 -0.025em 0 var(--ink),
+					0.0096em -0.0231em 0 var(--ink),
+					0.0177em -0.0177em 0 var(--ink),
+					0.0231em -0.0096em 0 var(--ink),
+					0.06em 0.06em 0 var(--ink);
+				letter-spacing: 0.02em;
+				/* Baloo 2 here: Fredoka's letters (B, A) have tiny counters that
+				   the outline fills in at this size */
+				font-family: 'Baloo 2', var(--font);
+				font-weight: 800;
+				line-height: 1;
+				font-size: clamp(80px, 17vw, 210px);
+			}
+
+			body.kid-mode #note-display[data-letter="C"] #note-name { color: #ff4d4d; }
+			body.kid-mode #note-display[data-letter="D"] #note-name { color: #ff9f1c; }
+			body.kid-mode #note-display[data-letter="E"] #note-name { color: #ffd23f; }
+			body.kid-mode #note-display[data-letter="F"] #note-name { color: #5ad86a; }
+			body.kid-mode #note-display[data-letter="G"] #note-name { color: #2ec4b6; }
+			body.kid-mode #note-display[data-letter="A"] #note-name { color: #4d96ff; }
+			body.kid-mode #note-display[data-letter="B"] #note-name { color: #b56cff; }
+
+			body.kid-mode #note-name .note-octave {
+				color: inherit;
+				text-shadow:
+					0.05em 0 0 var(--ink),
+					0.0462em 0.0191em 0 var(--ink),
+					0.0354em 0.0354em 0 var(--ink),
+					0.0191em 0.0462em 0 var(--ink),
+					0 0.05em 0 var(--ink),
+					-0.0191em 0.0462em 0 var(--ink),
+					-0.0354em 0.0354em 0 var(--ink),
+					-0.0462em 0.0191em 0 var(--ink),
+					-0.05em 0 0 var(--ink),
+					-0.0462em -0.0191em 0 var(--ink),
+					-0.0354em -0.0354em 0 var(--ink),
+					-0.0191em -0.0462em 0 var(--ink),
+					-0 -0.05em 0 var(--ink),
+					0.0191em -0.0462em 0 var(--ink),
+					0.0354em -0.0354em 0 var(--ink),
+					0.0462em -0.0191em 0 var(--ink),
+					0.11em 0.11em 0 var(--ink);
+			}
+
+			/* A springy squash-and-stretch each time a new note is heard */
+			@keyframes kid-pop {
+				0% { transform: scale(0.6) rotate(-8deg); }
+				55% { transform: scale(1.15) rotate(4deg); }
+				75% { transform: scale(0.95) rotate(-2deg); }
+				100% { transform: scale(1) rotate(0); }
+			}
+
+			body.kid-mode #note-name.kid-pop {
+				animation: kid-pop 0.45s ease-out;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				body.kid-mode #note-name.kid-pop,
+				body.kid-mode .listen-cta-icon {
+					animation: none;
+				}
+			}
+
+			/* Bigger, friendlier meter with words instead of cents */
+			body.kid-mode .tuner-meter.active {
+				height: 84px;
+			}
+
+			body.kid-mode .tuner-track {
+				height: 40px;
+				margin: 2px 6px 8px 2px;
+				border: var(--cartoon-border);
+				box-shadow: 4px 4px 0 var(--ink);
+				background: #fff;
+			}
+
+			body.kid-mode .tuner-zone {
+				background: #b8f5bf;
+			}
+
+			body.kid-mode .tuner-center {
+				width: 3px;
+				margin-left: -1.5px;
+				background: #5ad86a;
+			}
+
+			body.kid-mode .tuner-needle {
+				width: 14px;
+				top: 4px;
+				bottom: 4px;
+				border-radius: 7px;
+				border: 3px solid var(--ink);
+			}
+
+			body.kid-mode .tuner-labels {
+				font-size: 0.95rem;
+				font-weight: 600;
+				color: var(--text-muted);
+			}
+
+			body.kid-mode #tuner-readout {
+				font-size: 1.35rem;
+				font-weight: 700;
+			}
+
+			@media (max-width: 700px) {
+				/* With the fingering/piano pager gone, the note and staff share
+				   the whole screen */
+				body.kid-mode .main-display {
+					flex: 1;
+					min-height: 0;
+				}
+
+				body.kid-mode #note-display {
+					flex: 1;
+					height: auto;
+					flex-direction: column;
+					align-items: center;
+				}
+
+				body.kid-mode #note-name {
+					font-size: clamp(72px, 26vw, 150px);
+				}
+
+				body.kid-mode h1 {
+					font-size: 1.55rem;
+					text-shadow:
+						2.5px 0 0 var(--ink),
+						2.3097px 0.9567px 0 var(--ink),
+						1.7678px 1.7678px 0 var(--ink),
+						0.9567px 2.3097px 0 var(--ink),
+						0 2.5px 0 var(--ink),
+						-0.9567px 2.3097px 0 var(--ink),
+						-1.7678px 1.7678px 0 var(--ink),
+						-2.3097px 0.9567px 0 var(--ink),
+						-2.5px 0 0 var(--ink),
+						-2.3097px -0.9567px 0 var(--ink),
+						-1.7678px -1.7678px 0 var(--ink),
+						-0.9567px -2.3097px 0 var(--ink),
+						-0 -2.5px 0 var(--ink),
+						0.9567px -2.3097px 0 var(--ink),
+						1.7678px -1.7678px 0 var(--ink),
+						2.3097px -0.9567px 0 var(--ink),
+						4px 4px 0 var(--ink);
+				}
+
+				body.kid-mode {
+					--cartoon-shadow: 4px 4px 0 var(--ink);
+				}
+
+				body.kid-mode .listen-cta {
+					flex-direction: column;
+					gap: 12px;
+				}
+
+				body.kid-mode .listen-cta-icon {
+					width: 96px;
+					height: 96px;
+				}
+
+				body.kid-mode .listen-cta-icon svg {
+					width: 40px;
+					height: 40px;
+				}
+
+				body.kid-mode .listen-cta-label {
+					font-size: 1.2rem;
+				}
+
+				/* Room to spell out Listen / Stop in the toolbar */
+				body.kid-mode #listenButton {
+					flex: 0 0 auto;
+					width: auto;
+					padding: 0 18px;
+					font-size: 1rem;
+				}
+
+				body.kid-mode .controls .btn-label {
+					display: inline;
+				}
+			}
 		</style>
 	</head>
 	<body>
@@ -1544,6 +1970,11 @@
 			<header class="app-header">
 				<h1>Pitch Detector</h1>
 				<p class="app-subtitle">Play a note and the app names it &mdash; or set a target note to practice</p>
+				<label class="mode-switch" title="Kid mode: just Listen and the note name">
+					<input type="checkbox" id="kidModeToggle" onchange="setKidMode(this.checked)">
+					<span class="sustain-slider"></span>
+					<span>Kid mode</span>
+				</label>
 			</header>
 
 			<div class="controls">
@@ -1644,9 +2075,9 @@
 							<div class="tuner-needle" id="tuner-needle"></div>
 						</div>
 						<div class="tuner-labels">
-							<span>&#9837; flat</span>
+							<span><span class="std-only">&#9837; flat</span><span class="kid-only">low</span></span>
 							<span id="tuner-readout">&ndash;</span>
-							<span>sharp &#9839;</span>
+							<span><span class="std-only">sharp &#9839;</span><span class="kid-only">high</span></span>
 						</div>
 					</div>
 				</div>

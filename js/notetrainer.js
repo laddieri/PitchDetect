@@ -62,6 +62,14 @@ var isSuccess = false;
 var fireworksAnimID = null;
 var fireworksParticles = [];
 
+// Kid mode: a stripped-down view (Listen + big note name + simple meter).
+// Holding a note in tune for KID_CELEBRATE_MS celebrates it once.
+var kidMode = false;
+var KID_CELEBRATE_MS = 1000;
+var kidInTuneSince = null;
+var kidInTuneMidi = null;
+var kidCelebratedMidi = null;
+
 // Staff rendering constants
 var STAFF_WIDTH = 200;
 var STAFF_HEIGHT = 140;
@@ -578,7 +586,7 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		renderNotes(noteName, octave, false, null);
 	} else if (ghostNoteName && ghostNoteOctave !== null) {
 		renderNotes(ghostNoteName, ghostNoteOctave, true, ghostModifier);
-	} else if (!listenActive) {
+	} else if (!listenActive && !kidMode) {
 		// Empty staff: draw a faint note on the middle line (pulsed via CSS)
 		// so the staff reads as tappable without instruction text. No
 		// accidental is added, so it never implies a pitch.
@@ -799,7 +807,7 @@ function getSvgCoordinates(event) {
 function handleStaffMouseMove(event) {
 	// Skip the hover preview on touch devices — the synthetic mousemove a tap
 	// fires would shift the staff before the click reads its coordinates.
-	if (!staffHoverEnabled) return;
+	if (!staffHoverEnabled || kidMode) return;
 
 	// Don't show ghost note if we already have a placed note
 	if (currentNote !== null) return;
@@ -849,6 +857,7 @@ function handleStaffMouseLeave(event) {
 
 // Handle click on staff
 function handleStaffClick(event) {
+	if (kidMode) return;  // no target notes in kid mode
 	var coords = getSvgCoordinates(event);
 	if (!coords) return;
 
@@ -1052,6 +1061,10 @@ function updatePianoDisplay(writtenMidi) {
 // Build the big note label as HTML: note letters with real sharp/flat glyphs
 // and a smaller octave number, e.g. A4 or C(sharp)4 / D(flat)4 for enharmonics
 function writtenNoteHTML(noteName, octave) {
+	if (kidMode) {
+		var spelled = spellNoteForKey(noteStrings.indexOf(noteName), getWrittenKey());
+		return keyDisplayName(spelled) + '<span class="note-octave">' + octave + '</span>';
+	}
 	var html = keyDisplayName(noteName) + '<span class="note-octave">' + octave + '</span>';
 	if (enharmonicMap[noteName]) {
 		html += ' / ' + keyDisplayName(enharmonicMap[noteName]) + '<span class="note-octave">' + octave + '</span>';
@@ -1115,6 +1128,15 @@ function updateNoteDisplay() {
 		noteNameElem.textContent = "-";
 		noteNameElem.style.opacity = "1";
 	}
+
+	// Letter name for kid mode's per-letter colors
+	var display = document.getElementById("note-display");
+	if (midi !== null) {
+		display.setAttribute("data-letter", spellNoteForKey(((midi % 12) + 12) % 12, getWrittenKey()).charAt(0));
+	} else {
+		display.removeAttribute("data-letter");
+	}
+
 	updateConcertPitchDisplay(midi);
 	updatePianoDisplay(midi);
 	updateIdleState();
@@ -1889,6 +1911,14 @@ function commitDetectedNote(writtenMidi) {
 		redrawStavesForCurrentState();
 		updateNoteDisplay();
 	}
+
+	if (kidMode) {
+		// Restart the bounce animation for the new note
+		var noteNameElem = document.getElementById("note-name");
+		noteNameElem.classList.remove("kid-pop");
+		void noteNameElem.offsetWidth;
+		noteNameElem.classList.add("kid-pop");
+	}
 }
 
 // Clear the detected note from the staff and note displays
@@ -1897,6 +1927,8 @@ function clearDetectedNote() {
 	detectedNote = null;
 	detectedOctave = null;
 	isSuccess = false;
+	// Silence ends the note: playing it again can celebrate again
+	kidCelebratedMidi = null;
 	if (currentNote !== null) {
 		drawDetectedStaff(null, null);
 		updateIdleState();
@@ -1937,8 +1969,32 @@ function updateTunerMeter(cents) {
 	// The track spans ±50¢, so 1¢ = 1% of the width
 	needle.style.left = (50 + c) + "%";
 
+	if (kidMode) {
+		readout.textContent = absC <= 10 ? "Just right! \u2b50" : (c < 0 ? "Too low" : "Too high");
+		return;
+	}
+
 	var rounded = Math.round(c);
 	readout.textContent = (rounded > 0 ? "+" : "") + rounded + "\u00a2";  // cents sign
+}
+
+// Kid mode's reward: fireworks once a note has been held in tune for
+// KID_CELEBRATE_MS (once per note, until it stops or changes)
+function updateKidCelebration(now) {
+	var inTune = detectedMidi !== null && smoothedCents !== null && Math.abs(smoothedCents) <= 10;
+	if (!inTune) {
+		kidInTuneSince = null;
+		return;
+	}
+	if (kidInTuneSince === null || kidInTuneMidi !== detectedMidi) {
+		kidInTuneSince = now;
+		kidInTuneMidi = detectedMidi;
+		return;
+	}
+	if (detectedMidi !== kidCelebratedMidi && now - kidInTuneSince >= KID_CELEBRATE_MS) {
+		kidCelebratedMidi = detectedMidi;
+		launchFireworks();
+	}
 }
 
 // Mic pitch detection animation loop
@@ -1988,6 +2044,8 @@ function updateListenPitch() {
 			clearDetectedNote();
 		}
 	}
+
+	if (kidMode) updateKidCelebration(now);
 
 	listenRafID = requestAnimationFrame(updateListenPitch);
 }
@@ -2439,6 +2497,27 @@ function applyResponsiveControls() {
 	}
 }
 
+// Switch between kid mode and the full app. Entering kid mode drops the
+// target note (and any sustained playback) since kid mode has no targets.
+function setKidMode(on) {
+	kidMode = !!on;
+	try { localStorage.setItem("pitchdetect-kid-mode", kidMode ? "1" : "0"); } catch(e) {}
+	var toggle = document.getElementById("kidModeToggle");
+	if (toggle) toggle.checked = kidMode;
+	document.body.classList.toggle("kid-mode", kidMode);
+
+	closePopovers();
+	kidInTuneSince = null;
+	kidCelebratedMidi = null;
+	if (kidMode && (currentNote !== null || ghostNote !== null)) {
+		clearNote();
+	}
+
+	updateTunerMeter(null);
+	updateNoteDisplay();
+	redrawStavesForCurrentState();
+}
+
 // Clear the current note
 function clearNote() {
 	stopNote();
@@ -2620,6 +2699,11 @@ document.addEventListener("DOMContentLoaded", function() {
 		}
 	} catch(e) {}
 	updateKeyDropdown();
+
+	// Restore kid mode (it sets the body class and draws the staff too)
+	try {
+		if (localStorage.getItem("pitchdetect-kid-mode") === "1") setKidMode(true);
+	} catch(e) {}
 
 	// Draw initial staff (uses restored instrument and key for correct clef/key sig)
 	drawStaff(null, null, null, null);
