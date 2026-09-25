@@ -230,14 +230,15 @@ var fluteFingerings = {
 //   9  = alto sax (written - 9 = concert pitch, which the images are indexed by)
 //   14 = tenor sax
 //   21 = bari sax
-// w/h are a representative intrinsic size for the set, used to reserve the
-// image's aspect-ratio box before it loads so the panel doesn't resize while
-// the image downloads. (Trombone images are a uniform 534x112.)
+// w/h are the largest width and height found in the set. Every chart is drawn
+// inside a box of that size (scaled down to fit the window), so the panel stays
+// the same size from note to note even though individual images differ.
+// (Trombone and horn images are uniform.)
 var imageFingeringMap = {
 	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0,  w: 331, h: 476 },
 	"clarinet":  { folder: "Clarinet",  ext: "png", transposition: 0,  w: 190, h: 532 },
-	"flute":     { folder: "Flute",     ext: "png", transposition: 0,  w: 496, h: 130 },
-	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0,  w: 223, h: 451 },
+	"flute":     { folder: "Flute",     ext: "png", transposition: 0,  w: 496, h: 163 },
+	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0,  w: 223, h: 469 },
 	// All saxophones share the same fingering images indexed at writtenMidi - 12.
 	// (The image set uses a MIDI numbering where C4 = 48 instead of 60,
 	//  so we subtract 12 regardless of which saxophone is selected.)
@@ -261,7 +262,8 @@ function displayImageFingering(container, instrument, writtenMidi) {
 	// the current image until the new one finishes loading, so the panel never
 	// collapses to empty (and back) while the image downloads.
 	var img = container.querySelector("img.fingering-image");
-	if (!img) {
+	var missing = container.querySelector(".no-fingering");
+	if (!img || !missing) {
 		container.innerHTML = "";
 		img = document.createElement("img");
 		img.className = "fingering-image";
@@ -270,17 +272,31 @@ function displayImageFingering(container, instrument, writtenMidi) {
 		// "#fingering-display img" so the chart scales to fit the window.
 		img.style.display = "block";
 		img.style.margin = "0 auto";
+		// Notes outside the chart set 404. Swap in a message rather than
+		// replacing the <img>, so the panel keeps its reserved size.
+		missing = document.createElement("div");
+		missing.className = "no-fingering";
+		missing.textContent = "No fingering image available for this note";
+		missing.style.display = "none";
+		img.onload = function() {
+			img.style.display = "block";
+			missing.style.display = "none";
+		};
 		img.onerror = function() {
-			container.innerHTML = '<div style="text-align:center;color:#999;padding:20px;">No fingering image available for this note</div>';
+			img.style.display = "none";
+			missing.style.display = "block";
 		};
 		container.appendChild(img);
+		container.appendChild(missing);
 	}
 
-	// Reserve the aspect-ratio box up front (via width/height attributes) so even
-	// the first load doesn't shift the layout. CSS keeps it responsive.
+	// Fix the box to the set's largest chart (via aspect-ratio, which unlike the
+	// width/height attributes isn't replaced by each image's own ratio once it
+	// loads). CSS sets the height and keeps it responsive.
 	if (info.w && info.h) {
 		img.width = info.w;
 		img.height = info.h;
+		img.style.aspectRatio = info.w + " / " + info.h;
 	}
 
 	img.src = imgPath;
@@ -536,9 +552,6 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 		var noData = document.createElement("div");
 		noData.className = "no-fingering";
 		noData.textContent = "No fingering data available for this note";
-		noData.style.textAlign = "center";
-		noData.style.color = "#999";
-		noData.style.padding = "20px";
 		container.appendChild(noData);
 		return false;  // No alternates available
 	}
@@ -594,6 +607,17 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 	}
 
 	return hasAlternates;
+}
+
+// Height reserved for an instrument's fingering panel on desktop, as a CSS
+// length. It depends only on the instrument, never the note, so stepping
+// through notes can't resize the panel (and shift the layout above it).
+function fingeringBoxHeight(instrument) {
+	var info = imageFingeringMap[instrument];
+	if (info) {
+		return "min(" + info.h + "px, 280px, 34vh)";
+	}
+	return "min(120px, 16vh)";  // one valve diagram
 }
 
 // Check if instrument has fingering data
