@@ -2278,6 +2278,7 @@ function updateFingeringDisplay() {
 	// a note fills it rather than growing the page.
 	fingeringContainer.classList.add("active");
 	updatePanePager();
+	fingeringDisplay.style.setProperty("--fingering-h", fingeringBoxHeight(instrument));
 
 	if (currentMidi === null) {
 		fingeringDisplay.innerHTML = '<div class="panel-placeholder">\u2013</div>';
