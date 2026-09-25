@@ -2267,10 +2267,9 @@ function updateFingeringDisplay() {
 	var alternateButton = document.getElementById("alternateButton");
 
 	// Instruments without fingering data never reserve the box.
-	var panels = document.getElementById("bottom-panels");
 	if (!hasFingeringData(instrument)) {
 		fingeringContainer.classList.remove("active");
-		panels.classList.remove("wide-fingering");
+		updatePanePager();
 		return;
 	}
 
@@ -2278,11 +2277,7 @@ function updateFingeringDisplay() {
 	// placed, show a placeholder so the panel keeps its footprint and placing
 	// a note fills it rather than growing the page.
 	fingeringContainer.classList.add("active");
-
-	// Landscape charts (flute keys, trombone slide) need the full width on
-	// small screens; the mobile layout stacks the piano below them.
-	var imageInfo = (typeof imageFingeringMap !== "undefined") ? imageFingeringMap[instrument] : null;
-	panels.classList.toggle("wide-fingering", !!(imageInfo && imageInfo.w > imageInfo.h));
+	updatePanePager();
 
 	if (currentMidi === null) {
 		fingeringDisplay.innerHTML = '<div class="panel-placeholder">\u2013</div>';
@@ -2320,6 +2315,65 @@ function toggleAlternateFingerings() {
 // On small screens Sustain moves to an overflow menu; on desktop it stays in
 // the toolbar.
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// Fingering / piano pager (mobile)
+// On small screens the two panels are pages of a horizontal scroll-snap
+// strip: fingering first, swipe left for the piano. The dots mirror the
+// current page and switch pages on tap. On desktop the strip is a plain row
+// showing both, and none of this has any visible effect.
+// ---------------------------------------------------------------------------
+
+// The panes currently in the pager (the fingering pane drops out for
+// instruments without fingering data, leaving the piano alone)
+function visiblePanes() {
+	var pager = document.getElementById("pane-pager");
+	if (!pager) return [];
+	return Array.prototype.filter.call(pager.children, function(pane) {
+		return pane.classList.contains("active");
+	});
+}
+
+// Scroll to pane i (0 = fingering, 1 = piano when both are present)
+function showPane(i, instant) {
+	var pager = document.getElementById("pane-pager");
+	var pane = visiblePanes()[i];
+	if (!pager || !pane) return;
+	pager.scrollTo({ left: pane.offsetLeft, behavior: instant ? "auto" : "smooth" });
+	setActivePaneDot(i);
+}
+
+// Which pane the pager is showing, by nearest scroll position
+function currentPaneIndex() {
+	var pager = document.getElementById("pane-pager");
+	var panes = visiblePanes();
+	if (!pager || panes.length === 0) return 0;
+	var best = 0;
+	for (var i = 1; i < panes.length; i++) {
+		if (Math.abs(panes[i].offsetLeft - pager.scrollLeft) < Math.abs(panes[best].offsetLeft - pager.scrollLeft)) {
+			best = i;
+		}
+	}
+	return best;
+}
+
+function setActivePaneDot(i) {
+	[0, 1].forEach(function(n) {
+		var dot = document.getElementById("pane-dot-" + n);
+		if (!dot) return;
+		dot.classList.toggle("active", n === i);
+		if (n === i) dot.setAttribute("aria-current", "true");
+		else dot.removeAttribute("aria-current");
+	});
+}
+
+// Show the dots only when there are two panes to page between
+function updatePanePager() {
+	var panels = document.getElementById("bottom-panels");
+	if (!panels) return;
+	panels.classList.toggle("has-pages", visiblePanes().length > 1);
+	setActivePaneDot(currentPaneIndex());
+}
 
 // Show a transient inline error notice (replaces alert(), which blocks the
 // page and reads as a browser failure rather than an app message)
@@ -2465,6 +2519,9 @@ document.addEventListener("DOMContentLoaded", function() {
 		updateKeyDropdown();
 		updateNoteDisplay();
 		redrawStavesForCurrentState();
+
+		// A new instrument starts on its fingering (the default pane)
+		showPane(0, true);
 	});
 
 	// Set up event handlers for staff interaction
@@ -2472,6 +2529,14 @@ document.addEventListener("DOMContentLoaded", function() {
 	staffContainer.addEventListener("click", handleStaffClick);
 	staffContainer.addEventListener("mousemove", handleStaffMouseMove);
 	staffContainer.addEventListener("mouseleave", handleStaffMouseLeave);
+
+	// Keep the pager dots in step with swipes
+	var panePager = document.getElementById("pane-pager");
+	if (panePager) {
+		panePager.addEventListener("scroll", function() {
+			setActivePaneDot(currentPaneIndex());
+		}, { passive: true });
+	}
 
 	// Set up keyboard handler for arrow key navigation
 	document.addEventListener("keydown", handleKeyDown);
