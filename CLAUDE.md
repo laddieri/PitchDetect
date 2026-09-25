@@ -83,6 +83,19 @@ All state is module-global. The main clusters:
   second staff open; it's opened by `startListening()` *and* by
   `handleStaffClick()` when a target is placed mid-listen.
 
+### Kid mode
+
+A header switch (`#kidModeToggle` → `setKidMode()`, persisted as
+`pitchdetect-kid-mode`) adds `body.kid-mode`, which strips the app to
+instrument + Listen, a big note name colored by letter (`data-letter` on
+`#note-display`), the single staff, and a word-based meter ("Too low / Just
+right! / Too high"). Everything else is hidden by one CSS rule list in the
+"Kid mode" block at the end of the `<style>`. JS side: staff clicks/hover are
+ignored, entering kid mode clears any target, note labels use one spelling
+(`writtenNoteHTML`), and `updateKidCelebration()` fires fireworks once a note
+is held in tune for `KID_CELEBRATE_MS`. Elements with `.std-only` / `.kid-only`
+swap text between modes.
+
 ### Layout stability rules (load-bearing conventions)
 
 1. **Reserve, don't pop:** panels keep their footprint with placeholders;
