@@ -57,10 +57,6 @@ var NOTE_CLEAR_HOLD_MS = 300;
 // Smoothed cents-offset value driving the tuner meter needle
 var smoothedCents = null;
 
-// True once the user has started listening at least once (getting-started
-// guide progress)
-var hasEverListened = false;
-
 // Success state (detected note matches placed note)
 var isSuccess = false;
 var fireworksAnimID = null;
@@ -77,9 +73,9 @@ var STAFF_VIEWBOX_HEIGHT = 120;  // Tight viewBox height around staff lines
 
 // Hover-based ghost preview only makes sense with a real hovering pointer.
 // On touch devices a tap synthesizes a mousemove immediately before the click;
-// letting that render a ghost note collapses the getting-started guide and
-// shifts the staff up, so the click (using the original coordinate) lands well
-// below where the user touched. Touch placement has no drag preview by design,
+// letting that render a ghost note swaps the note panel out of its idle
+// state mid-tap, which can shift the layout before the click reads its
+// coordinate. Touch placement has no drag preview by design,
 // so skip the hover preview entirely there.
 var staffHoverEnabled = !(window.matchMedia && window.matchMedia("(hover: none), (pointer: coarse)").matches);
 
@@ -576,19 +572,29 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		}
 	}
 
-	// Only hide instruction after user has placed a note by clicking
-	// (detecting a mic note should not remove it)
-	var instructionEl = document.getElementById("staff-instruction");
-	if (instructionEl) {
-		instructionEl.style.display = currentNote !== null ? "none" : "";
-	}
-
 	// Render placed note or ghost note
+	var idleHint = false;
 	if (noteName && octave !== null) {
 		renderNotes(noteName, octave, false, null);
 	} else if (ghostNoteName && ghostNoteOctave !== null) {
 		renderNotes(ghostNoteName, ghostNoteOctave, true, ghostModifier);
+	} else if (!listenActive) {
+		// Empty staff: draw a faint note on the middle line (pulsed via CSS)
+		// so the staff reads as tappable without instruction text. No
+		// accidental is added, so it never implies a pitch.
+		idleHint = true;
+		try {
+			var hint = new VF.StaveNote({ clef: clef, keys: [clef === "bass" ? "d/3" : "b/4"], duration: "w" });
+			hint.setStyle({ fillStyle: "rgba(79, 70, 229, 0.6)", strokeStyle: "rgba(79, 70, 229, 0.6)" });
+			var hintVoice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+			hintVoice.addTickables([hint]);
+			new VF.Formatter().joinVoices([hintVoice]).format([hintVoice], noteAreaWidth);
+			hintVoice.draw(context, stave);
+		} catch (e) {
+			console.log("Could not render staff hint:", e.message);
+		}
 	}
+	containerEl.classList.toggle("staff-idle", idleHint);
 
 	// Position the clickable key-signature overlay over the clef + key signature
 	positionKeySigHotspot();
@@ -905,7 +911,6 @@ function handleStaffClick(event) {
 function handleKeyDown(event) {
 	if (event.key === "Escape") {
 		closePopovers();
-		toggleSheet(false);
 		return;
 	}
 
@@ -967,7 +972,7 @@ function drawPianoKeyboard(concertPc, concertNoteDisplay) {
 	var display = document.getElementById("piano-display");
 	if (!display) return;
 
-	var W = 36, WH = 84, BW = 20, BH = 52, labelH = 22;
+	var W = 36, WH = 84, BW = 20, BH = 52, labelH = 26;
 	var totalWidth = 7 * W;
 	var totalHeight = WH + labelH;
 	var cs = getComputedStyle(document.documentElement);
@@ -985,7 +990,8 @@ function drawPianoKeyboard(concertPc, concertNoteDisplay) {
 	];
 
 	var labelX = totalWidth / 2;
-	var s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ' + totalWidth + ' ' + totalHeight + '" style="display:block">';
+	// 1px margin so the outer border's stroke isn't clipped at the edges
+	var s = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 ' + (totalWidth + 2) + ' ' + (totalHeight + 2) + '" style="display:block">';
 
 	// White key background with outer border
 	s += '<rect x="0" y="0" width="' + totalWidth + '" height="' + WH + '" fill="#fff" stroke="' + border + '" stroke-width="1" rx="4"/>';
@@ -1015,7 +1021,7 @@ function drawPianoKeyboard(concertPc, concertNoteDisplay) {
 	}
 
 	// Note label below keyboard
-	s += '<text x="' + labelX + '" y="' + (WH + labelH - 4) + '" text-anchor="middle" font-size="13" font-weight="700" fill="' + accent + '" font-family="Inter,-apple-system,BlinkMacSystemFont,sans-serif">' + concertNoteDisplay + '</text>';
+	s += '<text x="' + labelX + '" y="' + (WH + labelH - 4) + '" text-anchor="middle" font-size="17" font-weight="700" fill="' + accent + '" font-family="Inter,-apple-system,BlinkMacSystemFont,sans-serif">' + concertNoteDisplay + '</text>';
 
 	s += '</svg>';
 	display.innerHTML = s;
@@ -1026,20 +1032,13 @@ function updatePianoDisplay(writtenMidi) {
 	var container = document.getElementById("piano-container");
 	if (!container) return;
 
-	// Reserve the panel as soon as an instrument is selected (the piano shows
-	// for every instrument), so placing a note fills the box rather than
-	// expanding the bottom row.
-	var instrumentSelected = !!document.getElementById("instrument").value;
-	if (!instrumentSelected) {
-		container.classList.remove("active");
-		return;
-	}
-
+	// Always reserved (with a placeholder until there's a note), so placing
+	// a note fills the box rather than expanding the bottom row.
 	container.classList.add("active");
 
 	if (writtenMidi === null || writtenMidi === undefined) {
-		document.getElementById("piano-display").innerHTML =
-			'<div class="panel-placeholder">Place a note to see its concert pitch</div>';
+		// An unlit keyboard: shows what this panel is for without any text
+		drawPianoKeyboard(-1, "");
 		return;
 	}
 
@@ -1118,7 +1117,7 @@ function updateNoteDisplay() {
 	}
 	updateConcertPitchDisplay(midi);
 	updatePianoDisplay(midi);
-	updateGettingStarted();
+	updateIdleState();
 }
 
 // Shrink the note-name text so longer labels (sharps/flats shown with their
@@ -1164,35 +1163,17 @@ function updateControlStates() {
 	sustainSwitch.classList.toggle("is-disabled", !hasNote);
 	sustainToggle.disabled = !hasNote;
 
-	updateGettingStarted();
+	updateIdleState();
 }
 
-// Show the "How it works" steps in the note panel until any note exists
-// (placed, hovered ghost, or mic-detected), and keep step progress current.
-function updateGettingStarted() {
+// With nothing to show (no placed, hovered, or heard note, and not
+// listening), the note panel becomes a big Listen button. An active listen
+// session counts as "has a note" so silence doesn't flip the panel back.
+function updateIdleState() {
 	var display = document.getElementById("note-display");
-	var step1 = document.getElementById("gs-step-1");
-	var step2 = document.getElementById("gs-step-2");
-	if (!display || !step1 || !step2) return;
-
-	// While listening, stay in note mode even during silence — flipping back
-	// to the (taller) guide every time detection drops would make the layout
-	// below jump between sizes.
-	var hasAnyNote = currentNote !== null || ghostNote !== null || detectedMidi !== null || listenActive;
-	display.classList.toggle("show-guide", !hasAnyNote);
-	if (hasAnyNote) return;
-
-	var instrumentSelected = !!document.getElementById("instrument").value;
-
-	// Step 1 is Listen (the primary feature \u2014 no instrument required);
-	// step 2 is picking an instrument, which refines clef and key.
-	step1.classList.toggle("done", hasEverListened);
-	step1.classList.toggle("current", !hasEverListened);
-	step1.querySelector(".gs-num").textContent = hasEverListened ? "\u2713" : "1";
-
-	step2.classList.toggle("done", instrumentSelected);
-	step2.classList.toggle("current", hasEverListened && !instrumentSelected);
-	step2.querySelector(".gs-num").textContent = instrumentSelected ? "\u2713" : "2";
+	if (!display) return;
+	var idle = currentNote === null && ghostNote === null && detectedMidi === null && !listenActive;
+	display.classList.toggle("idle", idle);
 }
 
 // Adjust pitch by semitones (for mobile pitch control buttons)
@@ -1903,7 +1884,7 @@ function commitDetectedNote(writtenMidi) {
 	// the single staff (unless a hover ghost is being previewed there)
 	if (currentNote !== null) {
 		drawDetectedStaff(detectedNote, detectedOctave);
-		updateGettingStarted();
+		updateIdleState();
 	} else {
 		redrawStavesForCurrentState();
 		updateNoteDisplay();
@@ -1918,7 +1899,7 @@ function clearDetectedNote() {
 	isSuccess = false;
 	if (currentNote !== null) {
 		drawDetectedStaff(null, null);
-		updateGettingStarted();
+		updateIdleState();
 	} else {
 		redrawStavesForCurrentState();
 		updateNoteDisplay();
@@ -2040,15 +2021,14 @@ function startListening() {
 		listenBuffer = new Float32Array(listenAnalyser.fftSize);
 
 		listenActive = true;
-		hasEverListened = true;
 		pendingMidi = null;
 		pendingFrames = 0;
 		lastPitchTime = 0;
 		updateListenPitch();
 
-		// Switch the note panel out of the guide immediately (it stays in
-		// note mode for the whole session; see updateGettingStarted)
-		updateGettingStarted();
+		// Switch the note panel out of its idle Listen button immediately (it
+		// stays in note mode for the whole session; see updateIdleState)
+		updateIdleState();
 
 		// Slide the tuner meter open (idle until a pitch is detected)
 		updateTunerMeter(null);
@@ -2134,7 +2114,7 @@ function stopListening() {
 		listenButton.classList.remove("listening");
 	}
 
-	updateGettingStarted();
+	updateIdleState();
 }
 
 // Format a key name for display, replacing b/# with ♭/♯
@@ -2287,9 +2267,10 @@ function updateFingeringDisplay() {
 	var alternateButton = document.getElementById("alternateButton");
 
 	// Instruments without fingering data never reserve the box.
+	var panels = document.getElementById("bottom-panels");
 	if (!hasFingeringData(instrument)) {
 		fingeringContainer.classList.remove("active");
-		updateSheetState();
+		panels.classList.remove("wide-fingering");
 		return;
 	}
 
@@ -2297,10 +2278,14 @@ function updateFingeringDisplay() {
 	// placed, show a placeholder so the panel keeps its footprint and placing
 	// a note fills it rather than growing the page.
 	fingeringContainer.classList.add("active");
-	updateSheetState();
+
+	// Landscape charts (flute keys, trombone slide) need the full width on
+	// small screens; the mobile layout stacks the piano below them.
+	var imageInfo = (typeof imageFingeringMap !== "undefined") ? imageFingeringMap[instrument] : null;
+	panels.classList.toggle("wide-fingering", !!(imageInfo && imageInfo.w > imageInfo.h));
 
 	if (currentMidi === null) {
-		fingeringDisplay.innerHTML = '<div class="panel-placeholder">Place a note on the staff to see its fingering</div>';
+		fingeringDisplay.innerHTML = '<div class="panel-placeholder">\u2013</div>';
 		alternateButton.style.display = "none";
 		return;
 	}
@@ -2331,72 +2316,10 @@ function toggleAlternateFingerings() {
 }
 
 // ---------------------------------------------------------------------------
-// Mobile bottom sheet & overflow menu
-// On small screens the fingering/piano panels live in a slide-up sheet and
-// Sustain moves to an overflow menu; on desktop none of this chrome shows.
+// Mobile overflow menu
+// On small screens Sustain moves to an overflow menu; on desktop it stays in
+// the toolbar.
 // ---------------------------------------------------------------------------
-
-// True when the current sheet tab was switched automatically (instrument has
-// no fingering data), so it can switch back when fingerings return.
-var sheetTabAuto = false;
-
-// Open/close the bottom sheet. Pass a boolean to force a state.
-function toggleSheet(force) {
-	var panels = document.getElementById("bottom-panels");
-	var scrim = document.getElementById("sheet-scrim");
-	var handle = document.getElementById("sheet-handle");
-	if (!panels) return;
-	var open = typeof force === "boolean" ? force : !panels.classList.contains("open");
-	panels.classList.toggle("open", open);
-	if (scrim) scrim.classList.toggle("active", open);
-	if (handle) handle.setAttribute("aria-expanded", open ? "true" : "false");
-}
-
-// Switch which panel the sheet shows. isAuto marks programmatic switches
-// (instrument without fingering data) so a user's own choice is respected.
-function setSheetTab(tab, isAuto) {
-	if (!isAuto) sheetTabAuto = false;
-	var panels = document.getElementById("bottom-panels");
-	if (!panels) return;
-	panels.classList.toggle("tab-fingering", tab === "fingering");
-	panels.classList.toggle("tab-piano", tab === "piano");
-	document.getElementById("tab-fingering").classList.toggle("active", tab === "fingering");
-	document.getElementById("tab-piano").classList.toggle("active", tab === "piano");
-}
-
-// Keep the sheet in sync with the app state: hidden until an instrument is
-// chosen, fingering tab only for instruments with fingering data, and a live
-// mini-summary on the handle so common lookups don't need opening the sheet.
-function updateSheetState() {
-	var panels = document.getElementById("bottom-panels");
-	var handleLabel = document.getElementById("sheet-handle-label");
-	var tabFingering = document.getElementById("tab-fingering");
-	if (!panels || !handleLabel || !tabFingering) return;
-
-	var instrument = document.getElementById("instrument").value;
-	var hasFingering = !!instrument && hasFingeringData(instrument);
-
-	panels.classList.toggle("sheet-hidden", !instrument);
-	tabFingering.style.display = hasFingering ? "" : "none";
-	if (!hasFingering && panels.classList.contains("tab-fingering")) {
-		setSheetTab("piano", true);
-		sheetTabAuto = true;
-	} else if (hasFingering && sheetTabAuto) {
-		setSheetTab("fingering", true);
-		sheetTabAuto = false;
-	}
-
-	var label = hasFingering ? "Fingering & Piano" : "Piano";
-	if (hasFingering && currentMidi !== null &&
-			typeof threeValveOffset !== "undefined" && (instrument in threeValveOffset)) {
-		var fingering = getFingering(instrument, currentMidi);
-		if (fingering && fingering.primary) {
-			label = (fingering.primary.length ? "Valves " + fingering.primary.join("-") : "Open")
-				+ " \u00b7 Piano";
-		}
-	}
-	handleLabel.textContent = label;
-}
 
 // Show a transient inline error notice (replaces alert(), which blocks the
 // page and reads as a browser failure rather than an app message)
@@ -2453,7 +2376,7 @@ function applyResponsiveControls() {
 	}
 
 	// The compact single-row toolbar clips the long placeholder; shorten it
-	// there (the getting-started guide already says what to do)
+	// there
 	var placeholder = document.querySelector('#instrument option[value=""]');
 	if (placeholder) {
 		placeholder.textContent = (mobileLayoutMq && mobileLayoutMq.matches)
@@ -2552,17 +2475,6 @@ document.addEventListener("DOMContentLoaded", function() {
 
 	// Set up keyboard handler for arrow key navigation
 	document.addEventListener("keydown", handleKeyDown);
-
-	// "Click"/"press" reads wrong on touch devices — swap the wording, and
-	// name the mic by its icon since the compact toolbar hides button labels
-	if (window.matchMedia && window.matchMedia("(pointer: coarse)").matches) {
-		var step1Label = document.getElementById("gs-step-1-label");
-		if (step1Label) step1Label.textContent = "Tap the mic button and play a note \u2014 it appears on the staff";
-		var step3Label = document.getElementById("gs-step-3-label");
-		if (step3Label) step3Label.textContent = "Or tap the staff to set a target note to practice";
-		var instructionEl = document.getElementById("staff-instruction");
-		if (instructionEl) instructionEl.textContent = "Tap the staff to set a target note";
-	}
 
 	// Re-render the staves whenever their containers change size. The SVGs
 	// stretch to fill their container, but their internal coordinate width is
