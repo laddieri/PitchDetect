@@ -85,8 +85,10 @@ All state is module-global. The main clusters:
 
 ### Kid mode
 
-A header switch (`#kidModeToggle` → `setKidMode()`, persisted as
-`pitchdetect-kid-mode`) adds `body.kid-mode`, which strips the app to
+Kid mode is the **default**: `<body class="kid-mode">` in the HTML and
+`kidMode = true` in JS, so the full app never flashes on load. The header's
+**Advanced mode** switch (`#advancedModeToggle` → `setKidMode(!checked)`,
+persisted as `pitchdetect-advanced-mode`) turns it off. `body.kid-mode` strips the app to
 instrument + Listen, a big note name colored by letter (`data-letter` on
 `#note-display`), the single staff, and a word-based meter ("Too low / Just
 right! / Too high"). Everything else is hidden by one CSS rule list in the
