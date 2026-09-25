@@ -30,8 +30,12 @@ var showingAlternates = false;
 // Sustain state
 var sustainPlaying = false;
 
+// Pending removal of the Play button's one-shot highlight
+var oneshotTimer = null;
+
 // Listen (mic pitch detection) state
 var listenActive = false;
+var listenStarting = false;  // mic permission/stream request in flight
 var listenAudioContext = null;
 var listenAnalyser = null;
 var listenStream = null;
@@ -812,16 +816,9 @@ function handleStaffMouseMove(event) {
 		ghostMidi = displayMidi;
 		currentModifier = null;
 
-		// Redraw staff with ghost note
+		// Redraw staff and note panel with the ghost note
 		drawStaff(null, null, ghostNote, ghostOctave, null);
-
-		// Update display with ghost note info
-		var noteNameElem = document.getElementById("note-name");
-		noteNameElem.innerHTML = writtenNoteHTML(ghostNote, ghostOctave);
-		noteNameElem.style.opacity = "0.5";
-		updateConcertPitchDisplay(ghostMidi);
-		updatePianoDisplay(ghostMidi);
-		updateGettingStarted();
+		updateNoteDisplay();
 	}
 }
 
@@ -838,16 +835,10 @@ function handleStaffMouseLeave(event) {
 	ghostMidi = null;
 	currentModifier = null;
 
-	// Redraw staff without ghost note
-	drawStaff(null, null, null, null);
-
-	// Reset display
-	var noteNameElem = document.getElementById("note-name");
-	noteNameElem.textContent = "-";
-	noteNameElem.style.opacity = "1";
-	updateConcertPitchDisplay(null);
-	updatePianoDisplay(null);
-	updateGettingStarted();
+	// Redraw without the ghost — falling back to the live mic detection if
+	// one is showing, rather than blanking it until the next note change
+	redrawStavesForCurrentState();
+	updateNoteDisplay();
 }
 
 // Handle click on staff
@@ -880,7 +871,6 @@ function handleStaffClick(event) {
 
 	// Update display
 	updateNoteDisplay();
-	document.getElementById("note-name").style.opacity = "1";
 
 	// Redraw staff with placed note
 	drawStaff(currentNote, currentOctave, null, null);
@@ -913,6 +903,19 @@ function handleStaffClick(event) {
 
 // Handle keyboard input for arrow key navigation
 function handleKeyDown(event) {
+	if (event.key === "Escape") {
+		closePopovers();
+		toggleSheet(false);
+		return;
+	}
+
+	// Leave arrow keys to form controls (changing the instrument or key from
+	// the keyboard) and to browser/OS shortcuts
+	var target = event.target;
+	if (target && (target.tagName === "SELECT" || target.tagName === "INPUT" ||
+			target.tagName === "TEXTAREA" || target.isContentEditable)) return;
+	if (event.altKey || event.ctrlKey || event.metaKey) return;
+
 	// Only handle arrow keys when we have a placed note
 	if (currentNote === null || currentMidi === null) return;
 
@@ -1090,19 +1093,31 @@ function updateConcertPitchDisplay(writtenMidi) {
 	}
 }
 
-// Update the note name display
+// Update the note name display. Same priority as the single staff (see
+// redrawStavesForCurrentState): placed target, else the hover ghost (dimmed),
+// else the live mic detection, else nothing.
 function updateNoteDisplay() {
 	var noteNameElem = document.getElementById("note-name");
+	var midi = null;
 
 	if (currentNote && currentOctave !== null) {
 		noteNameElem.innerHTML = writtenNoteHTML(currentNote, currentOctave);
-		updateConcertPitchDisplay(currentMidi);
-		updatePianoDisplay(currentMidi);
+		noteNameElem.style.opacity = "1";
+		midi = currentMidi;
+	} else if (ghostNote !== null) {
+		noteNameElem.innerHTML = writtenNoteHTML(ghostNote, ghostOctave);
+		noteNameElem.style.opacity = "0.5";
+		midi = ghostMidi;
+	} else if (listenActive && detectedNote !== null) {
+		noteNameElem.innerHTML = writtenNoteHTML(detectedNote, detectedOctave);
+		noteNameElem.style.opacity = "1";
+		midi = detectedMidi;
 	} else {
 		noteNameElem.textContent = "-";
-		updateConcertPitchDisplay(null);
-		updatePianoDisplay(null);
+		noteNameElem.style.opacity = "1";
 	}
+	updateConcertPitchDisplay(midi);
+	updatePianoDisplay(midi);
 	updateGettingStarted();
 }
 
@@ -1607,10 +1622,14 @@ function playNote() {
 				document.getElementById("playLabel").textContent = "Stop";
 				document.getElementById("playButton").classList.add("sustaining");
 			} else {
-				// Brief visual feedback so the user can see the click registered
+				// Brief visual feedback so the user can see the click registered.
+				// Restart the timer on replay so an earlier note's timeout
+				// doesn't cut the highlight short while this one still sounds.
 				var playButton = document.getElementById("playButton");
 				playButton.classList.add("playing-oneshot");
-				setTimeout(function() {
+				if (oneshotTimer) clearTimeout(oneshotTimer);
+				oneshotTimer = setTimeout(function() {
+					oneshotTimer = null;
 					playButton.classList.remove("playing-oneshot");
 				}, timbre.duration * 1000 + 100);
 			}
@@ -1880,18 +1899,15 @@ function commitDetectedNote(writtenMidi) {
 		isSuccess = false;
 	}
 
-	// Draw detected note — on second staff if a note is placed, otherwise on the single staff
+	// Draw detected note — on second staff if a note is placed, otherwise on
+	// the single staff (unless a hover ghost is being previewed there)
 	if (currentNote !== null) {
 		drawDetectedStaff(detectedNote, detectedOctave);
+		updateGettingStarted();
 	} else {
-		drawStaff(detectedNote, detectedOctave, null, null, null);
-		var noteNameElem = document.getElementById("note-name");
-		noteNameElem.innerHTML = writtenNoteHTML(detectedNote, detectedOctave);
-		noteNameElem.style.opacity = "1";
-		updateConcertPitchDisplay(detectedMidi);
-		updatePianoDisplay(detectedMidi);
+		redrawStavesForCurrentState();
+		updateNoteDisplay();
 	}
-	updateGettingStarted();
 }
 
 // Clear the detected note from the staff and note displays
@@ -1902,13 +1918,11 @@ function clearDetectedNote() {
 	isSuccess = false;
 	if (currentNote !== null) {
 		drawDetectedStaff(null, null);
+		updateGettingStarted();
 	} else {
-		drawStaff(null, null, null, null, null);
-		document.getElementById("note-name").textContent = "-";
-		updateConcertPitchDisplay(null);
-		updatePianoDisplay(null);
+		redrawStavesForCurrentState();
+		updateNoteDisplay();
 	}
-	updateGettingStarted();
 }
 
 // Update the tuner meter with a cents offset (-50..+50 shown), or null when
@@ -2004,6 +2018,11 @@ function startListening() {
 		return;
 	}
 
+	// Ignore repeat presses while the mic request is pending — a second
+	// request would open a second stream that stopListening never releases
+	if (listenStarting) return;
+	listenStarting = true;
+
 	navigator.mediaDevices.getUserMedia({
 		audio: {
 			echoCancellation: false,
@@ -2011,6 +2030,7 @@ function startListening() {
 			noiseSuppression: false
 		}
 	}).then(function(stream) {
+		listenStarting = false;
 		listenStream = stream;
 		listenAudioContext = new (window.AudioContext || window.webkitAudioContext)();
 		var source = listenAudioContext.createMediaStreamSource(stream);
@@ -2050,6 +2070,7 @@ function startListening() {
 		document.getElementById("listenLabel").textContent = "Stop";
 		listenButton.classList.add("listening");
 	}).catch(function(err) {
+		listenStarting = false;
 		console.error("Microphone access error:", err);
 		showToast("Could not access the microphone. Check the browser's mic permission and try again.");
 	});
@@ -2101,9 +2122,10 @@ function stopListening() {
 		drawDetectedStaff(null, null);
 		drawStaff(currentNote, currentOctave, null, null, null);
 	} else {
-		// No placed note — clear the single staff and reset display
-		drawStaff(null, null, null, null, null);
-		document.getElementById("note-name").textContent = "-";
+		// No placed note — clear the detection from the single staff and
+		// the note panel (including its concert-pitch line and piano)
+		redrawStavesForCurrentState();
+		updateNoteDisplay();
 	}
 
 	var listenButton = document.getElementById("listenButton");
@@ -2242,14 +2264,10 @@ function onKeyChange() {
 	updateKeyChip();
 	var popup = document.getElementById("key-sig-popup");
 	if (popup) popup.style.display = "none";
-	drawStaff(currentNote, currentOctave, null, null, null);
-	if (listenActive) {
-		if (currentNote !== null) {
-			drawDetectedStaff(detectedNote, detectedOctave);
-		} else {
-			drawStaff(detectedNote, detectedOctave, null, null, null);
-		}
-	}
+	redrawStavesForCurrentState();
+	// The concert-pitch line and piano label spell notes by the concert key
+	// (A♯ vs B♭), so they need refreshing too
+	updateNoteDisplay();
 }
 
 // Handle Listen button click — toggle listening on/off
@@ -2394,6 +2412,16 @@ function showToast(message) {
 	}, 4000);
 }
 
+// Close the key-signature popup and the overflow menu (outside click, Escape)
+function closePopovers() {
+	var popup = document.getElementById("key-sig-popup");
+	if (popup) popup.style.display = "none";
+	var overflow = document.getElementById("overflow-popover");
+	if (overflow) overflow.classList.remove("open");
+	var overflowButton = document.getElementById("overflowButton");
+	if (overflowButton) overflowButton.setAttribute("aria-expanded", "false");
+}
+
 // Toggle the mobile overflow menu (holds the Sustain switch)
 function toggleOverflowMenu(event) {
 	if (event) event.stopPropagation();
@@ -2438,10 +2466,10 @@ function clearNote() {
 	stopNote();
 	sustainPlaying = false;
 
-	// Stop listening if active
-	if (listenActive) {
-		stopListening();
-	}
+	// Clearing the target doesn't stop the mic (listening works without a
+	// target) — it just collapses back to the single staff, which shows the
+	// live detection
+	document.querySelector(".main-display").classList.remove("dual-staff");
 
 	currentNote = null;
 	currentOctave = null;
@@ -2451,9 +2479,10 @@ function clearNote() {
 	ghostOctave = null;
 	ghostMidi = null;
 	showingAlternates = false;
+	isSuccess = false;
 
 	updateNoteDisplay();
-	drawStaff(null, null, null, null);
+	redrawStavesForCurrentState();
 
 	document.getElementById("playLabel").textContent = "Play Sound";
 	document.getElementById("playButton").classList.remove("sustaining");
@@ -2487,25 +2516,32 @@ document.addEventListener("DOMContentLoaded", function() {
 		// Clear any existing note when instrument changes
 		ghostNote = null;
 		ghostOctave = null;
+		ghostMidi = null;
 		showingAlternates = false;
 
-		// Redraw staff with new clef
-		if (currentNote && currentOctave !== null) {
-			// Recalculate frequency with new transposition
-			var midiNote = noteStrings.indexOf(currentNote.replace("#", "").replace("b", ""));
-			if (currentNote.includes("#")) midiNote = noteStrings.indexOf(currentNote);
-			var fullMidi = midiNote + ((currentOctave + 1) * 12);
-			var transposition = getTransposition();
-			currentFrequency = frequencyFromNoteNumber(fullMidi - transposition);
-			updateNoteDisplay();
+		// The placed target keeps its written pitch; recalculate its sounding
+		// frequency with the new transposition
+		if (currentMidi !== null) {
+			currentFrequency = frequencyFromNoteNumber(currentMidi - getTransposition());
 		}
+
+		// A live detection was written for the old transposition — drop it
+		// and let the detection loop re-confirm it under the new one
+		if (listenActive) {
+			pendingMidi = null;
+			pendingFrames = 0;
+			detectedMidi = null;
+			detectedNote = null;
+			detectedOctave = null;
+			isSuccess = false;
+		}
+
 		// Reserve the fingering/piano panels for the newly selected instrument
 		// (placeholders when no note is placed) so they don't pop in later.
 		updateFingeringDisplay();
-		updatePianoDisplay(currentMidi);
 		updateKeyDropdown();
-		drawStaff(currentNote, currentOctave, null, null);
-		drawDetectedStaff(detectedNote, detectedOctave);
+		updateNoteDisplay();
+		redrawStavesForCurrentState();
 	});
 
 	// Set up event handlers for staff interaction
@@ -2568,14 +2604,7 @@ document.addEventListener("DOMContentLoaded", function() {
 	window.addEventListener("resize", fitNoteName);
 
 	// Close key sig popup and overflow menu when clicking anywhere outside them
-	document.addEventListener("click", function() {
-		var popup = document.getElementById("key-sig-popup");
-		if (popup) popup.style.display = "none";
-		var overflow = document.getElementById("overflow-popover");
-		if (overflow) overflow.classList.remove("open");
-		var overflowButton = document.getElementById("overflowButton");
-		if (overflowButton) overflowButton.setAttribute("aria-expanded", "false");
-	});
+	document.addEventListener("click", closePopovers);
 
 	// Toolbar adapts to the breakpoint (sustain placement, placeholder text)
 	// and follows it live (rotation, window resize)
