@@ -9,9 +9,8 @@
 // Trumpet has 3 valves. Fingerings stored as arrays: [1, 2, 3] means all pressed
 // Written pitch (trumpet in Bb) - MIDI note numbers
 var trumpetFingerings = {
-	// Low register (written)
-	52: { primary: [], alternates: [] },           // E3 - open
-	53: { primary: [1, 2], alternates: [] },       // F3
+	// Low register (written). F#3 (all three valves) is the lowest note a
+	// 3-valve trumpet can finger; notes below it show "no fingering data".
 	54: { primary: [1, 2, 3], alternates: [] },    // F#3
 	55: { primary: [1, 3], alternates: [] },       // G3
 	56: { primary: [2, 3], alternates: [] },       // G#3
@@ -242,6 +241,7 @@ var imageFingeringMap = {
 	// All saxophones share the same fingering images indexed at writtenMidi - 12.
 	// (The image set uses a MIDI numbering where C4 = 48 instead of 60,
 	//  so we subtract 12 regardless of which saxophone is selected.)
+	// Range: 46 (written low Bb3) through 73 (written C#6).
 	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
 	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
 	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
