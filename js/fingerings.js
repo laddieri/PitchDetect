@@ -245,7 +245,10 @@ var imageFingeringMap = {
 	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
 	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
 	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
-	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0,  w: 534, h: 112 }
+	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0,  w: 534, h: 112 },
+	// Double F/Bb horn: F side through written G4, Bb side (thumb) from G#4.
+	// Range: 42 (written F#2) through 84 (written C6).
+	"horn":      { folder: "Horn",      ext: "png", transposition: 0,  w: 360, h: 160 }
 };
 
 // Display fingering using an image file from img/Fingerings/
