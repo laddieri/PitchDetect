@@ -45,7 +45,7 @@ All state is module-global. The main clusters:
 | **Tuner meter** | `updateTunerMeter()` — cents vs nearest semitone via `centsOffFromPitch()`, EMA-smoothed needle, in-tune/close/off color states. |
 | **Match/fireworks** | `commitDetectedNote()` fires `launchFireworks()` on target match; `reevaluateMatch()` re-checks whenever the *target* changes. |
 | **Synthesis** | `instrumentTimbres` (per-instrument harmonic stacks, vibrato, breath noise), `synthesizeWind()` / `synthesizeStruck()`, sustain mode with click-free portamento (`retuneSustainedNote()`), fade-out teardown in `stopNote()`. |
-| **UI state sync** | `updateControlStates()` (enable/disable), `updateGettingStarted()` (first-run guide), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updateKeyChip()` / `updateKeyDropdown()`, `updateSheetState()` (mobile bottom sheet), `applyResponsiveControls()` (breakpoint DOM moves), `showToast()` (inline errors — never use `alert()`). |
+| **UI state sync** | `updateControlStates()` (enable/disable), `updateIdleState()` (note panel becomes a big Listen button when there's nothing to show), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast()` (inline errors — never use `alert()`). |
 
 ### `js/fingerings.js`
 
@@ -63,11 +63,19 @@ All state is module-global. The main clusters:
   panels inline at the bottom. Everything fits the viewport without scrolling
   (`html, body { height: 100% }`, flex columns, `min-height: 0`).
 - **Mobile (≤700px, single `@media` block):** one-screen layout — compact
-  header, single-row icon toolbar, fixed-height one-line note strip, staff card
-  capped at `min(48vh, 460px)`, and a **bottom sheet** (`.bottom-panels`)
-  holding fingering/piano behind a 52px handle with tabs. Sustain relocates
-  into an overflow (⋯) popover — `applyResponsiveControls()` physically moves
-  the same DOM node between homes at the breakpoint.
+  header, single-row icon toolbar, fixed-height one-line note strip, a compact
+  staff (`clamp(140px, 30vh, 250px)`), and fingering + piano **inline** below
+  it, side by side, sharing the remaining height (charts scale to fit). Wide
+  charts (flute, trombone) toggle `.bottom-panels.wide-fingering`, which
+  stacks the piano underneath. Sustain relocates into an overflow (⋯) popover
+  — `applyResponsiveControls()` physically moves the same DOM node between
+  homes at the breakpoint.
+- **No instruction text.** The UI explains itself: the empty note panel *is*
+  the Listen button (`.listen-cta`, shown via `#note-display.idle`), and an
+  empty staff shows a faint pulsing note on the middle line
+  (`.staff-container.staff-idle`) to signal it's tappable. Empty fingering /
+  piano panels show a dash / an unlit keyboard rather than "place a note…"
+  text. Keep it that way.
 - The **dual-staff** listen layout (`.main-display.dual-staff`) slides the
   second staff open; it's opened by `startListening()` *and* by
   `handleStaffClick()` when a target is placed mid-listen.
@@ -81,8 +89,8 @@ All state is module-global. The main clusters:
    `nowrap`; `#concert-pitch-display` has a fixed em-height on desktop —
    accidental glyphs (♯/♭) fall back to taller fonts and would otherwise
    reflow the layout. `fitNoteName()` shrinks the big note label to one line.
-3. **The guide never flickers:** an active listen session counts as "has a
-   note" so silence doesn't flip the note panel back to the taller guide.
+3. **The idle state never flickers:** an active listen session counts as "has
+   a note" so silence doesn't flip the note panel back to the Listen button.
 
 ## Code Conventions
 
