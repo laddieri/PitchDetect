@@ -63,8 +63,9 @@ var fireworksAnimID = null;
 var fireworksParticles = [];
 
 // Kid mode: a stripped-down view (Listen + big note name + simple meter).
+// It's the default; the Advanced mode switch turns it off.
 // Holding a note in tune for KID_CELEBRATE_MS celebrates it once.
-var kidMode = false;
+var kidMode = true;
 var KID_CELEBRATE_MS = 1000;
 var kidInTuneSince = null;
 var kidInTuneMidi = null;
@@ -2497,13 +2498,14 @@ function applyResponsiveControls() {
 	}
 }
 
-// Switch between kid mode and the full app. Entering kid mode drops the
-// target note (and any sustained playback) since kid mode has no targets.
+// Switch between kid mode and the full app (the Advanced mode switch is its
+// inverse). Entering kid mode drops the target note (and any sustained
+// playback) since kid mode has no targets.
 function setKidMode(on) {
 	kidMode = !!on;
-	try { localStorage.setItem("pitchdetect-kid-mode", kidMode ? "1" : "0"); } catch(e) {}
-	var toggle = document.getElementById("kidModeToggle");
-	if (toggle) toggle.checked = kidMode;
+	try { localStorage.setItem("pitchdetect-advanced-mode", kidMode ? "0" : "1"); } catch(e) {}
+	var toggle = document.getElementById("advancedModeToggle");
+	if (toggle) toggle.checked = !kidMode;
 	document.body.classList.toggle("kid-mode", kidMode);
 
 	closePopovers();
@@ -2700,9 +2702,10 @@ document.addEventListener("DOMContentLoaded", function() {
 	} catch(e) {}
 	updateKeyDropdown();
 
-	// Restore kid mode (it sets the body class and draws the staff too)
+	// Kid mode is the default (the page loads with body.kid-mode); switch to
+	// the full app if Advanced mode was chosen last time
 	try {
-		if (localStorage.getItem("pitchdetect-kid-mode") === "1") setKidMode(true);
+		if (localStorage.getItem("pitchdetect-advanced-mode") === "1") setKidMode(false);
 	} catch(e) {}
 
 	// Draw initial staff (uses restored instrument and key for correct clef/key sig)

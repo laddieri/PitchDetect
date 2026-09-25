@@ -85,8 +85,8 @@
 				margin-bottom: 14px;
 			}
 
-			/* Kid mode switch: top-right of the header, clear of the centered
-			   title (styled like the Sustain switch) */
+			/* Advanced mode switch: top-right of the header, clear of the
+			   centered title (styled like the Sustain switch) */
 			.mode-switch {
 				position: absolute;
 				top: 50%;
@@ -1191,7 +1191,7 @@
 					display: none;
 				}
 
-				/* Title left, Kid mode switch right, on one row */
+				/* Title left, Advanced mode switch right, on one row */
 				.app-header {
 					margin-bottom: 10px;
 					display: flex;
@@ -1546,6 +1546,11 @@
 			   instrument select keeps room for its name instead of clipping
 			   to a couple of letters */
 			@media (max-width: 360px) {
+				/* "Advanced" alone, so the switch fits beside the title */
+				.mode-word {
+					display: none;
+				}
+
 				body {
 					padding: 8px;
 				}
@@ -1570,8 +1575,9 @@
 				}
 			}
 
-			/* ---------- Kid mode ---------- */
-			/* Just the basics: pick an instrument, press Listen, play. The note
+			/* ---------- Kid mode (the default) ---------- */
+			/* The page starts in kid mode (class on <body>); the Advanced mode
+			   switch turns it off. Just the basics: pick an instrument, press Listen, play. The note
 			   name is big and color-coded by letter, the staff shows where it
 			   sits, and the meter says "Too low / Just right! / Too high".
 			   Target notes, playback, key signatures, fingerings, and the piano
@@ -1962,7 +1968,7 @@
 			}
 		</style>
 	</head>
-	<body>
+	<body class="kid-mode">
 		<script src="js/vendor/vexflow-min.js"></script>
 		<script src="js/fingerings.js"></script>
 
@@ -1970,10 +1976,10 @@
 			<header class="app-header">
 				<h1>Pitch Detector</h1>
 				<p class="app-subtitle">Play a note and the app names it &mdash; or set a target note to practice</p>
-				<label class="mode-switch" title="Kid mode: just Listen and the note name">
-					<input type="checkbox" id="kidModeToggle" onchange="setKidMode(this.checked)">
+				<label class="mode-switch" title="Advanced mode: target notes, playback, fingerings, piano, and key signatures">
+					<input type="checkbox" id="advancedModeToggle" onchange="setKidMode(!this.checked)">
 					<span class="sustain-slider"></span>
-					<span>Kid mode</span>
+					<span>Advanced<span class="mode-word"> mode</span></span>
 				</label>
 			</header>
 
