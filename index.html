@@ -79,9 +79,27 @@
 			}
 
 			.app-header {
+				position: relative;
 				text-align: center;
 				flex-shrink: 0;
 				margin-bottom: 14px;
+			}
+
+			/* Kid mode switch: top-right of the header, clear of the centered
+			   title (styled like the Sustain switch) */
+			.mode-switch {
+				position: absolute;
+				top: 50%;
+				right: 0;
+				transform: translateY(-50%);
+				display: inline-flex;
+				align-items: center;
+				gap: 9px;
+				cursor: pointer;
+				user-select: none;
+				color: var(--text-muted);
+				font-size: 0.9rem;
+				font-weight: 500;
 			}
 
 			h1 {
@@ -398,7 +416,8 @@
 
 			/* Visually hidden but still focusable, so the switch stays in the
 			   keyboard tab order (display:none would remove it) */
-			.sustain-switch input {
+			.sustain-switch input,
+			.mode-switch input {
 				position: absolute;
 				width: 1px;
 				height: 1px;
@@ -410,7 +429,8 @@
 				white-space: nowrap;
 			}
 
-			.sustain-switch input:focus-visible + .sustain-slider {
+			.sustain-switch input:focus-visible + .sustain-slider,
+			.mode-switch input:focus-visible + .sustain-slider {
 				box-shadow: var(--ring);
 			}
 
@@ -437,11 +457,13 @@
 				box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 			}
 
-			.sustain-switch input:checked + .sustain-slider {
+			.sustain-switch input:checked + .sustain-slider,
+			.mode-switch input:checked + .sustain-slider {
 				background-color: var(--accent);
 			}
 
-			.sustain-switch input:checked + .sustain-slider::before {
+			.sustain-switch input:checked + .sustain-slider::before,
+			.mode-switch input:checked + .sustain-slider::before {
 				transform: translateX(19px);
 			}
 
@@ -1169,8 +1191,21 @@
 					display: none;
 				}
 
+				/* Title left, Kid mode switch right, on one row */
 				.app-header {
 					margin-bottom: 10px;
+					display: flex;
+					align-items: center;
+					justify-content: space-between;
+					gap: 10px;
+				}
+
+				.mode-switch {
+					position: static;
+					transform: none;
+					flex-shrink: 0;
+					font-size: 0.85rem;
+					gap: 7px;
 				}
 
 				/* Single-row toolbar: the select keeps width for long instrument
@@ -1534,6 +1569,157 @@
 					height: 40px;
 				}
 			}
+
+			/* ---------- Kid mode ---------- */
+			/* Just the basics: pick an instrument, press Listen, play. The note
+			   name is big and color-coded by letter, the staff shows where it
+			   sits, and the meter says "Too low / Just right! / Too high".
+			   Target notes, playback, key signatures, fingerings, and the piano
+			   are hidden; the staff isn't tappable. */
+			.kid-only {
+				display: none;
+			}
+
+			body.kid-mode .kid-only {
+				display: inline;
+			}
+
+			body.kid-mode .std-only,
+			body.kid-mode .app-subtitle,
+			body.kid-mode .controls-divider,
+			body.kid-mode #playButton,
+			body.kid-mode #clearButton,
+			body.kid-mode #sustainSwitch,
+			body.kid-mode #overflowButton,
+			body.kid-mode #overflow-popover,
+			body.kid-mode #frequency-display,
+			body.kid-mode #concert-pitch-display,
+			body.kid-mode .key-sig-hotspot,
+			body.kid-mode .key-chip,
+			body.kid-mode .key-sig-popup,
+			body.kid-mode .pitch-controls,
+			body.kid-mode #staff-panel-2,
+			body.kid-mode .staff-label,
+			body.kid-mode .bottom-panels {
+				display: none !important;
+			}
+
+			body.kid-mode .staff-container {
+				cursor: default;
+			}
+
+			body.kid-mode #listenButton {
+				font-size: 1.1rem;
+				font-weight: 600;
+				padding: 13px 34px;
+			}
+
+			/* One color per letter, so kids can recognize notes at a glance */
+			body.kid-mode #note-name { color: var(--text); }
+			body.kid-mode #note-display[data-letter="C"] #note-name { color: #e53935; }
+			body.kid-mode #note-display[data-letter="D"] #note-name { color: #f57c00; }
+			body.kid-mode #note-display[data-letter="E"] #note-name { color: #e0a800; }
+			body.kid-mode #note-display[data-letter="F"] #note-name { color: #43a047; }
+			body.kid-mode #note-display[data-letter="G"] #note-name { color: #00897b; }
+			body.kid-mode #note-display[data-letter="A"] #note-name { color: #3949ab; }
+			body.kid-mode #note-display[data-letter="B"] #note-name { color: #8e24aa; }
+
+			body.kid-mode #note-name .note-octave {
+				color: inherit;
+				opacity: 0.55;
+			}
+
+			/* A little bounce each time a new note is heard */
+			@keyframes kid-pop {
+				0% { transform: scale(0.8); }
+				60% { transform: scale(1.08); }
+				100% { transform: scale(1); }
+			}
+
+			body.kid-mode #note-name.kid-pop {
+				animation: kid-pop 0.3s ease-out;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				body.kid-mode #note-name.kid-pop {
+					animation: none;
+				}
+			}
+
+			/* Bigger, friendlier meter with words instead of cents */
+			body.kid-mode .tuner-meter.active {
+				height: 76px;
+			}
+
+			body.kid-mode .tuner-track {
+				height: 38px;
+			}
+
+			body.kid-mode .tuner-needle {
+				width: 8px;
+				border-radius: 4px;
+			}
+
+			body.kid-mode .tuner-labels {
+				font-size: 0.85rem;
+				font-weight: 600;
+			}
+
+			body.kid-mode #tuner-readout {
+				font-size: 1.15rem;
+				font-weight: 700;
+			}
+
+			@media (max-width: 700px) {
+				/* With the fingering/piano pager gone, the note and staff share
+				   the whole screen */
+				body.kid-mode .main-display {
+					flex: 1;
+					min-height: 0;
+				}
+
+				body.kid-mode #note-display {
+					flex: 1;
+					height: auto;
+					flex-direction: column;
+					align-items: center;
+				}
+
+				body.kid-mode #note-name {
+					font-size: clamp(72px, 26vw, 150px);
+				}
+
+				body.kid-mode .listen-cta {
+					flex-direction: column;
+					gap: 12px;
+				}
+
+				body.kid-mode .listen-cta-icon {
+					width: 96px;
+					height: 96px;
+				}
+
+				body.kid-mode .listen-cta-icon svg {
+					width: 40px;
+					height: 40px;
+				}
+
+				body.kid-mode .listen-cta-label {
+					font-size: 1.2rem;
+				}
+
+				/* Room to spell out Listen / Stop in the toolbar */
+				body.kid-mode #listenButton {
+					flex: 0 0 auto;
+					width: auto;
+					padding: 0 18px;
+					font-size: 1rem;
+				}
+
+				body.kid-mode .controls .btn-label {
+					display: inline;
+				}
+			}
 		</style>
 	</head>
 	<body>
@@ -1544,6 +1730,11 @@
 			<header class="app-header">
 				<h1>Pitch Detector</h1>
 				<p class="app-subtitle">Play a note and the app names it &mdash; or set a target note to practice</p>
+				<label class="mode-switch" title="Kid mode: just Listen and the note name">
+					<input type="checkbox" id="kidModeToggle" onchange="setKidMode(this.checked)">
+					<span class="sustain-slider"></span>
+					<span>Kid mode</span>
+				</label>
 			</header>
 
 			<div class="controls">
@@ -1644,9 +1835,9 @@
 							<div class="tuner-needle" id="tuner-needle"></div>
 						</div>
 						<div class="tuner-labels">
-							<span>&#9837; flat</span>
+							<span><span class="std-only">&#9837; flat</span><span class="kid-only">low</span></span>
 							<span id="tuner-readout">&ndash;</span>
-							<span>sharp &#9839;</span>
+							<span><span class="std-only">sharp &#9839;</span><span class="kid-only">high</span></span>
 						</div>
 					</div>
 				</div>
