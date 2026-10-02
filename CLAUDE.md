@@ -75,7 +75,7 @@ All state is module-global. The main clusters:
   homes at the breakpoint.
 - **No instruction text.** The UI explains itself: the empty note panel *is*
   the Listen button (`.listen-cta`, shown via `#note-display.idle`; meanwhile
-  `body.listen-idle` hides the toolbar's `#listenButton` so there's only ever one
+  a `body:has(#note-display.idle)` rule hides the toolbar's `#listenButton` so there's only ever one
   Listen button — the toolbar one returns as Stop, or when a note is shown), and an
   empty staff shows a faint pulsing note on the middle line
   (`.staff-container.staff-idle`) to signal it's tappable. Empty fingering /
