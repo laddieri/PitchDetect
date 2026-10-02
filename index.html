@@ -554,6 +554,13 @@
 				display: flex;
 			}
 
+			/* One Listen button at a time: while the panel is the Listen button,
+			   the toolbar's copy keeps its footprint but stays out of sight. It
+			   returns as Stop once listening, or as Listen when a note is shown. */
+			body.listen-idle #listenButton {
+				visibility: hidden;
+			}
+
 			.listen-cta-icon {
 				width: 104px;
 				height: 104px;
@@ -1968,7 +1975,7 @@
 			}
 		</style>
 	</head>
-	<body class="kid-mode">
+	<body class="kid-mode listen-idle">
 		<script src="js/vendor/vexflow-min.js"></script>
 		<script src="js/fingerings.js"></script>
 
@@ -2037,7 +2044,7 @@
 			</div>
 
 			<div class="main-display">
-				<div id="note-display">
+				<div id="note-display" class="idle">
 					<span id="note-name">-</span>
 					<div id="frequency-display"></div>
 					<div id="concert-pitch-display"></div>
