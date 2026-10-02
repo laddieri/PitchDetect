@@ -1197,6 +1197,8 @@ function updateIdleState() {
 	if (!display) return;
 	var idle = currentNote === null && ghostNote === null && detectedMidi === null && !listenActive;
 	display.classList.toggle("idle", idle);
+	// Hides the toolbar's Listen button while the note panel offers it
+	document.body.classList.toggle("listen-idle", idle);
 }
 
 // Adjust pitch by semitones (for mobile pitch control buttons)
