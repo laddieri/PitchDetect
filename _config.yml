@@ -1,1 +1,5 @@
 theme: jekyll-theme-minimal
+# Keep repo docs off the published site (whatnoteisthis.com)
+exclude:
+  - CLAUDE.md
+  - README.md
