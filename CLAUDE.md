@@ -74,7 +74,9 @@ All state is module-global. The main clusters:
   — `applyResponsiveControls()` physically moves the same DOM node between
   homes at the breakpoint.
 - **No instruction text.** The UI explains itself: the empty note panel *is*
-  the Listen button (`.listen-cta`, shown via `#note-display.idle`), and an
+  the Listen button (`.listen-cta`, shown via `#note-display.idle`; meanwhile
+  `body.listen-idle` hides the toolbar's `#listenButton` so there's only ever one
+  Listen button — the toolbar one returns as Stop, or when a note is shown), and an
   empty staff shows a faint pulsing note on the middle line
   (`.staff-container.staff-idle`) to signal it's tappable. Empty fingering /
   piano panels show a dash / an unlit keyboard rather than "place a note…"
