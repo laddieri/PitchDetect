@@ -2,7 +2,7 @@
 <html>
 	<head>
 		<meta charset="utf-8">
-		<title>Pitch Detector</title>
+		<title>What Note Is This?</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1917,8 +1917,11 @@
 					font-size: clamp(72px, 26vw, 150px);
 				}
 
+				/* Scales with the viewport so the title stays on one row
+				   beside the Advanced mode switch */
 				body.kid-mode h1 {
-					font-size: 1.55rem;
+					font-size: clamp(1.05rem, 5vw, 1.55rem);
+					white-space: nowrap;
 					text-shadow:
 						2.5px 0 0 var(--ink),
 						2.3097px 0.9567px 0 var(--ink),
@@ -1982,7 +1985,7 @@
 
 		<div class="container">
 			<header class="app-header">
-				<h1>Pitch Detector</h1>
+				<h1>What Note Is This?</h1>
 				<p class="app-subtitle">Play a note and the app names it &mdash; or set a target note to practice</p>
 				<label class="mode-switch" title="Advanced mode: target notes, playback, fingerings, piano, and key signatures">
 					<input type="checkbox" id="advancedModeToggle" onchange="setKidMode(!this.checked)">
