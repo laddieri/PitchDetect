@@ -556,8 +556,9 @@
 
 			/* One Listen button at a time: while the panel is the Listen button,
 			   the toolbar's copy keeps its footprint but stays out of sight. It
-			   returns as Stop once listening, or as Listen when a note is shown. */
-			body.listen-idle #listenButton {
+			   returns as Stop once listening, or as Listen when a note is shown.
+			   Keyed off the panel's own idle class so the two can't disagree. */
+			body:has(#note-display.idle) #listenButton {
 				visibility: hidden;
 			}
 
@@ -1975,7 +1976,7 @@
 			}
 		</style>
 	</head>
-	<body class="kid-mode listen-idle">
+	<body class="kid-mode">
 		<script src="js/vendor/vexflow-min.js"></script>
 		<script src="js/fingerings.js"></script>
 
