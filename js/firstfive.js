@@ -883,8 +883,70 @@ function startDrill(kind) {
 	setPracticeMode("drill");
 	practice.drillKind = kind;
 	practice.index = -1;
-	practice.challenge = { seq: makeChallengeSequence(), pos: 0, results: [] };
+	var round = practice.challenge = { seq: makeChallengeSequence(), pos: 0, results: [] };
+	if (kind === "fingerings" && !practice.fingeringKeys) {
+		// Wait for the fingerprints (a moment: five small local files), then
+		// start unless the student has left this round or instrument
+		var state = practice;
+		document.getElementById("practice-view").setAttribute("data-step", "drill-fingerings");
+		document.getElementById("practice-prompt").textContent = "\u00a0";
+		document.getElementById("practice-body").innerHTML = "";
+		renderPracticeSteps();
+		loadFingeringKeys(function(keys) {
+			state.fingeringKeys = keys;
+			if (practice === state && state.challenge === round && state.mode === "drill") showDrillQuestion();
+		});
+		return;
+	}
 	showDrillQuestion();
+}
+
+// One key per practice note, equal when two notes share a fingering (trumpet
+// C and G are both open; trombone B♭ and F are both 1st position). Valve and
+// clarinet keys come from the fingering data; image charts are fingerprinted
+// by their file contents, since notes sharing a fingering share an identical
+// chart. Without charts (piano), every note is distinct. Calls back with the
+// keys; anything unreadable gets a unique key, so it is never hidden.
+function loadFingeringKeys(callback) {
+	var instrument = practice.instrument;
+	var notes = practice.notes;
+	if (!hasFingeringData(instrument)) {
+		callback(notes.map(String));
+		return;
+	}
+	if (!imageFingeringMap[instrument]) {
+		callback(notes.map(function(midi) {
+			var f = getFingering(instrument, midi);
+			return f ? JSON.stringify(f.primary) : "none:" + midi;
+		}));
+		return;
+	}
+	Promise.all(notes.map(function(midi) {
+		return fetch(fingeringImagePath(instrument, midi))
+			.then(function(r) { return r.ok ? r.arrayBuffer() : Promise.reject(); })
+			.then(function(buf) {
+				// FNV-1a over the bytes, plus the length
+				var bytes = new Uint8Array(buf), h = 0x811c9dc5;
+				for (var i = 0; i < bytes.length; i++) {
+					h ^= bytes[i];
+					h = Math.imul(h, 0x01000193);
+				}
+				return bytes.length + ":" + (h >>> 0).toString(16);
+			})
+			.catch(function() { return "unread:" + midi; });
+	})).then(callback);
+}
+
+// The answer choices for the current question: all five notes, except in the
+// fingerings drill, where notes sharing the target's fingering are left out
+// so only one answer is right
+function drillChoices() {
+	if (practice.drillKind !== "fingerings" || !practice.fingeringKeys) return practice.notes;
+	var keys = practice.fingeringKeys;
+	var targetKey = keys[practice.notes.indexOf(practice.target)];
+	return practice.notes.filter(function(midi, i) {
+		return midi === practice.target || keys[i] !== targetKey;
+	});
 }
 
 function showDrillQuestion() {
@@ -914,7 +976,9 @@ function showDrillQuestion() {
 
 	var answers = document.createElement("div");
 	answers.className = "practice-answers";
-	practice.notes.forEach(function(midi) {
+	var choices = drillChoices();
+	answers.style.gridTemplateColumns = "repeat(" + choices.length + ", minmax(0, 80px))";
+	choices.forEach(function(midi) {
 		var b = document.createElement("button");
 		b.className = "practice-answer";
 		b.textContent = practiceNoteName(midi);
