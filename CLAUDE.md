@@ -51,8 +51,14 @@ All state is module-global. The main clusters:
 
 - `trumpetFingerings` (3-valve map, shared via `threeValveOffset` with euphonium/tuba)
 - `fluteFingerings` (key diagrams)
+- `clarinetFingerings` — written E3–G6 (incl. lower altissimo), drawn as SVG
+  by `drawClarinetFingering()` (keys listed by id: `Reg`, `T`, `L1`–`R3`,
+  side keys `S1`–`S4`, `CsGs`, pinkies `lE`/`lF`/`lFs`, `rE`/`rF`/`rAb`).
+  Alternates (left/right pinky E/B and F/C, throat-tone resonance) show
+  side by side with captions via the Show Alternate Fingerings button.
+  `img/Fingerings/Clarinet/` is no longer used.
 - `imageFingeringMap` — instruments using chart images from `img/Fingerings/`
-  (bassoon, clarinet, flute, oboe, saxes, trombone, double horn)
+  (bassoon, flute, oboe, saxes, trombone, double horn)
 - `hasFingeringData()`, `displayFingering()` — entry points used by the app.
 - Instruments with **no** fingering data: bare clefs, bass clarinet,
   glockenspiel (they get piano-only panels).

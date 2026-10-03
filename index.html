@@ -1088,6 +1088,43 @@
 				margin: 0 auto;
 			}
 
+			/* Clarinet: tall diagrams drawn side by side (primary, then any
+			   alternates), each filling the reserved height above a
+			   one-line caption slot. */
+			#fingering-display .clarinet-fingerings {
+				display: flex;
+				justify-content: center;
+				gap: 14px;
+				height: 100%;
+				min-height: 0;
+				max-width: 100%;
+			}
+
+			#fingering-display .clarinet-fingering {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				min-width: 0;
+				min-height: 0;
+			}
+
+			#fingering-display .clarinet-fingering svg {
+				flex: 1 1 0;
+				min-height: 0;
+				height: 100%;
+				width: auto;
+				max-width: 100%;
+				max-height: none;
+			}
+
+			.clarinet-caption {
+				flex-shrink: 0;
+				font-size: 0.75rem;
+				line-height: 1.4;
+				color: var(--text-muted);
+				white-space: nowrap;
+			}
+
 			/* Shown in the reserved fingering/piano boxes when an instrument is
 			   selected but no note is placed yet — keeps the panel's footprint
 			   stable so placing a note fills it rather than growing the page. */
