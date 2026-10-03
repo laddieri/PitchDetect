@@ -2640,6 +2640,53 @@
 				animation: practice-shake 0.4s;
 			}
 
+			/* A correct answer bounces */
+			.practice-answer.right.cheer {
+				animation: practice-cheer 0.5s ease-out;
+			}
+
+			@keyframes practice-cheer {
+				0% { transform: scale(1); }
+				35% { transform: scale(1.22) rotate(-4deg); }
+				65% { transform: scale(0.94) rotate(2deg); }
+				100% { transform: scale(1); }
+			}
+
+			/* Balloons for a correct answer: they rise through the practice
+			   card, swaying, clipped to it and letting taps through */
+			.balloon-layer {
+				position: absolute;
+				inset: 0;
+				overflow: hidden;
+				pointer-events: none;
+				z-index: 6;
+			}
+
+			.balloon {
+				position: absolute;
+				bottom: 0;
+				transform: translateY(100%);
+				animation: balloon-rise var(--rise, 2s) ease-in forwards;
+			}
+
+			.balloon svg {
+				display: block;
+				width: 100%;
+				height: auto;
+				animation: balloon-sway 0.9s ease-in-out infinite alternate;
+			}
+
+			@keyframes balloon-rise {
+				0% { transform: translateY(100%); opacity: 1; }
+				85% { opacity: 1; }
+				100% { transform: translateY(calc(var(--travel, 400px) * -1)); opacity: 0; }
+			}
+
+			@keyframes balloon-sway {
+				from { transform: translateX(calc(var(--sway, 12px) * -1)) rotate(-5deg); }
+				to { transform: translateX(var(--sway, 12px)) rotate(5deg); }
+			}
+
 			@keyframes practice-shake {
 				0%, 100% { transform: translateX(0); }
 				20%, 60% { transform: translateX(-6px); }
@@ -2870,7 +2917,8 @@
 			}
 
 			@media (prefers-reduced-motion: reduce) {
-				.practice-answer.wrong {
+				.practice-answer.wrong,
+				.practice-answer.right.cheer {
 					animation: none;
 				}
 			}
