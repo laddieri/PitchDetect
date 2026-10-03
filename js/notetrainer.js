@@ -489,12 +489,14 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 		svgElement.style.height = "100%";
 	}
 
-	// Create stave with key signature
+	// Create stave with key signature. Kid mode has no key picker, so a
+	// signature there would be one nobody chose: notes get explicit
+	// accidentals instead, still spelled for the written key (B♭, not A♯)
 	var staveWidth = internalWidth - 30;
 	var writtenKey = getWrittenKey();
 	var stave = new VF.Stave(STAFF_X, dynamicStaffY, staveWidth);
 	stave.addClef(clef);
-	stave.addKeySignature(writtenKey);
+	if (!kidMode) stave.addKeySignature(writtenKey);
 	stave.setContext(context).draw();
 
 	// Capture actual staff positions for accurate mouse-to-note mapping
@@ -517,7 +519,7 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 	function renderNotes(noteName, noteOctave, isGhost, modifier) {
 		try {
 			var notes = [];
-			var keySigList = keySignatureNotes[writtenKey] || [];
+			var keySigList = kidMode ? [] : (keySignatureNotes[writtenKey] || []);
 			var pc = noteStrings.indexOf(noteName);
 
 			if (isGhost && modifier) {
@@ -547,7 +549,7 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 					note.addAccidental(0, new VF.Accidental("n"));
 					if (isGhost) note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
 					notes.push(note);
-				} else if (enharmonicMap[noteName] && !isGhost) {
+				} else if (enharmonicMap[noteName] && !isGhost && !kidMode) {
 					// Enharmonic note not covered by key — show both spellings as half notes
 					var sharpSpelled = sharpNoteSpellings[pc];
 					var flatSpelled  = flatNoteSpellings[pc];
@@ -2136,8 +2138,25 @@ function startListening() {
 	}).catch(function(err) {
 		listenStarting = false;
 		console.error("Microphone access error:", err);
-		showToast("Could not access the microphone. Check the browser's mic permission and try again.");
+		showToast(micErrorMessage(err), 8000);
 	});
+}
+
+// Say what to do next for a failed mic request. Play Sound is only offered
+// where it exists: the full app (it's hidden in kid mode and practice).
+function micErrorMessage(err) {
+	var name = err && err.name;
+	var orPlay = (!kidMode && !practiceOpen) ? " Or place a note and use Play Sound to hear it." : "";
+	if (name === "NotAllowedError" || name === "SecurityError") {
+		return "The microphone is blocked. Allow it (tap the icon by the web address, or check your browser settings), then press Listen again." + orPlay;
+	}
+	if (name === "NotFoundError" || name === "OverconstrainedError") {
+		return "No microphone found. Plug one in, then press Listen again." + orPlay;
+	}
+	if (name === "NotReadableError" || name === "AbortError") {
+		return "Another app is using the microphone. Close it, then press Listen again." + orPlay;
+	}
+	return "Could not start the microphone. Check that it\u2019s allowed for this page, then press Listen again." + orPlay;
 }
 
 // Stop microphone listening and clear detected note
@@ -2463,7 +2482,7 @@ function updatePanePager() {
 // Show a transient inline error notice (replaces alert(), which blocks the
 // page and reads as a browser failure rather than an app message)
 var toastTimer = null;
-function showToast(message) {
+function showToast(message, duration) {
 	var toast = document.getElementById("toast");
 	if (!toast) return;
 	toast.textContent = message;
@@ -2471,7 +2490,7 @@ function showToast(message) {
 	if (toastTimer) clearTimeout(toastTimer);
 	toastTimer = setTimeout(function() {
 		toast.classList.remove("visible");
-	}, 4000);
+	}, duration || 4000);
 }
 
 // Close the key-signature popup and the overflow menu (outside click, Escape)
