@@ -72,6 +72,15 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 - Note names in the map stay hidden (numbers) until learned, so the map never
   answers the Read step. The practice staff has no key signature — explicit
   flats only.
+- **Challenge round** (`startChallenge()`): the map's sixth tile (a lock
+  until `allNotesLearned()`; the lesson result offers it when the fifth note
+  is first learned). `CHALLENGE_LENGTH` notes from `makeChallengeSequence()`
+  (each note at least once, no back-to-back repeats), staff only, held for
+  `CHALLENGE_HOLD_MS`; progress dots replace the step chips. Feedback never
+  names the target. **Help** (`showChallengeHelp()`) reveals name, fingering
+  and sound, but only unhelped notes score; `challengeStars()` turns the
+  score into 0–3 trophy stars, best score per instrument in
+  `pitchdetect-first-five-challenge`.
 - The header's big instrument picker (`#practice-instrument`, a styled native
   select cloned from `#instrument`) switches instruments in place:
   `changePracticeInstrument()` sets the app's select, fires its `change`
