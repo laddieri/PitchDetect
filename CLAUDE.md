@@ -51,8 +51,16 @@ All state is module-global. The main clusters:
 ### `js/firstfive.js` — First 5 Notes practice
 
 A full-screen practice view (`#practice-view`, opened by the toolbar's
-**Practice** button → `openPractice()`; the app behind it is made `inert`)
-teaching the band-method first five notes, concert B♭ C D E♭ F, at each
+**Practice** button → `openPractice()`; the app behind it is made `inert`).
+It opens on a **menu** (`showPracticeMenu()`, `PRACTICE_ACTIVITIES`) of four
+activities, each card showing its best result: **Learn the first 5 notes**
+(lessons), **First 5 note quiz** (the challenge round), **Practice note
+names** and **Practice fingerings** (drills; "slide positions" on trombone,
+"the keyboard" without charts). `#practice-view[data-mode]` (`setPracticeMode()`:
+menu / lesson / challenge / drill) decides what shows; the note map is
+lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
+to the menu and the menu to the app; the menu also stops the mic. The lessons
+teach the band-method first five notes, concert B♭ C D E♭ F, at each
 instrument's written pitch (`practiceStartConcertMidi` holds each instrument's
 concert B♭; `PRACTICE_STEPS` the intervals). Each note is a lesson of four
 steps — **Read** (pick the name; the quiz), **Finger** (chart via
@@ -72,15 +80,19 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 - Note names in the map stay hidden (numbers) until learned, so the map never
   answers the Read step. The practice staff has no key signature — explicit
   flats only.
-- **Challenge round** (`startChallenge()`): the map's sixth tile (a lock
-  until `allNotesLearned()`; the lesson result offers it when the fifth note
-  is first learned). `CHALLENGE_LENGTH` notes from `makeChallengeSequence()`
+- **Quiz / challenge round** (`startChallenge()`): from the menu, and offered
+  on the lesson result when the fifth note is first learned. `CHALLENGE_LENGTH` notes from `makeChallengeSequence()`
   (each note at least once, no back-to-back repeats), staff only, held for
   `CHALLENGE_HOLD_MS`; progress dots replace the step chips. Feedback never
   names the target. **Help** (`showChallengeHelp()`) reveals name, fingering
   and sound, but only unhelped notes score; `challengeStars()` turns the
   score into 0–3 trophy stars, best score per instrument in
   `pitchdetect-first-five-challenge`.
+- **Drills** (`startDrill("names" | "fingerings")`, no mic): the same
+  10-note sequence, progress dots and result screen (`showRoundResult()`).
+  Names shows the staff; fingerings hides it and shows only the chart
+  (`practiceFingeringBox(true)` leaves the piano key unlabeled). A note scores
+  if named on the first try; bests in `pitchdetect-first-five-drills`.
 - `practiceFingeringBox()` builds the chart for the Finger step and challenge
   Help. Trombone charts share a wide canvas (bell fixed, room for the slide at
   7th position), so `centerChartDrawing()` measures the drawn pixels and

@@ -2200,7 +2200,7 @@
 			/* The five notes, with their stars */
 			.practice-map {
 				display: grid;
-				grid-template-columns: repeat(6, minmax(0, 1fr));
+				grid-template-columns: repeat(5, minmax(0, 1fr));
 				gap: 10px;
 			}
 
@@ -2239,23 +2239,93 @@
 				letter-spacing: 1px;
 			}
 
-			/* Sixth tile: the challenge (a trophy, or a lock until every note
-			   has a star) */
-			.practice-map-challenge .practice-map-name {
+			/* The menu shows instead of the activity card; the note map only
+			   belongs to the lessons */
+			.practice-view[data-mode="menu"] .practice-card,
+			.practice-view:not([data-mode="menu"]) .practice-menu,
+			.practice-view:not([data-mode="lesson"]) .practice-map {
+				display: none;
+			}
+
+			/* Menu: one big button per activity */
+			.practice-menu {
+				flex: 1;
+				min-height: 0;
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				grid-auto-rows: minmax(0, 1fr);
+				gap: 14px;
+				max-height: 420px;
+			}
+
+			.practice-choice {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				padding: 18px 14px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				background: var(--surface);
+				box-shadow: var(--shadow-md);
+				color: var(--text);
+				font-family: var(--font);
+				text-align: center;
+				cursor: pointer;
+				transition: border-color 0.15s, transform 0.1s;
+			}
+
+			.practice-choice:hover {
+				border-color: var(--accent);
+			}
+
+			.practice-choice:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.practice-choice-icon {
 				display: flex;
 				align-items: center;
 				justify-content: center;
-				height: 1.2em;
+				width: 56px;
+				height: 56px;
+				flex-shrink: 0;
+				border-radius: 50%;
+				background: var(--accent-soft);
+				color: var(--accent);
+				font-size: 1.6rem;
+				font-weight: 700;
+				line-height: 1;
+				white-space: nowrap;
 			}
 
-			.practice-map-challenge.learned {
-				color: #e09b00;
+			.practice-choice[data-activity="names"] .practice-choice-icon {
+				font-size: 1.15rem;
 			}
 
-			.practice-map-challenge.locked {
-				cursor: not-allowed;
-				background: var(--surface-2);
-				opacity: 0.7;
+			.practice-choice-text {
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+			}
+
+			.practice-choice-title {
+				font-size: 1.2rem;
+				font-weight: 700;
+			}
+
+			.practice-choice-sub {
+				font-size: 0.9rem;
+				color: var(--text-muted);
+			}
+
+			.practice-choice-score {
+				color: #f5b301;
+				font-size: 1rem;
+				font-weight: 700;
+				letter-spacing: 1px;
 			}
 
 			.practice-card {
@@ -2366,12 +2436,22 @@
 			}
 
 			/* Steps other than Finger group their content mid-card */
-			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]) .practice-stage {
+			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]) .practice-stage {
 				justify-content: center;
 			}
 
-			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]) .practice-body {
+			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]) .practice-body {
 				flex: 0 0 auto;
+			}
+
+			/* The fingerings drill shows only the chart: the staff would give
+			   the answer away */
+			.practice-view[data-step="drill-fingerings"] .practice-staff {
+				display: none;
+			}
+
+			.practice-view[data-step="drill-fingerings"] .practice-body {
+				justify-content: center;
 			}
 
 			/* Challenge: progress dots stand in for the step chips; the result
@@ -2409,6 +2489,7 @@
 				background: var(--warning);
 			}
 
+			.practice-view[data-step="challenge-done"] .practice-steps,
 			.practice-view[data-step="challenge-done"] .practice-staff {
 				display: none;
 			}
@@ -2714,6 +2795,26 @@
 				color: var(--ink);
 			}
 
+			body.kid-mode .practice-choice {
+				border: var(--cartoon-border);
+				box-shadow: var(--cartoon-shadow);
+			}
+
+			body.kid-mode .practice-choice:active {
+				transform: translate(3px, 3px);
+				box-shadow: 2px 2px 0 var(--ink);
+			}
+
+			body.kid-mode .practice-choice-icon {
+				border: var(--cartoon-border);
+				color: var(--ink);
+			}
+
+			body.kid-mode .practice-choice[data-activity="learn"] .practice-choice-icon { background: #ffd23f; }
+			body.kid-mode .practice-choice[data-activity="quiz"] .practice-choice-icon { background: #ff9f1c; }
+			body.kid-mode .practice-choice[data-activity="names"] .practice-choice-icon { background: #7ee081; }
+			body.kid-mode .practice-choice[data-activity="fingerings"] .practice-choice-icon { background: #8fd3ff; }
+
 			body.kid-mode .challenge-dot {
 				border: 2px solid var(--ink);
 			}
@@ -2806,6 +2907,45 @@
 
 				.challenge-progress {
 					gap: 6px;
+				}
+
+				/* Menu: four full-width rows, icon left */
+				.practice-menu {
+					grid-template-columns: minmax(0, 1fr);
+					max-height: 520px;
+					gap: 10px;
+				}
+
+				.practice-choice {
+					flex-direction: row;
+					justify-content: flex-start;
+					gap: 14px;
+					padding: 10px 14px;
+					text-align: left;
+				}
+
+				.practice-choice-icon {
+					width: 48px;
+					height: 48px;
+					font-size: 1.35rem;
+				}
+
+				.practice-choice-text {
+					flex: 1;
+					min-width: 0;
+				}
+
+				.practice-choice-title {
+					font-size: 1.05rem;
+				}
+
+				.practice-choice-sub {
+					font-size: 0.82rem;
+				}
+
+				.practice-choice-score {
+					flex-shrink: 0;
+					font-size: 0.9rem;
 				}
 
 				.challenge-dot {
@@ -3009,7 +3149,7 @@
 		<div id="practice-view" class="practice-view" role="dialog" aria-modal="true" aria-labelledby="practice-title" hidden>
 			<div class="practice-inner">
 				<div class="practice-header">
-					<button id="practice-close" class="practice-close" onclick="closePractice()" aria-label="Back to the app" title="Back">
+					<button id="practice-close" class="practice-close" onclick="practiceBack()" aria-label="Back to the app" title="Back to the app">
 						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
 					</button>
 					<div class="practice-heading">
@@ -3021,6 +3161,7 @@
 					</div>
 					<span class="practice-header-spacer" aria-hidden="true"></span>
 				</div>
+				<div id="practice-menu" class="practice-menu"></div>
 				<div id="practice-map" class="practice-map"></div>
 				<div class="practice-card">
 					<div id="practice-steps" class="practice-steps"></div>
