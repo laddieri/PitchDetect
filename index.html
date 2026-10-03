@@ -2321,7 +2321,7 @@
 				color: var(--text-muted);
 			}
 
-			/* A fifth, instrument-specific activity (the flute head joint)
+			/* A fifth, instrument-specific activity (first sounds)
 			   leads the menu as a full-width card */
 			.practice-menu[data-count="5"] {
 				max-height: 560px;
@@ -2504,20 +2504,20 @@
 				display: none;
 			}
 
-			/* Learn the head joint */
-			.practice-view[data-step="hj-setup"] .practice-staff,
-			.practice-view[data-step="hj-done"] .practice-staff {
+			/* First sounds (head joint, mouthpiece) */
+			.practice-view[data-step="fs-setup"] .practice-staff,
+			.practice-view[data-step="fs-done"] .practice-staff {
 				display: none;
 			}
 
-			.headjoint-drawing {
+			.first-sounds-drawing {
 				display: block;
 				width: min(100%, 300px);
 				height: auto;
 				flex-shrink: 0;
 			}
 
-			.headjoint-tips {
+			.first-sounds-tips {
 				margin: 0;
 				padding-left: 1.4em;
 				max-width: 440px;
@@ -2525,7 +2525,7 @@
 				line-height: 1.45;
 			}
 
-			.headjoint-tips li + li {
+			.first-sounds-tips li + li {
 				margin-top: 4px;
 			}
 
@@ -2849,7 +2849,7 @@
 			body.kid-mode .practice-choice[data-activity="quiz"] .practice-choice-icon { background: #ff9f1c; }
 			body.kid-mode .practice-choice[data-activity="names"] .practice-choice-icon { background: #7ee081; }
 			body.kid-mode .practice-choice[data-activity="fingerings"] .practice-choice-icon { background: #8fd3ff; }
-			body.kid-mode .practice-choice[data-activity="headjoint"] .practice-choice-icon { background: #ffb3c6; }
+			body.kid-mode .practice-choice[data-activity="firstsounds"] .practice-choice-icon { background: #ffb3c6; }
 
 			body.kid-mode .challenge-dot {
 				border: 2px solid var(--ink);
@@ -2953,11 +2953,11 @@
 					gap: 10px;
 				}
 
-				.headjoint-drawing {
+				.first-sounds-drawing {
 					width: min(100%, 240px);
 				}
 
-				.headjoint-tips {
+				.first-sounds-tips {
 					font-size: 0.95rem;
 				}
 
@@ -3003,10 +3003,13 @@
 					gap: 10px;
 				}
 
+				/* Chips size to their labels and never wrap */
 				.practice-step {
+					flex: 1 1 auto;
 					gap: 4px;
-					padding: 5px 4px;
+					padding: 5px 6px;
 					font-size: 0.78rem;
+					white-space: nowrap;
 				}
 
 				.practice-step-num {
@@ -3038,6 +3041,24 @@
 				.practice-fingering {
 					height: auto;
 					flex: 1 1 0;
+				}
+			}
+			/* Narrowest phones: tighter step chips so four fit on one line */
+			@media (max-width: 360px) {
+				.practice-steps {
+					gap: 3px;
+				}
+
+				.practice-step {
+					gap: 3px;
+					padding: 4px 4px;
+					font-size: 0.72rem;
+				}
+
+				.practice-step-num {
+					width: 17px;
+					height: 17px;
+					font-size: 0.68rem;
 				}
 			}
 		</style>
