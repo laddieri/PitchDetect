@@ -1275,6 +1275,7 @@
 				#playButton,
 				#clearButton,
 				#listenButton,
+				#practiceButton,
 				#overflowButton {
 					flex: 0 0 44px;
 					width: 44px;
@@ -2014,6 +2015,672 @@
 					display: inline;
 				}
 			}
+
+			/* ---------- First 5 Notes practice ---------- */
+			/* Toolbar entry: an outline button beside Listen */
+			#practiceButton {
+				padding: 11px 22px;
+				font-size: 0.95rem;
+				font-weight: 500;
+				background-color: var(--surface);
+				color: var(--accent);
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 8px;
+				cursor: pointer;
+				transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
+			}
+
+			#practiceButton svg {
+				flex-shrink: 0;
+			}
+
+			#practiceButton:hover {
+				border-color: var(--accent);
+				background-color: var(--accent-soft);
+			}
+
+			#practiceButton:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			#practiceButton:disabled {
+				cursor: not-allowed;
+				opacity: 0.45;
+				background-color: var(--surface);
+				border-color: var(--border-strong);
+			}
+
+			/* In the mobile overflow menu: a labeled row above Sustain */
+			.controls .overflow-popover #practiceButton {
+				display: flex;
+				width: 100%;
+				height: auto;
+				padding: 9px 14px;
+				margin-bottom: 12px;
+			}
+
+			.controls .overflow-popover #practiceButton .btn-label {
+				display: inline;
+			}
+
+			/* Full-screen practice view over the app (which is made inert) */
+			.practice-view {
+				position: fixed;
+				inset: 0;
+				z-index: 55;
+				display: flex;
+				flex-direction: column;
+				padding: 24px;
+				overflow-y: auto;
+				background: inherit;
+			}
+
+			.practice-view[hidden] {
+				display: none;
+			}
+
+			.practice-inner {
+				flex: 1;
+				display: flex;
+				flex-direction: column;
+				gap: 14px;
+				width: 100%;
+				max-width: 760px;
+				min-height: 0;
+				margin: 0 auto;
+			}
+
+			.practice-header {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+			}
+
+			.practice-close {
+				flex: 0 0 44px;
+				width: 44px;
+				height: 44px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: var(--radius-pill);
+				border: 1px solid var(--border-strong);
+				background: var(--surface);
+				color: var(--text);
+				cursor: pointer;
+			}
+
+			.practice-close:hover {
+				border-color: var(--accent);
+				color: var(--accent);
+			}
+
+			#practice-title {
+				flex: 1;
+				margin: 0;
+				font-size: 1.6rem;
+				font-weight: 700;
+				letter-spacing: -0.01em;
+			}
+
+			.practice-instrument {
+				padding: 6px 12px;
+				border-radius: var(--radius-pill);
+				background: var(--surface);
+				border: 1px solid var(--border);
+				color: var(--text-muted);
+				font-size: 0.9rem;
+				font-weight: 600;
+				white-space: nowrap;
+			}
+
+			/* The five notes, with their stars */
+			.practice-map {
+				display: grid;
+				grid-template-columns: repeat(5, minmax(0, 1fr));
+				gap: 10px;
+			}
+
+			.practice-map-note {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 2px;
+				padding: 8px 4px;
+				background: var(--surface);
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				color: var(--text-faint);
+				cursor: pointer;
+				font-family: var(--font);
+			}
+
+			.practice-map-note.learned {
+				color: var(--text);
+			}
+
+			.practice-map-note.current {
+				border-color: var(--accent);
+				box-shadow: var(--ring);
+			}
+
+			.practice-map-name {
+				font-size: 1.3rem;
+				font-weight: 700;
+				line-height: 1.2;
+			}
+
+			.practice-map-stars {
+				color: #f5b301;
+				font-size: 0.95rem;
+				letter-spacing: 1px;
+			}
+
+			.practice-card {
+				flex: 1;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				padding: 16px;
+				background: var(--surface);
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				box-shadow: var(--shadow-md);
+			}
+
+			/* Read / Finger / Hear / Play */
+			.practice-steps {
+				display: flex;
+				justify-content: center;
+				gap: 6px;
+			}
+
+			.practice-step {
+				flex: 1;
+				max-width: 140px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+				padding: 6px 8px;
+				border: none;
+				border-radius: var(--radius-pill);
+				background: var(--surface-2);
+				color: var(--text-muted);
+				font-family: var(--font);
+				font-size: 0.85rem;
+				font-weight: 600;
+				cursor: pointer;
+			}
+
+			.practice-step:disabled {
+				cursor: default;
+				opacity: 0.55;
+			}
+
+			.practice-step.done:disabled,
+			.practice-step.current {
+				opacity: 1;
+			}
+
+			.practice-step-num {
+				flex-shrink: 0;
+				width: 22px;
+				height: 22px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: 50%;
+				background: var(--border-strong);
+				color: #fff;
+				font-size: 0.75rem;
+			}
+
+			.practice-step.current {
+				background: var(--accent-soft);
+				color: var(--accent);
+			}
+
+			.practice-step.current .practice-step-num {
+				background: var(--accent);
+			}
+
+			.practice-step.done .practice-step-num {
+				background: var(--success);
+			}
+
+			/* Prompt, staff, then the step's own content */
+			.practice-stage {
+				position: relative;
+				flex: 1;
+				min-height: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 10px;
+			}
+
+			.practice-prompt {
+				font-size: 1.35rem;
+				font-weight: 700;
+				text-align: center;
+				min-height: 1.4em;
+			}
+
+			.practice-staff {
+				flex-shrink: 0;
+				width: 100%;
+				height: clamp(110px, 24vh, 210px);
+			}
+
+			#practice-staff-output {
+				width: 100%;
+				height: 100%;
+			}
+
+			#practice-staff-output svg {
+				display: block;
+			}
+
+			/* Steps other than Finger group their content mid-card */
+			.practice-view:not([data-step="finger"]) .practice-stage {
+				justify-content: center;
+			}
+
+			.practice-view:not([data-step="finger"]) .practice-body {
+				flex: 0 0 auto;
+			}
+
+			.practice-body {
+				flex: 1;
+				min-height: 0;
+				width: 100%;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 12px;
+			}
+
+			.practice-btn {
+				padding: 12px 26px;
+				border: 1px solid transparent;
+				border-radius: var(--radius-sm);
+				font-family: var(--font);
+				font-size: 1.05rem;
+				font-weight: 600;
+				cursor: pointer;
+			}
+
+			.practice-btn.primary {
+				background: var(--accent);
+				color: #fff;
+			}
+
+			.practice-btn.primary:hover {
+				background: var(--accent-hover);
+			}
+
+			.practice-btn.secondary {
+				background: var(--surface);
+				color: var(--accent);
+				border-color: var(--border-strong);
+			}
+
+			.practice-btn.secondary:hover {
+				border-color: var(--accent);
+				background: var(--accent-soft);
+			}
+
+			.practice-btn:focus-visible,
+			.practice-answer:focus-visible,
+			.practice-map-note:focus-visible,
+			.practice-step:focus-visible,
+			.practice-close:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			/* Read: one button per note name */
+			.practice-answers {
+				display: grid;
+				grid-template-columns: repeat(5, minmax(0, 80px));
+				justify-content: center;
+				gap: 10px;
+				width: 100%;
+			}
+
+			.practice-answer {
+				height: 64px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1.6rem;
+				font-weight: 700;
+				cursor: pointer;
+			}
+
+			.practice-answer:hover:not(:disabled) {
+				border-color: var(--accent);
+			}
+
+			.practice-answer.right {
+				background: var(--success);
+				border-color: var(--success);
+				color: #fff;
+			}
+
+			.practice-answer.wrong {
+				border-color: var(--danger);
+				color: var(--danger);
+				opacity: 0.5;
+				cursor: default;
+				animation: practice-shake 0.4s;
+			}
+
+			@keyframes practice-shake {
+				0%, 100% { transform: translateX(0); }
+				20%, 60% { transform: translateX(-6px); }
+				40%, 80% { transform: translateX(6px); }
+			}
+
+			/* Finger: the chart fills the space between staff and button */
+			.practice-fingering {
+				flex: 0 1 auto;
+				min-height: 0;
+				height: var(--fingering-h, auto);
+				max-width: 100%;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.practice-fingering img {
+				height: 100%;
+				width: auto;
+				max-width: 100%;
+				object-fit: scale-down;
+			}
+
+			.practice-fingering svg {
+				display: block;
+				width: auto;
+				height: auto;
+				max-width: 100%;
+				max-height: 100%;
+			}
+
+			/* The piano keyboard SVG has no intrinsic size */
+			.practice-fingering > svg {
+				width: min(100%, 300px);
+			}
+
+			.practice-fingering .fingering-label {
+				display: none;
+			}
+
+			.practice-fingering .clarinet-fingerings {
+				display: flex;
+				justify-content: center;
+				height: 100%;
+				min-height: 0;
+			}
+
+			.practice-fingering .clarinet-fingering {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				min-height: 0;
+			}
+
+			.practice-fingering .clarinet-fingering svg {
+				flex: 1 1 0;
+				min-height: 0;
+				height: 100%;
+				max-height: none;
+			}
+
+			/* Play: feedback words and the hold bar */
+			.practice-feedback {
+				font-size: 1.6rem;
+				font-weight: 700;
+				text-align: center;
+				line-height: 1.25;
+			}
+
+			.practice-feedback[data-state="good"] { color: var(--success); }
+			.practice-feedback[data-state="close"] { color: var(--warning); }
+			.practice-feedback[data-state="off"] { color: var(--danger); }
+
+			.practice-feedback-sub {
+				min-height: 1.3em;
+				color: var(--text-muted);
+				text-align: center;
+			}
+
+			.practice-hold {
+				width: min(100%, 360px);
+				height: 18px;
+				flex-shrink: 0;
+				border-radius: var(--radius-pill);
+				border: 1px solid var(--border-strong);
+				background: var(--surface-2);
+				overflow: hidden;
+			}
+
+			.practice-hold-fill {
+				width: 0;
+				height: 100%;
+				background: var(--success);
+				transition: width 0.1s linear;
+			}
+
+			/* Result: the three stars, then what's next */
+			.practice-results {
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+			}
+
+			.practice-result {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				font-size: 1.05rem;
+				color: var(--text-faint);
+			}
+
+			.practice-result.got {
+				color: var(--text);
+				font-weight: 600;
+			}
+
+			.practice-result-star {
+				font-size: 1.6rem;
+				line-height: 1;
+			}
+
+			.practice-result.got .practice-result-star {
+				color: #f5b301;
+			}
+
+			.practice-actions {
+				display: flex;
+				flex-wrap: wrap;
+				justify-content: center;
+				gap: 10px;
+			}
+
+			/* Kid mode: the cartoon look */
+			body.kid-mode #practiceButton {
+				font-size: 1.2rem;
+				font-weight: 700;
+				padding: 11px 24px;
+				background-color: #ffd23f;
+				color: var(--ink);
+				border: var(--cartoon-border);
+				border-radius: 14px;
+				box-shadow: 4px 4px 0 var(--ink);
+			}
+
+			body.kid-mode #practiceButton:active,
+			body.kid-mode .practice-btn:active,
+			body.kid-mode .practice-answer:active:not(:disabled) {
+				transform: translate(3px, 3px);
+				box-shadow: 1px 1px 0 var(--ink);
+			}
+
+			body.kid-mode #practice-title {
+				color: var(--ink);
+				font-size: 1.9rem;
+			}
+
+			body.kid-mode .practice-card,
+			body.kid-mode .practice-map-note,
+			body.kid-mode .practice-close,
+			body.kid-mode .practice-instrument {
+				border: var(--cartoon-border);
+				box-shadow: 4px 4px 0 var(--ink);
+			}
+
+			body.kid-mode .practice-card {
+				box-shadow: var(--cartoon-shadow);
+			}
+
+			body.kid-mode .practice-map-note.current {
+				background: #fffbea;
+				transform: translateY(-3px);
+			}
+
+			body.kid-mode .practice-answer,
+			body.kid-mode .practice-btn {
+				border: var(--cartoon-border);
+				box-shadow: 4px 4px 0 var(--ink);
+			}
+
+			body.kid-mode .practice-btn.secondary {
+				color: var(--ink);
+			}
+
+			body.kid-mode .practice-hold {
+				height: 26px;
+				border: var(--cartoon-border);
+				background: #fff;
+			}
+
+			body.kid-mode .practice-hold-fill {
+				background: #5ad86a;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.practice-answer.wrong {
+					animation: none;
+				}
+			}
+
+			@media (max-width: 700px) {
+				/* (Restated: the rules above come after the toolbar's own
+				   mobile sizing) */
+				.controls #practiceButton {
+					padding: 0;
+				}
+
+				/* Kid mode spells out Listen, which keeps its slot even while
+				   hidden; Practice stays a star so the instrument name fits */
+				body.kid-mode .controls #practiceButton {
+					flex: 0 0 48px;
+					width: 48px;
+					height: 44px;
+					padding: 0;
+				}
+
+				body.kid-mode .controls #practiceButton svg {
+					width: 22px;
+					height: 22px;
+				}
+
+				body.kid-mode .controls #practiceButton .btn-label {
+					display: none;
+				}
+
+				.practice-view {
+					padding: 12px;
+				}
+
+				.practice-inner {
+					gap: 10px;
+				}
+
+				#practice-title,
+				body.kid-mode #practice-title {
+					font-size: 1.2rem;
+				}
+
+				.practice-map {
+					gap: 6px;
+				}
+
+				.practice-map-note {
+					padding: 5px 2px;
+				}
+
+				.practice-map-name {
+					font-size: 1.1rem;
+				}
+
+				.practice-map-stars {
+					font-size: 0.8rem;
+				}
+
+				.practice-card {
+					padding: 12px;
+					gap: 10px;
+				}
+
+				.practice-step {
+					gap: 4px;
+					padding: 5px 4px;
+					font-size: 0.78rem;
+				}
+
+				.practice-step-num {
+					width: 20px;
+					height: 20px;
+				}
+
+				.practice-prompt {
+					font-size: 1.15rem;
+				}
+
+				.practice-staff {
+					height: clamp(100px, 20vh, 170px);
+				}
+
+				.practice-answers {
+					gap: 6px;
+				}
+
+				.practice-answer {
+					height: 54px;
+					font-size: 1.35rem;
+				}
+
+				.practice-feedback {
+					font-size: 1.35rem;
+				}
+
+				.practice-fingering {
+					height: auto;
+					flex: 1 1 0;
+				}
+			}
 		</style>
 	</head>
 	<body class="kid-mode">
@@ -2062,6 +2729,10 @@
 				<button id="listenButton" onclick="handleListenButton()" title="Listen through the microphone and name the notes you play" aria-label="Listen through the microphone and name the notes you play">
 					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
 					<span class="btn-label" id="listenLabel">Listen</span>
+				</button>
+				<button id="practiceButton" onclick="openPractice()" title="Practice your first five notes" aria-label="Practice your first five notes" disabled>
+					<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+					<span class="btn-label">Practice</span>
 				</button>
 				<div class="controls-divider"></div>
 				<button id="playButton" onclick="handlePlayButton()" title="Play the target note" aria-label="Play the target note">
@@ -2161,8 +2832,30 @@
 			</div>
 		</div>
 
+		<div id="practice-view" class="practice-view" role="dialog" aria-modal="true" aria-labelledby="practice-title" hidden>
+			<div class="practice-inner">
+				<div class="practice-header">
+					<button id="practice-close" class="practice-close" onclick="closePractice()" aria-label="Back to the app" title="Back">
+						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+					</button>
+					<h2 id="practice-title">My First 5 Notes</h2>
+					<span id="practice-instrument" class="practice-instrument"></span>
+				</div>
+				<div id="practice-map" class="practice-map"></div>
+				<div class="practice-card">
+					<div id="practice-steps" class="practice-steps"></div>
+					<div id="practice-stage" class="practice-stage">
+						<div id="practice-prompt" class="practice-prompt"></div>
+						<div class="practice-staff"><div id="practice-staff-output"></div></div>
+						<div id="practice-body" class="practice-body"></div>
+					</div>
+				</div>
+			</div>
+		</div>
+
 		<div id="toast" class="toast" role="alert"></div>
 
 		<script src="js/notetrainer.js"></script>
+		<script src="js/firstfive.js"></script>
 	</body>
 </html>
