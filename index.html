@@ -2269,12 +2269,13 @@
 				display: none;
 			}
 
-			/* Menu: one big button per activity */
+			/* Menu: one big button per activity, in columns by topic: first
+			   five lesson + quiz, the two drills, the B♭ scale lesson + run */
 			.practice-menu {
 				flex: 1;
 				min-height: 0;
 				display: grid;
-				grid-template-columns: repeat(2, minmax(0, 1fr));
+				grid-template-columns: repeat(3, minmax(0, 1fr));
 				grid-auto-rows: minmax(0, 1fr);
 				gap: 14px;
 				max-height: 420px;
@@ -2343,14 +2344,22 @@
 				color: var(--text-muted);
 			}
 
-			/* A fifth, instrument-specific activity (first sounds)
-			   leads the menu as a full-width card */
-			.practice-menu[data-count="5"] {
+			.practice-choice[data-activity="learn"] { order: 1; }
+			.practice-choice[data-activity="names"] { order: 2; }
+			.practice-choice[data-activity="scale"] { order: 3; }
+			.practice-choice[data-activity="quiz"] { order: 4; }
+			.practice-choice[data-activity="fingerings"] { order: 5; }
+			.practice-choice[data-activity="scalerun"] { order: 6; }
+
+			/* An instrument-specific activity (first sounds) leads the menu
+			   as a full-width card */
+			.practice-menu[data-count="7"] {
 				max-height: 560px;
 			}
 
-			.practice-menu[data-count="5"] .practice-choice:first-child {
+			.practice-choice.wide {
 				grid-column: 1 / -1;
+				order: 0;
 			}
 
 			.practice-choice-score {
@@ -2630,6 +2639,16 @@
 				justify-content: center;
 				gap: 10px;
 				width: 100%;
+			}
+
+			/* The scale's seven names: one row, or rows centered on a phone */
+			.practice-answers[data-count="7"] {
+				display: flex;
+				flex-wrap: wrap;
+			}
+
+			.practice-answers[data-count="7"] .practice-answer {
+				width: 72px;
 			}
 
 			.practice-answer {
@@ -2919,6 +2938,8 @@
 			body.kid-mode .practice-choice[data-activity="names"] .practice-choice-icon { background: #7ee081; }
 			body.kid-mode .practice-choice[data-activity="fingerings"] .practice-choice-icon { background: #8fd3ff; }
 			body.kid-mode .practice-choice[data-activity="firstsounds"] .practice-choice-icon { background: #ffb3c6; }
+			body.kid-mode .practice-choice[data-activity="scale"] .practice-choice-icon { background: #c9b6ff; }
+			body.kid-mode .practice-choice[data-activity="scalerun"] .practice-choice-icon { background: #ffcf8f; }
 
 			body.kid-mode .challenge-dot {
 				border: 2px solid var(--ink);
@@ -3011,16 +3032,29 @@
 					letter-spacing: 0;
 				}
 
+				/* The scale's eight notes */
+				.practice-map[data-count="8"] {
+					gap: 4px;
+				}
+
+				.practice-map[data-count="8"] .practice-map-stars {
+					font-size: 0.55rem;
+				}
+
 				.challenge-progress {
 					gap: 6px;
 				}
 
-				/* Menu: full-width rows, icon left */
+				/* Menu: full-width rows, icon left, in list order */
 				.practice-menu,
-				.practice-menu[data-count="5"] {
+				.practice-menu[data-count="7"] {
 					grid-template-columns: minmax(0, 1fr);
-					max-height: 520px;
+					max-height: 600px;
 					gap: 10px;
+				}
+
+				.practice-menu .practice-choice {
+					order: 0;
 				}
 
 				.first-sounds-drawing {
