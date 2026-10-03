@@ -493,6 +493,7 @@ function practiceFingeringBox(hideName) {
 		displayFingering(box, practice.instrument, practice.target, false);
 		if (practice.instrument === "trombone") centerChartDrawing(box);
 	} else {
+		box.style.setProperty("--fingering-h", "134px");  // the keyboard at 300px wide
 		var concertPc = (((practice.target - getTransposition()) % 12) + 12) % 12;
 		drawPianoKeyboard(concertPc, hideName ? "" : practiceNoteName(practice.target), box);
 	}

@@ -2476,6 +2476,20 @@
 				display: block;
 			}
 
+			/* Steps with a chart: on a short screen the staff and the chart
+			   share the squeeze (in proportion to their sizes) instead of the
+			   chart shrinking alone to a sliver */
+			.practice-view[data-step="finger"] .practice-staff,
+			.practice-view[data-step="challenge-help"] .practice-staff {
+				flex: 0 1 auto;
+				min-height: 80px;
+			}
+
+			.practice-view[data-step="finger"] .practice-body,
+			.practice-view[data-step="challenge-help"] .practice-body {
+				flex: 1 1 auto;
+			}
+
 			/* Steps other than Finger group their content mid-card */
 			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]) .practice-stage {
 				justify-content: center;
@@ -2735,19 +2749,25 @@
 			}
 
 			/* Finger: the chart fills the space between staff and button */
+			/* A size container: on a short screen the box shrinks below
+			   --fingering-h, and the chart or keyboard scales to the box's
+			   real height (100cqh) — a percentage would resolve against the
+			   unshrunk height and clip the drawing's bottom (e.g. the valve
+			   caption). */
 			.practice-fingering {
 				flex: 0 1 auto;
 				min-height: 0;
 				overflow: hidden;
 				height: var(--fingering-h, auto);
-				max-width: 100%;
+				width: 100%;
+				container-type: size;
 				display: flex;
 				align-items: center;
 				justify-content: center;
 			}
 
 			.practice-fingering img {
-				height: 100%;
+				height: 100cqh;
 				width: auto;
 				max-width: 100%;
 				object-fit: scale-down;
@@ -2758,7 +2778,7 @@
 				width: auto;
 				height: auto;
 				max-width: 100%;
-				max-height: 100%;
+				max-height: 100cqh;
 			}
 
 			/* The piano keyboard SVG has no intrinsic size */
@@ -2773,7 +2793,7 @@
 			.practice-fingering .clarinet-fingerings {
 				display: flex;
 				justify-content: center;
-				height: 100%;
+				height: 100cqh;
 				min-height: 0;
 			}
 
@@ -3323,7 +3343,7 @@
 						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
 					</button>
 					<div class="practice-heading">
-						<h2 id="practice-title">My First 5 Notes</h2>
+						<h2 id="practice-title">Practice</h2>
 						<span class="practice-instrument">
 							<select id="practice-instrument" onchange="changePracticeInstrument(this.value)" aria-label="Instrument" title="Change instrument"></select>
 							<svg class="practice-instrument-chevron" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
