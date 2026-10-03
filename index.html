@@ -2200,7 +2200,7 @@
 			/* The five notes, with their stars */
 			.practice-map {
 				display: grid;
-				grid-template-columns: repeat(5, minmax(0, 1fr));
+				grid-template-columns: repeat(6, minmax(0, 1fr));
 				gap: 10px;
 			}
 
@@ -2237,6 +2237,25 @@
 				color: #f5b301;
 				font-size: 0.95rem;
 				letter-spacing: 1px;
+			}
+
+			/* Sixth tile: the challenge (a trophy, or a lock until every note
+			   has a star) */
+			.practice-map-challenge .practice-map-name {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				height: 1.2em;
+			}
+
+			.practice-map-challenge.learned {
+				color: #e09b00;
+			}
+
+			.practice-map-challenge.locked {
+				cursor: not-allowed;
+				background: var(--surface-2);
+				opacity: 0.7;
 			}
 
 			.practice-card {
@@ -2347,12 +2366,74 @@
 			}
 
 			/* Steps other than Finger group their content mid-card */
-			.practice-view:not([data-step="finger"]) .practice-stage {
+			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]) .practice-stage {
 				justify-content: center;
 			}
 
-			.practice-view:not([data-step="finger"]) .practice-body {
+			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]) .practice-body {
 				flex: 0 0 auto;
+			}
+
+			/* Challenge: progress dots stand in for the step chips; the result
+			   swaps the staff for a trophy */
+			.challenge-progress {
+				display: flex;
+				justify-content: center;
+				align-items: center;
+				gap: 8px;
+				min-height: 30px;
+			}
+
+			.challenge-dot {
+				width: 14px;
+				height: 14px;
+				border-radius: 50%;
+				background: var(--border);
+				flex-shrink: 0;
+			}
+
+			.challenge-dot.current {
+				background: var(--surface);
+				box-shadow: 0 0 0 3px var(--accent);
+			}
+
+			.challenge-dot.current.helping {
+				box-shadow: 0 0 0 3px var(--warning);
+			}
+
+			.challenge-dot.own {
+				background: var(--success);
+			}
+
+			.challenge-dot.helped {
+				background: var(--warning);
+			}
+
+			.practice-view[data-step="challenge-done"] .practice-staff {
+				display: none;
+			}
+
+			.challenge-trophy {
+				color: #e09b00;
+				line-height: 0;
+			}
+
+			.challenge-trophy svg {
+				width: 96px;
+				height: 96px;
+			}
+
+			.challenge-stars {
+				color: #f5b301;
+				font-size: 2.6rem;
+				letter-spacing: 6px;
+				line-height: 1;
+			}
+
+			.challenge-score {
+				font-size: 1.15rem;
+				font-weight: 600;
+				text-align: center;
 			}
 
 			.practice-body {
@@ -2632,6 +2713,14 @@
 				color: var(--ink);
 			}
 
+			body.kid-mode .challenge-dot {
+				border: 2px solid var(--ink);
+			}
+
+			body.kid-mode .challenge-trophy svg {
+				filter: drop-shadow(4px 4px 0 var(--ink));
+			}
+
 			body.kid-mode .practice-hold {
 				height: 26px;
 				border: var(--cartoon-border);
@@ -2710,7 +2799,17 @@
 				}
 
 				.practice-map-stars {
-					font-size: 0.8rem;
+					font-size: 0.7rem;
+					letter-spacing: 0;
+				}
+
+				.challenge-progress {
+					gap: 6px;
+				}
+
+				.challenge-dot {
+					width: 12px;
+					height: 12px;
 				}
 
 				.practice-card {

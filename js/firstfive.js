@@ -11,6 +11,11 @@
  * Stars (up to 3 per note, best kept per instrument in localStorage):
  *   named it on the first try, played it, and played it right in tune.
  *
+ * Challenge round (unlocked once every note has a star): CHALLENGE_LENGTH
+ * notes mixed at random, staff only. Help reveals a note's name, fingering
+ * and sound, but only notes played without help score. The best score is
+ * kept per instrument.
+ *
  * Uses notetrainer.js globals: playTone(), startListening()/stopListening(),
  * launchFireworks(), getTransposition(), drawPianoKeyboard(), keyDisplayName(),
  * and fingerings.js: hasFingeringData(), displayFingering(), fingeringBoxHeight().
@@ -44,6 +49,10 @@ var PRACTICE_PASS_CENTS = 30;      // "close enough" for a beginner
 var PRACTICE_TUNE_CENTS = 12;      // average offset for the in-tune star
 var PRACTICE_GAP_MS = 250;         // dropouts shorter than this keep the hold
 var PRACTICE_HINT_FRAMES = 4;      // frames a wrong note must last to be named
+
+var CHALLENGE_STORAGE_KEY = "pitchdetect-first-five-challenge";
+var CHALLENGE_LENGTH = 10;
+var CHALLENGE_HOLD_MS = 800;       // shorter hold keeps the round moving
 
 var practiceOpen = false;
 var practiceStartedMic = false;
@@ -81,6 +90,32 @@ function savePracticeStars(instrument, stars) {
 	} catch (e) {}
 }
 
+// Best challenge score (notes played without help) for an instrument, or null
+function loadChallengeBest(instrument) {
+	try {
+		var best = JSON.parse(localStorage.getItem(CHALLENGE_STORAGE_KEY) || "{}")[instrument];
+		if (typeof best === "number") return best;
+	} catch (e) {}
+	return null;
+}
+
+function saveChallengeBest(instrument, score) {
+	try {
+		var all = JSON.parse(localStorage.getItem(CHALLENGE_STORAGE_KEY) || "{}");
+		all[instrument] = score;
+		localStorage.setItem(CHALLENGE_STORAGE_KEY, JSON.stringify(all));
+	} catch (e) {}
+}
+
+// Trophy stars for a challenge score
+function challengeStars(score) {
+	return score >= CHALLENGE_LENGTH ? 3 : score >= 8 ? 2 : score >= 5 ? 1 : 0;
+}
+
+function allNotesLearned() {
+	return practice.stars.every(function(s) { return s > 0; });
+}
+
 function openPractice() {
 	var select = document.getElementById("instrument");
 	if (!select.value) {
@@ -116,8 +151,10 @@ function loadPracticeInstrument() {
 	var select = document.getElementById("instrument");
 	practice = {
 		instrument: select.value,
+		mode: "lesson",
 		notes: practiceNotes(),
 		stars: loadPracticeStars(select.value),
+		challengeBest: loadChallengeBest(select.value),
 		index: 0,
 		step: 0
 	};
@@ -154,6 +191,7 @@ function closePractice() {
 
 // Begin (or restart) the lesson for note i
 function startPracticeNote(i) {
+	practice.mode = "lesson";
 	practice.index = i;
 	practice.target = practice.notes[i];
 	practice.firstTry = true;
@@ -300,7 +338,11 @@ function updatePracticeListen(now, freq) {
 	if (!practice || practice.step !== 3) return;
 	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
 	practice.lastFrame = now;
+	// The challenge is reading from the staff, so feedback never names the
+	// target (naming what the student actually played is fine)
+	var challenge = practice.mode === "challenge";
 	var name = practiceNoteName(practice.target);
+	var holdNeeded = challenge ? CHALLENGE_HOLD_MS : PRACTICE_HOLD_MS;
 
 	if (now < (practice.ignoreUntil || 0)) {
 		setPracticeFeedback("Listen\u2026", "\u00a0");
@@ -336,8 +378,9 @@ function updatePracticeListen(now, freq) {
 					setPracticeFeedback(cents < 0 ? "A little low" : "A little high",
 						cents < 0 ? "Push the pitch up a bit" : "Relax the pitch down a bit", "close");
 				} else if (r % 12 === 0) {
+					var which = challenge ? "one" : name;
 					setPracticeFeedback("Right note, wrong octave",
-						r > 0 ? "That\u2019s a higher " + name + " \u2014 try the lower one" : "That\u2019s a lower " + name + " \u2014 try the higher one", "off");
+						r > 0 ? "That\u2019s a higher " + which + " \u2014 try the lower one" : "That\u2019s a lower " + which + " \u2014 try the higher one", "off");
 				} else {
 					var check = practice.instrument === "trombone" ? ". Check your slide."
 						: hasFingeringData(practice.instrument) ? ". Check your fingering." : ". Try again.";
@@ -346,7 +389,7 @@ function updatePracticeListen(now, freq) {
 			}
 		}
 	} else if (now - practice.lastSound > 1500) {
-		setPracticeFeedback("Play " + name + " and hold it", "\u00a0");
+		setPracticeFeedback(challenge ? "Hold it until the bar fills" : "Play " + name + " and hold it", "\u00a0");
 	}
 
 	// Short gaps (a breath, a wobble) keep the progress; longer ones reset it
@@ -356,11 +399,14 @@ function updatePracticeListen(now, freq) {
 	}
 
 	var fill = document.getElementById("practice-hold-fill");
-	if (fill) fill.style.width = Math.min(100, practice.holdMs / PRACTICE_HOLD_MS * 100) + "%";
+	if (fill) fill.style.width = Math.min(100, practice.holdMs / holdNeeded * 100) + "%";
 
-	if (practice.holdMs >= PRACTICE_HOLD_MS) {
-		var avgCents = practice.centsTotal / practice.holdMs;
-		finishPracticeNote(avgCents <= PRACTICE_TUNE_CENTS);
+	if (practice.holdMs >= holdNeeded) {
+		if (challenge) {
+			passChallengeNote();
+		} else {
+			finishPracticeNote(practice.centsTotal / practice.holdMs <= PRACTICE_TUNE_CENTS);
+		}
 	}
 }
 
@@ -407,9 +453,12 @@ function renderPracticeResult() {
 		startPracticeNote(practice.index);
 	}));
 	var nextIndex = (practice.index + 1) % 5;
-	actions.appendChild(practiceButton("Next note \u2192", "primary", function() {
+	actions.appendChild(practiceButton("Next note \u2192", practice.allLearned ? "secondary" : "primary", function() {
 		startPracticeNote(nextIndex);
 	}));
+	if (practice.allLearned) {
+		actions.appendChild(practiceButton("Take the Challenge \u2192", "primary", startChallenge));
+	}
 	body.appendChild(actions);
 }
 
@@ -431,10 +480,38 @@ function renderPracticeMap() {
 		b.onclick = function() { startPracticeNote(i); };
 		map.appendChild(b);
 	});
+
+	// The challenge tile: locked until every note has a star
+	var unlocked = allNotesLearned();
+	var stars = practice.challengeBest === null ? 0 : challengeStars(practice.challengeBest);
+	var c = document.createElement("button");
+	c.className = "practice-map-note practice-map-challenge" +
+		(practice.mode === "challenge" ? " current" : "") + (unlocked ? " learned" : " locked");
+	c.innerHTML = '<span class="practice-map-name">' + (unlocked ? TROPHY_SVG : LOCK_SVG) + '</span>' +
+		'<span class="practice-map-stars" aria-hidden="true"></span>';
+	c.lastChild.textContent = "\u2605\u2605\u2605".slice(0, stars) + "\u2606\u2606\u2606".slice(0, 3 - stars);
+	c.disabled = !unlocked;
+	c.title = unlocked ? "Challenge" : "Challenge \u2014 learn all five notes to unlock it";
+	c.setAttribute("aria-label", unlocked
+		? "Challenge, " + (practice.challengeBest === null ? "not played yet" : "best " + practice.challengeBest + " of " + CHALLENGE_LENGTH)
+		: "Challenge, locked until you learn all five notes");
+	if (practice.mode === "challenge") c.setAttribute("aria-current", "true");
+	c.onclick = startChallenge;
+	map.appendChild(c);
 }
+
+var TROPHY_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+	'<path d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.35A5 5 0 0 1 13 14.9V17h3v2H8v-2h3v-2.1A5 5 0 0 1 8.35 12H8a4 4 0 0 1-4-4V5h3V3zm0 4H6v1a2 2 0 0 0 1 1.73V7zm10 0v2.73A2 2 0 0 0 18 8V7h-1z"/>' +
+	'<rect x="6" y="20" width="12" height="2" rx="1"/></svg>';
+var LOCK_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">' +
+	'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 
 // Read / Finger / Hear / Play chips. Steps already reached can be revisited.
 function renderPracticeSteps() {
+	if (practice.mode === "challenge") {
+		renderChallengeProgress();
+		return;
+	}
 	var labels = ["Read", practice.instrument === "trombone" ? "Slide"
 		: hasFingeringData(practice.instrument) ? "Finger" : "Find", "Hear", "Play"];
 	var list = document.getElementById("practice-steps");
@@ -454,6 +531,177 @@ function renderPracticeSteps() {
 		b.onclick = function() { goToPracticeStep(i); };
 		list.appendChild(b);
 	});
+}
+
+// ---------------------------------------------------------------------------
+// Challenge round
+// ---------------------------------------------------------------------------
+
+// Every note at least once (two shuffled passes), never the same note twice
+// in a row
+function makeChallengeSequence() {
+	function shuffled() {
+		var a = [0, 1, 2, 3, 4];
+		for (var i = a.length - 1; i > 0; i--) {
+			var j = Math.floor(Math.random() * (i + 1));
+			var t = a[i]; a[i] = a[j]; a[j] = t;
+		}
+		return a;
+	}
+	var seq = [];
+	while (seq.length < CHALLENGE_LENGTH) {
+		var pass = shuffled();
+		if (seq.length && pass[0] === seq[seq.length - 1]) {
+			pass.push(pass.shift());
+		}
+		seq = seq.concat(pass);
+	}
+	return seq.slice(0, CHALLENGE_LENGTH);
+}
+
+function startChallenge() {
+	if (!allNotesLearned()) return;
+	clearTimeout(practiceAdvanceTimer);
+	practice.mode = "challenge";
+	practice.index = -1;
+	practice.challenge = { seq: makeChallengeSequence(), pos: 0, results: [] };
+	renderPracticeMap();
+	showChallengeNote();
+}
+
+function showChallengeNote() {
+	var c = practice.challenge;
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	practice.target = practice.notes[c.seq[c.pos]];
+	practice.step = 3;
+	c.helped = false;
+	resetPracticeHold();
+
+	document.getElementById("practice-view").setAttribute("data-step", "challenge");
+	drawPracticeStaff(practice.target);
+	renderPracticeSteps();
+	document.getElementById("practice-prompt").textContent = "Play this note!";
+	var body = document.getElementById("practice-body");
+	body.innerHTML =
+		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready\u2026</div>' +
+		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>' +
+		'<div class="practice-hold" aria-hidden="true"><div class="practice-hold-fill" id="practice-hold-fill"></div></div>';
+	var help = practiceButton("Help", "secondary", function() { showChallengeHelp(help); });
+	body.appendChild(help);
+
+	if (!listenActive) {
+		practiceStartedMic = true;
+		startListening();
+	}
+	setPracticeFeedback("Hold it until the bar fills", "\u00a0");
+}
+
+// Reveal the name, fingering and sound. The note still has to be played,
+// but it no longer scores.
+function showChallengeHelp(button) {
+	var c = practice.challenge;
+	c.helped = true;
+	renderPracticeSteps();
+	var name = practiceNoteName(practice.target);
+	document.getElementById("practice-view").setAttribute("data-step", "challenge-help");
+	document.getElementById("practice-prompt").textContent = "This is " + name + ". Play it!";
+
+	var box = document.createElement("div");
+	box.className = "practice-fingering";
+	button.parentNode.insertBefore(box, button);
+	if (hasFingeringData(practice.instrument)) {
+		box.style.setProperty("--fingering-h", fingeringBoxHeight(practice.instrument));
+		displayFingering(box, practice.instrument, practice.target, false);
+	} else {
+		var concertPc = (((practice.target - getTransposition()) % 12) + 12) % 12;
+		drawPianoKeyboard(concertPc, name, box);
+	}
+	button.textContent = "\u25b6 Hear it";
+	button.onclick = playPracticeExample;
+	playPracticeExample();
+}
+
+function passChallengeNote() {
+	var c = practice.challenge;
+	practice.step = 4;  // stop scoring until the next note
+	c.results.push(!c.helped);
+	var fill = document.getElementById("practice-hold-fill");
+	if (fill) fill.style.width = "100%";
+	setPracticeFeedback("Yes! That\u2019s " + practiceNoteName(practice.target) + "!", "\u00a0", "good");
+	renderPracticeSteps();
+	practiceAdvanceTimer = setTimeout(function() {
+		c.pos++;
+		if (c.pos < CHALLENGE_LENGTH) {
+			showChallengeNote();
+		} else {
+			finishChallenge();
+		}
+	}, 900);
+}
+
+function finishChallenge() {
+	var c = practice.challenge;
+	stopNote();
+	var score = c.results.filter(Boolean).length;
+	var stars = challengeStars(score);
+	var newBest = practice.challengeBest === null || score > practice.challengeBest;
+	if (newBest) {
+		practice.challengeBest = score;
+		saveChallengeBest(practice.instrument, score);
+	}
+	renderPracticeMap();
+
+	document.getElementById("practice-view").setAttribute("data-step", "challenge-done");
+	document.getElementById("practice-prompt").textContent =
+		score === CHALLENGE_LENGTH ? "Perfect! You know all five notes!" : "Challenge complete!";
+	var body = document.getElementById("practice-body");
+	body.innerHTML = "";
+
+	var trophy = document.createElement("div");
+	trophy.className = "challenge-trophy";
+	trophy.innerHTML = TROPHY_SVG;
+	body.appendChild(trophy);
+
+	var starRow = document.createElement("div");
+	starRow.className = "challenge-stars";
+	starRow.textContent = "\u2605\u2605\u2605".slice(0, stars) + "\u2606\u2606\u2606".slice(0, 3 - stars);
+	starRow.setAttribute("aria-label", stars + " of 3 stars");
+	body.appendChild(starRow);
+
+	var line = document.createElement("div");
+	line.className = "challenge-score";
+	line.textContent = "You played " + score + " of " + CHALLENGE_LENGTH + " on your own" +
+		(newBest && score > 0 ? " \u2014 a new best!" : ".");
+	body.appendChild(line);
+
+	var actions = document.createElement("div");
+	actions.className = "practice-actions";
+	actions.appendChild(practiceButton("Back to my notes", "secondary", loadPracticeInstrument));
+	actions.appendChild(practiceButton("Play again", "primary", startChallenge));
+	body.appendChild(actions);
+
+	if (stars > 0) launchFireworks(document.getElementById("practice-stage"));
+}
+
+// Ten dots in place of the step chips: green = played on your own, yellow =
+// played with help, ringed = the current note
+function renderChallengeProgress() {
+	var c = practice.challenge;
+	var list = document.getElementById("practice-steps");
+	list.innerHTML = "";
+	var row = document.createElement("div");
+	row.className = "challenge-progress";
+	row.setAttribute("role", "img");
+	row.setAttribute("aria-label", "Note " + Math.min(c.pos + 1, CHALLENGE_LENGTH) + " of " + CHALLENGE_LENGTH);
+	for (var i = 0; i < CHALLENGE_LENGTH; i++) {
+		var dot = document.createElement("span");
+		dot.className = "challenge-dot" +
+			(i < c.results.length ? (c.results[i] ? " own" : " helped")
+				: i === c.pos ? " current" + (c.helped ? " helping" : "") : "");
+		row.appendChild(dot);
+	}
+	list.appendChild(row);
 }
 
 // Draw the note on a plain staff: no key signature, explicit flats, so a
