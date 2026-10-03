@@ -238,16 +238,7 @@ function goToPracticeStep(s) {
 		prompt.textContent = slide ? "This is the slide position for " + name + "."
 			: hasFingering ? "This is how you play " + name + "."
 			: "Find " + name + " on the keyboard.";
-		var box = document.createElement("div");
-		box.className = "practice-fingering";
-		body.appendChild(box);
-		if (hasFingering) {
-			box.style.setProperty("--fingering-h", fingeringBoxHeight(practice.instrument));
-			displayFingering(box, practice.instrument, practice.target, false);
-		} else {
-			var concertPc = (((practice.target - getTransposition()) % 12) + 12) % 12;
-			drawPianoKeyboard(concertPc, name, box);
-		}
+		body.appendChild(practiceFingeringBox());
 		body.appendChild(practiceButton(slide ? "Got it" : hasFingering ? "I\u2019ve got it" : "Found it", "primary",
 			function() { goToPracticeStep(2); }));
 	} else if (s === 2) {
@@ -269,6 +260,63 @@ function goToPracticeStep(s) {
 		setPracticeFeedback("Play " + name + " and hold it", "\u00a0");
 	} else {
 		renderPracticeResult();
+	}
+}
+
+// The target's fingering chart (or its piano key, for instruments without
+// charts) in a box for the step body
+function practiceFingeringBox() {
+	var box = document.createElement("div");
+	box.className = "practice-fingering";
+	if (hasFingeringData(practice.instrument)) {
+		box.style.setProperty("--fingering-h", fingeringBoxHeight(practice.instrument));
+		displayFingering(box, practice.instrument, practice.target, false);
+		if (practice.instrument === "trombone") centerChartDrawing(box);
+	} else {
+		var concertPc = (((practice.target - getTransposition()) % 12) + 12) % 12;
+		drawPianoKeyboard(concertPc, practiceNoteName(practice.target), box);
+	}
+	return box;
+}
+
+// Trombone charts share one wide canvas so the bell stays put and the slide
+// reaches right; in a lone chart that blank reach reads as the picture
+// sitting left of center. Shift the image so its drawn part is centered (the
+// box clips the blank part pushed past its edge). Skipped if the pixels
+// can't be read.
+function centerChartDrawing(box) {
+	var img = box.querySelector("img.fingering-image");
+	if (!img) return;
+	function center() {
+		try {
+			var w = img.naturalWidth, h = img.naturalHeight;
+			var canvas = document.createElement("canvas");
+			canvas.width = w;
+			canvas.height = h;
+			var ctx = canvas.getContext("2d");
+			ctx.drawImage(img, 0, 0);
+			var d = ctx.getImageData(0, 0, w, h).data;
+			var minX = w, maxX = -1;
+			for (var y = 0; y < h; y++) {
+				for (var x = 0; x < w; x++) {
+					var k = (y * w + x) * 4;
+					if (d[k + 3] > 20 && (d[k] < 240 || d[k + 1] < 240 || d[k + 2] < 240)) {
+						if (x < minX) minX = x;
+						if (x > maxX) maxX = x;
+					}
+				}
+			}
+			if (maxX < 0) return;
+			var shift = (w - (minX + maxX + 1)) / 2 / w * 100;
+			img.style.transform = "translateX(" + shift + "%)";
+		} catch (e) {
+			// Cross-origin or decode failure: leave the chart as drawn
+		}
+	}
+	if (img.complete && img.naturalWidth) {
+		center();
+	} else {
+		img.addEventListener("load", center, { once: true });
 	}
 }
 
@@ -607,16 +655,7 @@ function showChallengeHelp(button) {
 	document.getElementById("practice-view").setAttribute("data-step", "challenge-help");
 	document.getElementById("practice-prompt").textContent = "This is " + name + ". Play it!";
 
-	var box = document.createElement("div");
-	box.className = "practice-fingering";
-	button.parentNode.insertBefore(box, button);
-	if (hasFingeringData(practice.instrument)) {
-		box.style.setProperty("--fingering-h", fingeringBoxHeight(practice.instrument));
-		displayFingering(box, practice.instrument, practice.target, false);
-	} else {
-		var concertPc = (((practice.target - getTransposition()) % 12) + 12) % 12;
-		drawPianoKeyboard(concertPc, name, box);
-	}
+	button.parentNode.insertBefore(practiceFingeringBox(), button);
 	button.textContent = "\u25b6 Hear it";
 	button.onclick = playPracticeExample;
 	playPracticeExample();
