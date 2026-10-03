@@ -610,9 +610,9 @@ function drawFluteFingering(container, fingering, isAlternate) {
 function drawClarinetFingering(keys) {
 	var ns = "http://www.w3.org/2000/svg";
 	var svg = document.createElementNS(ns, "svg");
-	svg.setAttribute("viewBox", "0 0 180 510");
+	svg.setAttribute("viewBox", "0 0 180 530");
 	svg.setAttribute("width", "180");
-	svg.setAttribute("height", "510");
+	svg.setAttribute("height", "530");
 
 	var ink = "#111";
 	function isDown(id) {
@@ -700,12 +700,13 @@ function drawClarinetFingering(keys) {
 		oval("lF", 156, 286, 14, 7, -15);
 	}
 
-	// Right pinky keys at the bottom: F#/C# and Ab/Eb above, E/B and F/C below
+	// Right pinky keys at the bottom, tucked under the tone holes and
+	// overlapping like the old charts: F#/C# and Ab/Eb above, E/B and F/C below
 	if (anyDown(["rE", "rF", "rFs", "rAb"])) {
-		oval("rFs", 52, 452, 24, 12, 8);
-		oval("rAb", 106, 452, 24, 12, 8);
-		oval("rE", 52, 486, 24, 12, 8);
-		oval("rF", 106, 486, 24, 12, 8);
+		oval("rFs", 48, 477, 27, 11, 15);
+		oval("rAb", 80, 478, 30, 11, 15);
+		oval("rE", 48, 507, 27, 11, 15);
+		oval("rF", 80, 508, 30, 11, 15);
 	}
 
 	return svg;
