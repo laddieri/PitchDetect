@@ -220,13 +220,102 @@ var fluteFingerings = {
 };
 
 // ============================================================================
+// CLARINET FINGERINGS
+// ============================================================================
+// Boehm-system Bb clarinet, written pitch (MIDI). Each fingering lists the
+// keys/holes that are pressed (see drawClarinetFingering() for the layout):
+//   Reg = register key, T = thumb hole, A / Gs = throat A and G# keys,
+//   L1-L3 / R1-R3 = left/right hand tone holes,
+//   S1-S4 = right-hand side (trill) keys, top to bottom,
+//   CsGs = C#/G# key,
+//   lE, lF, lFs = left pinky E/B, F/C, F#/C#,
+//   rE, rF, rAb = right pinky E/B, F/C, Ab/Eb.
+// E/B and F/C exist for both pinkies, which is what the pinky alternates are
+// for: alternate hands so you never slide one pinky between two keys. On a
+// standard clarinet F#/C# is left-only and Ab/Eb right-only.
+// Altissimo (above C6) uses the standard fifth-partial fingerings: first
+// finger lifted as a vent, Ab/Eb key down.
+var clarinetLH = ["T", "L1", "L2", "L3"];
+var clarinetRH = ["R1", "R2", "R3"];
+var clarinetAll = clarinetLH.concat(clarinetRH);
+var clarinetClarion = ["Reg"].concat(clarinetAll);
+
+var clarinetFingerings = {
+	// Chalumeau
+	52: { // E3
+		primary: { keys: clarinetAll.concat(["lE"]), label: "Left pinky" },
+		alternates: [{ keys: clarinetAll.concat(["rE"]), label: "Right pinky" }]
+	},
+	53: { // F3
+		primary: { keys: clarinetAll.concat(["rF"]), label: "Right pinky" },
+		alternates: [{ keys: clarinetAll.concat(["lF"]), label: "Left pinky" }]
+	},
+	54: { primary: { keys: clarinetAll.concat(["lFs"]) }, alternates: [] },  // F#3
+	55: { primary: { keys: clarinetAll }, alternates: [] },                  // G3
+	56: { primary: { keys: clarinetAll.concat(["rAb"]) }, alternates: [] },  // G#3
+	57: { primary: { keys: clarinetLH.concat(["R1", "R2"]) }, alternates: [] },  // A3
+	58: { primary: { keys: clarinetLH.concat(["R1"]) }, alternates: [] },    // A#3
+	59: { primary: { keys: clarinetLH.concat(["R2"]) }, alternates: [] },    // B3
+	60: { primary: { keys: clarinetLH }, alternates: [] },                   // C4
+	61: { primary: { keys: clarinetLH.concat(["CsGs"]) }, alternates: [] },  // C#4
+	62: { primary: { keys: ["T", "L1", "L2"] }, alternates: [] },            // D4
+	63: { primary: { keys: ["T", "L1", "L2", "S4"] }, alternates: [] },      // D#4
+	64: { primary: { keys: ["T", "L1"] }, alternates: [] },                  // E4
+	65: { primary: { keys: ["T"] }, alternates: [] },                        // F4
+	66: { primary: { keys: ["L1"] }, alternates: [] },                       // F#4
+
+	// Throat tones
+	67: { primary: { keys: [] }, alternates: [] },                           // G4 (open)
+	68: { primary: { keys: ["Gs"] }, alternates: [] },                       // G#4
+	69: { // A4
+		primary: { keys: ["A"], label: "Standard" },
+		alternates: [{ keys: ["A"].concat(clarinetRH), label: "Resonance" }]
+	},
+	70: { // A#4
+		primary: { keys: ["Reg", "A"], label: "Standard" },
+		alternates: [{ keys: ["Reg", "A"].concat(clarinetRH), label: "Resonance" }]
+	},
+
+	// Clarion
+	71: { // B4
+		primary: { keys: clarinetClarion.concat(["lE"]), label: "Left pinky" },
+		alternates: [{ keys: clarinetClarion.concat(["rE"]), label: "Right pinky" }]
+	},
+	72: { // C5
+		primary: { keys: clarinetClarion.concat(["rF"]), label: "Right pinky" },
+		alternates: [{ keys: clarinetClarion.concat(["lF"]), label: "Left pinky" }]
+	},
+	73: { primary: { keys: clarinetClarion.concat(["lFs"]) }, alternates: [] },  // C#5
+	74: { primary: { keys: clarinetClarion }, alternates: [] },                  // D5
+	75: { primary: { keys: clarinetClarion.concat(["rAb"]) }, alternates: [] },  // D#5
+	76: { primary: { keys: ["Reg"].concat(clarinetLH, ["R1", "R2"]) }, alternates: [] },  // E5
+	77: { primary: { keys: ["Reg"].concat(clarinetLH, ["R1"]) }, alternates: [] },        // F5
+	78: { primary: { keys: ["Reg"].concat(clarinetLH, ["R2"]) }, alternates: [] },        // F#5
+	79: { primary: { keys: ["Reg"].concat(clarinetLH) }, alternates: [] },                // G5
+	80: { primary: { keys: ["Reg"].concat(clarinetLH, ["CsGs"]) }, alternates: [] },      // G#5
+	81: { primary: { keys: ["Reg", "T", "L1", "L2"] }, alternates: [] },        // A5
+	82: { primary: { keys: ["Reg", "T", "L1", "L2", "S4"] }, alternates: [] },  // A#5
+	83: { primary: { keys: ["Reg", "T", "L1"] }, alternates: [] },              // B5
+	84: { primary: { keys: ["Reg", "T"] }, alternates: [] },                    // C6
+
+	// Altissimo
+	85: { primary: { keys: ["Reg", "T", "L2", "L3", "R1", "R2", "rAb"] }, alternates: [] },  // C#6
+	86: { primary: { keys: ["Reg", "T", "L2", "L3", "R1", "rAb"] }, alternates: [] },        // D6
+	87: { primary: { keys: ["Reg", "T", "L2", "L3", "R2", "rAb"] }, alternates: [] },        // D#6
+	88: { primary: { keys: ["Reg", "T", "L2", "L3", "rAb"] }, alternates: [] },              // E6
+	89: { primary: { keys: ["Reg", "T", "L2", "L3", "CsGs", "rAb"] }, alternates: [] },      // F6
+	90: { primary: { keys: ["Reg", "T", "L2", "rAb"] }, alternates: [] },                    // F#6
+	91: { primary: { keys: ["Reg", "T", "L2", "R1", "R2", "rAb"] }, alternates: [] }         // G6
+};
+
+// ============================================================================
 // IMAGE-BASED FINGERING DISPLAY
 // ============================================================================
 
 // Map of instruments to their fingering image folders.
 // transposition: semitones to subtract from the written MIDI note to get the
 // image filename index.
-//   0  = use written pitch directly (C instruments & clarinet written pitch)
+//   0  = use written pitch directly (C instruments)
 //   9  = alto sax (written - 9 = concert pitch, which the images are indexed by)
 //   14 = tenor sax
 //   21 = bari sax
@@ -236,7 +325,6 @@ var fluteFingerings = {
 // (Trombone and horn images are uniform.)
 var imageFingeringMap = {
 	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0,  w: 331, h: 476 },
-	"clarinet":  { folder: "Clarinet",  ext: "png", transposition: 0,  w: 190, h: 532 },
 	"flute":     { folder: "Flute",     ext: "png", transposition: 0,  w: 496, h: 163 },
 	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0,  w: 223, h: 469 },
 	// All saxophones share the same fingering images indexed at writtenMidi - 12.
@@ -508,6 +596,135 @@ function drawFluteFingering(container, fingering, isAlternate) {
 	container.appendChild(svg);
 }
 
+// Draw clarinet fingering diagram. Laid out like a standard clarinet chart:
+// register key and thumb hole on the left, the six tone holes down the
+// middle, throat keys on top, side keys and the C#/G# key at the break,
+// left pinky keys beside the right hand, right pinky keys at the bottom.
+// Pressed keys are filled black. Returns the <svg>.
+function drawClarinetFingering(keys) {
+	var ns = "http://www.w3.org/2000/svg";
+	var svg = document.createElementNS(ns, "svg");
+	svg.setAttribute("viewBox", "0 0 180 510");
+	svg.setAttribute("width", "180");
+	svg.setAttribute("height", "510");
+
+	var ink = "#111";
+	function isDown(id) {
+		return keys.indexOf(id) !== -1;
+	}
+	function style(el, id) {
+		el.setAttribute("fill", isDown(id) ? ink : "#fff");
+		el.setAttribute("stroke", ink);
+		el.setAttribute("stroke-width", "2.5");
+		svg.appendChild(el);
+		return el;
+	}
+	function circle(id, cx, cy, r) {
+		var c = document.createElementNS(ns, "circle");
+		c.setAttribute("cx", cx);
+		c.setAttribute("cy", cy);
+		c.setAttribute("r", r);
+		return style(c, id);
+	}
+	function oval(id, cx, cy, rx, ry, angle) {
+		var e = document.createElementNS(ns, "ellipse");
+		e.setAttribute("cx", cx);
+		e.setAttribute("cy", cy);
+		e.setAttribute("rx", rx);
+		e.setAttribute("ry", ry);
+		if (angle) {
+			e.setAttribute("transform", "rotate(" + angle + " " + cx + " " + cy + ")");
+		}
+		return style(e, id);
+	}
+	function path(id, d) {
+		var el = document.createElementNS(ns, "path");
+		el.setAttribute("d", d);
+		return style(el, id);
+	}
+	function label(id, x, y, text) {
+		var t = document.createElementNS(ns, "text");
+		t.setAttribute("x", x);
+		t.setAttribute("y", y);
+		t.setAttribute("text-anchor", "middle");
+		t.setAttribute("dominant-baseline", "central");
+		t.setAttribute("font-size", text.length > 1 ? "12" : "14");
+		t.setAttribute("font-weight", "700");
+		t.setAttribute("font-family", "sans-serif");
+		t.setAttribute("fill", isDown(id) ? "#fff" : ink);
+		t.textContent = text;
+		svg.appendChild(t);
+	}
+
+	// Register key (teardrop) and thumb hole
+	path("Reg", "M32 8 C26 44 21 80 23 94 A9 9 0 0 0 41 94 C43 80 38 44 32 8 Z");
+	circle("T", 28, 134, 19);
+
+	// Throat A and G# keys
+	oval("A", 78, 60, 8, 15);
+	path("Gs", "M116 34 C108 36 112 52 118 66 C124 82 118 98 126 104 C136 108 138 86 132 70 C126 54 128 38 116 34 Z");
+
+	// Tone holes, with the joint line between the hands
+	[["L1", 112], ["L2", 167], ["L3", 222], ["R1", 302], ["R2", 357], ["R3", 412]].forEach(function(h) {
+		circle(h[0], 78, h[1], 19);
+	});
+	var joint = document.createElementNS(ns, "line");
+	joint.setAttribute("x1", "60");
+	joint.setAttribute("x2", "96");
+	joint.setAttribute("y1", "262");
+	joint.setAttribute("y2", "262");
+	joint.setAttribute("stroke", ink);
+	joint.setAttribute("stroke-width", "2.5");
+	svg.appendChild(joint);
+
+	// Side (trill) keys and the C#/G# key
+	["S1", "S2", "S3", "S4"].forEach(function(id, i) {
+		oval(id, 30, 234 + i * 15, 10, 6);
+	});
+	path("CsGs", "M98 248 C108 240 126 238 134 243 C140 248 128 254 98 248 Z");
+
+	// Left pinky keys, beside the right hand
+	path("lE", "M112 312 C108 290 110 278 120 278 C130 278 132 290 128 312 L128 340 L112 340 Z");
+	label("lE", 120, 312, "E");
+	path("lF", "M136 312 C132 296 134 288 144 288 C154 288 156 296 152 312 L152 340 L136 340 Z");
+	label("lF", 144, 312, "F");
+	oval("lFs", 152, 266, 18, 10, -12);
+	label("lFs", 152, 266, "F♯");
+
+	// Right pinky keys, at the bottom
+	oval("rAb", 104, 450, 26, 12, 8);
+	label("rAb", 104, 450, "A♭");
+	oval("rE", 52, 484, 26, 12, 8);
+	label("rE", 52, 484, "E");
+	oval("rF", 110, 488, 26, 12, 8);
+	label("rF", 110, 488, "F");
+
+	return svg;
+}
+
+// Draw a clarinet note's fingerings side by side (the primary, plus the
+// alternates when shown). Each gets a caption slot, kept even when empty so
+// the diagrams stay the same size from note to note.
+function displayClarinetFingering(container, fingering, showAlternates) {
+	var list = [fingering.primary];
+	if (showAlternates) {
+		list = list.concat(fingering.alternates);
+	}
+	var row = document.createElement("div");
+	row.className = "clarinet-fingerings";
+	list.forEach(function(f, i) {
+		var cell = document.createElement("div");
+		cell.className = "clarinet-fingering" + (i > 0 ? " alternate" : "");
+		cell.appendChild(drawClarinetFingering(f.keys));
+		var caption = document.createElement("div");
+		caption.className = "clarinet-caption";
+		caption.textContent = f.label || " ";
+		cell.appendChild(caption);
+		row.appendChild(cell);
+	});
+	container.appendChild(row);
+}
+
 // ============================================================================
 // MAIN FINGERING DISPLAY FUNCTION
 // ============================================================================
@@ -530,6 +747,8 @@ function getFingering(instrument, midiNote) {
 	switch (instrument) {
 		case "flute":
 			return fluteFingerings[midiNote] || null;
+		case "clarinet":
+			return clarinetFingerings[midiNote] || null;
 		default:
 			return null;
 	}
@@ -556,6 +775,13 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 		return false;  // No alternates available
 	}
 
+	var hasAlternates = fingering.alternates && fingering.alternates.length > 0;
+
+	if (instrument === "clarinet") {
+		displayClarinetFingering(container, fingering, showAlternates);
+		return hasAlternates;
+	}
+
 	// Primary fingering label
 	var primaryLabel = document.createElement("div");
 	primaryLabel.className = "fingering-label";
@@ -576,9 +802,6 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 	} else if (instrument === "flute") {
 		drawFluteFingering(primaryContainer, fingering.primary, false);
 	}
-
-	// Check for alternates
-	var hasAlternates = fingering.alternates && fingering.alternates.length > 0;
 
 	// Show alternates if requested
 	if (showAlternates && hasAlternates) {
@@ -617,10 +840,13 @@ function fingeringBoxHeight(instrument) {
 	if (info) {
 		return "min(" + info.h + "px, 280px, 34vh)";
 	}
+	if (instrument === "clarinet") {
+		return "min(280px, 34vh)";
+	}
 	return "min(120px, 16vh)";  // one valve diagram
 }
 
 // Check if instrument has fingering data
 function hasFingeringData(instrument) {
-	return instrument in threeValveOffset || instrument in imageFingeringMap;
+	return instrument in threeValveOffset || instrument in imageFingeringMap || instrument === "clarinet";
 }
