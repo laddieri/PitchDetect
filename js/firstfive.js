@@ -93,27 +93,50 @@ function openPractice() {
 	if (listenActive) stopListening();
 	closePopovers();
 
+	// The header's instrument picker offers the app's instruments (minus the
+	// "Select an instrument" placeholder)
+	var picker = document.getElementById("practice-instrument");
+	picker.innerHTML = select.innerHTML;
+	var placeholder = picker.querySelector('option[value=""]');
+	if (placeholder) placeholder.remove();
+
+	practiceOpen = true;
+	practiceStartedMic = false;
+	var view = document.getElementById("practice-view");
+	view.hidden = false;
+	document.querySelector(".container").inert = true;
+
+	loadPracticeInstrument();
+	document.getElementById("practice-close").focus();
+}
+
+// (Re)start practice for the app's selected instrument, on the first note
+// that still has stars to earn
+function loadPracticeInstrument() {
+	var select = document.getElementById("instrument");
 	practice = {
 		instrument: select.value,
-		label: select.options[select.selectedIndex].text,
 		notes: practiceNotes(),
 		stars: loadPracticeStars(select.value),
 		index: 0,
 		step: 0
 	};
-	// Start on the first note that still has stars to earn
 	var next = practice.stars.findIndex(function(s) { return s < 3; });
 	practice.index = next >= 0 ? next : 0;
-
-	practiceOpen = true;
-	practiceStartedMic = false;
-	document.getElementById("practice-instrument").textContent = practice.label;
-	var view = document.getElementById("practice-view");
-	view.hidden = false;
-	document.querySelector(".container").inert = true;
-
+	document.getElementById("practice-instrument").value = practice.instrument;
 	startPracticeNote(practice.index);
-	document.getElementById("practice-close").focus();
+}
+
+// Switch instruments from the practice header. The app's own select is the
+// source of truth, so its change handler saves the choice and updates the
+// app behind the practice view.
+function changePracticeInstrument(value) {
+	var select = document.getElementById("instrument");
+	if (!value || value === select.value) return;
+	stopNote();
+	select.value = value;
+	select.dispatchEvent(new Event("change"));
+	loadPracticeInstrument();
 }
 
 function closePractice() {
@@ -187,7 +210,7 @@ function goToPracticeStep(s) {
 			var concertPc = (((practice.target - getTransposition()) % 12) + 12) % 12;
 			drawPianoKeyboard(concertPc, name, box);
 		}
-		body.appendChild(practiceButton(slide ? "Got it" : hasFingering ? "I can finger it" : "Found it", "primary",
+		body.appendChild(practiceButton(slide ? "Got it" : hasFingering ? "I\u2019ve got it" : "Found it", "primary",
 			function() { goToPracticeStep(2); }));
 	} else if (s === 2) {
 		prompt.textContent = "Listen to how " + name + " sounds.";
