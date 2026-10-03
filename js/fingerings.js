@@ -229,10 +229,10 @@ var fluteFingerings = {
 //   S1-S4 = right-hand side (trill) keys, top to bottom,
 //   CsGs = C#/G# key,
 //   lE, lF, lFs = left pinky E/B, F/C, F#/C#,
-//   rE, rF, rAb = right pinky E/B, F/C, Ab/Eb.
-// E/B and F/C exist for both pinkies, which is what the pinky alternates are
-// for: alternate hands so you never slide one pinky between two keys. On a
-// standard clarinet F#/C# is left-only and Ab/Eb right-only.
+//   rE, rF, rFs, rAb = right pinky E/B, F/C, F#/C#, Ab/Eb.
+// E/B, F/C and F#/C# exist for both pinkies, which is what the pinky
+// alternates are for: alternate hands so you never slide one pinky between
+// two keys. On a standard clarinet Ab/Eb is right-only.
 // Altissimo (above C6) uses the standard fifth-partial fingerings: first
 // finger lifted as a vent, Ab/Eb key down.
 var clarinetLH = ["T", "L1", "L2", "L3"];
@@ -250,7 +250,10 @@ var clarinetFingerings = {
 		primary: { keys: clarinetAll.concat(["rF"]), label: "Right pinky" },
 		alternates: [{ keys: clarinetAll.concat(["lF"]), label: "Left pinky" }]
 	},
-	54: { primary: { keys: clarinetAll.concat(["lFs"]) }, alternates: [] },  // F#3
+	54: { // F#3
+		primary: { keys: clarinetAll.concat(["lFs"]), label: "Left pinky" },
+		alternates: [{ keys: clarinetAll.concat(["rFs"]), label: "Right pinky" }]
+	},
 	55: { primary: { keys: clarinetAll }, alternates: [] },                  // G3
 	56: { primary: { keys: clarinetAll.concat(["rAb"]) }, alternates: [] },  // G#3
 	57: { primary: { keys: clarinetLH.concat(["R1", "R2"]) }, alternates: [] },  // A3
@@ -285,7 +288,10 @@ var clarinetFingerings = {
 		primary: { keys: clarinetClarion.concat(["rF"]), label: "Right pinky" },
 		alternates: [{ keys: clarinetClarion.concat(["lF"]), label: "Left pinky" }]
 	},
-	73: { primary: { keys: clarinetClarion.concat(["lFs"]) }, alternates: [] },  // C#5
+	73: { // C#5
+		primary: { keys: clarinetClarion.concat(["lFs"]), label: "Left pinky" },
+		alternates: [{ keys: clarinetClarion.concat(["rFs"]), label: "Right pinky" }]
+	},
 	74: { primary: { keys: clarinetClarion }, alternates: [] },                  // D5
 	75: { primary: { keys: clarinetClarion.concat(["rAb"]) }, alternates: [] },  // D#5
 	76: { primary: { keys: ["Reg"].concat(clarinetLH, ["R1", "R2"]) }, alternates: [] },  // E5
@@ -642,18 +648,12 @@ function drawClarinetFingering(keys) {
 		el.setAttribute("d", d);
 		return style(el, id);
 	}
-	function label(id, x, y, text) {
-		var t = document.createElementNS(ns, "text");
-		t.setAttribute("x", x);
-		t.setAttribute("y", y);
-		t.setAttribute("text-anchor", "middle");
-		t.setAttribute("dominant-baseline", "central");
-		t.setAttribute("font-size", text.length > 1 ? "12" : "14");
-		t.setAttribute("font-weight", "700");
-		t.setAttribute("font-family", "sans-serif");
-		t.setAttribute("fill", isDown(id) ? "#fff" : ink);
-		t.textContent = text;
-		svg.appendChild(t);
+
+	// The register key, thumb hole and tone holes always show. Every other
+	// key group (throat keys, side keys, C#/G# key, each pinky cluster) is
+	// drawn only when one of its keys is used, like a printed chart.
+	function anyDown(ids) {
+		return ids.some(isDown);
 	}
 
 	// Register key (teardrop) and thumb hole
@@ -661,8 +661,10 @@ function drawClarinetFingering(keys) {
 	circle("T", 28, 134, 19);
 
 	// Throat A and G# keys
-	oval("A", 78, 60, 8, 15);
-	path("Gs", "M116 34 C108 36 112 52 118 66 C124 82 118 98 126 104 C136 108 138 86 132 70 C126 54 128 38 116 34 Z");
+	if (anyDown(["A", "Gs"])) {
+		oval("A", 78, 60, 8, 15);
+		path("Gs", "M116 34 C108 36 112 52 118 66 C124 82 118 98 126 104 C136 108 138 86 132 70 C126 54 128 38 116 34 Z");
+	}
 
 	// Tone holes, with the joint line between the hands
 	[["L1", 112], ["L2", 167], ["L3", 222], ["R1", 302], ["R2", 357], ["R3", 412]].forEach(function(h) {
@@ -677,27 +679,33 @@ function drawClarinetFingering(keys) {
 	joint.setAttribute("stroke-width", "2.5");
 	svg.appendChild(joint);
 
-	// Side (trill) keys and the C#/G# key
-	["S1", "S2", "S3", "S4"].forEach(function(id, i) {
-		oval(id, 30, 234 + i * 15, 10, 6);
-	});
-	path("CsGs", "M98 248 C108 240 126 238 134 243 C140 248 128 254 98 248 Z");
+	// Side (trill) keys
+	var sideKeys = ["S1", "S2", "S3", "S4"];
+	if (anyDown(sideKeys)) {
+		sideKeys.forEach(function(id, i) {
+			oval(id, 30, 234 + i * 15, 10, 6);
+		});
+	}
 
-	// Left pinky keys, beside the right hand
-	path("lE", "M112 312 C108 290 110 278 120 278 C130 278 132 290 128 312 L128 340 L112 340 Z");
-	label("lE", 120, 312, "E");
-	path("lF", "M136 312 C132 296 134 288 144 288 C154 288 156 296 152 312 L152 340 L136 340 Z");
-	label("lF", 144, 312, "F");
-	oval("lFs", 152, 266, 18, 10, -12);
-	label("lFs", 152, 266, "F♯");
+	// C#/G# key
+	if (isDown("CsGs")) {
+		path("CsGs", "M98 248 C108 240 126 238 134 243 C140 248 128 254 98 248 Z");
+	}
 
-	// Right pinky keys, at the bottom
-	oval("rAb", 104, 450, 26, 12, 8);
-	label("rAb", 104, 450, "A♭");
-	oval("rE", 52, 484, 26, 12, 8);
-	label("rE", 52, 484, "E");
-	oval("rF", 110, 488, 26, 12, 8);
-	label("rF", 110, 488, "F");
+	// Left pinky keys (E/B, F/C, F#/C#), beside the right hand
+	if (anyDown(["lE", "lF", "lFs"])) {
+		path("lE", "M112 312 C108 290 110 278 120 278 C130 278 132 290 128 312 L128 340 L112 340 Z");
+		path("lF", "M136 312 C132 296 134 288 144 288 C154 288 156 296 152 312 L152 340 L136 340 Z");
+		oval("lFs", 152, 266, 15, 8, -12);
+	}
+
+	// Right pinky keys at the bottom: F#/C# and Ab/Eb above, E/B and F/C below
+	if (anyDown(["rE", "rF", "rFs", "rAb"])) {
+		oval("rFs", 52, 452, 24, 12, 8);
+		oval("rAb", 106, 452, 24, 12, 8);
+		oval("rE", 52, 486, 24, 12, 8);
+		oval("rF", 106, 486, 24, 12, 8);
+	}
 
 	return svg;
 }
@@ -718,7 +726,7 @@ function displayClarinetFingering(container, fingering, showAlternates) {
 		cell.appendChild(drawClarinetFingering(f.keys));
 		var caption = document.createElement("div");
 		caption.className = "clarinet-caption";
-		caption.textContent = f.label || " ";
+		caption.textContent = f.label || "\u00A0";
 		cell.appendChild(caption);
 		row.appendChild(cell);
 	});
