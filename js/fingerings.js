@@ -648,19 +648,6 @@ function drawClarinetFingering(keys) {
 		el.setAttribute("d", d);
 		return style(el, id);
 	}
-	function label(id, x, y, text) {
-		var t = document.createElementNS(ns, "text");
-		t.setAttribute("x", x);
-		t.setAttribute("y", y);
-		t.setAttribute("text-anchor", "middle");
-		t.setAttribute("dominant-baseline", "central");
-		t.setAttribute("font-size", text.length > 1 ? "12" : "14");
-		t.setAttribute("font-weight", "700");
-		t.setAttribute("font-family", "sans-serif");
-		t.setAttribute("fill", isDown(id) ? "#fff" : ink);
-		t.textContent = text;
-		svg.appendChild(t);
-	}
 
 	// The register key, thumb hole and tone holes always show. Every other
 	// key group (throat keys, side keys, C#/G# key, each pinky cluster) is
@@ -708,23 +695,16 @@ function drawClarinetFingering(keys) {
 	// Left pinky keys (E/B, F/C, F#/C#), beside the right hand
 	if (anyDown(["lE", "lF", "lFs"])) {
 		path("lE", "M112 312 C108 290 110 278 120 278 C130 278 132 290 128 312 L128 340 L112 340 Z");
-		label("lE", 120, 312, "E");
 		path("lF", "M136 312 C132 296 134 288 144 288 C154 288 156 296 152 312 L152 340 L136 340 Z");
-		label("lF", 144, 312, "F");
-		oval("lFs", 152, 266, 18, 10, -12);
-		label("lFs", 152, 266, "F\u266F");
+		oval("lFs", 152, 266, 15, 8, -12);
 	}
 
 	// Right pinky keys at the bottom: F#/C# and Ab/Eb above, E/B and F/C below
 	if (anyDown(["rE", "rF", "rFs", "rAb"])) {
 		oval("rFs", 52, 452, 24, 12, 8);
-		label("rFs", 52, 452, "F\u266F");
 		oval("rAb", 106, 452, 24, 12, 8);
-		label("rAb", 106, 452, "A\u266D");
 		oval("rE", 52, 486, 24, 12, 8);
-		label("rE", 52, 486, "E");
 		oval("rF", 106, 486, 24, 12, 8);
-		label("rF", 106, 486, "F");
 	}
 
 	return svg;
