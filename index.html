@@ -4,6 +4,7 @@
 		<meta charset="utf-8">
 		<title>What Note Is This?</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fredoka:wght@500;600;700&family=Baloo+2:wght@800&display=swap" rel="stylesheet">
@@ -1183,12 +1184,13 @@
 				color: var(--danger);
 				border: 1px solid var(--danger);
 				padding: 10px 18px;
-				border-radius: var(--radius-pill);
+				border-radius: var(--radius);
 				box-shadow: var(--shadow-lg);
 				font-size: 0.875rem;
 				font-weight: 500;
 				text-align: center;
-				max-width: calc(100vw - 32px);
+				width: max-content;
+				max-width: min(520px, calc(100vw - 32px));
 				opacity: 0;
 				pointer-events: none;
 				transition: opacity 0.2s, transform 0.2s;
@@ -1637,7 +1639,6 @@
 			}
 
 			body.kid-mode .std-only,
-			body.kid-mode .app-subtitle,
 			body.kid-mode .controls-divider,
 			body.kid-mode #playButton,
 			body.kid-mode #clearButton,
@@ -1715,6 +1716,13 @@
 					6px 6px 0 var(--ink);
 				transform: rotate(-2deg);
 				display: inline-block;
+			}
+
+			body.kid-mode .app-subtitle {
+				margin-top: 8px;
+				color: var(--ink);
+				font-size: 1.05rem;
+				font-weight: 600;
 			}
 
 			body.kid-mode .mode-switch {
@@ -1982,6 +1990,20 @@
 
 				body.kid-mode {
 					--cartoon-shadow: 4px 4px 0 var(--ink);
+				}
+
+				/* The tagline gets its own row under the title and switch */
+				body.kid-mode .app-header {
+					flex-wrap: wrap;
+					row-gap: 2px;
+				}
+
+				body.kid-mode .app-subtitle {
+					display: block;
+					order: 3;
+					flex-basis: 100%;
+					margin: 0;
+					font-size: 0.9rem;
 				}
 
 				body.kid-mode .listen-cta {
@@ -3118,7 +3140,7 @@
 		<div class="container">
 			<header class="app-header">
 				<h1>What Note Is This?</h1>
-				<p class="app-subtitle">Play a note and the app names it &mdash; or set a target note to practice</p>
+				<p class="app-subtitle"><span class="std-only">Play a note and the app names it &mdash; or set a target note to practice</span><span class="kid-only">Play a note and see what it is!</span></p>
 				<label class="mode-switch" title="Advanced mode: target notes, playback, fingerings, piano, and key signatures">
 					<input type="checkbox" id="advancedModeToggle" onchange="setKidMode(!this.checked)">
 					<span class="sustain-slider"></span>

@@ -26,6 +26,7 @@ PitchDetect/
 │   └── vendor/
 │       └── vexflow-min.js  # VexFlow (staff/notation rendering)
 ├── img/Fingerings/     # Fingering chart images per instrument
+├── img/favicon.svg     # Favicon (favicon.ico at the root is its 32px fallback)
 ├── CLAUDE.md           # This file
 └── _config.yml         # Jekyll config for GitHub Pages hosting
 ```
@@ -46,7 +47,8 @@ All state is module-global. The main clusters:
 | **Tuner meter** | `updateTunerMeter()` — cents vs nearest semitone via `centsOffFromPitch()`, EMA-smoothed needle, in-tune/close/off color states. |
 | **Match/fireworks** | `commitDetectedNote()` fires `launchFireworks()` on target match; `reevaluateMatch()` re-checks whenever the *target* changes. |
 | **Synthesis** | `instrumentTimbres` (per-instrument harmonic stacks, vibrato, breath noise), `synthesizeWind()` / `synthesizeStruck()`, `playTone(freq, sustain, onStarted)` (shared by Play and practice), sustain mode with click-free portamento (`retuneSustainedNote()`), fade-out teardown in `stopNote()`. |
-| **UI state sync** | `updateControlStates()` (enable/disable), `updateIdleState()` (note panel becomes a big Listen button when there's nothing to show), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updatePanePager()` (mobile fingering/piano pages), `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast()` (inline errors — never use `alert()`). |
+| **UI state sync** | `updateControlStates()` (enable/disable), `updateIdleState()` (note panel becomes a big Listen button when there's nothing to show), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updatePanePager()` (mobile fingering/piano pages), `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast(message, duration)` (inline errors — never use `alert()`;
+mic failures go through `micErrorMessage()`, which says what to do next). |
 
 ### `js/firstfive.js` — First 5 Notes practice
 
@@ -95,7 +97,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   if named on the first try; bests in `pitchdetect-first-five-drills`.
   In the fingerings drill, `drillChoices()` drops notes that share the
   target's fingering (trumpet C/G open; trombone, euphonium, tuba B♭/F) so
-  only one answer is right. `loadFingeringKeys()` keys valve/clarinet notes by
+  only one answer is right. While those keys load, the question shows with
+  the answers disabled in place. `loadFingeringKeys()` keys valve/clarinet notes by
   their fingering data and image charts by a hash of the file
   (`fingeringImagePath()`), since shared fingerings share identical images.
 - **Correct answers** in the quiz, both drills and the lesson's Read step
@@ -194,7 +197,8 @@ each mode switch (removing options, since iOS ignores hidden ones) and clears
 a selection kid mode doesn't offer. Everything else is hidden by one CSS rule list in the
 "Kid mode" block at the end of the `<style>`. JS side: staff clicks/hover are
 ignored, entering kid mode clears any target, note labels use one spelling
-(`writtenNoteHTML`), and `updateKidCelebration()` fires fireworks once a note
+(`writtenNoteHTML`), the staff has no key signature (kid mode has no key
+picker; notes get explicit accidentals, spelled for the written key), and `updateKidCelebration()` fires fireworks once a note
 is held in tune for `KID_CELEBRATE_MS`. Elements with `.std-only` / `.kid-only`
 swap text between modes.
 
