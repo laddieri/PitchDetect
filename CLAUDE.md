@@ -54,7 +54,7 @@ mic failures go through `micErrorMessage()`, which says what to do next). |
 
 A full-screen practice view (`#practice-view`, opened by the toolbar's
 **Practice** button → `openPractice()`; the app behind it is made `inert`).
-It opens on a **menu** (`showPracticeMenu()`, `PRACTICE_ACTIVITIES`) of four
+It opens on a **menu** (`showPracticeMenu()`, `PRACTICE_ACTIVITIES`) of
 activities, each card showing its best result: **Learn the first 5 notes**
 (lessons), **First 5 note quiz** (the challenge round), **Practice note
 names** and **Practice fingerings** (drills; "slide positions" on trombone,
@@ -90,6 +90,17 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   and sound, but only unhelped notes score; `challengeStars()` turns the
   score into 0–3 trophy stars, best score per instrument in
   `pitchdetect-first-five-challenge`.
+- **B♭ scale** (two menu cards, last on the menu; desktop shows the menu in
+  three topic columns via CSS `order`, mobile in list order): **Learn the
+  B♭ scale** runs the same lessons over `SCALE_STEPS` (concert B♭ up the
+  octave, 8 notes) — lesson sets live in `LESSON_SETS` /
+  `practice.lessons`, `practice.lesson` picks one, `currentLesson()` gives
+  its notes and stars (best per note in `pitchdetect-bb-scale`); the Read
+  step offers each name once. **Play the B♭ scale** (`startScaleRun()`) is a
+  challenge round (`practice.challenge.kind === "scale"`) in order up and
+  back down (`scaleRunSequence()`, 15 notes), best in
+  `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
+  10/8/5 thresholds. The quiz and drills stay on the first five notes.
 - **Drills** (`startDrill("names" | "fingerings")`, no mic): the same
   10-note sequence, progress dots and result screen (`showRoundResult()`).
   Names shows the staff; fingerings hides it and shows only the chart
