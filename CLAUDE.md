@@ -98,6 +98,22 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   only one answer is right. `loadFingeringKeys()` keys valve/clarinet notes by
   their fingering data and image charts by a hash of the file
   (`fingeringImagePath()`), since shared fingerings share identical images.
+- **First sounds** (`FIRST_SOUNDS`, one config per instrument; the menu card
+  appears only for instruments in it and leads the menu, full-width on
+  desktop): flute "Learn the head joint", clarinet "Learn the mouthpiece &
+  barrel", alto sax "Learn the mouthpiece & neck". `startFirstSounds()` →
+  `goToFirstSoundsStep()`: Set up (tips + `firstSoundsSVG()` drawing) → sound
+  1 → sound 2 → final (`"switch"`: alternate both sounds, flute;
+  `"long"`: hold sound 2 for `FIRST_SOUNDS_LONG_TONE_MS`) → result; stars =
+  parts completed, best per instrument in `pitchdetect-first-five-headjoint`
+  (key predates clarinet/sax). Concert pitches with accepted cents bands:
+  flute open ≈ A5 (to A♭5; beginners run flat), covered ≈ A4 (can overblow
+  to E6); clarinet mouthpiece ≈ C6 (C♯ means squeezing), + barrel ≈ F♯5;
+  alto sax mouthpiece ≈ A5 (some reach B♭), + neck ≈ A♭4 (usually a bit
+  above). The staff shows the written pitch (`sharp` spells F♯/G♯).
+  `updateFirstSoundsListen()` takes over the mic loop in this mode and gives
+  per-instrument hints: the other sound (flute only, `confusable`), squeaks,
+  low/high, and no sound after 6 s.
 - `practiceFingeringBox()` builds the chart for the Finger step and challenge
   Help. Trombone charts share a wide canvas (bell fixed, room for the slide at
   7th position), so `centerChartDrawing()` measures the drawn pixels and

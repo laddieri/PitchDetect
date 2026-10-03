@@ -20,6 +20,10 @@
  *   Fingerings — a drill: name the note a fingering chart shows (no mic)
  * Rounds score notes done unaided; the best score per instrument is kept.
  *
+ * Flute, clarinet and alto sax also get a "first sounds" tutorial
+ * (startFirstSounds(), configured by FIRST_SOUNDS): playing just the head
+ * joint / mouthpiece and barrel / mouthpiece and neck before the first notes.
+ *
  * Uses notetrainer.js globals: playTone(), startListening()/stopListening(),
  * launchFireworks(), getTransposition(), drawPianoKeyboard(), keyDisplayName(),
  * and fingerings.js: hasFingeringData(), displayFingering(), fingeringBoxHeight().
@@ -183,6 +187,7 @@ function loadPracticeInstrument() {
 		stars: loadPracticeStars(select.value),
 		challengeBest: loadChallengeBest(select.value),
 		drillBest: loadDrillBest(select.value),
+		firstSoundsBest: loadFirstSoundsBest(select.value),
 		index: 0,
 		step: -1
 	};
@@ -214,7 +219,8 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note" },
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "Name the notes on the staff" },
-	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" }
+	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" },
+	{ id: "firstsounds", firstSounds: true }  // title, sub and icon from FIRST_SOUNDS
 ];
 
 function showPracticeMenu() {
@@ -230,8 +236,14 @@ function showPracticeMenu() {
 
 	var menu = document.getElementById("practice-menu");
 	menu.innerHTML = "";
-	PRACTICE_ACTIVITIES.forEach(function(a) {
-		var title = a.title, sub = a.sub;
+	// Instrument-specific activities (the head joint) lead the menu
+	var fsCfg = FIRST_SOUNDS[practice.instrument];
+	var activities = PRACTICE_ACTIVITIES.filter(function(a) { return !a.firstSounds || fsCfg; });
+	activities.sort(function(a, b) { return (b.firstSounds ? 1 : 0) - (a.firstSounds ? 1 : 0); });
+	menu.setAttribute("data-count", activities.length);
+	activities.forEach(function(a) {
+		var title = a.firstSounds ? fsCfg.title : a.title;
+		var sub = a.firstSounds ? fsCfg.sub : a.sub;
 		if (a.id === "fingerings" && slide) {
 			title = "Practice slide positions";
 			sub = "Name the note from its slide position";
@@ -244,6 +256,8 @@ function showPracticeMenu() {
 		if (a.id === "learn") {
 			var total = practice.stars.reduce(function(t, n) { return t + n; }, 0);
 			score = total + " / 15 \u2605";
+		} else if (a.firstSounds) {
+			score = starText(practice.firstSoundsBest);
 		} else {
 			var best = a.id === "quiz" ? practice.challengeBest : practice.drillBest[a.id];
 			score = typeof best === "number" ? starText(challengeStars(best)) : "\u2606\u2606\u2606";
@@ -259,6 +273,7 @@ function showPracticeMenu() {
 		var icon = b.firstChild;
 		if (a.icon === "trophy") icon.innerHTML = TROPHY_SVG;
 		else if (a.icon === "fingering") icon.innerHTML = FINGERING_SVG;
+		else if (a.firstSounds) icon.innerHTML = fsCfg.icon;
 		else icon.textContent = a.icon;
 		b.querySelector(".practice-choice-title").textContent = title;
 		b.querySelector(".practice-choice-sub").textContent = sub;
@@ -275,6 +290,8 @@ function startPracticeActivity(id) {
 		startPracticeNote(next >= 0 ? next : 0);
 	} else if (id === "quiz") {
 		startChallenge();
+	} else if (id === "firstsounds") {
+		startFirstSounds();
 	} else {
 		startDrill(id);
 	}
@@ -295,6 +312,7 @@ function currentPracticeActivity() {
 	if (practice.mode === "lesson") return "learn";
 	if (practice.mode === "challenge") return "quiz";
 	if (practice.mode === "drill") return practice.drillKind;
+	if (practice.mode === "firstsounds") return "firstsounds";
 	return "menu";
 }
 
@@ -310,7 +328,8 @@ function changePracticeInstrument(value) {
 	select.value = value;
 	select.dispatchEvent(new Event("change"));
 	loadPracticeInstrument();
-	if (activity === "menu") {
+	// First sounds exist for some instruments only; others land on the menu
+	if (activity === "menu" || (activity === "firstsounds" && !FIRST_SOUNDS[value])) {
 		showPracticeMenu();
 	} else {
 		startPracticeActivity(activity);
@@ -524,6 +543,10 @@ function setPracticeFeedback(main, sub, state) {
 // Called from the mic loop every frame while practice is open. freq is the
 // confidently detected concert frequency, or null for silence/noise.
 function updatePracticeListen(now, freq) {
+	if (practice && practice.mode === "firstsounds") {
+		updateFirstSoundsListen(now, freq);
+		return;
+	}
 	if (!practice || practice.step !== 3) return;
 	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
 	practice.lastFrame = now;
@@ -682,6 +705,10 @@ var FINGERING_SVG = '<svg width="30" height="24" viewBox="0 0 30 24" fill="none"
 function renderPracticeSteps() {
 	if (practice.mode === "challenge" || practice.mode === "drill") {
 		renderChallengeProgress();
+		return;
+	}
+	if (practice.mode === "firstsounds") {
+		renderFirstSoundsSteps();
 		return;
 	}
 	var labels = ["Read", practice.instrument === "trombone" ? "Slide"
@@ -1032,9 +1059,470 @@ function finishDrill() {
 		function() { startDrill(kind); });
 }
 
+// ---------------------------------------------------------------------------
+// First sounds: the flute head joint, the clarinet mouthpiece and barrel,
+// the alto sax mouthpiece and neck
+// ---------------------------------------------------------------------------
+
+function loadFirstSoundsBest(instrument) {
+	try {
+		var best = JSON.parse(localStorage.getItem(FIRST_SOUNDS_STORAGE_KEY) || "{}")[instrument];
+		if (typeof best === "number") return best;
+	} catch (e) {}
+	return 0;
+}
+
+function saveFirstSoundsBest(instrument, stars) {
+	try {
+		var all = JSON.parse(localStorage.getItem(FIRST_SOUNDS_STORAGE_KEY) || "{}");
+		all[instrument] = stars;
+		localStorage.setItem(FIRST_SOUNDS_STORAGE_KEY, JSON.stringify(all));
+	} catch (e) {}
+}
+
+// The dashed air stream, ending in an arrowhead at (x, y)
+function airArrowSVG(x, y) {
+	return '<path d="M' + (x - 26) + ' ' + (y - 24) + ' Q' + (x - 8) + ' ' + (y - 20) + ' ' + (x - 2) + ' ' + (y - 4) +
+		'" fill="none" stroke="#4d96ff" stroke-width="3" stroke-linecap="round" stroke-dasharray="5 5"/>' +
+		'<path d="M' + (x - 7) + ' ' + (y - 8) + ' L' + (x - 1) + ' ' + (y - 1) + ' L' + (x + 2) + ' ' + (y - 10) +
+		'" fill="none" stroke="#4d96ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
+}
+
+// Drawings for each setup (drawing ids are used by FIRST_SOUNDS)
+function firstSoundsSVG(drawing) {
+	var label = {
+		"flute-open": "Head joint with the end open",
+		"flute-covered": "Head joint with the end covered by your palm",
+		"clarinet-mouthpiece": "Clarinet mouthpiece with reed and ligature",
+		"clarinet-barrel": "Clarinet mouthpiece with the barrel on",
+		"sax-mouthpiece": "Saxophone mouthpiece with reed and ligature",
+		"sax-neck": "Saxophone mouthpiece on the neck"
+	}[drawing];
+	var s = '<svg class="first-sounds-drawing" viewBox="0 0 250 84" role="img" aria-label="' + label + '">';
+
+	if (drawing === "flute-open" || drawing === "flute-covered") {
+		s += airArrowSVG(49, 32) +
+			'<rect x="6" y="38" width="14" height="20" rx="4" fill="#aeb8c4" stroke="#6b7685" stroke-width="2"/>' +
+			'<rect x="18" y="40" width="208" height="16" rx="3" fill="#dfe5ec" stroke="#6b7685" stroke-width="2"/>' +
+			'<ellipse cx="50" cy="40" rx="20" ry="8" fill="#cfd7e0" stroke="#6b7685" stroke-width="2"/>' +
+			'<ellipse cx="50" cy="40" rx="7" ry="3.5" fill="#2b2140"/>';
+		if (drawing === "flute-covered") {
+			s += '<ellipse cx="230" cy="48" rx="17" ry="25" fill="#f4c99f" stroke="#b9805a" stroke-width="2"/>' +
+				'<ellipse cx="214" cy="30" rx="6" ry="10" transform="rotate(-30 214 30)" fill="#f4c99f" stroke="#b9805a" stroke-width="2"/>';
+		} else {
+			s += '<ellipse cx="226" cy="48" rx="4" ry="8" fill="#2b2140"/>';
+		}
+	} else if (drawing === "clarinet-mouthpiece" || drawing === "clarinet-barrel") {
+		var barrel = drawing === "clarinet-barrel";
+		var x0 = barrel ? 40 : 75;  // shift left to make room for the barrel
+		s += airArrowSVG(x0 + 2, 46) +
+			// reed under the beak, mouthpiece body, ligature, tenon
+			'<path d="M' + (x0 + 4) + ' 55 L' + (x0 + 70) + ' 55 L' + (x0 + 70) + ' 59 L' + (x0 + 8) + ' 59 Z" fill="#e8c77a" stroke="#a8843a" stroke-width="1.5"/>' +
+			'<path d="M' + x0 + ' 50 Q' + (x0 + 10) + ' 38 ' + (x0 + 34) + ' 36 L' + (x0 + 90) + ' 36 L' + (x0 + 90) + ' 56 L' + (x0 + 2) + ' 55 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
+			'<rect x="' + (x0 + 48) + '" y="33" width="14" height="28" rx="3" fill="#c7cfd8" stroke="#6b7685" stroke-width="2"/>' +
+			'<rect x="' + (x0 + 90) + '" y="39" width="16" height="14" fill="#3a3a44" stroke="#15151b" stroke-width="2"/>';
+		if (barrel) {
+			s += '<path d="M' + (x0 + 106) + ' 32 Q' + (x0 + 150) + ' 26 ' + (x0 + 194) + ' 32 L' + (x0 + 194) + ' 60 Q' + (x0 + 150) + ' 66 ' + (x0 + 106) + ' 60 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
+				'<rect x="' + (x0 + 106) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>' +
+				'<rect x="' + (x0 + 188) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>';
+		}
+	} else {
+		var neck = drawing === "sax-neck";
+		var m0 = neck ? 14 : 70;
+		s += airArrowSVG(m0 + 2, 46) +
+			'<path d="M' + (m0 + 4) + ' 55 L' + (m0 + 64) + ' 55 L' + (m0 + 64) + ' 59 L' + (m0 + 8) + ' 59 Z" fill="#e8c77a" stroke="#a8843a" stroke-width="1.5"/>' +
+			'<path d="M' + m0 + ' 50 Q' + (m0 + 12) + ' 34 ' + (m0 + 40) + ' 33 L' + (m0 + 100) + ' 38 L' + (m0 + 100) + ' 54 L' + (m0 + 2) + ' 55 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
+			'<rect x="' + (m0 + 40) + '" y="31" width="16" height="30" rx="3" fill="#c7cfd8" stroke="#6b7685" stroke-width="2"/>';
+		if (neck) {
+			// the brass neck, curving down and widening toward the body joint
+			s += '<path d="M' + (m0 + 92) + ' 40 Q' + (m0 + 170) + ' 34 ' + (m0 + 205) + ' 56 L' + (m0 + 220) + ' 80 L' + (m0 + 198) + ' 82 L' + (m0 + 188) + ' 64 Q' + (m0 + 160) + ' 50 ' + (m0 + 92) + ' 54 Z" fill="#e9c46a" stroke="#a37b1e" stroke-width="2"/>' +
+				'<circle cx="' + (m0 + 150) + '" cy="40" r="4" fill="#d4a93a" stroke="#a37b1e" stroke-width="1.5"/>';
+		}
+	}
+	return s + '</svg>';
+}
+
+var FLUTE_ICON_SVG = '<svg width="34" height="20" viewBox="0 0 34 20" aria-hidden="true">' +
+	'<rect x="1" y="7" width="32" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>' +
+	'<ellipse cx="9" cy="7" rx="5" ry="2.5" fill="currentColor"/></svg>';
+var MOUTHPIECE_ICON_SVG = '<svg width="34" height="20" viewBox="0 0 34 20" aria-hidden="true">' +
+	'<path d="M2 13 Q5 5 12 5 L31 6 L31 15 L3 15 Z" fill="currentColor"/>' +
+	'<rect x="13" y="3" width="5" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+
+function startFirstSounds() {
+	var cfg = FIRST_SOUNDS[practice.instrument];
+	if (!cfg) {
+		showPracticeMenu();
+		return;
+	}
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	setPracticeMode("firstsounds");
+	practice.index = -1;
+	practice.firstSounds = { cfg: cfg, step: 0, reached: 0, done: [false, false, false] };
+	goToFirstSoundsStep(0);
+}
+
+// Steps: 0 set up, 1 first sound, 2 second sound, 3 switch / long tone, 4 done
+function goToFirstSoundsStep(s) {
+	var fs = practice.firstSounds, cfg = fs.cfg;
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	fs.step = s;
+	if (s <= 3) fs.reached = Math.max(fs.reached, s);
+	fs.sound = null;  // which sound the mic is listening for
+	resetPracticeHold();
+	renderPracticeSteps();
+
+	var view = document.getElementById("practice-view");
+	view.setAttribute("data-step", ["fs-setup", "fs-sound", "fs-sound", "fs-final", "fs-done"][s]);
+	var prompt = document.getElementById("practice-prompt");
+	var body = document.getElementById("practice-body");
+	body.innerHTML = "";
+
+	if (s === 0) {
+		prompt.textContent = cfg.setupTitle;
+		body.insertAdjacentHTML("beforeend", firstSoundsSVG(cfg.sounds[0].drawing));
+		var list = document.createElement("ol");
+		list.className = "first-sounds-tips";
+		cfg.tips.forEach(function(t) {
+			var li = document.createElement("li");
+			li.textContent = t;
+			list.appendChild(li);
+		});
+		body.appendChild(list);
+		body.appendChild(practiceButton("I\u2019m ready", "primary", function() { goToFirstSoundsStep(1); }));
+	} else if (s === 1 || s === 2) {
+		var sound = cfg.sounds[s - 1];
+		prompt.textContent = sound.prompt;
+		showFirstSoundListen(sound, true);
+	} else if (s === 3) {
+		if (cfg.final === "switch") {
+			// Alternate, starting either way, so every prompt is a change
+			var first = Math.random() < 0.5 ? 0 : 1;
+			fs.seq = [];
+			for (var i = 0; i < FIRST_SOUNDS_SWITCH_LENGTH; i++) fs.seq.push((first + i) % 2);
+			fs.pos = 0;
+			showFirstSoundsSwitch();
+		} else {
+			// A long tone on the full setup
+			var last = cfg.sounds[1];
+			prompt.textContent = "Long tone! Hold it steady for " + FIRST_SOUNDS_LONG_TONE_MS / 1000 + " seconds.";
+			showFirstSoundListen(last, false);
+		}
+	} else {
+		renderFirstSoundsResult();
+	}
+}
+
+// Listening body for one sound: the written note it makes, the drawing,
+// feedback, the hold bar and (optionally) an example to hear
+function showFirstSoundListen(sound, withExample) {
+	var fs = practice.firstSounds;
+	var body = document.getElementById("practice-body");
+	resetPracticeHold();
+	fs.sound = sound;
+	fs.started = performance.now();
+	fs.heard = false;
+	practice.target = sound.midi + getTransposition();  // staff shows written pitch
+	drawPracticeStaff(practice.target, sound.sharp);
+	body.innerHTML = "";
+	body.insertAdjacentHTML("beforeend", firstSoundsSVG(sound.drawing));
+	body.insertAdjacentHTML("beforeend",
+		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready\u2026</div>' +
+		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>' +
+		'<div class="practice-hold" aria-hidden="true"><div class="practice-hold-fill" id="practice-hold-fill"></div></div>');
+	if (withExample) {
+		body.appendChild(practiceButton("\u25b6 Hear what it sounds like", "secondary", playPracticeExample));
+	}
+	if (!listenActive) {
+		practiceStartedMic = true;
+		startListening();
+	}
+	setPracticeFeedback(sound.idle, "\u00a0");
+}
+
+function showFirstSoundsSwitch() {
+	var fs = practice.firstSounds;
+	var sound = fs.cfg.sounds[fs.seq[fs.pos]];
+	document.getElementById("practice-prompt").textContent = sound.switchPrompt;
+	showFirstSoundListen(sound, false);
+	// progress dots for the switch round, under the hold bar
+	var dots = document.createElement("div");
+	dots.className = "challenge-progress";
+	for (var i = 0; i < FIRST_SOUNDS_SWITCH_LENGTH; i++) {
+		var dot = document.createElement("span");
+		dot.className = "challenge-dot" + (i < fs.pos ? " own" : i === fs.pos ? " current" : "");
+		dots.appendChild(dot);
+	}
+	document.getElementById("practice-body").appendChild(dots);
+}
+
+// Mic frames while a first sound is being listened for. Measured in concert
+// pitch against the sound's accepted band; misses get a specific hint (the
+// other sound, an overblown squeak, or low / high with a fix).
+function updateFirstSoundsListen(now, freq) {
+	var fs = practice.firstSounds;
+	if (!fs || !fs.sound) return;
+	var cfg = fs.cfg, sound = fs.sound;
+	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
+	practice.lastFrame = now;
+	if (now < (practice.ignoreUntil || 0)) {
+		setPracticeFeedback("Listen\u2026", "\u00a0");
+		return;
+	}
+
+	var holdNeeded = fs.step !== 3 ? PRACTICE_HOLD_MS
+		: cfg.final === "switch" ? FIRST_SOUNDS_SWITCH_HOLD_MS : FIRST_SOUNDS_LONG_TONE_MS;
+	var inZone = false;
+	if (freq) {
+		fs.heard = true;
+		practice.lastSound = now;
+		var m = 69 + 12 * Math.log(freq / 440) / Math.LN2;  // concert, fractional MIDI
+		var cents = (m - sound.midi) * 100;
+		if (cents >= sound.low && cents <= sound.high) {
+			inZone = true;
+			practice.holdMs += dt;
+			practice.lastGood = now;
+			practice.hintFrames = 0;
+			setPracticeFeedback(fs.step === 3 && cfg.final === "long" ? "Steady\u2026 keep it going!" : "That\u2019s it! Keep blowing\u2026", "\u00a0", "good");
+		} else {
+			// Hint only once a wrong sound is steady
+			var r = Math.round(m);
+			if (r === practice.hintDiff) {
+				practice.hintFrames++;
+			} else {
+				practice.hintDiff = r;
+				practice.hintFrames = 1;
+			}
+			if (practice.hintFrames >= PRACTICE_HINT_FRAMES) {
+				var other = cfg.sounds[0] === sound ? cfg.sounds[1] : cfg.sounds[0];
+				var otherCents = (m - other.midi) * 100;
+				if (cfg.confusable && otherCents >= other.low && otherCents <= other.high) {
+					setPracticeFeedback(sound.otherHint[0], sound.otherHint[1], "off");
+				} else if (cents > sound.high && (sound.squeakMidi ? Math.abs(m - sound.squeakMidi) <= 1 : cents >= 300)) {
+					setPracticeFeedback("That\u2019s a squeak", cfg.squeakHint, "close");
+				} else if (cents < sound.low) {
+					setPracticeFeedback("A little low", cfg.lowHint, "close");
+				} else {
+					setPracticeFeedback("A little high", cfg.highHint, "close");
+				}
+			}
+		}
+	} else if (now - practice.lastSound > 1500) {
+		setPracticeFeedback(sound.idle, !fs.heard && now - fs.started > 6000 ? cfg.noSoundHint : "\u00a0");
+	}
+
+	if (!inZone && now - practice.lastGood > PRACTICE_GAP_MS && practice.holdMs > 0) {
+		practice.holdMs = 0;
+	}
+	var fill = document.getElementById("practice-hold-fill");
+	if (fill) fill.style.width = Math.min(100, practice.holdMs / holdNeeded * 100) + "%";
+
+	if (practice.holdMs >= holdNeeded) passFirstSound();
+}
+
+function passFirstSound() {
+	var fs = practice.firstSounds;
+	var sound = fs.sound;
+	fs.sound = null;  // stop listening until the next prompt
+	var fill = document.getElementById("practice-hold-fill");
+	if (fill) fill.style.width = "100%";
+
+	if (fs.step === 3 && fs.cfg.final === "switch") {
+		fs.pos++;
+		setPracticeFeedback("Yes!", "\u00a0", "good");
+		practiceAdvanceTimer = setTimeout(function() {
+			if (fs.pos < FIRST_SOUNDS_SWITCH_LENGTH) {
+				showFirstSoundsSwitch();
+			} else {
+				fs.done[2] = true;
+				goToFirstSoundsStep(4);
+			}
+		}, 600);
+		return;
+	}
+	if (fs.step === 3) {
+		fs.done[2] = true;
+		setPracticeFeedback("What a long tone!", "\u00a0", "good");
+		practiceAdvanceTimer = setTimeout(function() { goToFirstSoundsStep(4); }, 1200);
+		return;
+	}
+	fs.done[fs.step - 1] = true;
+	setPracticeFeedback(sound.passTitle, sound.passSub, "good");
+	launchFireworks(document.getElementById("practice-stage"));
+	practiceAdvanceTimer = setTimeout(function() { goToFirstSoundsStep(fs.step + 1); }, 1800);
+}
+
+function renderFirstSoundsResult() {
+	var fs = practice.firstSounds, cfg = fs.cfg;
+	var stars = fs.done.filter(Boolean).length;
+	if (stars > practice.firstSoundsBest) {
+		practice.firstSoundsBest = stars;
+		saveFirstSoundsBest(practice.instrument, stars);
+	}
+	document.getElementById("practice-prompt").textContent = cfg.doneTitle;
+	var body = document.getElementById("practice-body");
+
+	var list = document.createElement("div");
+	list.className = "practice-results";
+	fs.done.forEach(function(got, i) {
+		var row = document.createElement("div");
+		row.className = "practice-result" + (got ? " got" : "");
+		row.innerHTML = '<span class="practice-result-star" aria-hidden="true">' + (got ? "\u2605" : "\u2606") + '</span>';
+		var text = document.createElement("span");
+		text.textContent = cfg.results[i];
+		row.appendChild(text);
+		list.appendChild(row);
+	});
+	body.appendChild(list);
+
+	var actions = document.createElement("div");
+	actions.className = "practice-actions";
+	actions.appendChild(practiceButton("Play it again", "secondary", startFirstSounds));
+	actions.appendChild(practiceButton("Learn the first 5 notes \u2192", "primary", function() {
+		startPracticeActivity("learn");
+	}));
+	body.appendChild(actions);
+	launchFireworks(document.getElementById("practice-stage"));
+}
+
+// Step chips (labels from the instrument's config); reached steps can be
+// revisited
+function renderFirstSoundsSteps() {
+	var fs = practice.firstSounds;
+	var list = document.getElementById("practice-steps");
+	list.innerHTML = "";
+	fs.cfg.steps.forEach(function(label, i) {
+		var b = document.createElement("button");
+		var done = i < fs.step || fs.step === 4;
+		b.className = "practice-step" + (i === fs.step ? " current" : "") + (done ? " done" : "");
+		b.innerHTML = '<span class="practice-step-num"></span><span class="practice-step-label"></span>';
+		b.firstChild.textContent = done ? "\u2713" : String(i + 1);
+		b.lastChild.textContent = label;
+		b.disabled = fs.step === 4 || i > fs.reached;
+		if (i === fs.step) b.setAttribute("aria-current", "step");
+		b.onclick = function() { goToFirstSoundsStep(i); };
+		list.appendChild(b);
+	});
+}
+
+// First sounds: before the first notes, students play just part of the
+// instrument. Pitches are concert MIDI notes; low/high are the accepted
+// range in cents around them.
+//   Flute head joint: end open ≈ A5 (usually a little flat, so down to A♭5);
+//     covered by the right palm ≈ A4, an octave lower; a covered head joint
+//     can also overblow to E6.
+//   Clarinet: mouthpiece alone ≈ concert C6 (never as high as C♯ — that
+//     means squeezing); with the barrel ≈ concert F♯5.
+//   Alto sax: mouthpiece alone ≈ concert A5 (some players reach B♭); on the
+//     neck ≈ concert A♭4, usually a bit above.
+// final: "switch" alternates the two sounds (both are possible on one
+// setup); "long" holds the full setup for FIRST_SOUNDS_LONG_TONE_MS.
+var FIRST_SOUNDS_STORAGE_KEY = "pitchdetect-first-five-headjoint";  // name predates clarinet/sax
+var FIRST_SOUNDS_SWITCH_LENGTH = 6;
+var FIRST_SOUNDS_SWITCH_HOLD_MS = 700;
+var FIRST_SOUNDS_LONG_TONE_MS = 4000;
+var REED_TIPS_START = "Wet the reed, then put the reed and ligature on the mouthpiece.";
+var FIRST_SOUNDS = {
+	"flute": {
+		title: "Learn the head joint",
+		sub: "Your first flute sounds: end open and covered",
+		icon: FLUTE_ICON_SVG,
+		setupTitle: "First sounds: just the head joint!",
+		tips: [
+			"Take the head joint off the flute.",
+			"Hold it with your left hand and rest the lip plate on your chin.",
+			"Cover about a quarter of the hole with your bottom lip.",
+			"Blow a gentle stream of air across the hole, like saying \u201ctoo.\u201d"
+		],
+		steps: ["Set up", "Open", "Covered", "Switch"],
+		final: "switch",
+		confusable: true,
+		sounds: [
+			{ midi: 81, low: -130, high: 40, drawing: "flute-open",
+				prompt: "Leave the end open and blow.", switchPrompt: "Open!",
+				idle: "Blow across the hole and hold it",
+				passTitle: "Great open sound!", passSub: "That\u2019s about an A",
+				otherHint: ["That\u2019s the covered sound", "Take your hand away from the end"] },
+			{ midi: 69, low: -70, high: 50, drawing: "flute-covered", squeakMidi: 88,
+				prompt: "Now cover the end with your right palm and blow.", switchPrompt: "Covered!",
+				idle: "Cover the end and blow",
+				passTitle: "Great covered sound!", passSub: "An octave lower than open",
+				otherHint: ["That\u2019s the open sound", "Cover the end completely with your palm"] }
+		],
+		squeakHint: "Blow slower and aim the air a little lower",
+		lowHint: "Aim your air a bit higher, across the hole",
+		highHint: "Blow slower and aim the air a bit lower",
+		noSoundHint: "No sound yet? Make the opening between your lips smaller.",
+		results: ["Open sound", "Covered sound", "Switched back and forth"],
+		doneTitle: "You can play the head joint!"
+	},
+	"clarinet": {
+		title: "Learn the mouthpiece & barrel",
+		sub: "Your first clarinet sounds",
+		icon: MOUTHPIECE_ICON_SVG,
+		setupTitle: "First sounds: mouthpiece and barrel!",
+		tips: [
+			REED_TIPS_START,
+			"Roll your bottom lip over your bottom teeth to cushion the reed.",
+			"Rest your top teeth on top of the mouthpiece.",
+			"Firm the corners, flatten your chin, and blow fast, steady air."
+		],
+		steps: ["Set up", "Mouthpiece", "Barrel", "Hold"],
+		final: "long",
+		sounds: [
+			{ midi: 84, low: -100, high: 40, drawing: "clarinet-mouthpiece",
+				prompt: "Play on just the mouthpiece.",
+				idle: "Blow and hold it steady",
+				passTitle: "Great mouthpiece sound!", passSub: "That\u2019s about a concert C" },
+			{ midi: 78, low: -60, high: 50, drawing: "clarinet-barrel", sharp: true,
+				prompt: "Now add the barrel and play.",
+				idle: "Blow and hold it steady",
+				passTitle: "Great sound!", passSub: "That\u2019s about a concert F\u266f" }
+		],
+		squeakHint: "Take a little less mouthpiece and don\u2019t bite",
+		lowHint: "Firm the corners and blow faster air",
+		highHint: "Relax your jaw \u2014 don\u2019t bite or squeeze",
+		noSoundHint: "No sound yet? Check the reed is wet and lined up with the tip.",
+		results: ["Mouthpiece sound", "Mouthpiece & barrel sound", "Long tone"],
+		doneTitle: "You can play the mouthpiece and barrel!"
+	},
+	"alto sax": {
+		title: "Learn the mouthpiece & neck",
+		sub: "Your first saxophone sounds",
+		icon: MOUTHPIECE_ICON_SVG,
+		setupTitle: "First sounds: mouthpiece and neck!",
+		tips: [
+			REED_TIPS_START,
+			"Cover your bottom teeth with your bottom lip to cushion the reed.",
+			"Rest your top teeth on top of the mouthpiece.",
+			"Seal the corners and blow warm, steady air."
+		],
+		steps: ["Set up", "Mouthpiece", "Neck", "Hold"],
+		final: "long",
+		sounds: [
+			{ midi: 81, low: -60, high: 110, drawing: "sax-mouthpiece", sharp: true,
+				prompt: "Play on just the mouthpiece.",
+				idle: "Blow and hold it steady",
+				passTitle: "Great mouthpiece sound!", passSub: "That\u2019s about a concert A" },
+			{ midi: 68, low: -40, high: 90, drawing: "sax-neck",
+				prompt: "Now put the mouthpiece on the neck and play.",
+				idle: "Blow and hold it steady",
+				passTitle: "Great sound!", passSub: "That\u2019s about a concert A\u266d" }
+		],
+		squeakHint: "Take a little less mouthpiece and don\u2019t bite",
+		lowHint: "Firm the corners and blow faster air",
+		highHint: "Relax your jaw \u2014 don\u2019t bite",
+		noSoundHint: "No sound yet? Check the reed is wet and lined up with the tip.",
+		results: ["Mouthpiece sound", "Mouthpiece & neck sound", "Long tone"],
+		doneTitle: "You can play the mouthpiece and neck!"
+	}
+};
+
 // Draw the note on a plain staff: no key signature, explicit flats, so a
 // beginner sees exactly what to play
-function drawPracticeStaff(writtenMidi) {
+function drawPracticeStaff(writtenMidi, sharp) {
 	var out = document.getElementById("practice-staff-output");
 	out.innerHTML = "";
 	var VF = Vex.Flow;
@@ -1047,11 +1535,11 @@ function drawPracticeStaff(writtenMidi) {
 	stave.addClef(clef);
 	stave.setContext(context).draw();
 
-	var spelled = flatNoteSpellings[((writtenMidi % 12) + 12) % 12];
+	var spelled = (sharp ? sharpNoteSpellings : flatNoteSpellings)[((writtenMidi % 12) + 12) % 12];
 	var octave = Math.floor(writtenMidi / 12) - 1;
 	try {
 		var note = new VF.StaveNote({ clef: clef, keys: [spelled.toLowerCase() + "/" + octave], duration: "w" });
-		if (spelled.length > 1) note.addAccidental(0, new VF.Accidental("b"));
+		if (spelled.length > 1) note.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
 		var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
 		voice.addTickables([note]);
 		new VF.Formatter().joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 20);
