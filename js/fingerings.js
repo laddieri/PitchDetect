@@ -692,11 +692,12 @@ function drawClarinetFingering(keys) {
 		path("CsGs", "M98 248 C108 240 126 238 134 243 C140 248 128 254 98 248 Z");
 	}
 
-	// Left pinky keys (E/B, F/C, F#/C#), beside the right hand
+	// Left pinky keys, beside the right hand: the E/B and F#/C# levers
+	// (stemmed, back to back) with the small F/C key above them
 	if (anyDown(["lE", "lF", "lFs"])) {
-		path("lE", "M112 312 C108 290 110 278 120 278 C130 278 132 290 128 312 L128 340 L112 340 Z");
-		path("lF", "M136 312 C132 296 134 288 144 288 C154 288 156 296 152 312 L152 340 L136 340 Z");
-		oval("lFs", 152, 266, 15, 8, -12);
+		path("lE", "M139 362 L139 292 C139 287 136 285 132 286 C124 288 118 297 118 310 C118 322 120 330 125 337 C128 342 131 346 131 351 L131 362 Z");
+		path("lFs", "M143 362 L143 306 C143 301 147 299 151 300 C159 302 164 314 164 326 C164 338 160 348 152 356 L151 362 Z");
+		oval("lF", 156, 286, 14, 7, -15);
 	}
 
 	// Right pinky keys at the bottom: F#/C# and Ab/Eb above, E/B and F/C below
