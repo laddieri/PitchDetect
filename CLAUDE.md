@@ -102,14 +102,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   appears only for instruments in it and leads the menu, full-width on
   desktop): flute "Learn the head joint", clarinet "Learn the mouthpiece &
   barrel", alto sax "Learn the mouthpiece & neck". `startFirstSounds()` →
-  `goToFirstSoundsStep()`: Set up (tips + `firstSoundsSVG()` drawing) → sound
-  1 → sound 2 → final (`"switch"`: alternate both sounds, flute;
-  `"long"`: hold sound 2 for `FIRST_SOUNDS_LONG_TONE_MS`) → result; stars =
-  parts completed, best per instrument in `pitchdetect-first-five-headjoint`
-  (key predates clarinet/sax). Concert pitches with accepted cents bands:
-  flute open ≈ A5 (to A♭5; beginners run flat), covered ≈ A4 (can overblow
-  to E6); clarinet mouthpiece ≈ C6 (C♯ means squeezing), + barrel ≈ F♯5;
-  alto sax mouthpiece ≈ A5 (some reach B♭), + neck ≈ A♭4 (usually a bit
+  `goToFirstSoundsStep()`: Set up (tips + `firstSoundsSVG()` drawing) → one
+  step per sound in the config → final (`firstSoundsFinalStep()`;
+  `"switch"`: alternate both sounds, flute; `"long"`: hold the last sound for
+  `FIRST_SOUNDS_LONG_TONE_MS`) → result. Flute: Set up / Open / Covered /
+  Switch; clarinet and sax skip the mouthpiece alone (not how beginners are
+  started): Set up / Barrel or Neck / Hold. Stars = parts completed scaled to
+  3, best per instrument in `pitchdetect-first-five-headjoint` (key predates
+  clarinet/sax). Concert pitches with accepted cents bands: flute open ≈ A5
+  (to A♭5; beginners run flat), covered ≈ A4 (can overblow to E6); clarinet
+  mouthpiece + barrel ≈ F♯5; alto sax mouthpiece + neck ≈ A♭4 (usually a bit
   above). The staff shows the written pitch (`sharp` spells F♯/G♯).
   `updateFirstSoundsListen()` takes over the mic loop in this mode and gives
   per-instrument hints: the other sound (flute only, `confusable`), squeaks,
