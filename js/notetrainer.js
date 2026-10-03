@@ -2536,6 +2536,47 @@ function applyResponsiveControls() {
 	}
 }
 
+// Kid mode offers only the usual beginning band instruments. The full list
+// is kept (as the select's original markup) and rebuilt on each mode switch;
+// options are removed rather than hidden, since iOS Safari ignores hidden
+// options in a select.
+var KID_INSTRUMENTS = ["flute", "oboe", "clarinet", "alto sax", "trumpet", "horn",
+	"trombone", "euphonium", "tuba", "glockenspiel"];
+var KID_INSTRUMENT_LABELS = { "euphonium": "Baritone / Euphonium" };
+var fullInstrumentList = null;
+
+// Rebuild #instrument for the current mode, keeping the selection when it's
+// still offered. Returns true if the selection had to be cleared.
+function applyInstrumentList() {
+	var select = document.getElementById("instrument");
+	if (!select) return false;
+	if (fullInstrumentList === null) fullInstrumentList = select.innerHTML;
+	var value = select.value;
+	var placeholderText = select.querySelector('option[value=""]').textContent;
+
+	select.innerHTML = fullInstrumentList;
+	select.querySelector('option[value=""]').textContent = placeholderText;
+	if (kidMode) {
+		Array.prototype.forEach.call(select.querySelectorAll("option"), function(opt) {
+			if (opt.value && KID_INSTRUMENTS.indexOf(opt.value) < 0) {
+				opt.remove();
+			} else if (KID_INSTRUMENT_LABELS[opt.value]) {
+				opt.textContent = KID_INSTRUMENT_LABELS[opt.value];
+			}
+		});
+		Array.prototype.forEach.call(select.querySelectorAll("optgroup"), function(group) {
+			if (!group.querySelector("option")) group.remove();
+		});
+	}
+
+	select.value = value;
+	if (select.value !== value) {
+		select.value = "";
+		return true;
+	}
+	return false;
+}
+
 // Switch between kid mode and the full app (the Advanced mode switch is its
 // inverse). Entering kid mode drops the target note (and any sustained
 // playback) since kid mode has no targets.
@@ -2547,6 +2588,11 @@ function setKidMode(on) {
 	document.body.classList.toggle("kid-mode", kidMode);
 
 	closePopovers();
+	// An instrument kid mode doesn't offer is cleared, through the usual
+	// change handler so the app (and the saved choice) follow
+	if (applyInstrumentList()) {
+		document.getElementById("instrument").dispatchEvent(new Event("change"));
+	}
 	applyResponsiveControls();
 	kidInTuneSince = null;
 	kidCelebratedMidi = null;
@@ -2714,6 +2760,15 @@ document.addEventListener("DOMContentLoaded", function() {
 			mobileLayoutMq.addListener(applyResponsiveControls);
 		}
 	}
+
+	// Offer kid mode's instrument list before restoring the saved instrument
+	// (the page starts in kid mode; the full list if Advanced mode was saved,
+	// so an advanced-only instrument survives the reload)
+	try {
+		if (localStorage.getItem("pitchdetect-advanced-mode") === "1") kidMode = false;
+	} catch(e) {}
+	applyInstrumentList();
+	kidMode = true;
 
 	// Restore instrument saved from the pitch detector page (or a previous session)
 	try {
