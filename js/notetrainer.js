@@ -919,6 +919,9 @@ function handleStaffClick(event) {
 
 // Handle keyboard input for arrow key navigation
 function handleKeyDown(event) {
+	// The First 5 Notes practice screen handles its own keys
+	if (practiceOpen) return;
+
 	if (event.key === "Escape") {
 		closePopovers();
 		return;
@@ -977,9 +980,10 @@ function handleKeyDown(event) {
 	}
 }
 
-// Draw a one-octave piano keyboard SVG highlighting concertPc (0–11)
-function drawPianoKeyboard(concertPc, concertNoteDisplay) {
-	var display = document.getElementById("piano-display");
+// Draw a one-octave piano keyboard SVG highlighting concertPc (0–11), into
+// display (default: the piano panel)
+function drawPianoKeyboard(concertPc, concertNoteDisplay, display) {
+	display = display || document.getElementById("piano-display");
 	if (!display) return;
 
 	var W = 36, WH = 84, BW = 20, BH = 52, labelH = 26;
@@ -1175,6 +1179,9 @@ function fitNoteName() {
 // moves between states; they are simply disabled until they become usable.
 function updateControlStates() {
 	var hasNote = currentNote !== null && currentMidi !== null;
+
+	// Practice needs to know which notes to teach
+	document.getElementById("practiceButton").disabled = !document.getElementById("instrument").value;
 
 	document.getElementById("playButton").disabled = !hasNote;
 	document.getElementById("clearButton").disabled = !hasNote;
@@ -1583,6 +1590,33 @@ function onSustainChange() {
 // Play the current note with instrument-specific timbre
 function playNote() {
 	if (!currentFrequency) return;
+	var sustain = document.getElementById("sustainToggle").checked;
+
+	playTone(currentFrequency, sustain, function(timbre) {
+		if (sustain) {
+			sustainPlaying = true;
+			document.getElementById("playLabel").textContent = "Stop";
+			document.getElementById("playButton").classList.add("sustaining");
+		} else {
+			// Brief visual feedback so the user can see the click registered.
+			// Restart the timer on replay so an earlier note's timeout
+			// doesn't cut the highlight short while this one still sounds.
+			var playButton = document.getElementById("playButton");
+			playButton.classList.add("playing-oneshot");
+			if (oneshotTimer) clearTimeout(oneshotTimer);
+			oneshotTimer = setTimeout(function() {
+				oneshotTimer = null;
+				playButton.classList.remove("playing-oneshot");
+			}, timbre.duration * 1000 + 100);
+		}
+	});
+}
+
+// Play a concert-pitch frequency with the selected instrument's timbre,
+// replacing whatever is sounding. onStarted(timbre) runs once the sound is
+// scheduled (after any AudioContext resume).
+function playTone(freq, sustain, onStarted) {
+	if (!freq) return;
 
 	// Stop any currently playing note
 	stopNote();
@@ -1601,8 +1635,6 @@ function playNote() {
 	// Capture values now (before any async gap)
 	var instrument = document.getElementById("instrument").value;
 	var timbre = getTimbre(instrument);
-	var freq = currentFrequency;
-	var sustain = document.getElementById("sustainToggle").checked;
 
 	function startAudio() {
 		try {
@@ -1621,22 +1653,7 @@ function playNote() {
 				synthesizeStruck(freq, timbre, t, masterGain, sustain);
 			}
 
-			if (sustain) {
-				sustainPlaying = true;
-				document.getElementById("playLabel").textContent = "Stop";
-				document.getElementById("playButton").classList.add("sustaining");
-			} else {
-				// Brief visual feedback so the user can see the click registered.
-				// Restart the timer on replay so an earlier note's timeout
-				// doesn't cut the highlight short while this one still sounds.
-				var playButton = document.getElementById("playButton");
-				playButton.classList.add("playing-oneshot");
-				if (oneshotTimer) clearTimeout(oneshotTimer);
-				oneshotTimer = setTimeout(function() {
-					oneshotTimer = null;
-					playButton.classList.remove("playing-oneshot");
-				}, timbre.duration * 1000 + 100);
-			}
+			if (onStarted) onStarted(timbre);
 		} catch(e) {
 			console.error("PitchDetect: audio synthesis error:", e);
 		}
@@ -1776,9 +1793,10 @@ function stopNote() {
 	}, (FADE + 0.02) * 1000);
 }
 
-// Launch fireworks celebration on the staff canvas when user plays the correct note
-function launchFireworks() {
-	var staffContainer = document.getElementById("staff-container");
+// Launch fireworks celebration on the staff canvas when user plays the correct
+// note. container (optional, positioned) is where to draw; default the staff.
+function launchFireworks(container) {
+	var staffContainer = container || document.getElementById("staff-container");
 	if (!staffContainer) return;
 
 	// Create or reuse the canvas overlay
@@ -1793,6 +1811,8 @@ function launchFireworks() {
 		canvas.style.height = "100%";
 		canvas.style.pointerEvents = "none";
 		canvas.style.borderRadius = "12px";
+	}
+	if (canvas.parentNode !== staffContainer) {
 		staffContainer.appendChild(canvas);
 	}
 
@@ -2005,8 +2025,9 @@ function updateListenPitch() {
 	listenAnalyser.getFloatTimeDomainData(listenBuffer);
 	var result = autoCorrelate(listenBuffer, listenAudioContext.sampleRate);
 	var now = performance.now();
+	var pitched = result.frequency > 0 && result.confidence > 0.85;
 
-	if (result.frequency > 0 && result.confidence > 0.85) {
+	if (pitched) {
 		lastPitchTime = now;
 		var concertMidi = noteFromPitch(result.frequency);
 		// Convert concert pitch to written pitch for this instrument
@@ -2046,7 +2067,11 @@ function updateListenPitch() {
 		}
 	}
 
-	if (kidMode) updateKidCelebration(now);
+	if (practiceOpen) {
+		updatePracticeListen(now, pitched ? result.frequency : null);
+	} else if (kidMode) {
+		updateKidCelebration(now);
+	}
 
 	listenRafID = requestAnimationFrame(updateListenPitch);
 }
@@ -2489,6 +2514,19 @@ function applyResponsiveControls() {
 		}
 	}
 
+	// Practice sits beside Listen, except in the full app on mobile, where the
+	// single-row toolbar is already full — there it joins the overflow menu.
+	// (Kid mode has no overflow menu and room to spare.)
+	var practice = document.getElementById("practiceButton");
+	var listen = document.getElementById("listenButton");
+	if (practice && popover && listen) {
+		if (mobileLayoutMq && mobileLayoutMq.matches && !kidMode) {
+			popover.insertBefore(practice, popover.firstChild);
+		} else {
+			listen.parentNode.insertBefore(practice, listen.nextSibling);
+		}
+	}
+
 	// The compact single-row toolbar clips the long placeholder; shorten it
 	// there
 	var placeholder = document.querySelector('#instrument option[value=""]');
@@ -2509,6 +2547,7 @@ function setKidMode(on) {
 	document.body.classList.toggle("kid-mode", kidMode);
 
 	closePopovers();
+	applyResponsiveControls();
 	kidInTuneSince = null;
 	kidCelebratedMidi = null;
 	if (kidMode && (currentNote !== null || ghostNote !== null)) {

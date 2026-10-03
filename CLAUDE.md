@@ -22,6 +22,7 @@ PitchDetect/
 ├── js/
 │   ├── notetrainer.js  # All app logic (~2,700 lines, global scope)
 │   ├── fingerings.js   # Fingering data + diagram rendering
+│   ├── firstfive.js    # "First 5 Notes" practice game (loaded last)
 │   └── vendor/
 │       └── vexflow-min.js  # VexFlow (staff/notation rendering)
 ├── img/Fingerings/     # Fingering chart images per instrument
@@ -44,10 +45,35 @@ All state is module-global. The main clusters:
 | **Pitch detection** | `autoCorrelate()` — McLeod Pitch Method (NSDF); returns `{frequency, confidence}`; gated at confidence > 0.85. `updateListenPitch()` is the rAF loop with debouncing: a new note must hold `NOTE_CONFIRM_FRAMES` (3) frames; dropouts under `NOTE_CLEAR_HOLD_MS` (300) keep the last note displayed. |
 | **Tuner meter** | `updateTunerMeter()` — cents vs nearest semitone via `centsOffFromPitch()`, EMA-smoothed needle, in-tune/close/off color states. |
 | **Match/fireworks** | `commitDetectedNote()` fires `launchFireworks()` on target match; `reevaluateMatch()` re-checks whenever the *target* changes. |
-| **Synthesis** | `instrumentTimbres` (per-instrument harmonic stacks, vibrato, breath noise), `synthesizeWind()` / `synthesizeStruck()`, sustain mode with click-free portamento (`retuneSustainedNote()`), fade-out teardown in `stopNote()`. |
+| **Synthesis** | `instrumentTimbres` (per-instrument harmonic stacks, vibrato, breath noise), `synthesizeWind()` / `synthesizeStruck()`, `playTone(freq, sustain, onStarted)` (shared by Play and practice), sustain mode with click-free portamento (`retuneSustainedNote()`), fade-out teardown in `stopNote()`. |
 | **UI state sync** | `updateControlStates()` (enable/disable), `updateIdleState()` (note panel becomes a big Listen button when there's nothing to show), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updatePanePager()` (mobile fingering/piano pages), `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast()` (inline errors — never use `alert()`). |
 
-### `js/fingerings.js`
+### `js/firstfive.js` — First 5 Notes practice
+
+A full-screen practice view (`#practice-view`, opened by the toolbar's
+**Practice** button → `openPractice()`; the app behind it is made `inert`)
+teaching the band-method first five notes, concert B♭ C D E♭ F, at each
+instrument's written pitch (`practiceStartConcertMidi` holds each instrument's
+concert B♭; `PRACTICE_STEPS` the intervals). Each note is a lesson of four
+steps — **Read** (pick the name; the quiz), **Finger** (chart via
+`displayFingering()`, "Slide" for trombone, or the piano via
+`drawPianoKeyboard(pc, label, el)` for instruments without charts), **Hear**
+(`playTone()`), **Play** (mic) — then a result card. Stars (max 3: named it
+first try, played it, average within `PRACTICE_TUNE_CENTS`) are kept as the
+best per note per instrument in localStorage (`pitchdetect-first-five`).
+
+- The mic loop calls `updatePracticeListen(now, freq)` while `practiceOpen`
+  (instead of kid celebration); it measures cents against the *target*, so a
+  note passes within `PRACTICE_PASS_CENTS` held for `PRACTICE_HOLD_MS`, with
+  gaps under `PRACTICE_GAP_MS` forgiven. Wrong notes are named only after
+  `PRACTICE_HINT_FRAMES` steady frames (octave errors get their own hint).
+- `practice.ignoreUntil` mutes the check while the example tone sounds, so
+  the app can't pass the student's turn for them.
+- Note names in the map stay hidden (numbers) until learned, so the map never
+  answers the Read step. The practice staff has no key signature — explicit
+  flats only.
+- Toolbar placement: beside Listen; on mobile it is a star icon, and in the
+  full app on mobile it moves to the overflow menu (`applyResponsiveControls()`).
 
 - `trumpetFingerings` (3-valve map, shared via `threeValveOffset` with euphonium/tuba)
 - `fluteFingerings` (key diagrams)
@@ -172,7 +198,8 @@ and assert no page scroll overflow on mobile.
 2. `notetrainer.js`: add to `trebleClefInstruments` or `bassClefInstruments`,
    `transpositionMap` (semitones, written − concert), and `instrumentTimbres`
    (or it falls back to the piano-like default).
-3. `fingerings.js` (optional): valve map via `threeValveOffset`, or images via
+3. `firstfive.js`: add its concert B♭ to `practiceStartConcertMidi`.
+4. `fingerings.js` (optional): valve map via `threeValveOffset`, or images via
    `imageFingeringMap`; otherwise it's piano-only automatically.
 
 **Change reference pitch / detection sensitivity:** A4=440 in
