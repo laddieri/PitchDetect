@@ -160,7 +160,7 @@ function goToPracticeStep(s) {
 	renderPracticeSteps();
 
 	if (s === 0) {
-		prompt.textContent = "What’s the name of this note?";
+		prompt.textContent = "What\u2019s the name of this note?";
 		var answers = document.createElement("div");
 		answers.className = "practice-answers";
 		practice.notes.forEach(function(midi) {
@@ -191,21 +191,21 @@ function goToPracticeStep(s) {
 			function() { goToPracticeStep(2); }));
 	} else if (s === 2) {
 		prompt.textContent = "Listen to how " + name + " sounds.";
-		body.appendChild(practiceButton("▶ Play it again", "secondary practice-hear", playPracticeExample));
-		body.appendChild(practiceButton("Now I’ll play it", "primary", function() { goToPracticeStep(3); }));
+		body.appendChild(practiceButton("\u25b6 Play it again", "secondary practice-hear", playPracticeExample));
+		body.appendChild(practiceButton("Now I\u2019ll play it", "primary", function() { goToPracticeStep(3); }));
 		playPracticeExample();
 	} else if (s === 3) {
 		prompt.textContent = "Now you play " + name + "!";
 		body.innerHTML =
-			'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready…</div>' +
+			'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready\u2026</div>' +
 			'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>' +
 			'<div class="practice-hold" aria-hidden="true"><div class="practice-hold-fill" id="practice-hold-fill"></div></div>';
-		body.appendChild(practiceButton("▶ Hear it again", "secondary", playPracticeExample));
+		body.appendChild(practiceButton("\u25b6 Hear it again", "secondary", playPracticeExample));
 		if (!listenActive) {
 			practiceStartedMic = true;
 			startListening();
 		}
-		setPracticeFeedback("Play " + name + " and hold it", " ");
+		setPracticeFeedback("Play " + name + " and hold it", "\u00a0");
 	} else {
 		renderPracticeResult();
 	}
@@ -229,12 +229,12 @@ function answerPracticeNote(button, midi) {
 		void button.offsetWidth;  // restart the shake
 		button.classList.add("wrong");
 		button.disabled = true;
-		document.getElementById("practice-prompt").textContent = "Not that one — try again!";
+		document.getElementById("practice-prompt").textContent = "Not that one \u2014 try again!";
 		return;
 	}
 	practice.answered = true;
 	button.classList.add("right");
-	document.getElementById("practice-prompt").textContent = "Yes! That’s " + practiceNoteName(practice.target) + ".";
+	document.getElementById("practice-prompt").textContent = "Yes! That\u2019s " + practiceNoteName(practice.target) + ".";
 	practiceAdvanceTimer = setTimeout(function() { goToPracticeStep(1); }, 900);
 }
 
@@ -280,7 +280,7 @@ function updatePracticeListen(now, freq) {
 	var name = practiceNoteName(practice.target);
 
 	if (now < (practice.ignoreUntil || 0)) {
-		setPracticeFeedback("Listen…", " ");
+		setPracticeFeedback("Listen\u2026", "\u00a0");
 		return;
 	}
 
@@ -297,8 +297,8 @@ function updatePracticeListen(now, freq) {
 			practice.lastGood = now;
 			practice.hintDiff = null;
 			practice.hintFrames = 0;
-			setPracticeFeedback(Math.abs(cents) <= PRACTICE_TUNE_CENTS ? "Just right! Hold it…" : "That’s it! Hold it…",
-				Math.abs(cents) <= PRACTICE_TUNE_CENTS ? " " : (cents < 0 ? "A tiny bit low" : "A tiny bit high"), "good");
+			setPracticeFeedback(Math.abs(cents) <= PRACTICE_TUNE_CENTS ? "Just right! Hold it\u2026" : "That\u2019s it! Hold it\u2026",
+				Math.abs(cents) <= PRACTICE_TUNE_CENTS ? "\u00a0" : (cents < 0 ? "A tiny bit low" : "A tiny bit high"), "good");
 		} else {
 			// Name a wrong note only once it's steady, so attacks don't flash hints
 			var r = Math.round(diff);
@@ -314,7 +314,7 @@ function updatePracticeListen(now, freq) {
 						cents < 0 ? "Push the pitch up a bit" : "Relax the pitch down a bit", "close");
 				} else if (r % 12 === 0) {
 					setPracticeFeedback("Right note, wrong octave",
-						r > 0 ? "That’s a higher " + name + " — try the lower one" : "That’s a lower " + name + " — try the higher one", "off");
+						r > 0 ? "That\u2019s a higher " + name + " \u2014 try the lower one" : "That\u2019s a lower " + name + " \u2014 try the higher one", "off");
 				} else {
 					var check = practice.instrument === "trombone" ? ". Check your slide."
 						: hasFingeringData(practice.instrument) ? ". Check your fingering." : ". Try again.";
@@ -323,7 +323,7 @@ function updatePracticeListen(now, freq) {
 			}
 		}
 	} else if (now - practice.lastSound > 1500) {
-		setPracticeFeedback("Play " + name + " and hold it", " ");
+		setPracticeFeedback("Play " + name + " and hold it", "\u00a0");
 	}
 
 	// Short gaps (a breath, a wobble) keep the progress; longer ones reset it
@@ -369,7 +369,7 @@ function renderPracticeResult() {
 	practice.earned.forEach(function(got, i) {
 		var row = document.createElement("div");
 		row.className = "practice-result" + (got ? " got" : "");
-		row.innerHTML = '<span class="practice-result-star" aria-hidden="true">' + (got ? "★" : "☆") + '</span>';
+		row.innerHTML = '<span class="practice-result-star" aria-hidden="true">' + (got ? "\u2605" : "\u2606") + '</span>';
 		var text = document.createElement("span");
 		text.textContent = labels[i];
 		row.appendChild(text);
@@ -384,7 +384,7 @@ function renderPracticeResult() {
 		startPracticeNote(practice.index);
 	}));
 	var nextIndex = (practice.index + 1) % 5;
-	actions.appendChild(practiceButton("Next note →", "primary", function() {
+	actions.appendChild(practiceButton("Next note \u2192", "primary", function() {
 		startPracticeNote(nextIndex);
 	}));
 	body.appendChild(actions);
@@ -402,7 +402,7 @@ function renderPracticeMap() {
 		var label = stars > 0 ? practiceNoteName(midi) : String(i + 1);
 		b.innerHTML = '<span class="practice-map-name"></span><span class="practice-map-stars" aria-hidden="true"></span>';
 		b.firstChild.textContent = label;
-		b.lastChild.textContent = "★★★".slice(0, stars) + "☆☆☆".slice(0, 3 - stars);
+		b.lastChild.textContent = "\u2605\u2605\u2605".slice(0, stars) + "\u2606\u2606\u2606".slice(0, 3 - stars);
 		b.setAttribute("aria-label", "Note " + (i + 1) + (stars > 0 ? ", " + label : "") + ", " + stars + " of 3 stars");
 		if (i === practice.index) b.setAttribute("aria-current", "true");
 		b.onclick = function() { startPracticeNote(i); };
@@ -422,7 +422,7 @@ function renderPracticeSteps() {
 			(i === practice.step ? " current" : "") +
 			(i < practice.step || practice.step === 4 ? " done" : "");
 		b.innerHTML = '<span class="practice-step-num"></span><span class="practice-step-label"></span>';
-		b.firstChild.textContent = (i < practice.step || practice.step === 4) ? "✓" : String(i + 1);
+		b.firstChild.textContent = (i < practice.step || practice.step === 4) ? "\u2713" : String(i + 1);
 		b.lastChild.textContent = label;
 		// The Read step is the quiz: once answered it can't be retaken for
 		// free, and later steps open only after they've been reached
