@@ -53,8 +53,10 @@ All state is module-global. The main clusters:
 - `fluteFingerings` (key diagrams)
 - `clarinetFingerings` — written E3–G6 (incl. lower altissimo), drawn as SVG
   by `drawClarinetFingering()` (keys listed by id: `Reg`, `T`, `L1`–`R3`,
-  side keys `S1`–`S4`, `CsGs`, pinkies `lE`/`lF`/`lFs`, `rE`/`rF`/`rAb`).
-  Alternates (left/right pinky E/B and F/C, throat-tone resonance) show
+  side keys `S1`–`S4`, `CsGs`, pinkies `lE`/`lF`/`lFs`, `rE`/`rF`/`rFs`/`rAb`).
+  Like a printed chart, only the register key, thumb and tone holes always
+  show; other key groups appear only when the note uses one of their keys.
+  Alternates (left/right pinky E/B, F/C, F♯/C♯; throat-tone resonance) show
   side by side with captions via the Show Alternate Fingerings button.
   `img/Fingerings/Clarinet/` is no longer used.
 - `imageFingeringMap` — instruments using chart images from `img/Fingerings/`
