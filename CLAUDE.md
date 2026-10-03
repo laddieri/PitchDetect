@@ -93,6 +93,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   Names shows the staff; fingerings hides it and shows only the chart
   (`practiceFingeringBox(true)` leaves the piano key unlabeled). A note scores
   if named on the first try; bests in `pitchdetect-first-five-drills`.
+  In the fingerings drill, `drillChoices()` drops notes that share the
+  target's fingering (trumpet C/G open; trombone, euphonium, tuba B♭/F) so
+  only one answer is right. `loadFingeringKeys()` keys valve/clarinet notes by
+  their fingering data and image charts by a hash of the file
+  (`fingeringImagePath()`), since shared fingerings share identical images.
 - `practiceFingeringBox()` builds the chart for the Finger step and challenge
   Help. Trombone charts share a wide canvas (bell fixed, room for the slide at
   7th position), so `centerChartDrawing()` measures the drawn pixels and

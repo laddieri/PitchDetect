@@ -346,11 +346,16 @@ var imageFingeringMap = {
 	"horn":      { folder: "Horn",      ext: "png", transposition: 0,  w: 360, h: 160 }
 };
 
+// Path of an image-based instrument's chart for a written MIDI note
+function fingeringImagePath(instrument, writtenMidi) {
+	var info = imageFingeringMap[instrument];
+	return "img/Fingerings/" + info.folder + "/" + (writtenMidi - info.transposition) + "." + info.ext;
+}
+
 // Display fingering using an image file from img/Fingerings/
 function displayImageFingering(container, instrument, writtenMidi) {
 	var info = imageFingeringMap[instrument];
-	var imageMidi = writtenMidi - info.transposition;
-	var imgPath = "img/Fingerings/" + info.folder + "/" + imageMidi + "." + info.ext;
+	var imgPath = fingeringImagePath(instrument, writtenMidi);
 
 	// Reuse a persistent <img> and just swap its src. The browser keeps showing
 	// the current image until the new one finishes loading, so the panel never
