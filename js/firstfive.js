@@ -11,7 +11,7 @@
  * Stars (up to 3 per note, best kept per instrument in localStorage):
  *   named it on the first try, played it, and played it right in tune.
  *
- * Practice opens on a menu of four activities (showPracticeMenu()):
+ * Practice opens on a menu of activities (showPracticeMenu()):
  *   Learn  — the lessons above
  *   Quiz   — the challenge round: CHALLENGE_LENGTH notes mixed at random,
  *            staff only, played into the mic. Help reveals a note's name,
@@ -19,6 +19,11 @@
  *   Names  — a drill: name each note shown on the staff (no mic)
  *   Fingerings — a drill: name the note a fingering chart shows (no mic)
  * Rounds score notes done unaided; the best score per instrument is kept.
+ *
+ * Learn the B♭ scale extends the lessons to the first octave: concert
+ * B♭ C D E♭ F G A B♭ (SCALE_STEPS) from the same starting B♭, eight lessons
+ * with their own stars. Play the B♭ scale is a challenge round in order, up
+ * the octave and back down (scaleRunSequence()), with Help like the quiz.
  *
  * Flute, clarinet and alto sax also get a "first sounds" tutorial
  * (startFirstSounds(), configured by FIRST_SOUNDS): playing just the head
@@ -50,6 +55,7 @@ var practiceStartConcertMidi = {
 	"glockenspiel": 94    // written B♭4 (sounds two octaves higher)
 };
 var PRACTICE_STEPS = [0, 2, 4, 5, 7];  // B♭ C D E♭ F
+var SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];  // B♭ C D E♭ F G A B♭
 
 var PRACTICE_STORAGE_KEY = "pitchdetect-first-five";
 var PRACTICE_HOLD_MS = 1200;       // how long the note must be held to pass
@@ -62,63 +68,75 @@ var CHALLENGE_STORAGE_KEY = "pitchdetect-first-five-challenge";
 var CHALLENGE_LENGTH = 10;
 var CHALLENGE_HOLD_MS = 800;       // shorter hold keeps the round moving
 var DRILL_STORAGE_KEY = "pitchdetect-first-five-drills";
+var SCALE_STORAGE_KEY = "pitchdetect-bb-scale";
+var SCALE_RUN_STORAGE_KEY = "pitchdetect-bb-scale-run";
+
+// The note sets taught as lessons: the first five notes and the B♭ scale
+var LESSON_SETS = {
+	first5: { steps: PRACTICE_STEPS, storage: PRACTICE_STORAGE_KEY },
+	scale: { steps: SCALE_STEPS, storage: SCALE_STORAGE_KEY }
+};
 
 var practiceOpen = false;
 var practiceStartedMic = false;
 var practiceAdvanceTimer = null;
 var practice = null;  // per-session state, see openPractice()
 
-// Written MIDI notes of the five practice notes for the selected instrument
-function practiceNotes() {
+// Written MIDI notes of a lesson set (default: the first five notes) for the
+// selected instrument
+function practiceNotes(steps) {
 	var instrument = document.getElementById("instrument").value;
 	var start = practiceStartConcertMidi[instrument];
 	if (start === undefined) start = 70;
 	var t = getTransposition();
-	return PRACTICE_STEPS.map(function(step) { return start + step + t; });
+	return (steps || PRACTICE_STEPS).map(function(step) { return start + step + t; });
 }
 
-// Note letter for a written MIDI note (these five never need sharps)
+// Note letter for a written MIDI note (the B♭ scale never needs sharps)
 function practiceNoteName(writtenMidi) {
 	return keyDisplayName(flatNoteSpellings[((writtenMidi % 12) + 12) % 12]);
 }
 
-function loadPracticeStars(instrument) {
+// Best stars per note of a lesson set (count notes) for an instrument
+function loadPracticeStars(instrument, key, count) {
 	try {
-		var all = JSON.parse(localStorage.getItem(PRACTICE_STORAGE_KEY) || "{}");
+		var all = JSON.parse(localStorage.getItem(key) || "{}");
 		var stars = all[instrument];
-		if (Array.isArray(stars) && stars.length === 5) return stars;
+		if (Array.isArray(stars) && stars.length === count) return stars;
 	} catch (e) {}
-	return [0, 0, 0, 0, 0];
+	return new Array(count).fill(0);
 }
 
-function savePracticeStars(instrument, stars) {
+function savePracticeStars(instrument, stars, key) {
 	try {
-		var all = JSON.parse(localStorage.getItem(PRACTICE_STORAGE_KEY) || "{}");
+		var all = JSON.parse(localStorage.getItem(key) || "{}");
 		all[instrument] = stars;
-		localStorage.setItem(PRACTICE_STORAGE_KEY, JSON.stringify(all));
+		localStorage.setItem(key, JSON.stringify(all));
 	} catch (e) {}
 }
 
-// Best challenge score (notes played without help) for an instrument, or null
-function loadChallengeBest(instrument) {
+// Best challenge score (notes played without help) for an instrument, or
+// null. key: the quiz's or the scale run's storage.
+function loadChallengeBest(instrument, key) {
 	try {
-		var best = JSON.parse(localStorage.getItem(CHALLENGE_STORAGE_KEY) || "{}")[instrument];
+		var best = JSON.parse(localStorage.getItem(key || CHALLENGE_STORAGE_KEY) || "{}")[instrument];
 		if (typeof best === "number") return best;
 	} catch (e) {}
 	return null;
 }
 
-function saveChallengeBest(instrument, score) {
+function saveChallengeBest(instrument, score, key) {
 	try {
-		var all = JSON.parse(localStorage.getItem(CHALLENGE_STORAGE_KEY) || "{}");
+		var all = JSON.parse(localStorage.getItem(key || CHALLENGE_STORAGE_KEY) || "{}");
 		all[instrument] = score;
-		localStorage.setItem(CHALLENGE_STORAGE_KEY, JSON.stringify(all));
+		localStorage.setItem(key || CHALLENGE_STORAGE_KEY, JSON.stringify(all));
 	} catch (e) {}
 }
 
-// Trophy stars for a challenge score
-function challengeStars(score) {
-	return score >= CHALLENGE_LENGTH ? 3 : score >= 8 ? 2 : score >= 5 ? 1 : 0;
+// Trophy stars for a round score out of total (10 / 8 / 5 of 10)
+function challengeStars(score, total) {
+	total = total || CHALLENGE_LENGTH;
+	return score >= total ? 3 : score >= total * 0.8 ? 2 : score >= total * 0.5 ? 1 : 0;
 }
 
 // Best drill scores for an instrument: { names: n, fingerings: n }
@@ -143,8 +161,13 @@ function starText(stars) {
 	return "\u2605\u2605\u2605".slice(0, stars) + "\u2606\u2606\u2606".slice(0, 3 - stars);
 }
 
+// The lesson set being taught: { id, notes, stars, storage }
+function currentLesson() {
+	return practice.lessons[practice.lesson];
+}
+
 function allNotesLearned() {
-	return practice.stars.every(function(s) { return s > 0; });
+	return currentLesson().stars.every(function(s) { return s > 0; });
 }
 
 function openPractice() {
@@ -180,12 +203,24 @@ function openPractice() {
 // Load practice state for the app's selected instrument
 function loadPracticeInstrument() {
 	var select = document.getElementById("instrument");
+	var lessons = {};
+	Object.keys(LESSON_SETS).forEach(function(id) {
+		var set = LESSON_SETS[id];
+		lessons[id] = {
+			id: id,
+			notes: practiceNotes(set.steps),
+			stars: loadPracticeStars(select.value, set.storage, set.steps.length),
+			storage: set.storage
+		};
+	});
 	practice = {
 		instrument: select.value,
 		mode: "menu",
-		notes: practiceNotes(),
-		stars: loadPracticeStars(select.value),
+		lessons: lessons,
+		lesson: "first5",
+		notes: lessons.first5.notes,  // the quiz and drills use the first five
 		challengeBest: loadChallengeBest(select.value),
+		scaleRunBest: loadChallengeBest(select.value, SCALE_RUN_STORAGE_KEY),
 		drillBest: loadDrillBest(select.value),
 		firstSoundsBest: loadFirstSoundsBest(select.value),
 		index: 0,
@@ -220,6 +255,8 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "Name the notes on the staff" },
 	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" },
+	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave" },
+	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note" },
 	{ id: "firstsounds", firstSounds: true }  // title, sub and icon from FIRST_SOUNDS
 ];
 
@@ -253,18 +290,22 @@ function showPracticeMenu() {
 		}
 
 		var score;
-		if (a.id === "learn") {
-			var total = practice.stars.reduce(function(t, n) { return t + n; }, 0);
-			score = total + " / 15 \u2605";
+		if (a.id === "learn" || a.id === "scale") {
+			var stars = practice.lessons[a.id === "learn" ? "first5" : "scale"].stars;
+			var total = stars.reduce(function(t, n) { return t + n; }, 0);
+			score = total + " / " + stars.length * 3 + " \u2605";
 		} else if (a.firstSounds) {
 			score = starText(practice.firstSoundsBest);
+		} else if (a.id === "scalerun") {
+			var run = practice.scaleRunBest;
+			score = typeof run === "number" ? starText(challengeStars(run, scaleRunSequence().length)) : "\u2606\u2606\u2606";
 		} else {
 			var best = a.id === "quiz" ? practice.challengeBest : practice.drillBest[a.id];
 			score = typeof best === "number" ? starText(challengeStars(best)) : "\u2606\u2606\u2606";
 		}
 
 		var b = document.createElement("button");
-		b.className = "practice-choice";
+		b.className = "practice-choice" + (a.firstSounds ? " wide" : "");
 		b.setAttribute("data-activity", a.id);
 		b.innerHTML = '<span class="practice-choice-icon" aria-hidden="true"></span>' +
 			'<span class="practice-choice-text"><span class="practice-choice-title"></span>' +
@@ -273,6 +314,8 @@ function showPracticeMenu() {
 		var icon = b.firstChild;
 		if (a.icon === "trophy") icon.innerHTML = TROPHY_SVG;
 		else if (a.icon === "fingering") icon.innerHTML = FINGERING_SVG;
+		else if (a.icon === "scale") icon.innerHTML = SCALE_SVG;
+		else if (a.icon === "scalerun") icon.innerHTML = SCALE_RUN_SVG;
 		else if (a.firstSounds) icon.innerHTML = fsCfg.icon;
 		else icon.textContent = a.icon;
 		b.querySelector(".practice-choice-title").textContent = title;
@@ -284,12 +327,12 @@ function showPracticeMenu() {
 }
 
 function startPracticeActivity(id) {
-	if (id === "learn") {
-		// Start on the first note that still has stars to earn
-		var next = practice.stars.findIndex(function(s) { return s < 3; });
-		startPracticeNote(next >= 0 ? next : 0);
+	if (id === "learn" || id === "scale") {
+		startLesson(id === "scale" ? "scale" : "first5");
 	} else if (id === "quiz") {
 		startChallenge();
+	} else if (id === "scalerun") {
+		startScaleRun();
 	} else if (id === "firstsounds") {
 		startFirstSounds();
 	} else {
@@ -309,8 +352,8 @@ function practiceBack() {
 
 // The activity the student is in, for restarting it after an instrument change
 function currentPracticeActivity() {
-	if (practice.mode === "lesson") return "learn";
-	if (practice.mode === "challenge") return "quiz";
+	if (practice.mode === "lesson") return practice.lesson === "scale" ? "scale" : "learn";
+	if (practice.mode === "challenge") return practice.challenge.kind === "scale" ? "scalerun" : "quiz";
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
 	return "menu";
@@ -349,11 +392,19 @@ function closePractice() {
 	if (button && button.offsetParent !== null) button.focus();
 }
 
-// Begin (or restart) the lesson for note i
+// Open a lesson set ("first5" or "scale") on the first note that still has
+// stars to earn
+function startLesson(id) {
+	practice.lesson = id;
+	var next = currentLesson().stars.findIndex(function(s) { return s < 3; });
+	startPracticeNote(next >= 0 ? next : 0);
+}
+
+// Begin (or restart) the lesson for note i of the current set
 function startPracticeNote(i) {
 	setPracticeMode("lesson");
 	practice.index = i;
-	practice.target = practice.notes[i];
+	practice.target = currentLesson().notes[i];
 	practice.firstTry = true;
 	practice.answered = false;
 	practice.reached = 0;
@@ -384,7 +435,16 @@ function goToPracticeStep(s) {
 		prompt.textContent = "What\u2019s the name of this note?";
 		var answers = document.createElement("div");
 		answers.className = "practice-answers";
-		practice.notes.forEach(function(midi) {
+		// One button per name (the scale's two B♭s share one)
+		var seen = {};
+		var choices = currentLesson().notes.filter(function(midi) {
+			var pc = ((midi % 12) + 12) % 12;
+			if (seen[pc]) return false;
+			seen[pc] = true;
+			return true;
+		});
+		answers.setAttribute("data-count", choices.length);
+		choices.forEach(function(midi) {
 			var b = document.createElement("button");
 			b.className = "practice-answer";
 			b.textContent = practiceNoteName(midi);
@@ -624,14 +684,15 @@ function updatePracticeListen(now, freq) {
 }
 
 function finishPracticeNote(inTune) {
+	var lesson = currentLesson();
 	var earned = [practice.firstTry, true, inTune];
 	var count = earned.filter(Boolean).length;
-	var wasComplete = practice.stars.every(function(s) { return s > 0; });
+	var wasComplete = allNotesLearned();
 	practice.earned = earned;
-	practice.newBest = count > practice.stars[practice.index];
-	practice.stars[practice.index] = Math.max(practice.stars[practice.index], count);
-	savePracticeStars(practice.instrument, practice.stars);
-	practice.allLearned = !wasComplete && practice.stars.every(function(s) { return s > 0; });
+	practice.newBest = count > lesson.stars[practice.index];
+	lesson.stars[practice.index] = Math.max(lesson.stars[practice.index], count);
+	savePracticeStars(practice.instrument, lesson.stars, lesson.storage);
+	practice.allLearned = !wasComplete && allNotesLearned();
 	renderPracticeMap();
 	goToPracticeStep(4);
 	launchFireworks(document.getElementById("practice-stage"));
@@ -639,11 +700,12 @@ function finishPracticeNote(inTune) {
 
 function renderPracticeResult() {
 	var name = practiceNoteName(practice.target);
+	var scale = practice.lesson === "scale";
 	var prompt = document.getElementById("practice-prompt");
 	var body = document.getElementById("practice-body");
-	prompt.textContent = practice.allLearned
-		? "You learned all five notes!"
-		: "You played " + name + "!";
+	prompt.textContent = !practice.allLearned ? "You played " + name + "!"
+		: scale ? "You learned the whole B\u266d scale!"
+		: "You learned all five notes!";
 
 	var labels = ["Named it first try", "Played it", "Right in tune"];
 	var list = document.createElement("div");
@@ -665,23 +727,27 @@ function renderPracticeResult() {
 	actions.appendChild(practiceButton("Try " + name + " again", "secondary", function() {
 		startPracticeNote(practice.index);
 	}));
-	var nextIndex = (practice.index + 1) % 5;
+	var nextIndex = (practice.index + 1) % currentLesson().notes.length;
 	actions.appendChild(practiceButton("Next note \u2192", practice.allLearned ? "secondary" : "primary", function() {
 		startPracticeNote(nextIndex);
 	}));
 	if (practice.allLearned) {
-		actions.appendChild(practiceButton("Take the quiz \u2192", "primary", startChallenge));
+		actions.appendChild(scale ? practiceButton("Play the whole scale \u2192", "primary", startScaleRun)
+			: practiceButton("Take the quiz \u2192", "primary", startChallenge));
 	}
 	body.appendChild(actions);
 }
 
-// The five notes across the top. A note's name stays hidden (a number shows
-// instead) until it's been learned, so the map never answers the Read step.
+// The lesson's notes across the top. A note's name stays hidden (a number
+// shows instead) until it's been learned, so the map never answers the Read step.
 function renderPracticeMap() {
 	var map = document.getElementById("practice-map");
+	var lesson = currentLesson();
 	map.innerHTML = "";
-	practice.notes.forEach(function(midi, i) {
-		var stars = practice.stars[i];
+	map.setAttribute("data-count", lesson.notes.length);
+	map.style.gridTemplateColumns = "repeat(" + lesson.notes.length + ", minmax(0, 1fr))";
+	lesson.notes.forEach(function(midi, i) {
+		var stars = lesson.stars[i];
 		var b = document.createElement("button");
 		b.className = "practice-map-note" + (i === practice.index ? " current" : "") + (stars > 0 ? " learned" : "");
 		var label = stars > 0 ? practiceNoteName(midi) : String(i + 1);
@@ -701,6 +767,15 @@ var TROPHY_SVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="currentC
 // Three valve buttons, for the fingerings activity
 var FINGERING_SVG = '<svg width="30" height="24" viewBox="0 0 30 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">' +
 	'<circle cx="5" cy="12" r="4"/><circle cx="15" cy="12" r="4" fill="currentColor"/><circle cx="25" cy="12" r="4"/></svg>';
+// Notes climbing a staircase, for the scale lessons
+var SCALE_SVG = '<svg width="30" height="26" viewBox="0 0 30 26" fill="currentColor" aria-hidden="true">' +
+	'<ellipse cx="4" cy="21" rx="3.4" ry="2.6"/><ellipse cx="11.3" cy="15.3" rx="3.4" ry="2.6"/>' +
+	'<ellipse cx="18.6" cy="9.6" rx="3.4" ry="2.6"/><ellipse cx="26" cy="4" rx="3.4" ry="2.6"/></svg>';
+// Notes going up and back down, for the scale run
+var SCALE_RUN_SVG = '<svg width="34" height="26" viewBox="0 0 34 26" fill="currentColor" aria-hidden="true">' +
+	'<ellipse cx="4" cy="21" rx="3.2" ry="2.5"/><ellipse cx="10.5" cy="12.5" rx="3.2" ry="2.5"/>' +
+	'<ellipse cx="17" cy="4" rx="3.2" ry="2.5"/><ellipse cx="23.5" cy="12.5" rx="3.2" ry="2.5"/>' +
+	'<ellipse cx="30" cy="21" rx="3.2" ry="2.5"/></svg>';
 
 // Read / Finger / Hear / Play chips. Steps already reached can be revisited.
 function renderPracticeSteps() {
@@ -763,7 +838,22 @@ function startChallenge() {
 	clearTimeout(practiceAdvanceTimer);
 	setPracticeMode("challenge");
 	practice.index = -1;
-	practice.challenge = { seq: makeChallengeSequence(), pos: 0, results: [] };
+	practice.challenge = { kind: "quiz", notes: practice.notes, seq: makeChallengeSequence(), pos: 0, results: [] };
+	showChallengeNote();
+}
+
+// The scale run's order: note indexes up the octave and back down
+function scaleRunSequence() {
+	var up = SCALE_STEPS.map(function(s, i) { return i; });
+	return up.concat(up.slice(0, -1).reverse());
+}
+
+// Play the B♭ scale: a challenge round over the scale's notes in order
+function startScaleRun() {
+	clearTimeout(practiceAdvanceTimer);
+	setPracticeMode("challenge");
+	practice.index = -1;
+	practice.challenge = { kind: "scale", notes: practice.lessons.scale.notes, seq: scaleRunSequence(), pos: 0, results: [] };
 	showChallengeNote();
 }
 
@@ -771,7 +861,7 @@ function showChallengeNote() {
 	var c = practice.challenge;
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
-	practice.target = practice.notes[c.seq[c.pos]];
+	practice.target = c.notes[c.seq[c.pos]];
 	practice.step = 3;
 	c.helped = false;
 	resetPracticeHold();
@@ -779,7 +869,12 @@ function showChallengeNote() {
 	document.getElementById("practice-view").setAttribute("data-step", "challenge");
 	drawPracticeStaff(practice.target);
 	renderPracticeSteps();
-	document.getElementById("practice-prompt").textContent = "Play this note!";
+	var top = SCALE_STEPS.length - 1;
+	document.getElementById("practice-prompt").textContent = c.kind !== "scale" ? "Play this note!"
+		: c.pos === 0 ? "Start the scale on this note!"
+		: c.pos < top ? "Next note up!"
+		: c.pos === top ? "Up to the top!"
+		: "Now back down!";
 	var body = document.getElementById("practice-body");
 	body.innerHTML =
 		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready\u2026</div>' +
@@ -826,7 +921,7 @@ function passChallengeNote() {
 	celebrateCorrect(null);
 	practiceAdvanceTimer = setTimeout(function() {
 		c.pos++;
-		if (c.pos < CHALLENGE_LENGTH) {
+		if (c.pos < c.seq.length) {
 			showChallengeNote();
 		} else {
 			finishChallenge();
@@ -835,6 +930,10 @@ function passChallengeNote() {
 }
 
 function finishChallenge() {
+	if (practice.challenge.kind === "scale") {
+		finishScaleRun();
+		return;
+	}
 	var score = practice.challenge.results.filter(Boolean).length;
 	var newBest = practice.challengeBest === null || score > practice.challengeBest;
 	if (newBest) {
@@ -847,10 +946,25 @@ function finishChallenge() {
 		startChallenge);
 }
 
-// End of a quiz or drill round: trophy, stars, score line, what's next
-function showRoundResult(score, newBest, title, scoreText, again) {
+function finishScaleRun() {
+	var c = practice.challenge;
+	var score = c.results.filter(Boolean).length;
+	var newBest = practice.scaleRunBest === null || score > practice.scaleRunBest;
+	if (newBest) {
+		practice.scaleRunBest = score;
+		saveChallengeBest(practice.instrument, score, SCALE_RUN_STORAGE_KEY);
+	}
+	showRoundResult(score, newBest,
+		score === c.seq.length ? "Perfect! You played the whole B\u266d scale!" : "Scale complete!",
+		"You played " + score + " of " + c.seq.length + " on your own",
+		startScaleRun, c.seq.length);
+}
+
+// End of a quiz, scale run or drill round: trophy, stars, score line, what's
+// next. total defaults to CHALLENGE_LENGTH.
+function showRoundResult(score, newBest, title, scoreText, again, total) {
 	stopNote();
-	var stars = challengeStars(score);
+	var stars = challengeStars(score, total);
 	practice.step = -1;
 	document.getElementById("practice-view").setAttribute("data-step", "challenge-done");
 	document.getElementById("practice-prompt").textContent = title;
@@ -882,7 +996,7 @@ function showRoundResult(score, newBest, title, scoreText, again) {
 	if (stars > 0) launchFireworks(document.getElementById("practice-stage"));
 }
 
-// Ten dots in place of the step chips: green = played on your own, yellow =
+// One dot per note of the round in place of the step chips: green = played on your own, yellow =
 // played with help, ringed = the current note
 function renderChallengeProgress() {
 	var c = practice.challenge;
@@ -891,8 +1005,9 @@ function renderChallengeProgress() {
 	var row = document.createElement("div");
 	row.className = "challenge-progress";
 	row.setAttribute("role", "img");
-	row.setAttribute("aria-label", "Note " + Math.min(c.pos + 1, CHALLENGE_LENGTH) + " of " + CHALLENGE_LENGTH);
-	for (var i = 0; i < CHALLENGE_LENGTH; i++) {
+	var length = c.seq.length;
+	row.setAttribute("aria-label", "Note " + Math.min(c.pos + 1, length) + " of " + length);
+	for (var i = 0; i < length; i++) {
 		var dot = document.createElement("span");
 		dot.className = "challenge-dot" +
 			(i < c.results.length ? (c.results[i] ? " own" : " helped")
@@ -916,7 +1031,7 @@ function startDrill(kind) {
 	setPracticeMode("drill");
 	practice.drillKind = kind;
 	practice.index = -1;
-	practice.challenge = { seq: makeChallengeSequence(), pos: 0, results: [] };
+	practice.challenge = { kind: "drill", notes: practice.notes, seq: makeChallengeSequence(), pos: 0, results: [] };
 	showDrillQuestion();
 }
 
