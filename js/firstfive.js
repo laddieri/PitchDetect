@@ -503,8 +503,9 @@ function answerPracticeNote(button, midi) {
 	}
 	practice.answered = true;
 	button.classList.add("right");
-	document.getElementById("practice-prompt").textContent = "Yes! That\u2019s " + practiceNoteName(practice.target) + ".";
-	practiceAdvanceTimer = setTimeout(function() { goToPracticeStep(1); }, 900);
+	document.getElementById("practice-prompt").textContent = praiseWord() + " That\u2019s " + practiceNoteName(practice.target) + ".";
+	celebrateCorrect(button);
+	practiceAdvanceTimer = setTimeout(function() { goToPracticeStep(1); }, 1300);
 }
 
 // Play the target with the instrument's timbre. While it sounds (and briefly
@@ -814,10 +815,15 @@ function passChallengeNote() {
 	var c = practice.challenge;
 	practice.step = 4;  // stop scoring until the next note
 	c.results.push(!c.helped);
+	c.streak = c.helped ? 0 : (c.streak || 0) + 1;
 	var fill = document.getElementById("practice-hold-fill");
 	if (fill) fill.style.width = "100%";
-	setPracticeFeedback("Yes! That\u2019s " + practiceNoteName(practice.target) + "!", "\u00a0", "good");
+	setPracticeFeedback(praiseWord() + " That\u2019s " + practiceNoteName(practice.target) + "!",
+		streakText(c.streak).trim() || "\u00a0", "good");
 	renderPracticeSteps();
+	// The mic isn't scoring until the next note (step 4), so the chime can't
+	// count as the student playing
+	celebrateCorrect(null);
 	practiceAdvanceTimer = setTimeout(function() {
 		c.pos++;
 		if (c.pos < CHALLENGE_LENGTH) {
@@ -1031,9 +1037,11 @@ function answerDrill(button, midi) {
 	}
 	c.answered = true;
 	c.results.push(!c.helped);
+	c.streak = c.helped ? 0 : (c.streak || 0) + 1;
 	button.classList.add("right");
-	prompt.textContent = "Yes! That\u2019s " + practiceNoteName(practice.target) + ".";
+	prompt.textContent = praiseWord() + " That\u2019s " + practiceNoteName(practice.target) + "." + streakText(c.streak);
 	renderPracticeSteps();
+	celebrateCorrect(button);
 	practiceAdvanceTimer = setTimeout(function() {
 		c.pos++;
 		if (c.pos < CHALLENGE_LENGTH) {
@@ -1041,7 +1049,7 @@ function answerDrill(button, midi) {
 		} else {
 			finishDrill();
 		}
-	}, 800);
+	}, 1200);
 }
 
 function finishDrill() {
@@ -1518,6 +1526,110 @@ var FIRST_SOUNDS = {
 		doneTitle: "You can play the mouthpiece and neck!"
 	}
 };
+
+// ---------------------------------------------------------------------------
+// Celebrating a correct answer (quiz, drills, the lesson's Read step):
+// balloons float up across the card, a bright chime plays, and the prompt
+// cheers with a varied word plus a streak count
+// ---------------------------------------------------------------------------
+
+var PRAISE_WORDS = ["Yes!", "Awesome!", "You got it!", "Nailed it!", "Great job!", "Super!", "Way to go!"];
+var BALLOON_COLORS = ["#ff4d6d", "#ffd23f", "#5ad86a", "#4d96ff", "#c77dff", "#ff9f1c", "#2ec4b6"];
+var lastPraise = null;
+
+// A praise word, never the same one twice in a row
+function praiseWord() {
+	var word;
+	do {
+		word = PRAISE_WORDS[Math.floor(Math.random() * PRAISE_WORDS.length)];
+	} while (word === lastPraise);
+	lastPraise = word;
+	return word;
+}
+
+// " 3 in a row!" once a streak reaches 3, else ""
+function streakText(streak) {
+	return streak >= 3 ? " " + streak + " in a row!" : "";
+}
+
+// The whole celebration for one correct answer
+function celebrateCorrect(button) {
+	if (button) {
+		button.classList.remove("cheer");
+		void button.offsetWidth;  // restart the bounce
+		button.classList.add("cheer");
+	}
+	launchBalloons();
+	playChime();
+}
+
+// Balloons rise from the bottom of the practice card, swaying, and are
+// removed when done. A layer of their own clips them to the card and lets
+// taps through. Skipped when the student prefers reduced motion.
+function launchBalloons() {
+	if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+	var stage = document.getElementById("practice-stage");
+	if (!stage) return;
+	var layer = document.getElementById("balloon-layer");
+	if (!layer) {
+		layer = document.createElement("div");
+		layer.id = "balloon-layer";
+		layer.className = "balloon-layer";
+		layer.setAttribute("aria-hidden", "true");
+	}
+	if (layer.parentNode !== stage) stage.appendChild(layer);
+
+	var count = 7;
+	for (var i = 0; i < count; i++) {
+		var b = document.createElement("div");
+		b.className = "balloon";
+		var color = BALLOON_COLORS[Math.floor(Math.random() * BALLOON_COLORS.length)];
+		var size = 34 + Math.random() * 20;
+		// spread across the width, a little random within each slot
+		b.style.left = ((i + 0.15 + Math.random() * 0.7) / count * 100) + "%";
+		b.style.width = size + "px";
+		b.style.setProperty("--rise", (1.6 + Math.random() * 0.9) + "s");
+		// all the way up past the top of the card (balloon is ~1.8x as tall as wide)
+		b.style.setProperty("--travel", (stage.clientHeight + size * 2) + "px");
+		b.style.setProperty("--sway", (Math.random() < 0.5 ? -1 : 1) * (10 + Math.random() * 16) + "px");
+		b.style.animationDelay = (Math.random() * 0.25) + "s";
+		b.innerHTML = '<svg viewBox="0 0 40 72" aria-hidden="true">' +
+			'<path d="M20 50 Q16 58 21 63 T19 72" fill="none" stroke="#8a80a3" stroke-width="1.5"/>' +
+			'<ellipse cx="20" cy="23" rx="17" ry="21" fill="' + color + '"/>' +
+			'<ellipse cx="13" cy="14" rx="4" ry="7" fill="#fff" opacity="0.45" transform="rotate(-20 13 14)"/>' +
+			'<path d="M17 43 L23 43 L21 47 L19 47 Z" fill="' + color + '"/></svg>';
+		b.addEventListener("animationend", function(e) { e.currentTarget.remove(); });
+		layer.appendChild(b);
+	}
+}
+
+// A quick rising three-note chime (C6 E6 G6). Kept out of activeAudioNodes so
+// stopping the example tone never cuts it off.
+function playChime() {
+	try {
+		if (!audioContext || audioContext.state === "closed") {
+			audioContext = new (window.AudioContext || window.webkitAudioContext)();
+		}
+		if (audioContext.state !== "running") audioContext.resume();
+		var t0 = audioContext.currentTime + 0.02;
+		[1046.5, 1318.5, 1568].forEach(function(freq, i) {
+			var t = t0 + i * 0.08;
+			var osc = audioContext.createOscillator();
+			var gain = audioContext.createGain();
+			osc.type = "triangle";
+			osc.frequency.setValueAtTime(freq, t);
+			gain.gain.setValueAtTime(0.0001, t);
+			gain.gain.exponentialRampToValueAtTime(0.12, t + 0.015);
+			gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+			osc.connect(gain);
+			gain.connect(audioContext.destination);
+			osc.start(t);
+			osc.stop(t + 0.4);
+		});
+	} catch (e) {
+		// No audio available; the balloons still celebrate
+	}
+}
 
 // Draw the note on a plain staff: no key signature, explicit flats, so a
 // beginner sees exactly what to play

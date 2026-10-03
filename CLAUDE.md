@@ -98,6 +98,13 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   only one answer is right. `loadFingeringKeys()` keys valve/clarinet notes by
   their fingering data and image charts by a hash of the file
   (`fingeringImagePath()`), since shared fingerings share identical images.
+- **Correct answers** in the quiz, both drills and the lesson's Read step
+  get `celebrateCorrect()`: balloons rising through the card
+  (`launchBalloons()`, a `.balloon-layer` that clips them and ignores taps;
+  skipped under reduced motion), a short chime (`playChime()`, outside
+  `activeAudioNodes`; in the quiz the mic isn't scoring between notes, so it
+  can't count), a bounce on the button, a varied `praiseWord()` and a streak
+  callout from 3 in a row (`streakText()`).
 - **First sounds** (`FIRST_SOUNDS`, one config per instrument; the menu card
   appears only for instruments in it and leads the menu, full-width on
   desktop): flute "Learn the head joint", clarinet "Learn the mouthpiece &
