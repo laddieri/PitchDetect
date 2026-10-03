@@ -20,6 +20,11 @@
  *   Fingerings — a drill: name the note a fingering chart shows (no mic)
  * Rounds score notes done unaided; the best score per instrument is kept.
  *
+ * Flute also gets "Learn the head joint" (startHeadJoint()): playing just the
+ * head joint, first with the end open (about A5, often a little flat — A♭5
+ * to A5), then covered by the right palm (an octave lower, about A4; a
+ * covered head joint can also jump up to E6), then switching between them.
+ *
  * Uses notetrainer.js globals: playTone(), startListening()/stopListening(),
  * launchFireworks(), getTransposition(), drawPianoKeyboard(), keyDisplayName(),
  * and fingerings.js: hasFingeringData(), displayFingering(), fingeringBoxHeight().
@@ -58,6 +63,18 @@ var CHALLENGE_STORAGE_KEY = "pitchdetect-first-five-challenge";
 var CHALLENGE_LENGTH = 10;
 var CHALLENGE_HOLD_MS = 800;       // shorter hold keeps the round moving
 var DRILL_STORAGE_KEY = "pitchdetect-first-five-drills";
+
+// Head joint tutorial (flute). Pitches are concert MIDI notes; the bands are
+// the accepted range in cents around each target. Open is usually played a
+// little flat, so its band reaches down to about A♭5.
+var HEADJOINT_STORAGE_KEY = "pitchdetect-first-five-headjoint";
+var HEADJOINT = {
+	open: { midi: 81, low: -130, high: 40 },     // A5 ≈ 880 Hz
+	covered: { midi: 69, low: -70, high: 50 }    // A4 ≈ 440 Hz
+};
+var HEADJOINT_HIGH_PARTIAL = 88;                // E6, a covered overblow
+var HEADJOINT_SWITCH_LENGTH = 6;
+var HEADJOINT_SWITCH_HOLD_MS = 700;
 
 var practiceOpen = false;
 var practiceStartedMic = false;
@@ -183,6 +200,7 @@ function loadPracticeInstrument() {
 		stars: loadPracticeStars(select.value),
 		challengeBest: loadChallengeBest(select.value),
 		drillBest: loadDrillBest(select.value),
+		headJointBest: loadHeadJointBest(select.value),
 		index: 0,
 		step: -1
 	};
@@ -214,7 +232,8 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note" },
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "Name the notes on the staff" },
-	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" }
+	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" },
+	{ id: "headjoint", icon: "headjoint", title: "Learn the head joint", sub: "Your first flute sounds: end open and covered", only: "flute" }
 ];
 
 function showPracticeMenu() {
@@ -230,7 +249,11 @@ function showPracticeMenu() {
 
 	var menu = document.getElementById("practice-menu");
 	menu.innerHTML = "";
-	PRACTICE_ACTIVITIES.forEach(function(a) {
+	// Instrument-specific activities (the head joint) lead the menu
+	var activities = PRACTICE_ACTIVITIES.filter(function(a) { return !a.only || a.only === practice.instrument; });
+	activities.sort(function(a, b) { return (b.only ? 1 : 0) - (a.only ? 1 : 0); });
+	menu.setAttribute("data-count", activities.length);
+	activities.forEach(function(a) {
 		var title = a.title, sub = a.sub;
 		if (a.id === "fingerings" && slide) {
 			title = "Practice slide positions";
@@ -244,6 +267,8 @@ function showPracticeMenu() {
 		if (a.id === "learn") {
 			var total = practice.stars.reduce(function(t, n) { return t + n; }, 0);
 			score = total + " / 15 \u2605";
+		} else if (a.id === "headjoint") {
+			score = starText(practice.headJointBest);
 		} else {
 			var best = a.id === "quiz" ? practice.challengeBest : practice.drillBest[a.id];
 			score = typeof best === "number" ? starText(challengeStars(best)) : "\u2606\u2606\u2606";
@@ -259,6 +284,7 @@ function showPracticeMenu() {
 		var icon = b.firstChild;
 		if (a.icon === "trophy") icon.innerHTML = TROPHY_SVG;
 		else if (a.icon === "fingering") icon.innerHTML = FINGERING_SVG;
+		else if (a.icon === "headjoint") icon.innerHTML = HEADJOINT_ICON_SVG;
 		else icon.textContent = a.icon;
 		b.querySelector(".practice-choice-title").textContent = title;
 		b.querySelector(".practice-choice-sub").textContent = sub;
@@ -275,6 +301,8 @@ function startPracticeActivity(id) {
 		startPracticeNote(next >= 0 ? next : 0);
 	} else if (id === "quiz") {
 		startChallenge();
+	} else if (id === "headjoint") {
+		startHeadJoint();
 	} else {
 		startDrill(id);
 	}
@@ -295,6 +323,7 @@ function currentPracticeActivity() {
 	if (practice.mode === "lesson") return "learn";
 	if (practice.mode === "challenge") return "quiz";
 	if (practice.mode === "drill") return practice.drillKind;
+	if (practice.mode === "headjoint") return "headjoint";
 	return "menu";
 }
 
@@ -310,7 +339,8 @@ function changePracticeInstrument(value) {
 	select.value = value;
 	select.dispatchEvent(new Event("change"));
 	loadPracticeInstrument();
-	if (activity === "menu") {
+	// The head joint is flute-only; other instruments land on the menu
+	if (activity === "menu" || (activity === "headjoint" && value !== "flute")) {
 		showPracticeMenu();
 	} else {
 		startPracticeActivity(activity);
@@ -524,6 +554,10 @@ function setPracticeFeedback(main, sub, state) {
 // Called from the mic loop every frame while practice is open. freq is the
 // confidently detected concert frequency, or null for silence/noise.
 function updatePracticeListen(now, freq) {
+	if (practice && practice.mode === "headjoint") {
+		updateHeadJointListen(now, freq);
+		return;
+	}
 	if (!practice || practice.step !== 3) return;
 	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
 	practice.lastFrame = now;
@@ -682,6 +716,10 @@ var FINGERING_SVG = '<svg width="30" height="24" viewBox="0 0 30 24" fill="none"
 function renderPracticeSteps() {
 	if (practice.mode === "challenge" || practice.mode === "drill") {
 		renderChallengeProgress();
+		return;
+	}
+	if (practice.mode === "headjoint") {
+		renderHeadJointSteps();
 		return;
 	}
 	var labels = ["Read", practice.instrument === "trombone" ? "Slide"
@@ -1030,6 +1068,311 @@ function finishDrill() {
 		score === CHALLENGE_LENGTH ? "Perfect score!" : "Round complete!",
 		"You got " + score + " of " + CHALLENGE_LENGTH + " right on the first try",
 		function() { startDrill(kind); });
+}
+
+// ---------------------------------------------------------------------------
+// Learn the head joint (flute)
+// ---------------------------------------------------------------------------
+
+function loadHeadJointBest(instrument) {
+	try {
+		var best = JSON.parse(localStorage.getItem(HEADJOINT_STORAGE_KEY) || "{}")[instrument];
+		if (typeof best === "number") return best;
+	} catch (e) {}
+	return 0;
+}
+
+function saveHeadJointBest(instrument, stars) {
+	try {
+		var all = JSON.parse(localStorage.getItem(HEADJOINT_STORAGE_KEY) || "{}");
+		all[instrument] = stars;
+		localStorage.setItem(HEADJOINT_STORAGE_KEY, JSON.stringify(all));
+	} catch (e) {}
+}
+
+// The head joint, end open or covered by a palm, with the air going in
+function headJointSVG(covered) {
+	var s = '<svg class="headjoint-drawing" viewBox="0 0 250 84" role="img" aria-label="' +
+		(covered ? "Head joint with the end covered by your palm" : "Head joint with the end open") + '">' +
+		// air stream into the embouchure hole
+		'<path d="M22 6 Q40 10 47 30" fill="none" stroke="#4d96ff" stroke-width="3" stroke-linecap="round" stroke-dasharray="5 5"/>' +
+		'<path d="M41 25 L47 32 L50 23" fill="none" stroke="#4d96ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+		// crown, tube, lip plate, hole
+		'<rect x="6" y="38" width="14" height="20" rx="4" fill="#aeb8c4" stroke="#6b7685" stroke-width="2"/>' +
+		'<rect x="18" y="40" width="208" height="16" rx="3" fill="#dfe5ec" stroke="#6b7685" stroke-width="2"/>' +
+		'<ellipse cx="50" cy="40" rx="20" ry="8" fill="#cfd7e0" stroke="#6b7685" stroke-width="2"/>' +
+		'<ellipse cx="50" cy="40" rx="7" ry="3.5" fill="#2b2140"/>';
+	if (covered) {
+		// a palm over the open end
+		s += '<ellipse cx="230" cy="48" rx="17" ry="25" fill="#f4c99f" stroke="#b9805a" stroke-width="2"/>' +
+			'<ellipse cx="214" cy="30" rx="6" ry="10" transform="rotate(-30 214 30)" fill="#f4c99f" stroke="#b9805a" stroke-width="2"/>';
+	} else {
+		s += '<ellipse cx="226" cy="48" rx="4" ry="8" fill="#2b2140"/>';
+	}
+	return s + '</svg>';
+}
+
+var HEADJOINT_ICON_SVG = '<svg width="34" height="20" viewBox="0 0 34 20" aria-hidden="true">' +
+	'<rect x="1" y="7" width="32" height="7" rx="2" fill="none" stroke="currentColor" stroke-width="2"/>' +
+	'<ellipse cx="9" cy="7" rx="5" ry="2.5" fill="currentColor"/></svg>';
+
+function startHeadJoint() {
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	setPracticeMode("headjoint");
+	practice.index = -1;
+	practice.headjoint = { step: 0, reached: 0, done: [false, false, false] };
+	goToHeadJointStep(0);
+}
+
+// Steps: 0 set up, 1 open, 2 covered, 3 switch, 4 done
+function goToHeadJointStep(s) {
+	var hj = practice.headjoint;
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	hj.step = s;
+	if (s <= 3) hj.reached = Math.max(hj.reached, s);
+	hj.kind = null;  // which sound the mic is listening for
+	resetPracticeHold();
+	renderPracticeSteps();
+
+	var view = document.getElementById("practice-view");
+	view.setAttribute("data-step", ["hj-setup", "hj-open", "hj-covered", "hj-switch", "hj-done"][s]);
+	var prompt = document.getElementById("practice-prompt");
+	var body = document.getElementById("practice-body");
+	body.innerHTML = "";
+
+	if (s === 0) {
+		prompt.textContent = "First sounds: just the head joint!";
+		body.insertAdjacentHTML("beforeend", headJointSVG(false));
+		var list = document.createElement("ol");
+		list.className = "headjoint-tips";
+		[
+			"Take the head joint off the flute.",
+			"Hold it with your left hand and rest the lip plate on your chin.",
+			"Cover about a quarter of the hole with your bottom lip.",
+			"Blow a gentle stream of air across the hole, like saying \u201ctoo.\u201d"
+		].forEach(function(t) {
+			var li = document.createElement("li");
+			li.textContent = t;
+			list.appendChild(li);
+		});
+		body.appendChild(list);
+		body.appendChild(practiceButton("I\u2019m ready", "primary", function() { goToHeadJointStep(1); }));
+	} else if (s === 1 || s === 2) {
+		var kind = s === 1 ? "open" : "covered";
+		prompt.textContent = kind === "open"
+			? "Leave the end open and blow."
+			: "Now cover the end with your right palm and blow.";
+		showHeadJointListen(kind);
+	} else if (s === 3) {
+		prompt.textContent = "Switch it up!";
+		// Alternate, starting either way, so every prompt is a change
+		var first = Math.random() < 0.5 ? "open" : "covered";
+		hj.seq = [];
+		for (var i = 0; i < HEADJOINT_SWITCH_LENGTH; i++) {
+			hj.seq.push(i % 2 === 0 ? first : (first === "open" ? "covered" : "open"));
+		}
+		hj.pos = 0;
+		showHeadJointSwitch();
+	} else {
+		renderHeadJointResult();
+	}
+}
+
+// Listening body for one sound: the note it makes, the drawing, feedback, the
+// hold bar and an example to hear
+function showHeadJointListen(kind) {
+	var hj = practice.headjoint;
+	var body = document.getElementById("practice-body");
+	resetPracticeHold();
+	hj.kind = kind;
+	hj.started = performance.now();
+	hj.heard = false;
+	practice.target = HEADJOINT[kind].midi;  // written = concert on flute
+	drawPracticeStaff(practice.target);
+	body.innerHTML = "";
+	body.insertAdjacentHTML("beforeend", headJointSVG(kind === "covered"));
+	body.insertAdjacentHTML("beforeend",
+		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready\u2026</div>' +
+		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>' +
+		'<div class="practice-hold" aria-hidden="true"><div class="practice-hold-fill" id="practice-hold-fill"></div></div>');
+	if (hj.step !== 3) {
+		body.appendChild(practiceButton("\u25b6 Hear what it sounds like", "secondary", playPracticeExample));
+	}
+	if (!listenActive) {
+		practiceStartedMic = true;
+		startListening();
+	}
+	setPracticeFeedback(headJointIdleText(kind), "\u00a0");
+}
+
+function headJointIdleText(kind) {
+	return kind === "open" ? "Blow across the hole and hold it" : "Cover the end and blow";
+}
+
+function showHeadJointSwitch() {
+	var hj = practice.headjoint;
+	var kind = hj.seq[hj.pos];
+	document.getElementById("practice-prompt").textContent = kind === "open" ? "Open!" : "Covered!";
+	showHeadJointListen(kind);
+	// progress dots for the switch round, under the hold bar
+	var dots = document.createElement("div");
+	dots.className = "challenge-progress";
+	for (var i = 0; i < HEADJOINT_SWITCH_LENGTH; i++) {
+		var dot = document.createElement("span");
+		dot.className = "challenge-dot" + (i < hj.pos ? " own" : i === hj.pos ? " current" : "");
+		dots.appendChild(dot);
+	}
+	document.getElementById("practice-body").appendChild(dots);
+}
+
+// Mic frames while a head joint sound is being listened for. Classifies the
+// pitch against both sounds (and the covered E6 partial) so a mix-up gets a
+// specific hint.
+function updateHeadJointListen(now, freq) {
+	var hj = practice.headjoint;
+	if (!hj || !hj.kind) return;
+	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
+	practice.lastFrame = now;
+	if (now < (practice.ignoreUntil || 0)) {
+		setPracticeFeedback("Listen\u2026", "\u00a0");
+		return;
+	}
+
+	var target = HEADJOINT[hj.kind];
+	var holdNeeded = hj.step === 3 ? HEADJOINT_SWITCH_HOLD_MS : PRACTICE_HOLD_MS;
+	var inZone = false;
+	if (freq) {
+		hj.heard = true;
+		practice.lastSound = now;
+		var m = 69 + 12 * Math.log(freq / 440) / Math.LN2;  // fractional MIDI
+		var cents = (m - target.midi) * 100;
+		if (cents >= target.low && cents <= target.high) {
+			inZone = true;
+			practice.holdMs += dt;
+			practice.lastGood = now;
+			practice.hintFrames = 0;
+			setPracticeFeedback("That\u2019s it! Keep blowing\u2026", "\u00a0", "good");
+		} else {
+			// Hint only once a wrong sound is steady
+			var r = Math.round(m);
+			if (r === practice.hintDiff) {
+				practice.hintFrames++;
+			} else {
+				practice.hintDiff = r;
+				practice.hintFrames = 1;
+			}
+			if (practice.hintFrames >= PRACTICE_HINT_FRAMES) {
+				var other = HEADJOINT[hj.kind === "open" ? "covered" : "open"];
+				var otherCents = (m - other.midi) * 100;
+				if (otherCents >= other.low && otherCents <= other.high) {
+					setPracticeFeedback(hj.kind === "open" ? "That\u2019s the covered sound" : "That\u2019s the open sound",
+						hj.kind === "open" ? "Take your hand away from the end" : "Cover the end completely with your palm", "off");
+				} else if (hj.kind === "covered" && Math.abs(m - HEADJOINT_HIGH_PARTIAL) <= 1) {
+					setPracticeFeedback("That\u2019s a high squeak", "Blow slower and aim the air a little lower", "close");
+				} else if (cents < target.low) {
+					setPracticeFeedback("A little low", "Aim your air a bit higher, across the hole", "close");
+				} else {
+					setPracticeFeedback("A little high", "Blow slower and aim the air a bit lower", "close");
+				}
+			}
+		}
+	} else if (now - practice.lastSound > 1500) {
+		if (!hj.heard && now - hj.started > 6000) {
+			setPracticeFeedback(headJointIdleText(hj.kind), "No sound yet? Make the opening between your lips smaller.");
+		} else {
+			setPracticeFeedback(headJointIdleText(hj.kind), "\u00a0");
+		}
+	}
+
+	if (!inZone && now - practice.lastGood > PRACTICE_GAP_MS && practice.holdMs > 0) {
+		practice.holdMs = 0;
+	}
+	var fill = document.getElementById("practice-hold-fill");
+	if (fill) fill.style.width = Math.min(100, practice.holdMs / holdNeeded * 100) + "%";
+
+	if (practice.holdMs >= holdNeeded) passHeadJointSound();
+}
+
+function passHeadJointSound() {
+	var hj = practice.headjoint;
+	var kind = hj.kind;
+	hj.kind = null;  // stop listening until the next prompt
+	var fill = document.getElementById("practice-hold-fill");
+	if (fill) fill.style.width = "100%";
+
+	if (hj.step === 3) {
+		hj.pos++;
+		setPracticeFeedback("Yes!", "\u00a0", "good");
+		practiceAdvanceTimer = setTimeout(function() {
+			if (hj.pos < HEADJOINT_SWITCH_LENGTH) {
+				showHeadJointSwitch();
+			} else {
+				hj.done[2] = true;
+				goToHeadJointStep(4);
+			}
+		}, 600);
+		return;
+	}
+	hj.done[hj.step - 1] = true;
+	setPracticeFeedback(kind === "open" ? "Great open sound!" : "Great covered sound!",
+		kind === "open" ? "That\u2019s about an A" : "An octave lower than open", "good");
+	launchFireworks(document.getElementById("practice-stage"));
+	practiceAdvanceTimer = setTimeout(function() { goToHeadJointStep(hj.step + 1); }, 1800);
+}
+
+function renderHeadJointResult() {
+	var hj = practice.headjoint;
+	var stars = hj.done.filter(Boolean).length;
+	if (stars > practice.headJointBest) {
+		practice.headJointBest = stars;
+		saveHeadJointBest(practice.instrument, stars);
+	}
+	document.getElementById("practice-prompt").textContent = "You can play the head joint!";
+	var body = document.getElementById("practice-body");
+
+	var labels = ["Open sound", "Covered sound", "Switched back and forth"];
+	var list = document.createElement("div");
+	list.className = "practice-results";
+	hj.done.forEach(function(got, i) {
+		var row = document.createElement("div");
+		row.className = "practice-result" + (got ? " got" : "");
+		row.innerHTML = '<span class="practice-result-star" aria-hidden="true">' + (got ? "\u2605" : "\u2606") + '</span>';
+		var text = document.createElement("span");
+		text.textContent = labels[i];
+		row.appendChild(text);
+		list.appendChild(row);
+	});
+	body.appendChild(list);
+
+	var actions = document.createElement("div");
+	actions.className = "practice-actions";
+	actions.appendChild(practiceButton("Play it again", "secondary", startHeadJoint));
+	actions.appendChild(practiceButton("Learn the first 5 notes \u2192", "primary", function() {
+		startPracticeActivity("learn");
+	}));
+	body.appendChild(actions);
+	launchFireworks(document.getElementById("practice-stage"));
+}
+
+// Set up / Open / Covered / Switch chips; reached steps can be revisited
+function renderHeadJointSteps() {
+	var hj = practice.headjoint;
+	var list = document.getElementById("practice-steps");
+	list.innerHTML = "";
+	["Set up", "Open", "Covered", "Switch"].forEach(function(label, i) {
+		var b = document.createElement("button");
+		var done = i < hj.step || hj.step === 4;
+		b.className = "practice-step" + (i === hj.step ? " current" : "") + (done ? " done" : "");
+		b.innerHTML = '<span class="practice-step-num"></span><span class="practice-step-label"></span>';
+		b.firstChild.textContent = done ? "\u2713" : String(i + 1);
+		b.lastChild.textContent = label;
+		b.disabled = hj.step === 4 || i > hj.reached;
+		if (i === hj.step) b.setAttribute("aria-current", "step");
+		b.onclick = function() { goToHeadJointStep(i); };
+		list.appendChild(b);
+	});
 }
 
 // Draw the note on a plain staff: no key signature, explicit flats, so a
