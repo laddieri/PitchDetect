@@ -72,6 +72,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 - Note names in the map stay hidden (numbers) until learned, so the map never
   answers the Read step. The practice staff has no key signature — explicit
   flats only.
+- The header's big instrument picker (`#practice-instrument`, a styled native
+  select cloned from `#instrument`) switches instruments in place:
+  `changePracticeInstrument()` sets the app's select, fires its `change`
+  handler (which persists it), and `loadPracticeInstrument()` restarts.
 - Toolbar placement: beside Listen; on mobile it is a star icon, and in the
   full app on mobile it moves to the overflow menu (`applyResponsiveControls()`).
 
