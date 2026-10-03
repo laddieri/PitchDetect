@@ -1156,6 +1156,12 @@ var MOUTHPIECE_ICON_SVG = '<svg width="34" height="20" viewBox="0 0 34 20" aria-
 	'<path d="M2 13 Q5 5 12 5 L31 6 L31 15 L3 15 Z" fill="currentColor"/>' +
 	'<rect x="13" y="3" width="5" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 
+// Confidence a pitch frame needs for practice to use it (called by the mic
+// loop): looser for first sounds, the main display's 0.85 otherwise
+function practiceConfidenceGate() {
+	return practice && practice.mode === "firstsounds" ? FIRST_SOUNDS_MIN_CONFIDENCE : 0.85;
+}
+
 function startFirstSounds() {
 	var cfg = FIRST_SOUNDS[practice.instrument];
 	if (!cfg) {
@@ -1331,7 +1337,7 @@ function updateFirstSoundsListen(now, freq) {
 		setPracticeFeedback(sound.idle, !fs.heard && now - fs.started > 6000 ? cfg.noSoundHint : "\u00a0");
 	}
 
-	if (!inZone && now - practice.lastGood > PRACTICE_GAP_MS && practice.holdMs > 0) {
+	if (!inZone && now - practice.lastGood > FIRST_SOUNDS_GAP_MS && practice.holdMs > 0) {
 		practice.holdMs = 0;
 	}
 	var fill = document.getElementById("practice-hold-fill");
@@ -1431,9 +1437,11 @@ function renderFirstSoundsSteps() {
 // First sounds: before the first notes, students play just part of the
 // instrument. Pitches are concert MIDI notes; low/high are the accepted
 // range in cents around them.
-//   Flute head joint: end open ≈ A5 (usually a little flat, so down to A♭5);
-//     covered by the right palm ≈ A4, an octave lower; a covered head joint
-//     can also overblow to E6.
+//   Flute head joint: end open ≈ A5 (usually a little flat); covered by the
+//     right palm ≈ A4, an octave lower; a covered head joint can also
+//     overblow to E6. Real head joints vary (how far the palm seals, how far
+//     the joint is pulled out, air angle), so both bands are wide: open
+//     G5–B5, covered G4–B♭4 — still far from each other and from E6.
 //   Clarinet: mouthpiece and barrel ≈ concert F♯5. (The mouthpiece alone
 //     would be ≈ concert C6, but beginners start on the barrel.)
 //   Alto sax: mouthpiece and neck ≈ concert A♭4, usually a bit above. (The
@@ -1445,6 +1453,12 @@ var FIRST_SOUNDS_STORAGE_KEY = "pitchdetect-first-five-headjoint";  // name pred
 var FIRST_SOUNDS_SWITCH_LENGTH = 6;
 var FIRST_SOUNDS_SWITCH_HOLD_MS = 700;
 var FIRST_SOUNDS_LONG_TONE_MS = 4000;
+// Beginners' first sounds are breathy: moderate breath noise drops every
+// frame below the usual 0.85 confidence gate while the measured pitch stays
+// accurate, so this mode accepts less certain frames, and forgives longer
+// dropouts in a hold.
+var FIRST_SOUNDS_MIN_CONFIDENCE = 0.7;
+var FIRST_SOUNDS_GAP_MS = 400;
 var REED_TIPS_START = "Wet the reed, then put the reed and ligature on the mouthpiece.";
 var FIRST_SOUNDS = {
 	"flute": {
@@ -1462,12 +1476,12 @@ var FIRST_SOUNDS = {
 		final: "switch",
 		confusable: true,
 		sounds: [
-			{ midi: 81, low: -130, high: 40, drawing: "flute-open",
+			{ midi: 81, low: -200, high: 100, drawing: "flute-open",
 				prompt: "Leave the end open and blow.", switchPrompt: "Open!",
 				idle: "Blow across the hole and hold it",
 				passTitle: "Great open sound!", passSub: "That\u2019s about an A",
 				otherHint: ["That\u2019s the covered sound", "Take your hand away from the end"] },
-			{ midi: 69, low: -70, high: 50, drawing: "flute-covered", squeakMidi: 88,
+			{ midi: 69, low: -200, high: 150, drawing: "flute-covered", squeakMidi: 88,
 				prompt: "Now cover the end with your right palm and blow.", switchPrompt: "Covered!",
 				idle: "Cover the end and blow",
 				passTitle: "Great covered sound!", passSub: "An octave lower than open",
