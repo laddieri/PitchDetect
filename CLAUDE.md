@@ -81,6 +81,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   and sound, but only unhelped notes score; `challengeStars()` turns the
   score into 0–3 trophy stars, best score per instrument in
   `pitchdetect-first-five-challenge`.
+- `practiceFingeringBox()` builds the chart for the Finger step and challenge
+  Help. Trombone charts share a wide canvas (bell fixed, room for the slide at
+  7th position), so `centerChartDrawing()` measures the drawn pixels and
+  shifts the image to center them; `.practice-fingering` clips the blank part.
+  The main app's fingering panel leaves charts as drawn.
 - The header's big instrument picker (`#practice-instrument`, a styled native
   select cloned from `#instrument`) switches instruments in place:
   `changePracticeInstrument()` sets the app's select, fires its `change`
