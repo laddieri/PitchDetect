@@ -120,9 +120,14 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   started): Set up / Barrel or Neck / Hold. Stars = parts completed scaled to
   3, best per instrument in `pitchdetect-first-five-headjoint` (key predates
   clarinet/sax). Concert pitches with accepted cents bands: flute open ≈ A5
-  (to A♭5; beginners run flat), covered ≈ A4 (can overblow to E6); clarinet
+  (accepts G5–B5), covered ≈ A4 (accepts G4–B♭4; can overblow to E6) — wide
+  because real head joints vary; clarinet
   mouthpiece + barrel ≈ F♯5; alto sax mouthpiece + neck ≈ A♭4 (usually a bit
   above). The staff shows the written pitch (`sharp` spells F♯/G♯).
+  First sounds are breathy, so this mode uses a looser confidence gate
+  (`practiceConfidenceGate()` → `FIRST_SOUNDS_MIN_CONFIDENCE` 0.7; the mic
+  loop passes practice its own gated frequency, the main display keeps 0.85)
+  and forgives dropouts up to `FIRST_SOUNDS_GAP_MS` in a hold.
   `updateFirstSoundsListen()` takes over the mic loop in this mode and gives
   per-instrument hints: the other sound (flute only, `confusable`), squeaks,
   low/high, and no sound after 6 s.

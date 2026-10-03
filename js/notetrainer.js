@@ -2070,7 +2070,10 @@ function updateListenPitch() {
 	}
 
 	if (practiceOpen) {
-		updatePracticeListen(now, pitched ? result.frequency : null);
+		// Practice may accept less certain pitches than the main display
+		// (breathy first sounds), so it gets its own confidence gate
+		var practicePitched = result.frequency > 0 && result.confidence > practiceConfidenceGate();
+		updatePracticeListen(now, practicePitched ? result.frequency : null);
 	} else if (kidMode) {
 		updateKidCelebration(now);
 	}
