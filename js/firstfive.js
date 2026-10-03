@@ -916,21 +916,7 @@ function startDrill(kind) {
 	setPracticeMode("drill");
 	practice.drillKind = kind;
 	practice.index = -1;
-	var round = practice.challenge = { seq: makeChallengeSequence(), pos: 0, results: [] };
-	if (kind === "fingerings" && !practice.fingeringKeys) {
-		// Wait for the fingerprints (a moment: five small local files), then
-		// start unless the student has left this round or instrument
-		var state = practice;
-		document.getElementById("practice-view").setAttribute("data-step", "drill-fingerings");
-		document.getElementById("practice-prompt").textContent = "\u00a0";
-		document.getElementById("practice-body").innerHTML = "";
-		renderPracticeSteps();
-		loadFingeringKeys(function(keys) {
-			state.fingeringKeys = keys;
-			if (practice === state && state.challenge === round && state.mode === "drill") showDrillQuestion();
-		});
-		return;
-	}
+	practice.challenge = { seq: makeChallengeSequence(), pos: 0, results: [] };
 	showDrillQuestion();
 }
 
@@ -985,7 +971,8 @@ function drillChoices() {
 function showDrillQuestion() {
 	var c = practice.challenge;
 	clearTimeout(practiceAdvanceTimer);
-	practice.target = practice.notes[c.seq[c.pos]];
+	var pos = c.pos;
+	practice.target = practice.notes[c.seq[pos]];
 	practice.step = -1;  // no mic scoring
 	c.helped = false;    // set by a wrong answer
 	c.answered = false;
@@ -1007,6 +994,26 @@ function showDrillQuestion() {
 		body.appendChild(practiceFingeringBox(true));
 	}
 
+	// The fingerings drill needs the fingerprints (a moment: five small local
+	// files) to pick its choices; the question shows now, with all five
+	// answers disabled in place until then (unless the student has left this
+	// question by the time they load)
+	var answers = drillAnswers();
+	body.appendChild(answers);
+	if (!names && !practice.fingeringKeys) {
+		var state = practice;
+		answers.querySelectorAll("button").forEach(function(b) { b.disabled = true; });
+		loadFingeringKeys(function(keys) {
+			state.fingeringKeys = keys;
+			if (practice === state && state.challenge === c && c.pos === pos && state.mode === "drill" && answers.parentNode) {
+				answers.parentNode.replaceChild(drillAnswers(), answers);
+			}
+		});
+	}
+}
+
+// The answer buttons for the current drill question
+function drillAnswers() {
 	var answers = document.createElement("div");
 	answers.className = "practice-answers";
 	var choices = drillChoices();
@@ -1018,7 +1025,7 @@ function showDrillQuestion() {
 		b.onclick = function() { answerDrill(b, midi); };
 		answers.appendChild(b);
 	});
-	body.appendChild(answers);
+	return answers;
 }
 
 function answerDrill(button, midi) {
