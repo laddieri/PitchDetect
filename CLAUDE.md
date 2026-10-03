@@ -180,7 +180,11 @@ Kid mode is the **default**: `<body class="kid-mode">` in the HTML and
 persisted as `pitchdetect-advanced-mode`) turns it off. `body.kid-mode` strips the app to
 instrument + Listen, a big note name colored by letter (`data-letter` on
 `#note-display`), the single staff, and a word-based meter ("Too low / Just
-right! / Too high"). Everything else is hidden by one CSS rule list in the
+right! / Too high"). The instrument list is trimmed to the beginning band
+instruments (`KID_INSTRUMENTS`; euphonium shows as "Baritone / Euphonium"):
+`applyInstrumentList()` rebuilds `#instrument` from its original markup on
+each mode switch (removing options, since iOS ignores hidden ones) and clears
+a selection kid mode doesn't offer. Everything else is hidden by one CSS rule list in the
 "Kid mode" block at the end of the `<style>`. JS side: staff clicks/hover are
 ignored, entering kid mode clears any target, note labels use one spelling
 (`writtenNoteHTML`), and `updateKidCelebration()` fires fireworks once a note
