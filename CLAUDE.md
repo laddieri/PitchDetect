@@ -141,6 +141,12 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   stop it. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
   from a song returns to the song list, and from the list to More.
+  A perfect run (every note unhelped; `songMastered()`) unlocks **Play it
+  through** (`playThroughSong()`, on the result card and on that song's
+  screen afterwards): the whole song stacked as in whole song view
+  (`data-step="song-free"`, `practice.song.free`), no arrow, no colors, the
+  mic off and `practice.step` 5 so nothing is checked note by note; Hear the
+  song still plays along, and **Note by note** returns to `startSong()`.
   Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
   dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
   playable ones, each with its `event` index. `renderSongLine()` draws a
