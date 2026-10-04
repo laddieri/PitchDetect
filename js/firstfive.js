@@ -254,6 +254,8 @@ function setPracticeMode(mode) {
 		canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
 	}
 	document.getElementById("practice-view").setAttribute("data-mode", mode);
+	var arrows = document.getElementById("editor-staff-arrows");
+	if (arrows) arrows.remove();
 	schedulePracticeHistorySync();
 	var back = document.getElementById("practice-close");
 	var label = mode === "menu" ? "Back to the app"
@@ -2057,16 +2059,22 @@ function openSongEditor(id) {
 		b.setAttribute("data-alter", acc[0]);
 		pitch.appendChild(b);
 	});
+	var del = editorTool(editorIcon('<path d="M9 5h11v14H9l-6-7z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 9l5 6M17 9l-5 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'),
+		"Delete the note", deleteEditorNote);
+	del.id = "editor-delete";
+	pitch.appendChild(del);
+
+	// Up and down sit beside the staff, by the notes they move
 	var up = editorTool(chevronIcon("6 15 12 9 18 15"), "Move the note up", function() { nudgeEditorNote(1); });
 	up.id = "editor-up";
 	var down = editorTool(chevronIcon("6 9 12 15 18 9"), "Move the note down", function() { nudgeEditorNote(-1); });
 	down.id = "editor-down";
-	var del = editorTool(editorIcon('<path d="M9 5h11v14H9l-6-7z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 9l5 6M17 9l-5 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'),
-		"Delete the note", deleteEditorNote);
-	del.id = "editor-delete";
-	pitch.appendChild(up);
-	pitch.appendChild(down);
-	pitch.appendChild(del);
+	var arrows = document.createElement("div");
+	arrows.className = "editor-staff-arrows";
+	arrows.id = "editor-staff-arrows";
+	arrows.appendChild(up);
+	arrows.appendChild(down);
+	document.querySelector("#practice-view .practice-staff").appendChild(arrows);
 	document.getElementById("editor-prev").onclick = function() { moveEditorSelection(-1); };
 	document.getElementById("editor-next").onclick = function() { moveEditorSelection(1); };
 
@@ -2131,6 +2139,7 @@ function saveEditorSong(notesChanged) {
 function editorChanged(notesChanged) {
 	stopSongPlayback();
 	practice.editor.deleteArmed = false;
+	practice.editor.showEnd = false;
 	saveEditorSong(notesChanged);
 	drawEditor();
 }
@@ -2148,7 +2157,12 @@ function drawEditor(playing) {
 	ed.measures = ed.endMeasure + 1;
 	var isPlaying = typeof playing === "number";
 	var focus = isPlaying ? playing : ed.sel;
-	var focusMeasure = focus < n ? events[focus].measure : ed.endMeasure;
+	// At the end, the line stays on the last note (so it can still be fixed)
+	// until a note goes on the next line, unless that line was asked for
+	var lastMeasure = n ? events[n - 1].measure : 0;
+	var focusMeasure = focus < n ? events[focus].measure
+		: n && ed.endMeasure > lastMeasure && !ed.showEnd ? lastMeasure : ed.endMeasure;
+	var target = isPlaying ? -1 : editorTargetIndex();
 	// A phone gets one measure per line, big enough to tap a line or space
 	ed.perLine = window.matchMedia("(max-width: 700px)").matches ? 1 : SONG_MEASURES_PER_LINE;
 	ed.line = Math.floor(focusMeasure / ed.perLine);
@@ -2156,15 +2170,21 @@ function drawEditor(playing) {
 	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
 	var out = document.getElementById("practice-staff-output");
 	ed.layout = renderSongLine(out, song, events, ed.line, ed.measures, { left: true, perLine: ed.perLine },
-		function(i) { return i === focus ? accent : null; });
+		function(i) { return i === focus || i === target ? accent : null; });
 
 	// A blinking caret where the next note goes
 	var r = ed.layout;
-	if (!isPlaying && ed.sel === n && r.svg && r.measureX[ed.endMeasure]) {
-		var area = r.measureX[ed.endMeasure];
-		var x = area[0] + 10;
-		if (n && events[n - 1].measure === ed.endMeasure && r.xs[n - 1] !== undefined) x = r.xs[n - 1] + 22;
-		x = Math.min(x, area[1] - 6);
+	if (!isPlaying && ed.sel === n && r.svg && (r.measureX[ed.endMeasure] || r.xs[n - 1] !== undefined)) {
+		var x;
+		if (r.measureX[ed.endMeasure]) {
+			var area = r.measureX[ed.endMeasure];
+			x = area[0] + 10;
+			if (n && lastMeasure === ed.endMeasure && r.xs[n - 1] !== undefined) x = r.xs[n - 1] + 22;
+			x = Math.min(x, area[1] - 6);
+		} else {
+			// The next note starts a new line: the caret waits after the last
+			x = Math.min(r.xs[n - 1] + 22, r.measureX[lastMeasure][1] + 4);
+		}
 		var top = r.stave.getYForLine(0) - 10;
 		var caret = document.createElementNS("http://www.w3.org/2000/svg", "rect");
 		caret.setAttribute("class", "editor-caret");
@@ -2194,8 +2214,8 @@ function drawEditor(playing) {
 		})(line);
 	}
 
-	var selected = ed.sel < n ? events[ed.sel] : null;
-	var isNote = !!selected && selected.midi !== null;
+	var selected = target >= 0 ? events[target] : null;
+	var isNote = !!selected;
 	document.querySelectorAll("#editor-lengths [data-dur]").forEach(function(b) {
 		b.setAttribute("aria-pressed", b.getAttribute("data-dur") === ed.dur ? "true" : "false");
 	});
@@ -2217,9 +2237,19 @@ function drawEditor(playing) {
 	remove.classList.toggle("danger", ed.deleteArmed);
 }
 
+// The note the pitch buttons change: the selected one, or at the end the
+// last one placed (-1 for none, or a rest)
+function editorTargetIndex() {
+	var ed = practice.editor;
+	var notes = ed.song.notes;
+	var i = ed.sel < notes.length ? ed.sel : notes.length - 1;
+	return i >= 0 && !notes[i].r ? i : -1;
+}
+
 // Select an event (n = the end), taking its length for the notes that follow
 function selectEditorEvent(i) {
 	var ed = practice.editor;
+	ed.showEnd = false;
 	ed.sel = Math.max(0, Math.min(i, ed.song.notes.length));
 	var note = ed.song.notes[ed.sel];
 	if (note) {
@@ -2241,6 +2271,7 @@ function goToEditorLine(line) {
 		return Math.floor(m / ed.perLine) === line;
 	});
 	selectEditorEvent(first >= 0 ? first : ed.events.length);
+	ed.showEnd = first < 0;
 	drawEditor();
 }
 
@@ -2252,13 +2283,15 @@ function previewEditorNote(i) {
 	playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false, null, 0.4);
 }
 
-// Add a note (or rest) after the selection, or at the end, and select it
+// Add a note (or rest) after the selection, or at the end. At the end the
+// editor moves on to the next note; in the middle the new note is selected.
 function insertEditorNote(note, atEnd) {
 	var ed = practice.editor;
 	var n = ed.song.notes.length;
-	var pos = atEnd || ed.sel >= n ? n : ed.sel + 1;
+	var pos = atEnd || ed.sel >= n - 1 ? n : ed.sel + 1;
 	ed.song.notes.splice(pos, 0, note);
-	ed.sel = pos;
+	ed.sel = pos === n ? n + 1 : pos;
+	ed.showEnd = false;
 	editorChanged(true);
 	previewEditorNote(pos);
 }
@@ -2319,23 +2352,24 @@ function toggleEditorDot() {
 
 function setEditorAccidental(alter) {
 	var ed = practice.editor;
-	var note = ed.song.notes[ed.sel];
-	if (!note || note.r) return;
-	note.a = alter;
+	var i = editorTargetIndex();
+	if (i < 0) return;
+	ed.song.notes[i].a = alter;
 	editorChanged(true);
-	previewEditorNote(ed.sel);
+	previewEditorNote(i);
 }
 
 // Up or down a line or space; the note takes the key's (or the measure's)
 // flat or sharp there
 function nudgeEditorNote(dir) {
 	var ed = practice.editor;
-	var note = ed.song.notes[ed.sel];
-	if (!note || note.r) return;
+	var i = editorTargetIndex();
+	if (i < 0) return;
+	var note = ed.song.notes[i];
 	note.s = clampEditorStep(note.s + dir);
-	note.a = editorAlterAt(ed.sel, note.s, ed.events[ed.sel].measure);
+	note.a = editorAlterAt(i, note.s, ed.events[i].measure);
 	editorChanged(true);
-	previewEditorNote(ed.sel);
+	previewEditorNote(i);
 }
 
 // Delete the selected note, or the last one from the end
@@ -2385,7 +2419,8 @@ function deleteEditorSong() {
 }
 
 // Tap the staff: past the last note adds one there; on a note selects it,
-// and on the selected note moves it to the line or space tapped
+// and on the selected note (or, at the end, the last one placed) moves it
+// to the line or space tapped
 function editorStaffTap(event) {
 	if (!practiceOpen || !practice || practice.mode !== "editor") return;
 	var ed = practice.editor;
@@ -2417,7 +2452,7 @@ function editorStaffTap(event) {
 		insertEditorNote(newEditorNote(s, n), true);
 	} else if (nearest >= 0) {
 		var note = ed.song.notes[nearest];
-		if (nearest === ed.sel && nearestDist < 16 && !note.r && note.s !== s) {
+		if (nearest === editorTargetIndex() && nearestDist < 16 && note.s !== s) {
 			note.s = s;
 			note.a = editorAlterAt(nearest, s, ed.events[nearest].measure);
 			editorChanged(true);

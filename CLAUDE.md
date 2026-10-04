@@ -144,11 +144,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   signature (`SONG_TIMES`; no ties or pickups). Key signatures (`SONG_KEYS`,
   labeled by counting flats/sharps) and accidentals lasting the measure
   follow print rules; changing the key moves notes that followed the old one.
-  Editing: tap past the last note to add one, tap a note to select it, tap
-  the selected note again to move it (`editorStaffTap()`); length, dot, rest,
-  ♭♮♯, ▲▼ (diatonic) and delete buttons; on desktop letters A–G, R, 1/2/4/8,
-  `.`, arrows and Backspace (`editorKeyDown()`). Phones get one measure per
-  line so lines and spaces are tappable. Every change autosaves
+  Editing: tap past the last note to add one, after which the editor moves
+  on to the next note (caret at the end; the line stays on the last note
+  until a note goes on the next line). Tap a note to select it, tap it again
+  to move it (`editorStaffTap()`). ▲▼ (diatonic; `#editor-staff-arrows`,
+  beside the staff, added and removed with the editor) and ♭♮♯ change
+  `editorTargetIndex()`: the selected note, or at the end the last one
+  placed (shown in the accent color). Length, dot, rest and delete buttons
+  sit below; on desktop letters A–G, R, 1/2/4/8, `.`, arrows and Backspace
+  (`editorKeyDown()`). Phones get one measure per line so lines and spaces
+  are tappable. Every change autosaves
   (`saveEditorSong()`; a song emptied of notes is removed, and changed notes
   clear its best score); Delete takes two taps. Back returns to the list.
 - **Drills** (`startDrill("names" | "fingerings")`, no mic): the same
