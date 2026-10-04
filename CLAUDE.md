@@ -121,7 +121,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   Jingle Bells), each measure a string of scale degree + duration
   (`"3q 2q 1h"`; degrees 1–5 index `practice.notes`). `drawSongLine()`
   draws one line of `SONG_MEASURES_PER_LINE` measures with real rhythms
-  (played notes green, the current one in the accent color);
+  (played notes green, the current one in the accent color with a bobbing
+  arrow above it, `opts.arrow` → `drawSongArrow()`; not during playback);
   `renderSongProgress()` shows one dot per line. `updateSongListen()` takes
   over the mic loop: a note passes after `SONG_HOLD_MS`; rhythm isn't
   judged. A repeated note needs re-tonguing (`practice.needRetongue`): a
