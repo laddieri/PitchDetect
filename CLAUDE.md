@@ -70,7 +70,12 @@ More 2, activity 2 or 3, song 4); deeper pushes, sideways replaces, shallower
 screens inside `practiceHistoryState()`. The lessons
 teach the band-method first five notes, concert B♭ C D E♭ F, at each
 instrument's written pitch (`practiceStartConcertMidi` holds each instrument's
-concert B♭; `PRACTICE_STEPS` the intervals). Each note is a lesson of four
+concert B♭; `PRACTICE_STEPS` the intervals). Opening a lesson set shows an
+**overview** first (`showLessonOverview()`, `data-step="overview"`): every
+note on one staff with its name underneath (`drawLessonOverview(hl)`),
+**Hear them** (plays them via `playSongEvents()`, highlighting each) and
+**Let's start**, which goes to the first note with stars left to earn, so
+the Read step never asks a name that hasn't been shown. Each note is a lesson of four
 steps — **Read** (pick the name; the quiz), **Finger** (chart via
 `displayFingering()`, "Slide" for trombone, or the piano via
 `drawPianoKeyboard(pc, label, el)` for instruments without charts), **Hear**
