@@ -61,7 +61,13 @@ names** and **Practice fingerings** (drills; "slide positions" on trombone,
 "the keyboard" without charts). `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / firstsounds) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
-to the menu and the menu to the app; the menu also stops the mic. The lessons
+to the menu and the menu to the app; the menu also stops the mic. Browser
+history mirrors these screens (`syncPracticeHistory()`, run after every
+`setPracticeMode()` and in `closePractice()`), so Android's back button and
+iOS's swipe-back step back like the arrow: each screen has a depth (menu 1,
+More 2, activity 2 or 3, song 4); deeper pushes, sideways replaces, shallower
+`history.go()`s back, and `popstate` shows the entry's screen. Keep new
+screens inside `practiceHistoryState()`. The lessons
 teach the band-method first five notes, concert B♭ C D E♭ F, at each
 instrument's written pitch (`practiceStartConcertMidi` holds each instrument's
 concert B♭; `PRACTICE_STEPS` the intervals). Each note is a lesson of four
