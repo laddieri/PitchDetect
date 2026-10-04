@@ -251,6 +251,7 @@ function setPracticeMode(mode) {
 		canvas.getContext("2d").clearRect(0, 0, canvas.width, canvas.height);
 	}
 	document.getElementById("practice-view").setAttribute("data-mode", mode);
+	schedulePracticeHistorySync();
 	var back = document.getElementById("practice-close");
 	var label = mode === "menu" ? "Back to the app" : mode === "song" ? "Back to the songs" : "Back to the practice menu";
 	back.setAttribute("aria-label", label);
@@ -436,6 +437,7 @@ function closePractice() {
 	practiceStartedMic = false;
 	document.getElementById("practice-view").hidden = true;
 	document.querySelector(".container").inert = false;
+	syncPracticeHistory();
 	var button = document.getElementById("practiceButton");
 	if (button && button.offsetParent !== null) button.focus();
 }
@@ -2311,3 +2313,78 @@ function drawPracticeStaff(writtenMidi, sharp) {
 document.addEventListener("keydown", function(event) {
 	if (practiceOpen && event.key === "Escape") practiceBack();
 });
+
+// Browser history mirrors the practice screens, so the phone's back button
+// (Android) or edge swipe (iPhone) steps back like the back arrow: app <
+// menu < More < activity < song. Each screen has a depth; moving deeper
+// pushes an entry (always from a tap, so browsers don't skip it), moving
+// sideways replaces it, and moving shallower (the back arrow, Escape, a
+// "Back to the menu" button) goes back through history to that entry.
+function practiceHistoryState() {
+	if (!practiceOpen || !practice) return null;
+	var activity = currentPracticeActivity();
+	if (activity === "menu") {
+		return { practice: "menu", page: practice.menuPage, depth: practice.menuPage === "more" ? 2 : 1 };
+	}
+	var depth = isMoreActivity(activity) ? 3 : 2;
+	if (practice.mode === "song") return { practice: "song", song: practice.song.id, depth: depth + 1 };
+	if (practice.mode === "songs") return { practice: "songs", depth: depth };
+	return { practice: activity, depth: depth };
+}
+
+function practiceHistoryDepth(state) {
+	return state && state.practice ? state.depth : 0;
+}
+
+function samePracticeState(a, b) {
+	if (!a || !a.practice) return !b;
+	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song;
+}
+
+function syncPracticeHistory() {
+	var want = practiceHistoryState();
+	var depth = practiceHistoryDepth(want);
+	var have = practiceHistoryDepth(history.state);
+	if (depth > have) {
+		history.pushState(want, "");
+	} else if (depth < have) {
+		// Land on the ancestor entry; popstate finds it already showing
+		history.go(depth - have);
+	} else if (want && !samePracticeState(history.state, want)) {
+		history.replaceState(want, "");
+	}
+}
+
+// Screens change mode partway through their setup, so sync once they're done
+var practiceHistorySyncQueued = false;
+function schedulePracticeHistorySync() {
+	if (practiceHistorySyncQueued) return;
+	practiceHistorySyncQueued = true;
+	Promise.resolve().then(function() {
+		practiceHistorySyncQueued = false;
+		syncPracticeHistory();
+	});
+}
+
+// Back (or forward) through history: show the screen the entry names
+window.addEventListener("popstate", function(event) {
+	var state = event.state && event.state.practice ? event.state : null;
+	if (samePracticeState(state, practiceHistoryState())) return;
+	if (!state) {
+		closePractice();
+		return;
+	}
+	if (!practiceOpen) {
+		openPractice();
+		if (!practiceOpen) return;
+	}
+	if (state.practice === "menu") showPracticeMenu(state.page);
+	else if (state.practice === "songs") showSongList();
+	else if (state.practice === "song" && findSong(state.song)) startSong(state.song);
+	else if (state.practice !== "song") startPracticeActivity(state.practice);
+	else showSongList();
+});
+
+// A reload keeps the history entries but starts on the app, so return to
+// the app's own entry
+if (history.state && history.state.practice) history.go(-history.state.depth);
