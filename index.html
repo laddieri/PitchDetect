@@ -2709,6 +2709,24 @@
 				cursor: pointer;
 			}
 
+			/* Up and down beside the staff (overlapping its end a little) */
+			.practice-view[data-step="song-editor"] .practice-staff {
+				position: relative;
+				box-sizing: border-box;
+				padding-right: 38px;
+			}
+
+			.editor-staff-arrows {
+				position: absolute;
+				top: 50%;
+				right: 0;
+				z-index: 1;
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
+				transform: translateY(-50%);
+			}
+
 			.editor-caret {
 				opacity: 0.55;
 				animation: editor-caret 1.1s steps(1) infinite;
