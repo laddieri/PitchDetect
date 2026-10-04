@@ -2356,6 +2356,10 @@
 				max-height: 230px;
 			}
 
+			.practice-menu[data-count="6"] {
+				max-height: 680px;
+			}
+
 			.practice-choice.wide {
 				grid-column: 1 / -1;
 			}
@@ -2572,6 +2576,56 @@
 			.practice-view[data-step="challenge-done"] .practice-steps,
 			.practice-view[data-step="challenge-done"] .practice-staff {
 				display: none;
+			}
+
+			/* Songs: the list of tunes, then one line of the song at a time */
+			.practice-view[data-step="song-list"] .practice-steps,
+			.practice-view[data-step="song-list"] .practice-staff {
+				display: none;
+			}
+
+			.practice-view[data-step="song"] .practice-staff {
+				height: clamp(120px, 30vh, 260px);
+			}
+
+			.song-list {
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				gap: 12px;
+				width: min(100%, 620px);
+			}
+
+			.song-choice {
+				display: flex;
+				align-items: center;
+				justify-content: space-between;
+				gap: 10px;
+				min-height: 64px;
+				padding: 10px 16px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1.15rem;
+				font-weight: 700;
+				text-align: left;
+				cursor: pointer;
+			}
+
+			.song-choice:hover {
+				border-color: var(--accent);
+			}
+
+			.song-choice:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.song-choice-stars {
+				flex-shrink: 0;
+				color: #f5b301;
+				letter-spacing: 1px;
 			}
 
 			/* First sounds (head joint, mouthpiece) */
@@ -2986,6 +3040,12 @@
 			body.kid-mode .practice-choice[data-activity="firstsounds"] .practice-choice-icon { background: #ffb3c6; }
 			body.kid-mode .practice-choice[data-activity="scale"] .practice-choice-icon { background: #c9b6ff; }
 			body.kid-mode .practice-choice[data-activity="scalerun"] .practice-choice-icon { background: #ffcf8f; }
+			body.kid-mode .practice-choice[data-activity="songs"] .practice-choice-icon { background: #7fe0d0; }
+
+			body.kid-mode .song-choice {
+				border: var(--cartoon-border);
+				box-shadow: 4px 4px 0 var(--ink);
+			}
 
 			body.kid-mode .challenge-dot {
 				border: 2px solid var(--ink);
@@ -3101,6 +3161,20 @@
 
 				.practice-menu[data-count="2"] {
 					max-height: 220px;
+				}
+
+				.practice-menu[data-count="6"] {
+					max-height: 600px;
+				}
+
+				.song-list {
+					grid-template-columns: minmax(0, 1fr);
+					gap: 8px;
+				}
+
+				.song-choice {
+					min-height: 50px;
+					font-size: 1.05rem;
 				}
 
 				.first-sounds-drawing {
