@@ -164,7 +164,18 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   placed (shown in the accent color). Length, dot, rest and delete buttons
   sit below; on desktop letters A–G, R, 1/2/4/8, `.`, arrows and Backspace
   (`editorKeyDown()`). Phones get one measure per line so lines and spaces
-  are tappable. Every change autosaves
+  are tappable. **Measures never overflow** (`overflowingNotes()`,
+  `editorNotesFit()`): every measure but the last stays exactly full and
+  edits before the last measure never move a bar line. At the end, lengths
+  that don't fit the room left (`editorRoomAtEnd()`) are disabled and the
+  next note takes the longest that fits (`editorNextLength()`); a selected
+  note's length changes via `editorNotesWithLength()` (shortening leaves
+  rests from `restsFor()`, lengthening uses up the rests right after it,
+  else only in the last measure). Inserting goes only into the last measure
+  (`editorInLastMeasure()`); deleting earlier turns a note into a rest, and
+  tapping a selected rest makes it a note. A time signature the notes don't
+  fit is refused with a toast. Older/shared songs that already overflow
+  stay editable (edits just can't add overflow). Every change autosaves
   (`saveEditorSong()`; a song emptied of notes is removed, and changed notes
   clear its best score); Delete takes two taps. Back returns to the list.
 - **Whole song view** (`songWholeView`, persisted as `pitchdetect-song-whole`,
