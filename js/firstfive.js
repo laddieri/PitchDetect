@@ -249,22 +249,40 @@ function setPracticeMode(mode) {
 	back.title = label;
 }
 
-// The four activities, each with its best result for this instrument
+// The activities, each with its best result for this instrument. Those
+// marked more sit on the menu's second page, behind the More button.
 var PRACTICE_ACTIVITIES = [
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note" },
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "Name the notes on the staff" },
 	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" },
-	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave" },
-	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note" },
+	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", more: true },
+	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", more: true },
 	{ id: "firstsounds", firstSounds: true }  // title, sub and icon from FIRST_SOUNDS
 ];
 
-function showPracticeMenu() {
+// Whether an activity id lives on the menu's More page
+function isMoreActivity(id) {
+	return PRACTICE_ACTIVITIES.some(function(a) { return a.id === id && a.more; });
+}
+
+// Show the menu: page "main" or "more". Without one, the menu stays on its
+// page, and leaving an activity returns to the page it's on.
+function showPracticeMenu(page) {
+	if (page !== "main" && page !== "more") {
+		page = practice.mode === "menu" ? (practice.menuPage || "main")
+			: isMoreActivity(currentPracticeActivity()) ? "more" : "main";
+	}
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
 	practice.step = -1;
+	practice.menuPage = page;
 	setPracticeMode("menu");
+	document.getElementById("practice-view").setAttribute("data-menu-page", page);
+	var back = document.getElementById("practice-close");
+	var label = page === "more" ? "Back to the practice menu" : "Back to the app";
+	back.setAttribute("aria-label", label);
+	back.title = label;
 	// Nothing on the menu listens; the mic restarts with the next Play step
 	if (practiceStartedMic && listenActive) stopListening();
 	practiceStartedMic = false;
@@ -275,7 +293,9 @@ function showPracticeMenu() {
 	menu.innerHTML = "";
 	// Instrument-specific activities (the head joint) lead the menu
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
-	var activities = PRACTICE_ACTIVITIES.filter(function(a) { return !a.firstSounds || fsCfg; });
+	var activities = PRACTICE_ACTIVITIES.filter(function(a) {
+		return (!a.firstSounds || fsCfg) && !a.more === (page === "main");
+	});
 	activities.sort(function(a, b) { return (b.firstSounds ? 1 : 0) - (a.firstSounds ? 1 : 0); });
 	menu.setAttribute("data-count", activities.length);
 	activities.forEach(function(a) {
@@ -340,11 +360,13 @@ function startPracticeActivity(id) {
 	}
 }
 
-// The back arrow (and Escape): an activity returns to the menu, the menu
-// leaves practice
+// The back arrow (and Escape): an activity returns to its menu page, the
+// More page to the main menu, and the main menu leaves practice
 function practiceBack() {
 	if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
+	} else if (practice && practice.menuPage === "more") {
+		showPracticeMenu("main");
 	} else {
 		closePractice();
 	}
@@ -366,14 +388,17 @@ function changePracticeInstrument(value) {
 	var select = document.getElementById("instrument");
 	if (!value || value === select.value) return;
 	var activity = currentPracticeActivity();
+	var menuPage = practice.menuPage;
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
 	select.value = value;
 	select.dispatchEvent(new Event("change"));
 	loadPracticeInstrument();
 	// First sounds exist for some instruments only; others land on the menu
-	if (activity === "menu" || (activity === "firstsounds" && !FIRST_SOUNDS[value])) {
-		showPracticeMenu();
+	if (activity === "menu") {
+		showPracticeMenu(menuPage);
+	} else if (activity === "firstsounds" && !FIRST_SOUNDS[value]) {
+		showPracticeMenu("main");
 	} else {
 		startPracticeActivity(activity);
 	}
