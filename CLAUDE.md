@@ -59,7 +59,7 @@ activities, each card showing its best result: **Learn the first 5 notes**
 (lessons), **First 5 note quiz** (the challenge round), **Practice note
 names** and **Practice fingerings** (drills; "slide positions" on trombone,
 "the keyboard" without charts). `#practice-view[data-mode]` (`setPracticeMode()`:
-menu / lesson / challenge / drill / songs / song / firstsounds) decides what shows; the note map is
+menu / lesson / challenge / drill / songs / song / editor / import / firstsounds) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
 to the menu and the menu to the app; the menu also stops the mic. Browser
 history mirrors these screens (`syncPracticeHistory()`, run after every
@@ -156,6 +156,29 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   are tappable. Every change autosaves
   (`saveEditorSong()`; a song emptied of notes is removed, and changed notes
   clear its best score); Delete takes two taps. Back returns to the list.
+- **Whole song view** (`songWholeView`, persisted as `pitchdetect-song-whole`,
+  `#practice-view[data-whole]`): a toggle (`songViewButton()`, beside the
+  song's line dots, the editor's nav dots and on the import screen) stacks
+  every line in `#practice-staff-output`, which becomes the scroller.
+  `renderSongView()` wraps `renderSongLine()` for all three screens: one
+  `.song-line` div per line (shorter viewBox, `SONG_WHOLE_LINE_HEIGHT`,
+  ledger notes overhang), keeps the scroll position across redraws and
+  scrolls the current line into view only as far as needed (so it follows
+  along while playing). It returns layouts by line; the editor's tap handler
+  uses the tapped `.song-line`'s layout.
+- **Sharing songs** (no server): the editor's share button
+  (`shareEditorSong()`) makes a link `#song=<payload>` — base64url JSON
+  `{ v, t, i (instrument), k, m, n }`, notes as tokens like `q.Bb4` / `hr`
+  (`encodeSongShare()` / `decodeSongShare()`, which validates everything) —
+  and hands it to `navigator.share`, else copies it. Opening a link
+  (`checkSongLink()` on load and `hashchange`) strips the hash, picks the
+  sharer's instrument if none is chosen, and walks menu → More → song list →
+  the import screen (mode `import`, `showSongImport()`) so back steps out
+  normally; a pending import survives until Practice opens
+  (`pendingSongImport`). A friend on another instrument gets
+  `transposeSharedSong()`: same sounding tune, in their octave (the two
+  instruments' first band notes line up), key moved round the circle of
+  fifths, notes respelled. **Add to My songs** skips an identical copy.
 - **Drills** (`startDrill("names" | "fingerings")`, no mic): the same
   10-note sequence, progress dots and result screen (`showRoundResult()`).
   Names shows the staff; fingerings hides it and shows only the chart
