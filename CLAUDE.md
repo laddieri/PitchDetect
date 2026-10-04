@@ -250,7 +250,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (bassoon, flute, oboe, saxes, trombone, double horn)
 - `hasFingeringData()`, `displayFingering()` — entry points used by the app.
 - Instruments with **no** fingering data: bare clefs, bass clarinet,
-  glockenspiel (they get piano-only panels).
+  bells (value `glockenspiel`; they get piano-only panels).
 
 ## Layout System
 
