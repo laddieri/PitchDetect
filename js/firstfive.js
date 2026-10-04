@@ -29,7 +29,9 @@
  * Cross Buns, Mary Had a Little Lamb, Jingle Bells and more. The staff shows
  * one line (two measures) at a time with the note to play glowing; each note
  * passes after SONG_HOLD_MS, and a repeated note must be tongued again.
- * Hear the song plays the whole tune; Help works like the quiz's.
+ * Hear the song plays the whole tune; Help works like the quiz's. My songs:
+ * the student copies a tune from their own music into a song editor
+ * (openSongEditor()) and plays it the same way.
  *
  * Flute, clarinet and alto sax also get a "first sounds" tutorial
  * (startFirstSounds(), configured by FIRST_SOUNDS): playing just the head
@@ -229,6 +231,7 @@ function loadPracticeInstrument() {
 		scaleRunBest: loadChallengeBest(select.value, SCALE_RUN_STORAGE_KEY),
 		drillBest: loadDrillBest(select.value),
 		songBest: loadSongBest(select.value),
+		customSongs: loadCustomSongs(select.value),
 		firstSoundsBest: loadFirstSoundsBest(select.value),
 		index: 0,
 		step: -1
@@ -253,7 +256,8 @@ function setPracticeMode(mode) {
 	document.getElementById("practice-view").setAttribute("data-mode", mode);
 	schedulePracticeHistorySync();
 	var back = document.getElementById("practice-close");
-	var label = mode === "menu" ? "Back to the app" : mode === "song" ? "Back to the songs" : "Back to the practice menu";
+	var label = mode === "menu" ? "Back to the app"
+		: mode === "song" || mode === "editor" ? "Back to the songs" : "Back to the practice menu";
 	back.setAttribute("aria-label", label);
 	back.title = label;
 }
@@ -268,7 +272,7 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" },
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", more: true },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", more: true },
-	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "Hot Cross Buns, Jingle Bells and more", more: true, wide: true },
+	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "Hot Cross Buns, Jingle Bells, or make your own", more: true, wide: true },
 	{ id: "firstsounds", firstSounds: true }  // title, sub and icon from FIRST_SOUNDS
 ];
 
@@ -379,7 +383,7 @@ function startPracticeActivity(id) {
 // The back arrow (and Escape): an activity returns to its menu page, the
 // More page to the main menu, and the main menu leaves practice
 function practiceBack() {
-	if (practice && practice.mode === "song") {
+	if (practice && (practice.mode === "song" || practice.mode === "editor")) {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
@@ -396,7 +400,7 @@ function currentPracticeActivity() {
 	if (practice.mode === "challenge") return practice.challenge.kind === "scale" ? "scalerun" : "quiz";
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
-	if (practice.mode === "songs" || practice.mode === "song") return "songs";
+	if (practice.mode === "songs" || practice.mode === "song" || practice.mode === "editor") return "songs";
 	return "menu";
 }
 
@@ -1269,7 +1273,8 @@ var SONG_TEMPO = 100;              // quarter notes per minute for Hear the song
 var SONG_RETONGUE_DIP = 0.75;      // loudness this far below the note = re-tongued
 var SONG_MEASURES_PER_LINE = 2;
 var SONG_MEASURE_WIDTH = 170;      // staff units per measure
-var SONG_BEATS = { w: 4, h: 2, q: 1 };
+var SONG_BEATS = { w: 4, h: 2, q: 1, "8": 0.5 };  // in quarter notes
+var MY_SONGS_STORAGE_KEY = "pitchdetect-my-songs";
 
 // Each measure lists notes as scale degree (1–5: B♭ C D E♭ F concert, the
 // first five notes) plus duration (w, h, q). Ordered easiest first.
@@ -1294,23 +1299,71 @@ var SONGS = [
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
 
-// A song's notes for this instrument: [{ midi, dur, measure }]
-function songNotes(song) {
-	var notes = [];
+// Every note and rest of a song for this instrument, in order:
+// [{ midi (null for a rest), dur, dots, measure, letter, alter, octave }]
+function songEvents(song) {
+	if (song.custom) return customSongEvents(song);
+	var events = [];
 	song.measures.forEach(function(m, measure) {
 		m.split(" ").forEach(function(token) {
-			notes.push({
-				midi: practice.notes[parseInt(token.charAt(0), 10) - 1],
+			var midi = practice.notes[parseInt(token.charAt(0), 10) - 1];
+			var spelled = flatNoteSpellings[((midi % 12) + 12) % 12];
+			events.push({
+				midi: midi,
 				dur: token.charAt(1),
-				measure: measure
+				dots: 0,
+				measure: measure,
+				letter: "CDEFGAB".indexOf(spelled.charAt(0)),
+				alter: spelled.length > 1 ? -1 : 0,
+				octave: Math.floor(midi / 12) - 1
 			});
 		});
 	});
-	return notes;
+	return events;
+}
+
+// The notes to play (rests left out), each knowing its place in the events:
+// [{ midi, dur, measure, event, ... }]
+function songNotes(song, events) {
+	return (events || songEvents(song)).map(function(e, i) {
+		e.event = i;
+		return e;
+	}).filter(function(e) { return e.midi !== null; });
+}
+
+// A note or rest's length in quarter notes
+function eventBeats(e) {
+	return SONG_BEATS[e.dur] * (e.dots ? 1.5 : 1);
+}
+
+// "B♭"-style name of a song note as written
+function songNoteName(e) {
+	return keyDisplayName("CDEFGAB".charAt(e.letter) + (e.alter < 0 ? "b" : e.alter > 0 ? "#" : ""));
 }
 
 function findSong(id) {
-	return SONGS.filter(function(s) { return s.id === id; })[0];
+	return SONGS.concat(practice.customSongs).filter(function(s) { return s.id === id; })[0];
+}
+
+// The student's own songs for an instrument (written pitch, so each
+// instrument keeps its own): [{ id, title, custom, time, key, notes }]
+function loadCustomSongs(instrument) {
+	try {
+		var songs = JSON.parse(localStorage.getItem(MY_SONGS_STORAGE_KEY) || "{}")[instrument];
+		if (Array.isArray(songs)) {
+			return songs.filter(function(s) { return s && s.id && Array.isArray(s.notes); })
+				.map(function(s) { s.custom = true; return s; });
+		}
+	} catch (e) {}
+	return [];
+}
+
+function saveCustomSongs(instrument, songs) {
+	try {
+		var all = JSON.parse(localStorage.getItem(MY_SONGS_STORAGE_KEY) || "{}");
+		all[instrument] = songs;
+		localStorage.setItem(MY_SONGS_STORAGE_KEY, JSON.stringify(all));
+	} catch (e) {}
 }
 
 // Best scores (notes played without help) per song for an instrument
@@ -1336,7 +1389,8 @@ function songStars(song) {
 	return typeof best === "number" ? challengeStars(best, songNotes(song).length) : 0;
 }
 
-// The song list: one button per song with its stars
+// The song list: one button per song with its stars, then the student's
+// own songs (each with an edit button) and Make a song
 function showSongList() {
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
@@ -1350,7 +1404,7 @@ function showSongList() {
 	body.innerHTML = "";
 	var list = document.createElement("div");
 	list.className = "song-list";
-	SONGS.forEach(function(song) {
+	function songButton(song) {
 		var stars = songStars(song);
 		var b = document.createElement("button");
 		b.className = "song-choice";
@@ -1359,8 +1413,36 @@ function showSongList() {
 		b.lastChild.textContent = starText(stars);
 		b.setAttribute("aria-label", song.title + ", " + stars + " of 3 stars");
 		b.onclick = function() { startSong(song.id); };
-		list.appendChild(b);
+		return b;
+	}
+	SONGS.forEach(function(song) { list.appendChild(songButton(song)); });
+
+	var heading = document.createElement("div");
+	heading.className = "song-list-heading";
+	heading.textContent = "My songs";
+	list.appendChild(heading);
+	practice.customSongs.forEach(function(song) {
+		var item = document.createElement("div");
+		item.className = "song-item";
+		var play = songButton(song);
+		// A song with nothing to play yet opens in the editor
+		if (!songNotes(song).length) play.onclick = function() { openSongEditor(song.id); };
+		item.appendChild(play);
+		var edit = document.createElement("button");
+		edit.className = "song-edit";
+		edit.innerHTML = PENCIL_SVG;
+		edit.setAttribute("aria-label", "Edit " + song.title);
+		edit.title = "Edit";
+		edit.onclick = function() { openSongEditor(song.id); };
+		item.appendChild(edit);
+		list.appendChild(item);
 	});
+	var make = document.createElement("button");
+	make.className = "song-choice song-new";
+	make.innerHTML = '<span class="song-new-plus" aria-hidden="true">+</span><span class="song-choice-title">Make a song</span>';
+	make.onclick = function() { openSongEditor(null); };
+	list.appendChild(make);
+
 	body.appendChild(list);
 	// Nothing here listens; the mic starts with the song
 	if (practiceStartedMic && listenActive) stopListening();
@@ -1374,7 +1456,12 @@ function startSong(id) {
 	var song = findSong(id);
 	setPracticeMode("song");
 	practice.index = -1;
-	practice.song = { id: id, song: song, notes: songNotes(song), pos: 0, results: [], streak: 0 };
+	var events = songEvents(song);
+	practice.song = {
+		id: id, song: song, events: events, notes: songNotes(song, events),
+		measures: events.length ? events[events.length - 1].measure + 1 : 0,
+		pos: 0, results: [], streak: 0
+	};
 	document.getElementById("practice-view").setAttribute("data-step", "song");
 	document.getElementById("practice-prompt").textContent = song.title;
 
@@ -1443,7 +1530,7 @@ function showSongHelp() {
 	s.streak = 0;
 	renderSongProgress();
 	document.getElementById("practice-view").setAttribute("data-step", "challenge-help");
-	document.getElementById("practice-prompt").textContent = "This is " + practiceNoteName(practice.target) + ". Play it!";
+	document.getElementById("practice-prompt").textContent = "This is " + songNoteName(s.notes[s.pos]) + ". Play it!";
 	var help = document.getElementById("song-help");
 	help.parentNode.parentNode.insertBefore(practiceFingeringBox(), help.parentNode);
 	help.textContent = "▶ Hear it";
@@ -1547,9 +1634,10 @@ function finishSong() {
 		function() { startSong(s.id); }, total,
 		{ label: "All songs", onclick: showSongList });
 	// The next song waits on the result, beside Play again
-	var i = SONGS.indexOf(s.song);
-	if (i + 1 < SONGS.length) {
-		var next = SONGS[i + 1];
+	var songs = s.song.custom ? practice.customSongs.filter(function(song) { return songNotes(song).length; }) : SONGS;
+	var i = songs.indexOf(s.song);
+	if (i + 1 < songs.length) {
+		var next = songs[i + 1];
 		var actions = document.querySelector("#practice-body .practice-actions");
 		actions.lastChild.className = "practice-btn secondary";
 		actions.appendChild(practiceButton("Next song →", "primary", function() { startSong(next.id); }));
@@ -1565,7 +1653,7 @@ function renderSongProgress() {
 	var row = document.createElement("div");
 	row.className = "challenge-progress";
 	row.setAttribute("role", "img");
-	var lines = Math.ceil(s.song.measures.length / SONG_MEASURES_PER_LINE);
+	var lines = Math.ceil(s.measures / SONG_MEASURES_PER_LINE);
 	var current = s.pos < s.notes.length ? songLineOf(s.pos) : lines;
 	row.setAttribute("aria-label", "Line " + Math.min(current + 1, lines) + " of " + lines);
 	for (var line = 0; line < lines; line++) {
@@ -1584,103 +1672,194 @@ function songLineOf(pos) {
 }
 
 // Draw the line of the song holding note pos (the last line once the song is
-// done): played notes green, note pos glowing in the accent color. No key
-// signature, so every flat is written out.
+// done): played notes green, note pos glowing in the accent color
 function drawSongLine(pos) {
 	var s = practice.song;
-	var out = document.getElementById("practice-staff-output");
-	out.innerHTML = "";
-	var VF = Vex.Flow;
-	var clef = getCurrentClef();
-	var lastMeasure = s.song.measures.length - 1;
-	var line = s.notes[Math.min(pos, s.notes.length - 1)].measure;
-	line = Math.floor(line / SONG_MEASURES_PER_LINE);
-	var first = line * SONG_MEASURES_PER_LINE;
-	var count = Math.min(SONG_MEASURES_PER_LINE, lastMeasure - first + 1);
+	drawSongEvent(pos < s.notes.length ? s.notes[pos].event : s.events.length);
+}
 
+// Draw the line holding event hl (a note or rest; past the end = the last
+// line, all played), events before it green
+function drawSongEvent(hl) {
+	var s = practice.song;
 	var styles = getComputedStyle(document.body);
 	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
 	var done = styles.getPropertyValue("--success").trim() || "#16a34a";
+	var e = s.events[Math.min(hl, s.events.length - 1)];
+	renderSongLine(document.getElementById("practice-staff-output"), s.song, s.events,
+		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures, { end: true },
+		function(i) { return i === hl ? accent : i < hl ? done : null; });
+}
+
+// Key signatures offered for the student's own songs, counted the way they
+// read them off the page (VexFlow key names)
+var SONG_KEYS = [
+	{ key: "C", label: "No \u266d or \u266f" },
+	{ key: "F", label: "1 \u266d" }, { key: "Bb", label: "2 \u266d" }, { key: "Eb", label: "3 \u266d" },
+	{ key: "Ab", label: "4 \u266d" }, { key: "Db", label: "5 \u266d" },
+	{ key: "G", label: "1 \u266f" }, { key: "D", label: "2 \u266f" }, { key: "A", label: "3 \u266f" },
+	{ key: "E", label: "4 \u266f" }
+];
+var SONG_TIMES = ["4/4", "3/4", "2/4"];
+
+// The alteration a key signature gives a letter (0–6 = C–B): -1, 0 or 1
+function keyAlter(key, letter) {
+	var name = "CDEFGAB".charAt(letter);
+	var notes = keySignatureNotes[key] || [];
+	if (notes.indexOf(name + "b") >= 0) return -1;
+	if (notes.indexOf(name + "#") >= 0) return 1;
+	return 0;
+}
+
+// A measure's length in quarter notes
+function measureBeats(time) {
+	var parts = (time || "4/4").split("/");
+	return parseInt(parts[0], 10) * 4 / parseInt(parts[1], 10);
+}
+
+// Draw one line (SONG_MEASURES_PER_LINE measures, or opts.perLine) of a
+// song's events into out, scaled like every other line. measures: how many
+// measures the song has; color(i): event i's color or null. opts.end puts the final barline
+// on the last measure; opts.left draws the whole line, empty measures and
+// all (the editor, where notes are added), instead of centering a short one. Built-in songs have
+// no key signature and write every flat out; the student's own songs
+// follow their key and time signatures, with accidentals lasting the
+// measure as printed. Returns { svg, stave, xs (event index → x), measureX
+// (measure → [start, end] of its note area) }, in SVG units.
+function renderSongLine(out, song, events, line, measures, opts, color) {
+	out.innerHTML = "";
+	var VF = Vex.Flow;
+	var clef = getCurrentClef();
+	var key = song.custom && song.key ? song.key : "C";
+	var time = song.custom ? song.time || "4/4" : null;
+	var perLine = opts.perLine || SONG_MEASURES_PER_LINE;
+	var first = line * perLine;
+	// The editor always draws whole lines, so there's room to add notes
+	var count = opts.left ? perLine : Math.max(1, Math.min(perLine, measures - first));
 
 	var H = STAFF_VIEWBOX_HEIGHT;
 	var y = Math.round((H - 4 * LINE_SPACING) / 2);
-	// Measure the clef's width once so every line uses the same scale
-	var probe = new VF.Stave(0, y, SONG_MEASURE_WIDTH);
-	probe.addClef(clef);
-	var clefW = probe.getNoteStartX() - probe.getX();
-	var W = clefW + SONG_MEASURES_PER_LINE * SONG_MEASURE_WIDTH + 10;
+	// The widest line start (clef, key and time) sets the scale for all lines
+	function startWidth(withTime) {
+		var probe = new VF.Stave(0, y, SONG_MEASURE_WIDTH);
+		probe.addClef(clef);
+		if (key !== "C") probe.addKeySignature(key);
+		if (withTime && time) probe.addTimeSignature(time);
+		return probe.getNoteStartX() - probe.getX();
+	}
+	var widest = startWidth(true);
+	var W = widest + perLine * SONG_MEASURE_WIDTH + 10;
 	var renderer = new VF.Renderer(out, VF.Renderer.Backends.SVG);
 	renderer.resize(W, H);
 	var context = renderer.getContext();
 
-	var x = 5 + (SONG_MEASURES_PER_LINE - count) * SONG_MEASURE_WIDTH / 2;
-	var stave0 = null;
+	var x = 5 + (opts.left ? 0 : (perLine - count) * SONG_MEASURE_WIDTH / 2);
+	var result = { svg: null, stave: null, xs: {}, measureX: {} };
 	for (var m = first; m < first + count; m++) {
-		var stave = new VF.Stave(x, y, SONG_MEASURE_WIDTH + (m === first ? clefW : 0));
-		if (m === first) stave.addClef(clef);
-		if (m === lastMeasure) stave.setEndBarType(VF.Barline.type.END);
+		var extra = m === first ? startWidth(m === 0) : 0;
+		var stave = new VF.Stave(x, y, SONG_MEASURE_WIDTH + extra);
+		if (m === first) {
+			stave.addClef(clef);
+			if (key !== "C") stave.addKeySignature(key);
+			if (m === 0 && time) stave.addTimeSignature(time);
+		}
+		if (opts.end && m === measures - 1) stave.setEndBarType(VF.Barline.type.END);
 		stave.setContext(context).draw();
-		if (!stave0) stave0 = stave;
+		if (!result.stave) result.stave = stave;
 		x += stave.getWidth();
+		result.measureX[m] = [stave.getNoteStartX(), stave.getNoteEndX()];
 
-		var tickables = [];
-		s.notes.forEach(function(n, i) {
-			if (n.measure !== m) return;
-			var spelled = flatNoteSpellings[((n.midi % 12) + 12) % 12];
-			var octave = Math.floor(n.midi / 12) - 1;
-			var note = new VF.StaveNote({ clef: clef, keys: [spelled.toLowerCase() + "/" + octave], duration: n.dur, auto_stem: true });
-			if (spelled.length > 1) note.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
-			var color = i === pos ? accent : i < pos ? done : null;
-			if (color) note.setStyle({ fillStyle: color, strokeStyle: color });
+		var tickables = [], indexes = [];
+		var inEffect = {};  // accidentals carried through the measure
+		events.forEach(function(e, i) {
+			if (e.measure !== m) return;
+			var duration = e.dur + (e.dots ? "d" : "");
+			var note;
+			if (e.midi === null) {
+				note = new VF.StaveNote({ clef: clef, keys: [clef === "bass" ? "d/3" : "b/4"], duration: duration + "r" });
+			} else {
+				var name = "cdefgab".charAt(e.letter);
+				note = new VF.StaveNote({ clef: clef, keys: [name + "/" + e.octave], duration: duration, auto_stem: true });
+				var shown;
+				if (song.custom) {
+					var place = name + e.octave;
+					var current = place in inEffect ? inEffect[place] : keyAlter(key, e.letter);
+					if (e.alter !== current) shown = e.alter;
+					inEffect[place] = e.alter;
+				} else if (e.alter) {
+					shown = e.alter;
+				}
+				if (shown !== undefined) note.addAccidental(0, new VF.Accidental(shown < 0 ? "b" : shown > 0 ? "#" : "n"));
+			}
+			if (e.dots) note.addDotToAll();
+			var c = color(i);
+			if (c) note.setStyle({ fillStyle: c, strokeStyle: c });
 			tickables.push(note);
+			indexes.push(i);
 		});
+		if (!tickables.length) continue;
 		try {
-			var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+			var beats = time ? time.split("/") : ["4", "4"];
+			var voice = new VF.Voice({ num_beats: parseInt(beats[0], 10), beat_value: parseInt(beats[1], 10) }).setStrict(false);
 			voice.addTickables(tickables);
+			var beams = VF.Beam.generateBeams(tickables, { groups: VF.Beam.getDefaultBeamGroups(beats.join("/")) });
 			// A low softmax spaces notes by their length, so a measure reads
 			// like printed music instead of bunching at its start
 			new VF.Formatter({ softmaxFactor: 2 }).joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 10);
 			voice.draw(context, stave);
-		} catch (e) {
-			console.log("Could not render song measure:", m, e.message);
+			beams.forEach(function(b) { b.setContext(context).draw(); });
+			tickables.forEach(function(t, k) {
+				result.xs[indexes[k]] = t.getAbsoluteX() + t.getGlyphWidth() / 2;
+			});
+		} catch (err) {
+			console.log("Could not render song measure:", m, err.message);
 		}
 	}
 
 	var svg = out.querySelector("svg");
-	if (svg && stave0) {
-		var center = (stave0.getYForLine(0) + stave0.getYForLine(4)) / 2;
+	if (svg && result.stave) {
+		var center = (result.stave.getYForLine(0) + result.stave.getYForLine(4)) / 2;
 		svg.setAttribute("viewBox", "0 " + (center - H / 2) + " " + W + " " + H);
 		svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 		svg.style.width = "100%";
 		svg.style.height = "100%";
 	}
+	result.svg = svg;
+	return result;
 }
 
-// Hear the song: play the whole tune at SONG_TEMPO with the instrument's
-// sound, the staff following along. The mic ignores it while it plays.
-function playSong() {
-	var s = practice.song;
+// Play a song's events (notes and rests) from the start at SONG_TEMPO with
+// the instrument's sound, calling show(i) as each begins. The mic ignores it
+// while it plays; stopSongPlayback() ends it.
+function playSongEvents(events, show) {
 	var beatMs = 60000 / SONG_TEMPO;
 	var i = 0;
-	var hear = document.getElementById("song-hear");
-	if (hear) hear.textContent = "■ Stop";
 	function next() {
-		if (i >= s.notes.length) {
+		if (i >= events.length) {
 			stopSongPlayback();
 			return;
 		}
-		var n = s.notes[i];
-		var ms = SONG_BEATS[n.dur] * beatMs;
+		var e = events[i];
+		var ms = eventBeats(e) * beatMs;
 		practice.ignoreUntil = performance.now() + ms + 600;
-		drawSongLine(i);
+		show(i);
 		// End each note just before the next (a tongued gap, which also
 		// keeps repeated notes distinct) so nothing is cut off mid-sound.
-		playTone(frequencyFromNoteNumber(n.midi - getTransposition()), false,
-			null, Math.max(0.1, ms / 1000 - TONE_RELEASE));
+		if (e.midi !== null) {
+			playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false,
+				null, Math.max(0.1, ms / 1000 - TONE_RELEASE));
+		}
 		i++;
 		songPlayTimer = setTimeout(next, ms);
 	}
 	next();
+}
+
+// Hear the song: play the whole tune, the staff following along
+function playSong() {
+	var hear = document.getElementById("song-hear");
+	if (hear) hear.textContent = "\u25a0 Stop";
+	playSongEvents(practice.song.events, drawSongEvent);
 }
 
 // Stop Hear the song (if playing) and return the staff to the student's note
@@ -1689,6 +1868,12 @@ function stopSongPlayback() {
 	clearTimeout(songPlayTimer);
 	songPlayTimer = null;
 	stopNote();
+	if (practice && practice.mode === "editor") {
+		var editorHear = document.getElementById("editor-hear");
+		if (editorHear) editorHear.textContent = "\u25b6 Hear it";
+		drawEditor();
+		return;
+	}
 	if (!practice || !practice.song || practice.mode !== "song") return;
 	practice.ignoreUntil = performance.now() + 400;
 	resetPracticeHold();
@@ -1696,6 +1881,579 @@ function stopSongPlayback() {
 	if (hear) hear.textContent = "▶ Hear the song";
 	drawSongLine(practice.song.pos);
 }
+
+// ---------------------------------------------------------------------------
+// My songs: the student copies a song from their own music into an editor,
+// then plays it like the built-in songs. Notes are stored as written for the
+// instrument: { s: diatonic step (octave * 7 + letter, C = 0), a: -1/0/1,
+// d: "w" | "h" | "q" | "8", dot } or a rest { r: 1, d, dot }. Measures
+// follow from the time signature; there are no ties or pickups (yet).
+// ---------------------------------------------------------------------------
+
+var NATURAL_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
+
+// A custom song's events (see songEvents()), measures filled in order
+function customSongEvents(song) {
+	var cap = measureBeats(song.time);
+	var filled = 0, measure = 0;
+	return song.notes.map(function(n) {
+		if (filled >= cap - 1e-6) {
+			measure++;
+			filled = 0;
+		}
+		var e = { midi: null, dur: n.d, dots: n.dot ? 1 : 0, measure: measure };
+		if (!n.r) {
+			e.letter = n.s % 7;
+			e.octave = Math.floor(n.s / 7);
+			e.alter = n.a || 0;
+			e.midi = 12 * (e.octave + 1) + NATURAL_SEMITONES[e.letter] + e.alter;
+		}
+		filled += eventBeats(e);
+		return e;
+	});
+}
+
+// The measure the next added note goes in: the last one, or a new one once
+// it's full
+function songEndMeasure(song, events) {
+	if (!events.length) return 0;
+	var last = events[events.length - 1].measure;
+	var filled = events.reduce(function(t, e) { return e.measure === last ? t + eventBeats(e) : t; }, 0);
+	return filled >= measureBeats(song.time) - 1e-6 ? last + 1 : last;
+}
+
+// The diatonic step of the staff's top line (F5 treble, A3 bass) and the
+// range of steps the editor offers around the staff
+function editorTopStep() {
+	return getCurrentClef() === "bass" ? 26 : 38;
+}
+var EDITOR_STEPS_ABOVE = 8;   // four ledger lines above the staff
+var EDITOR_STEPS_BELOW = 16;  // four ledger lines below
+
+function clampEditorStep(s) {
+	var top = editorTopStep();
+	return Math.max(top - EDITOR_STEPS_BELOW, Math.min(top + EDITOR_STEPS_ABOVE, s));
+}
+
+// The alteration a note at step s gets in measure, placed before event
+// index: an accidental earlier in the measure lasts, otherwise the key's
+function editorAlterAt(index, s, measure) {
+	var ed = practice.editor;
+	for (var i = Math.min(index, ed.events.length) - 1; i >= 0 && ed.events[i].measure === measure; i--) {
+		var e = ed.events[i];
+		if (e.midi !== null && e.letter === s % 7 && e.octave === Math.floor(s / 7)) return e.alter;
+	}
+	return keyAlter(ed.song.key || "C", s % 7);
+}
+
+var PENCIL_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+	'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
+
+// Note-length icons for the editor (24 × 24)
+var DURATION_ICONS = {
+	w: '<ellipse cx="12" cy="13" rx="6.5" ry="4.3" fill="none" stroke="currentColor" stroke-width="2.4"/>',
+	h: '<ellipse cx="10" cy="17" rx="4.6" ry="3.4" transform="rotate(-20 10 17)" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M14 16V3" stroke="currentColor" stroke-width="2"/>',
+	q: '<ellipse cx="10" cy="17" rx="4.6" ry="3.4" transform="rotate(-20 10 17)" fill="currentColor"/><path d="M14 16V3" stroke="currentColor" stroke-width="2"/>',
+	"8": '<ellipse cx="9" cy="17" rx="4.6" ry="3.4" transform="rotate(-20 9 17)" fill="currentColor"/><path d="M13 16V3c0 4 6 5 5 10" fill="none" stroke="currentColor" stroke-width="2"/>'
+};
+var DURATION_NAMES = { w: "Whole note", h: "Half note", q: "Quarter note", "8": "Eighth note" };
+
+function editorIcon(paths) {
+	return '<svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true">' + paths + '</svg>';
+}
+
+function chevronIcon(points) {
+	return editorIcon('<polyline points="' + points + '" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/>');
+}
+
+// Open the editor on one of the student's songs, or a new one (id null)
+function openSongEditor(id) {
+	stopSongPlayback();
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	var existing = id ? findSong(id) : null;
+	var song = existing ? JSON.parse(JSON.stringify(existing)) : {
+		id: "my-" + Date.now().toString(36),
+		title: "My song " + (practice.customSongs.length + 1),
+		time: "4/4", key: "C", notes: []
+	};
+	song.custom = true;
+	setPracticeMode("editor");
+	practice.step = -1;
+	practice.editor = { song: song, sel: song.notes.length, dur: "q", dots: 0, deleteArmed: false };
+	var last = song.notes[song.notes.length - 1];
+	if (last) {
+		practice.editor.dur = last.d;
+		practice.editor.dots = last.dot ? 1 : 0;
+	}
+	document.getElementById("practice-view").setAttribute("data-step", "song-editor");
+
+	// Name, time and key signatures above the staff
+	var meta = document.createElement("div");
+	meta.className = "editor-meta";
+	var title = document.createElement("input");
+	title.type = "text";
+	title.id = "editor-title";
+	title.className = "editor-title";
+	title.maxLength = 40;
+	title.value = song.title;
+	title.placeholder = "Song name";
+	title.setAttribute("aria-label", "Song name");
+	title.oninput = function() {
+		song.title = title.value;
+		saveEditorSong(false);
+	};
+	var time = document.createElement("select");
+	time.className = "editor-select";
+	time.setAttribute("aria-label", "Time signature");
+	time.title = "Time signature";
+	SONG_TIMES.forEach(function(t) { time.add(new Option(t, t)); });
+	time.value = song.time;
+	time.onchange = function() {
+		song.time = time.value;
+		editorChanged(true);
+	};
+	var key = document.createElement("select");
+	key.className = "editor-select";
+	key.setAttribute("aria-label", "Key signature: the flats or sharps at the start of each line");
+	key.title = "Key signature";
+	SONG_KEYS.forEach(function(k) { key.add(new Option(k.label, k.key)); });
+	key.value = song.key;
+	key.onchange = function() { changeEditorKey(key.value); };
+	meta.appendChild(title);
+	meta.appendChild(time);
+	meta.appendChild(key);
+	var steps = document.getElementById("practice-steps");
+	steps.innerHTML = "";
+	steps.appendChild(meta);
+
+	var body = document.getElementById("practice-body");
+	body.innerHTML =
+		'<div class="editor-nav">' +
+			'<button class="editor-tool editor-step" id="editor-prev" aria-label="Previous note" title="Previous note">' + chevronIcon("15 18 9 12 15 6") + '</button>' +
+			'<div class="challenge-progress editor-lines" id="editor-lines" role="group"></div>' +
+			'<button class="editor-tool editor-step" id="editor-next" aria-label="Next note" title="Next note">' + chevronIcon("9 6 15 12 9 18") + '</button>' +
+		'</div>' +
+		'<div class="editor-tools">' +
+			'<div class="editor-group" role="group" aria-label="Note length" id="editor-lengths"></div>' +
+			'<div class="editor-group" role="group" aria-label="Change the note" id="editor-pitch"></div>' +
+		'</div>';
+	var lengths = document.getElementById("editor-lengths");
+	["w", "h", "q", "8"].forEach(function(d) {
+		var b = editorTool(editorIcon(DURATION_ICONS[d]), DURATION_NAMES[d], function() { setEditorDuration(d); });
+		b.setAttribute("data-dur", d);
+		lengths.appendChild(b);
+	});
+	var dot = editorTool(editorIcon('<circle cx="12" cy="12" r="3.4" fill="currentColor"/>'), "Dotted", toggleEditorDot);
+	dot.id = "editor-dot";
+	lengths.appendChild(dot);
+	lengths.appendChild(editorTool(editorIcon('<path d="M9.5 3l5 5.5-4 4.5 4.5 5c-3-1.4-5.6-.2-4.3 3.3-3.2-2.6-2.3-6.4 1.4-5.6L8 11l4-4.2z" fill="currentColor"/>'),
+		"Add a rest", insertEditorRest));
+
+	var pitch = document.getElementById("editor-pitch");
+	[[-1, "\u266d", "Flat"], [0, "\u266e", "Natural"], [1, "\u266f", "Sharp"]].forEach(function(acc) {
+		var b = editorTool(acc[1], acc[2], function() { setEditorAccidental(acc[0]); });
+		b.className += " editor-accidental";
+		b.setAttribute("data-alter", acc[0]);
+		pitch.appendChild(b);
+	});
+	var up = editorTool(chevronIcon("6 15 12 9 18 15"), "Move the note up", function() { nudgeEditorNote(1); });
+	up.id = "editor-up";
+	var down = editorTool(chevronIcon("6 9 12 15 18 9"), "Move the note down", function() { nudgeEditorNote(-1); });
+	down.id = "editor-down";
+	var del = editorTool(editorIcon('<path d="M9 5h11v14H9l-6-7z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/><path d="M12 9l5 6M17 9l-5 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>'),
+		"Delete the note", deleteEditorNote);
+	del.id = "editor-delete";
+	pitch.appendChild(up);
+	pitch.appendChild(down);
+	pitch.appendChild(del);
+	document.getElementById("editor-prev").onclick = function() { moveEditorSelection(-1); };
+	document.getElementById("editor-next").onclick = function() { moveEditorSelection(1); };
+
+	var actions = document.createElement("div");
+	actions.className = "practice-actions editor-actions";
+	var hear = practiceButton("\u25b6 Hear it", "secondary", function() {
+		if (songPlayTimer !== null) {
+			stopSongPlayback();
+		} else {
+			hear.textContent = "\u25a0 Stop";
+			playSongEvents(practice.editor.events, function(i) { drawEditor(i); });
+		}
+	});
+	hear.id = "editor-hear";
+	var remove = practiceButton("Delete", "secondary", deleteEditorSong);
+	remove.id = "editor-remove";
+	var play = practiceButton("Play it \u2192", "primary", function() { startSong(song.id); });
+	play.id = "editor-play";
+	actions.appendChild(hear);
+	actions.appendChild(remove);
+	actions.appendChild(play);
+	body.appendChild(actions);
+
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
+	drawEditor();
+}
+
+function editorTool(html, label, onclick) {
+	var b = document.createElement("button");
+	b.className = "editor-tool";
+	b.innerHTML = html;
+	b.setAttribute("aria-label", label);
+	b.title = label;
+	b.onclick = onclick;
+	return b;
+}
+
+// Store the song as it stands (a song with no notes is removed). Changed
+// notes make an earlier best score meaningless, so it's cleared.
+function saveEditorSong(notesChanged) {
+	var song = practice.editor.song;
+	var list = practice.customSongs;
+	var i = list.map(function(s) { return s.id; }).indexOf(song.id);
+	var stored = JSON.parse(JSON.stringify(song));
+	stored.title = song.title.trim() || "My song";
+	stored.custom = true;
+	if (!song.notes.length) {
+		if (i >= 0) list.splice(i, 1);
+	} else if (i >= 0) {
+		list[i] = stored;
+	} else {
+		list.push(stored);
+	}
+	saveCustomSongs(practice.instrument, list);
+	if (notesChanged && song.id in practice.songBest) {
+		delete practice.songBest[song.id];
+		saveSongBest(practice.instrument, practice.songBest);
+	}
+}
+
+function editorChanged(notesChanged) {
+	stopSongPlayback();
+	practice.editor.deleteArmed = false;
+	saveEditorSong(notesChanged);
+	drawEditor();
+}
+
+// Draw the editor's line (the selected note's, or the end's) and bring the
+// tools up to date. playing: the event Hear it is on, shown instead.
+function drawEditor(playing) {
+	var ed = practice.editor;
+	var song = ed.song;
+	var events = customSongEvents(song);
+	ed.events = events;
+	var n = events.length;
+	ed.sel = Math.max(0, Math.min(ed.sel, n));
+	ed.endMeasure = songEndMeasure(song, events);
+	ed.measures = ed.endMeasure + 1;
+	var isPlaying = typeof playing === "number";
+	var focus = isPlaying ? playing : ed.sel;
+	var focusMeasure = focus < n ? events[focus].measure : ed.endMeasure;
+	// A phone gets one measure per line, big enough to tap a line or space
+	ed.perLine = window.matchMedia("(max-width: 700px)").matches ? 1 : SONG_MEASURES_PER_LINE;
+	ed.line = Math.floor(focusMeasure / ed.perLine);
+
+	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
+	var out = document.getElementById("practice-staff-output");
+	ed.layout = renderSongLine(out, song, events, ed.line, ed.measures, { left: true, perLine: ed.perLine },
+		function(i) { return i === focus ? accent : null; });
+
+	// A blinking caret where the next note goes
+	var r = ed.layout;
+	if (!isPlaying && ed.sel === n && r.svg && r.measureX[ed.endMeasure]) {
+		var area = r.measureX[ed.endMeasure];
+		var x = area[0] + 10;
+		if (n && events[n - 1].measure === ed.endMeasure && r.xs[n - 1] !== undefined) x = r.xs[n - 1] + 22;
+		x = Math.min(x, area[1] - 6);
+		var top = r.stave.getYForLine(0) - 10;
+		var caret = document.createElementNS("http://www.w3.org/2000/svg", "rect");
+		caret.setAttribute("class", "editor-caret");
+		caret.setAttribute("x", x - 3);
+		caret.setAttribute("y", top);
+		caret.setAttribute("width", 6);
+		caret.setAttribute("height", r.stave.getYForLine(4) + 10 - top);
+		caret.setAttribute("rx", 3);
+		caret.setAttribute("fill", accent);
+		r.svg.appendChild(caret);
+	}
+
+	document.getElementById("practice-prompt").textContent = n ? "Tap a note to change it" : "Tap the staff to add a note";
+
+	// One dot per line; tap one to go there
+	var lines = Math.ceil(ed.measures / ed.perLine);
+	var dots = document.getElementById("editor-lines");
+	dots.innerHTML = "";
+	dots.setAttribute("aria-label", "Line " + (ed.line + 1) + " of " + lines);
+	for (var line = 0; line < lines; line++) {
+		(function(line) {
+			var dot = document.createElement("button");
+			dot.className = "challenge-dot" + (line === ed.line ? " current" : "");
+			dot.setAttribute("aria-label", "Line " + (line + 1));
+			dot.onclick = function() { goToEditorLine(line); };
+			dots.appendChild(dot);
+		})(line);
+	}
+
+	var selected = ed.sel < n ? events[ed.sel] : null;
+	var isNote = !!selected && selected.midi !== null;
+	document.querySelectorAll("#editor-lengths [data-dur]").forEach(function(b) {
+		b.setAttribute("aria-pressed", b.getAttribute("data-dur") === ed.dur ? "true" : "false");
+	});
+	document.getElementById("editor-dot").setAttribute("aria-pressed", ed.dots ? "true" : "false");
+	document.querySelectorAll("#editor-pitch .editor-accidental").forEach(function(b) {
+		b.disabled = !isNote;
+		b.setAttribute("aria-pressed", isNote && parseInt(b.getAttribute("data-alter"), 10) === selected.alter ? "true" : "false");
+	});
+	document.getElementById("editor-up").disabled = !isNote;
+	document.getElementById("editor-down").disabled = !isNote;
+	document.getElementById("editor-delete").disabled = !n;
+	document.getElementById("editor-prev").disabled = ed.sel === 0;
+	document.getElementById("editor-next").disabled = ed.sel >= n;
+	var playable = events.some(function(e) { return e.midi !== null; });
+	document.getElementById("editor-hear").disabled = !playable;
+	document.getElementById("editor-play").disabled = !playable;
+	var remove = document.getElementById("editor-remove");
+	remove.textContent = ed.deleteArmed ? "Tap again to delete" : "Delete";
+	remove.classList.toggle("danger", ed.deleteArmed);
+}
+
+// Select an event (n = the end), taking its length for the notes that follow
+function selectEditorEvent(i) {
+	var ed = practice.editor;
+	ed.sel = Math.max(0, Math.min(i, ed.song.notes.length));
+	var note = ed.song.notes[ed.sel];
+	if (note) {
+		ed.dur = note.d;
+		ed.dots = note.dot ? 1 : 0;
+	}
+}
+
+function moveEditorSelection(dir) {
+	stopSongPlayback();
+	selectEditorEvent(practice.editor.sel + dir);
+	drawEditor();
+}
+
+function goToEditorLine(line) {
+	stopSongPlayback();
+	var ed = practice.editor;
+	var first = ed.events.map(function(e) { return e.measure; }).findIndex(function(m) {
+		return Math.floor(m / ed.perLine) === line;
+	});
+	selectEditorEvent(first >= 0 ? first : ed.events.length);
+	drawEditor();
+}
+
+// Sound a note the student just placed or changed
+function previewEditorNote(i) {
+	var e = practice.editor.events[i];
+	if (!e || e.midi === null) return;
+	stopNote();
+	playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false, null, 0.4);
+}
+
+// Add a note (or rest) after the selection, or at the end, and select it
+function insertEditorNote(note, atEnd) {
+	var ed = practice.editor;
+	var n = ed.song.notes.length;
+	var pos = atEnd || ed.sel >= n ? n : ed.sel + 1;
+	ed.song.notes.splice(pos, 0, note);
+	ed.sel = pos;
+	editorChanged(true);
+	previewEditorNote(pos);
+}
+
+// A new note for step s going in at pos, with the flat or sharp the key
+// (or an accidental earlier in its measure) gives it there
+function newEditorNote(s, pos) {
+	var ed = practice.editor;
+	s = clampEditorStep(s);
+	var measure = pos >= ed.events.length ? ed.endMeasure : pos > 0 ? ed.events[pos - 1].measure : 0;
+	return { s: s, a: editorAlterAt(pos, s, measure), d: ed.dur, dot: ed.dots ? 1 : 0 };
+}
+
+function insertEditorRest() {
+	var ed = practice.editor;
+	insertEditorNote({ r: 1, d: ed.dur, dot: ed.dots ? 1 : 0 });
+}
+
+// Type a letter (desktop): the nearest such note to the one before
+function insertEditorLetter(letter) {
+	var ed = practice.editor;
+	var n = ed.song.notes.length;
+	var pos = ed.sel >= n ? n : ed.sel + 1;
+	var near = editorTopStep() - 4;  // the middle line
+	for (var i = pos - 1; i >= 0; i--) {
+		if (!ed.song.notes[i].r) {
+			near = ed.song.notes[i].s;
+			break;
+		}
+	}
+	var s = letter + 7 * Math.round((near - letter) / 7);
+	insertEditorNote(newEditorNote(s, pos));
+}
+
+function setEditorDuration(d) {
+	var ed = practice.editor;
+	ed.dur = d;
+	var note = ed.song.notes[ed.sel];
+	if (note) {
+		note.d = d;
+		editorChanged(true);
+	} else {
+		drawEditor();
+	}
+}
+
+function toggleEditorDot() {
+	var ed = practice.editor;
+	ed.dots = ed.dots ? 0 : 1;
+	var note = ed.song.notes[ed.sel];
+	if (note) {
+		note.dot = ed.dots;
+		editorChanged(true);
+	} else {
+		drawEditor();
+	}
+}
+
+function setEditorAccidental(alter) {
+	var ed = practice.editor;
+	var note = ed.song.notes[ed.sel];
+	if (!note || note.r) return;
+	note.a = alter;
+	editorChanged(true);
+	previewEditorNote(ed.sel);
+}
+
+// Up or down a line or space; the note takes the key's (or the measure's)
+// flat or sharp there
+function nudgeEditorNote(dir) {
+	var ed = practice.editor;
+	var note = ed.song.notes[ed.sel];
+	if (!note || note.r) return;
+	note.s = clampEditorStep(note.s + dir);
+	note.a = editorAlterAt(ed.sel, note.s, ed.events[ed.sel].measure);
+	editorChanged(true);
+	previewEditorNote(ed.sel);
+}
+
+// Delete the selected note, or the last one from the end
+function deleteEditorNote() {
+	var ed = practice.editor;
+	var n = ed.song.notes.length;
+	if (!n) return;
+	if (ed.sel >= n) {
+		ed.song.notes.pop();
+		ed.sel = n - 1;
+	} else {
+		ed.song.notes.splice(ed.sel, 1);
+		selectEditorEvent(ed.sel > 0 ? ed.sel - 1 : 0);
+	}
+	editorChanged(true);
+}
+
+// A new key signature changes the notes that followed the old one (as if
+// the page had the new key all along); written-in accidentals stay
+function changeEditorKey(key) {
+	var song = practice.editor.song;
+	var old = song.key || "C";
+	song.notes.forEach(function(n) {
+		if (!n.r && (n.a || 0) === keyAlter(old, n.s % 7)) n.a = keyAlter(key, n.s % 7);
+	});
+	song.key = key;
+	editorChanged(true);
+}
+
+// Delete the whole song: the first tap asks, the second deletes
+function deleteEditorSong() {
+	var ed = practice.editor;
+	if (!ed.deleteArmed && ed.song.notes.length) {
+		ed.deleteArmed = true;
+		drawEditor();
+		clearTimeout(practiceAdvanceTimer);
+		practiceAdvanceTimer = setTimeout(function() {
+			if (practice.mode !== "editor" || !practice.editor.deleteArmed) return;
+			practice.editor.deleteArmed = false;
+			drawEditor();
+		}, 3000);
+		return;
+	}
+	ed.song.notes = [];
+	saveEditorSong(true);
+	showSongList();
+}
+
+// Tap the staff: past the last note adds one there; on a note selects it,
+// and on the selected note moves it to the line or space tapped
+function editorStaffTap(event) {
+	if (!practiceOpen || !practice || practice.mode !== "editor") return;
+	var ed = practice.editor;
+	if (songPlayTimer !== null) {
+		stopSongPlayback();
+		return;
+	}
+	var r = ed.layout;
+	if (!r || !r.svg || !r.stave) return;
+	var pt = r.svg.createSVGPoint();
+	pt.x = event.clientX;
+	pt.y = event.clientY;
+	var p = pt.matrixTransform(r.svg.getScreenCTM().inverse());
+	var s = clampEditorStep(editorTopStep() - Math.round((p.y - r.stave.getYForLine(0)) / (LINE_SPACING / 2)));
+
+	var nearest = -1, nearestDist = Infinity, lastOnLine = -1;
+	Object.keys(r.xs).forEach(function(k) {
+		var i = parseInt(k, 10);
+		var d = Math.abs(r.xs[i] - p.x);
+		if (d < nearestDist) {
+			nearest = i;
+			nearestDist = d;
+		}
+		lastOnLine = Math.max(lastOnLine, i);
+	});
+	// Past the song's last note adds a note, even when it starts the next line
+	var n = ed.events.length;
+	if (lastOnLine < 0 || (lastOnLine === n - 1 && p.x > r.xs[lastOnLine] + 14)) {
+		insertEditorNote(newEditorNote(s, n), true);
+	} else if (nearest >= 0) {
+		var note = ed.song.notes[nearest];
+		if (nearest === ed.sel && nearestDist < 16 && !note.r && note.s !== s) {
+			note.s = s;
+			note.a = editorAlterAt(nearest, s, ed.events[nearest].measure);
+			editorChanged(true);
+		} else {
+			selectEditorEvent(nearest);
+			drawEditor();
+		}
+		previewEditorNote(nearest);
+	}
+}
+
+// Keys in the editor (desktop): letters add notes, arrows move and change
+// them, 1 2 4 8 pick a length, . dots it, R adds a rest
+function editorKeyDown(event) {
+	var target = event.target;
+	if (target && (target.tagName === "INPUT" || target.tagName === "SELECT" || target.tagName === "TEXTAREA")) return;
+	if (event.altKey || event.ctrlKey || event.metaKey) return;
+	var key = event.key;
+	var letter = "cdefgab".indexOf(key.toLowerCase());
+	if (key.length === 1 && letter >= 0) insertEditorLetter(letter);
+	else if (key === "r" || key === "R") insertEditorRest();
+	else if (key === "ArrowLeft") moveEditorSelection(-1);
+	else if (key === "ArrowRight") moveEditorSelection(1);
+	else if (key === "ArrowUp") nudgeEditorNote(1);
+	else if (key === "ArrowDown") nudgeEditorNote(-1);
+	else if (key === "Backspace" || key === "Delete") deleteEditorNote();
+	else if (key === "1") setEditorDuration("w");
+	else if (key === "2") setEditorDuration("h");
+	else if (key === "4") setEditorDuration("q");
+	else if (key === "8") setEditorDuration("8");
+	else if (key === ".") toggleEditorDot();
+	else return;
+	event.preventDefault();
+}
+
+document.getElementById("practice-staff-output").addEventListener("click", editorStaffTap);
 
 // ---------------------------------------------------------------------------
 // First sounds: the flute head joint, the clarinet mouthpiece and barrel,
@@ -2314,7 +3072,9 @@ function drawPracticeStaff(writtenMidi, sharp) {
 }
 
 document.addEventListener("keydown", function(event) {
-	if (practiceOpen && event.key === "Escape") practiceBack();
+	if (!practiceOpen) return;
+	if (event.key === "Escape") practiceBack();
+	else if (practice && practice.mode === "editor") editorKeyDown(event);
 });
 
 // Browser history mirrors the practice screens, so the phone's back button
@@ -2331,6 +3091,7 @@ function practiceHistoryState() {
 	}
 	var depth = isMoreActivity(activity) ? 3 : 2;
 	if (practice.mode === "song") return { practice: "song", song: practice.song.id, depth: depth + 1 };
+	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
 	if (practice.mode === "songs") return { practice: "songs", depth: depth };
 	return { practice: activity, depth: depth };
 }
@@ -2384,7 +3145,8 @@ window.addEventListener("popstate", function(event) {
 	if (state.practice === "menu") showPracticeMenu(state.page);
 	else if (state.practice === "songs") showSongList();
 	else if (state.practice === "song" && findSong(state.song)) startSong(state.song);
-	else if (state.practice !== "song") startPracticeActivity(state.practice);
+	else if (state.practice === "editor" && findSong(state.song)) openSongEditor(state.song);
+	else if (state.practice !== "song" && state.practice !== "editor") startPracticeActivity(state.practice);
 	else showSongList();
 });
 
