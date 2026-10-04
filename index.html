@@ -2508,6 +2508,21 @@
 				display: block;
 			}
 
+			/* The arrow over the song note the mic is listening for */
+			.song-arrow {
+				animation: song-arrow-bob 1s ease-in-out infinite;
+			}
+
+			@keyframes song-arrow-bob {
+				50% { transform: translateY(-3px); }
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.song-arrow {
+					animation: none;
+				}
+			}
+
 			/* Steps with a chart: on a short screen the staff and the chart
 			   share the squeeze (in proportion to their sizes) instead of the
 			   chart shrinking alone to a sliver */

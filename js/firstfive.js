@@ -1784,19 +1784,22 @@ function songLineOf(pos) {
 // done): played notes green, note pos glowing in the accent color
 function drawSongLine(pos) {
 	var s = practice.song;
-	drawSongEvent(pos < s.notes.length ? s.notes[pos].event : s.events.length);
+	var hl = pos < s.notes.length ? s.notes[pos].event : s.events.length;
+	// An arrow over the note the mic is waiting for
+	drawSongEvent(hl, pos < s.notes.length ? hl : null);
 }
 
 // Draw the line holding event hl (a note or rest; past the end = the last
-// line, all played), events before it green
-function drawSongEvent(hl) {
+// line, all played), events before it green; arrow: an event to point at
+function drawSongEvent(hl, arrow) {
 	var s = practice.song;
 	var styles = getComputedStyle(document.body);
 	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
 	var done = styles.getPropertyValue("--success").trim() || "#16a34a";
 	var e = s.events[Math.min(hl, s.events.length - 1)];
 	renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
-		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures, { end: true },
+		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
+		{ end: true, arrow: arrow === undefined ? null : arrow },
 		function(i) { return i === hl ? accent : i < hl ? done : null; });
 }
 
@@ -1834,7 +1837,8 @@ function measureBeats(time) {
 // all (the editor, where notes are added), instead of centering a short one. Built-in songs have
 // no key signature and write every flat out; the student's own songs
 // follow their key and time signatures, with accidentals lasting the
-// measure as printed. Returns { svg, stave, xs (event index → x), measureX
+// measure as printed. opts.arrow: an event index to mark with an arrow
+// above it (the note the mic is listening for). Returns { svg, stave, xs (event index → x), measureX
 // (measure → [start, end] of its note area) }, in SVG units.
 function renderSongLine(out, song, events, line, measures, opts, color) {
 	out.innerHTML = "";
@@ -1865,6 +1869,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 
 	var x = 5 + (opts.left ? 0 : (perLine - count) * SONG_MEASURE_WIDTH / 2);
 	var result = { svg: null, stave: null, xs: {}, measureX: {} };
+	var arrowAt = null;
 	// Lines without the time signature share out its room, so every line of
 	// a whole line's width ends at the same place
 	var slack = count === perLine ? (widest - startWidth(first === 0)) / count : 0;
@@ -1923,6 +1928,10 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 			beams.forEach(function(b) { b.setContext(context).draw(); });
 			tickables.forEach(function(t, k) {
 				result.xs[indexes[k]] = t.getAbsoluteX() + t.getGlyphWidth() / 2;
+				if (indexes[k] === opts.arrow) {
+					var box = t.getBoundingBox();
+					arrowAt = { x: result.xs[indexes[k]], top: Math.min(box ? box.getY() : Infinity, stave.getYForLine(0)), color: color(indexes[k]) };
+				}
 			});
 		} catch (err) {
 			console.log("Could not render song measure:", m, err.message);
@@ -1936,11 +1945,29 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 		svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 		svg.style.width = "100%";
 		svg.style.height = "100%";
+		if (arrowAt) drawSongArrow(svg, arrowAt, center - H / 2);
 	}
 	result.svg = svg;
 	result.width = W;
 	result.height = H;
 	return result;
+}
+
+// A downward arrow just above a note (or the staff, whichever is higher),
+// kept inside the viewBox (which starts at viewTop)
+function drawSongArrow(svg, at, viewTop) {
+	var ARROW_H = 22, GAP = 5;
+	var tip = Math.max(at.top - GAP, viewTop + ARROW_H + 1);
+	var ns = "http://www.w3.org/2000/svg";
+	var g = document.createElementNS(ns, "g");
+	g.setAttribute("class", "song-arrow");
+	var path = document.createElementNS(ns, "path");
+	path.setAttribute("d", "M" + at.x + " " + tip +
+		" l-9 -10 h5.5 v-12 h7 v12 h5.5 z");
+	path.setAttribute("fill", at.color || "currentColor");
+	path.setAttribute("stroke-linejoin", "round");
+	g.appendChild(path);
+	svg.appendChild(g);
 }
 
 // The whole song at once (every line stacked, scrolling) or one line at a
