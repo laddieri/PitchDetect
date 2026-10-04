@@ -407,11 +407,17 @@ function displayImageFingering(container, instrument, writtenMidi) {
 // SVG DIAGRAM RENDERING
 // ============================================================================
 
-// Draw trumpet valve diagram
-function drawTrumpetFingering(container, valves, isAlternate) {
+// Draw trumpet valve diagram. withHorn adds a faint outline of the
+// mouthpiece (left) and bell (right) so the valves read in playing order.
+function drawTrumpetFingering(container, valves, isAlternate, withHorn) {
 	var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-	svg.setAttribute("viewBox", "0 0 200 120");
-	svg.setAttribute("width", "200");
+	if (withHorn) {
+		svg.setAttribute("viewBox", "-66 0 332 120");
+		svg.setAttribute("width", "332");
+	} else {
+		svg.setAttribute("viewBox", "0 0 200 120");
+		svg.setAttribute("width", "200");
+	}
 	svg.setAttribute("height", "120");
 	svg.style.display = "block";
 	svg.style.margin = "0 auto";
@@ -429,6 +435,36 @@ function drawTrumpetFingering(container, valves, isAlternate) {
 	var valveX = [50, 100, 150];
 	var valveY = 50;
 	var valveRadius = 25;
+
+	// Drawn first so the valve casings cover where the tubing meets them
+	if (withHorn) {
+		var horn = document.createElementNS("http://www.w3.org/2000/svg", "path");
+		horn.setAttribute("d",
+			// Mouthpiece rim, cup and shank, then the leadpipe into valve 1
+			"M -60 39 L -56 39 C -50 42 -44 47 -36 47.5 L 30 46.5 " +
+			"M -60 61 L -56 61 C -50 58 -44 53 -36 52.5 L 30 53.5 " +
+			"M -60 39 Q -62 50 -60 61 " +
+			// Tubing out of valve 3, flaring into the bell
+			"M 170 46 L 200 46 C 232 46 248 32 260 16 " +
+			"M 170 54 L 200 54 C 232 54 248 68 260 84");
+		horn.setAttribute("fill", "none");
+		horn.setAttribute("stroke", strokeColor);
+		horn.setAttribute("stroke-width", "2");
+		horn.setAttribute("stroke-linecap", "round");
+		horn.setAttribute("opacity", "0.18");
+		svg.appendChild(horn);
+
+		var rim = document.createElementNS("http://www.w3.org/2000/svg", "ellipse");
+		rim.setAttribute("cx", "260");
+		rim.setAttribute("cy", "50");
+		rim.setAttribute("rx", "5");
+		rim.setAttribute("ry", "34");
+		rim.setAttribute("fill", "none");
+		rim.setAttribute("stroke", strokeColor);
+		rim.setAttribute("stroke-width", "2");
+		rim.setAttribute("opacity", "0.18");
+		svg.appendChild(rim);
+	}
 
 	for (var i = 0; i < 3; i++) {
 		var isPressed = valves.includes(i + 1);
@@ -813,7 +849,7 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 	container.appendChild(primaryContainer);
 
 	if (instrument in threeValveOffset) {
-		drawTrumpetFingering(primaryContainer, fingering.primary, false);
+		drawTrumpetFingering(primaryContainer, fingering.primary, false, instrument === "trumpet");
 	} else if (instrument === "flute") {
 		drawFluteFingering(primaryContainer, fingering.primary, false);
 	}
@@ -837,7 +873,7 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 			container.appendChild(altContainer);
 
 			if (instrument in threeValveOffset) {
-				drawTrumpetFingering(altContainer, alt, true);
+				drawTrumpetFingering(altContainer, alt, true, instrument === "trumpet");
 			} else if (instrument === "flute") {
 				drawFluteFingering(altContainer, alt, true);
 			}
