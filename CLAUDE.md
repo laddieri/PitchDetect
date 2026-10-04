@@ -180,8 +180,12 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   select cloned from `#instrument`) switches instruments in place:
   `changePracticeInstrument()` sets the app's select, fires its `change`
   handler (which persists it), and `loadPracticeInstrument()` restarts.
-- Toolbar placement: beside Listen; on mobile it is a star icon, and in the
-  full app on mobile it moves to the overflow menu (`applyResponsiveControls()`).
+- Toolbar placement: beside Listen, always labeled "Practice". In kid mode on
+  phones the star is dropped and the toolbar's Listen (mostly an invisible
+  placeholder there — the note panel is the Listen button) becomes a round
+  44px icon that shows a stop square while listening, so the label and the
+  instrument name both fit. In the full app on mobile Practice moves to the
+  overflow menu (`applyResponsiveControls()`).
 
 - `trumpetFingerings` (3-valve map, shared via `threeValveOffset` with euphonium/tuba)
 - `fluteFingerings` (key diagrams)
@@ -236,7 +240,8 @@ persisted as `pitchdetect-advanced-mode`) turns it off. `body.kid-mode` strips t
 instrument + Listen, a big note name colored by letter (`data-letter` on
 `#note-display`), the single staff, and a word-based meter ("Too low / Just
 right! / Too high"). The instrument list is trimmed to the beginning band
-instruments (`KID_INSTRUMENTS`; euphonium shows as "Baritone / Euphonium"):
+instruments (`KID_INSTRUMENTS`; euphonium shows as "Baritone", what beginning
+bands call it):
 `applyInstrumentList()` rebuilds `#instrument` from its original markup on
 each mode switch (removing options, since iOS ignores hidden ones) and clears
 a selection kid mode doesn't offer. Everything else is hidden by one CSS rule list in the

@@ -2580,7 +2580,7 @@ function applyResponsiveControls() {
 // options in a select.
 var KID_INSTRUMENTS = ["flute", "oboe", "clarinet", "alto sax", "trumpet", "horn",
 	"trombone", "euphonium", "tuba", "glockenspiel"];
-var KID_INSTRUMENT_LABELS = { "euphonium": "Baritone / Euphonium" };
+var KID_INSTRUMENT_LABELS = { "euphonium": "Baritone" };  // what beginning bands call it
 var fullInstrumentList = null;
 
 // Rebuild #instrument for the current mode, keeping the selection when it's

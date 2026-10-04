@@ -303,6 +303,12 @@
 				border-color: var(--accent);
 			}
 
+			/* The stop glyph only shows where Listen is icon-only (kid mode on
+			   phones); elsewhere the label says Stop */
+			#listenButton .icon-stop {
+				display: none;
+			}
+
 			#listenButton.listening {
 				background-color: var(--danger);
 				border-color: transparent;
@@ -3075,22 +3081,46 @@
 					padding: 0;
 				}
 
-				/* Kid mode spells out Listen, which keeps its slot even while
-				   hidden; Practice stays a star so the instrument name fits */
+				/* Kid mode spells out Practice (a bare star read as a mystery
+				   button); the star itself goes to save room */
 				body.kid-mode .controls #practiceButton {
-					flex: 0 0 48px;
-					width: 48px;
+					flex: 0 0 auto;
+					width: auto;
 					height: 44px;
-					padding: 0;
+					padding: 0 12px;
+					font-size: 1rem;
 				}
 
 				body.kid-mode .controls #practiceButton svg {
-					width: 22px;
-					height: 22px;
+					display: none;
 				}
 
-				body.kid-mode .controls #practiceButton .btn-label {
+				/* Listen here is mostly an invisible placeholder (the note
+				   panel is the Listen button) that becomes Stop while
+				   listening, so it's a round icon: the mic, or a stop square */
+				body.kid-mode .controls #listenButton {
+					flex: 0 0 44px;
+					width: 44px;
+					height: 44px;
+					padding: 0;
+					border-radius: 50%;
+				}
+
+				body.kid-mode .controls #listenButton .btn-label {
 					display: none;
+				}
+
+				body.kid-mode .controls #listenButton svg {
+					width: 18px;
+					height: 18px;
+				}
+
+				body.kid-mode .controls #listenButton.listening .icon-mic {
+					display: none;
+				}
+
+				body.kid-mode .controls #listenButton.listening .icon-stop {
+					display: block;
 				}
 
 				.practice-view {
@@ -3327,7 +3357,8 @@
 					</optgroup>
 				</select>
 				<button id="listenButton" onclick="handleListenButton()" title="Listen through the microphone and name the notes you play" aria-label="Listen through the microphone and name the notes you play">
-					<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+					<svg class="icon-stop" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><rect x="5" y="5" width="14" height="14" rx="2"/></svg>
+					<svg class="icon-mic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
 					<span class="btn-label" id="listenLabel">Listen</span>
 				</button>
 				<button id="practiceButton" onclick="openPractice()" title="Practice your first five notes" aria-label="Practice your first five notes" disabled>
