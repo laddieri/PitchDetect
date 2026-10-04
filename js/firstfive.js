@@ -206,6 +206,7 @@ function openPractice() {
 	loadPracticeInstrument();
 	showPracticeMenu();
 	document.getElementById("practice-close").focus();
+	if (pendingSongImport) openSongImport();
 }
 
 // Load practice state for the app's selected instrument
@@ -259,7 +260,7 @@ function setPracticeMode(mode) {
 	schedulePracticeHistorySync();
 	var back = document.getElementById("practice-close");
 	var label = mode === "menu" ? "Back to the app"
-		: mode === "song" || mode === "editor" ? "Back to the songs" : "Back to the practice menu";
+		: mode === "song" || mode === "editor" || mode === "import" ? "Back to the songs" : "Back to the practice menu";
 	back.setAttribute("aria-label", label);
 	back.title = label;
 }
@@ -385,7 +386,7 @@ function startPracticeActivity(id) {
 // The back arrow (and Escape): an activity returns to its menu page, the
 // More page to the main menu, and the main menu leaves practice
 function practiceBack() {
-	if (practice && (practice.mode === "song" || practice.mode === "editor")) {
+	if (practice && (practice.mode === "song" || practice.mode === "editor" || practice.mode === "import")) {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
@@ -402,7 +403,7 @@ function currentPracticeActivity() {
 	if (practice.mode === "challenge") return practice.challenge.kind === "scale" ? "scalerun" : "quiz";
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
-	if (practice.mode === "songs" || practice.mode === "song" || practice.mode === "editor") return "songs";
+	if (practice.mode === "songs" || practice.mode === "song" || practice.mode === "editor" || practice.mode === "import") return "songs";
 	return "menu";
 }
 
@@ -415,6 +416,7 @@ function changePracticeInstrument(value) {
 	var activity = currentPracticeActivity();
 	var menuPage = practice.menuPage;
 	var songId = practice.mode === "song" ? practice.song.id : null;
+	var importing = practice.mode === "import";
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
@@ -428,6 +430,8 @@ function changePracticeInstrument(value) {
 		showPracticeMenu("main");
 	} else if (songId) {
 		startSong(songId);
+	} else if (importing) {
+		showSongImport();
 	} else {
 		startPracticeActivity(activity);
 	}
@@ -1700,7 +1704,8 @@ var SONG_KEYS = [
 	{ key: "F", label: "1 \u266d" }, { key: "Bb", label: "2 \u266d" }, { key: "Eb", label: "3 \u266d" },
 	{ key: "Ab", label: "4 \u266d" }, { key: "Db", label: "5 \u266d" },
 	{ key: "G", label: "1 \u266f" }, { key: "D", label: "2 \u266f" }, { key: "A", label: "3 \u266f" },
-	{ key: "E", label: "4 \u266f" }
+	{ key: "E", label: "4 \u266f" }, { key: "B", label: "5 \u266f" }, { key: "F#", label: "6 \u266f" },
+	{ key: "Gb", label: "6 \u266d" }
 ];
 var SONG_TIMES = ["4/4", "3/4", "2/4"];
 
@@ -1876,6 +1881,12 @@ function stopSongPlayback() {
 		drawEditor();
 		return;
 	}
+	if (practice && practice.mode === "import") {
+		var importHear = document.getElementById("import-hear");
+		if (importHear) importHear.textContent = "\u25b6 Hear it";
+		drawImportPreview(-1);
+		return;
+	}
 	if (!practice || !practice.song || practice.mode !== "song") return;
 	practice.ignoreUntil = performance.now() + 400;
 	resetPracticeHold();
@@ -1948,6 +1959,8 @@ function editorAlterAt(index, s, measure) {
 	return keyAlter(ed.song.key || "C", s % 7);
 }
 
+var SHARE_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+	'<path d="M12 15V3"/><polyline points="7 8 12 3 17 8"/><path d="M5 12v7a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-7"/></svg>';
 var PENCIL_SVG = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
 	'<path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg>';
 
@@ -2025,6 +2038,10 @@ function openSongEditor(id) {
 	meta.appendChild(title);
 	meta.appendChild(time);
 	meta.appendChild(key);
+	var share = editorTool(SHARE_SVG, "Share this song with a friend", shareEditorSong);
+	share.id = "editor-share";
+	share.className += " editor-share";
+	meta.appendChild(share);
 	var steps = document.getElementById("practice-steps");
 	steps.innerHTML = "";
 	steps.appendChild(meta);
@@ -2231,6 +2248,7 @@ function drawEditor(playing) {
 	document.getElementById("editor-next").disabled = ed.sel >= n;
 	var playable = events.some(function(e) { return e.midi !== null; });
 	document.getElementById("editor-hear").disabled = !playable;
+	document.getElementById("editor-share").disabled = !playable;
 	document.getElementById("editor-play").disabled = !playable;
 	var remove = document.getElementById("editor-remove");
 	remove.textContent = ed.deleteArmed ? "Tap again to delete" : "Delete";
@@ -2489,6 +2507,263 @@ function editorKeyDown(event) {
 }
 
 document.getElementById("practice-staff-output").addEventListener("click", editorStaffTap);
+
+// ---------------------------------------------------------------------------
+// Sharing songs: the whole song rides in a link (#song=…), so there's no
+// server. The payload is base64url JSON: { v: 1, t: title, i: instrument,
+// k: key, m: time, n: notes }, notes a string of tokens: length (w h q e),
+// an optional "." for a dot, then "r" for a rest or the written note
+// ("Bb4", "C5"). A friend on another instrument gets it rewritten for
+// theirs (transposeSharedSong()), sounding the same.
+// ---------------------------------------------------------------------------
+
+var SHARE_MAX_NOTES = 400;
+var pendingSongImport = null;  // a shared song waiting on the import screen
+
+function encodeSongShare(song, instrument) {
+	var notes = song.notes.map(function(n) {
+		var token = (n.d === "8" ? "e" : n.d) + (n.dot ? "." : "");
+		if (n.r) return token + "r";
+		return token + "CDEFGAB".charAt(n.s % 7) + (n.a < 0 ? "b" : n.a > 0 ? "#" : "") + Math.floor(n.s / 7);
+	}).join(" ");
+	var json = JSON.stringify({ v: 1, t: song.title.trim() || "My song", i: instrument, k: song.key || "C", m: song.time || "4/4", n: notes });
+	var bytes = new TextEncoder().encode(json);
+	var binary = "";
+	bytes.forEach(function(b) { binary += String.fromCharCode(b); });
+	return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+// A shared song from a link's payload, or null if it doesn't check out:
+// { title, instrument, song: { time, key, notes } }
+function decodeSongShare(payload) {
+	try {
+		var binary = atob(payload.replace(/-/g, "+").replace(/_/g, "/"));
+		var bytes = new Uint8Array(binary.length);
+		for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+		var data = JSON.parse(new TextDecoder().decode(bytes));
+		if (!data || typeof data.t !== "string" || typeof data.n !== "string") return null;
+		if (!(data.i in practiceStartConcertMidi) || !(data.k in keySignatureNotes) || SONG_TIMES.indexOf(data.m) < 0) return null;
+		var tokens = data.n.split(" ");
+		if (!tokens.length || tokens.length > SHARE_MAX_NOTES) return null;
+		var notes = [];
+		for (var j = 0; j < tokens.length; j++) {
+			var m = /^([whqe])(\.?)(?:(r)|([A-G])([b#]?)([0-8]))$/.exec(tokens[j]);
+			if (!m) return null;
+			var note = { d: m[1] === "e" ? "8" : m[1], dot: m[2] ? 1 : 0 };
+			if (m[3]) {
+				note.r = 1;
+			} else {
+				note.s = parseInt(m[6], 10) * 7 + "CDEFGAB".indexOf(m[4]);
+				note.a = m[5] === "b" ? -1 : m[5] === "#" ? 1 : 0;
+			}
+			notes.push(note);
+		}
+		if (!notes.some(function(n) { return !n.r; })) return null;
+		return {
+			title: data.t.trim().slice(0, 40) || "Shared song",
+			instrument: data.i,
+			song: { time: data.m, key: data.k, notes: notes }
+		};
+	} catch (e) {
+		return null;
+	}
+}
+
+// Written MIDI note of an instrument's first band note (concert B♭)
+function writtenStartMidi(instrument) {
+	var start = practiceStartConcertMidi[instrument];
+	return (start === undefined ? 70 : start) + (transpositionMap[instrument] || 0);
+}
+
+// Rewrite a song written for one instrument for another: the same tune in
+// that instrument's octave (their first notes line up), its key moved
+// round the circle of fifths and every note respelled to match
+function transposeSharedSong(song, from, to) {
+	var copy = JSON.parse(JSON.stringify(song));
+	var d = writtenStartMidi(to) - writtenStartMidi(from);
+	if (!d) return copy;
+	// The interval in fifths (7 semitones is its own inverse mod 12)
+	var f = (7 * (((d % 12) + 12) % 12)) % 12;
+	if (f > 6) f -= 12;
+	var keyFifths = (keyToFifths[song.key] || 0) + f;
+	if (keyFifths > 6) {
+		keyFifths -= 12;
+		f -= 12;
+	} else if (keyFifths < -6) {
+		keyFifths += 12;
+		f += 12;
+	}
+	var steps = ((4 * f) % 7 + 7) % 7;  // a fifth is four letters up
+	var shift = steps + 7 * Math.round((d * 7 / 12 - steps) / 7);
+	copy.key = fifthsToKey[String(keyFifths)];
+	copy.notes.forEach(function(n) {
+		if (n.r) return;
+		var target = 12 * (Math.floor(n.s / 7) + 1) + NATURAL_SEMITONES[n.s % 7] + (n.a || 0) + d;
+		var s = n.s + shift;
+		var natural = function(s) { return 12 * (Math.floor(s / 7) + 1) + NATURAL_SEMITONES[s % 7]; };
+		// No double flats or sharps: respell on the next letter
+		if (target - natural(s) > 1) s++;
+		else if (target - natural(s) < -1) s--;
+		n.s = s;
+		n.a = target - natural(s);
+	});
+	return copy;
+}
+
+// Share the song in the editor: the phone's share sheet, or copy the link
+function shareEditorSong() {
+	var song = practice.editor.song;
+	if (!song.notes.some(function(n) { return !n.r; })) return;
+	saveEditorSong(false);
+	var url = location.origin + location.pathname + "#song=" + encodeSongShare(song, practice.instrument);
+	var title = song.title.trim() || "My song";
+	if (navigator.share) {
+		navigator.share({ title: title, text: "Play my song “" + title + "”!", url: url }).catch(function(e) {
+			if (e && e.name !== "AbortError") copySongLink(url);
+		});
+	} else {
+		copySongLink(url);
+	}
+}
+
+function copySongLink(url) {
+	if (!navigator.clipboard) {
+		showToast("Couldn’t copy the link on this browser.");
+		return;
+	}
+	navigator.clipboard.writeText(url).then(function() {
+		showToast("Link copied! Send it to a friend.");
+	}, function() {
+		showToast("Couldn’t copy the link. Try again.");
+	});
+}
+
+function instrumentLabel(instrument) {
+	if (instrument === "euphonium" && kidMode) return "baritone";
+	return instrument;
+}
+
+// The import screen: a friend's song, rewritten for this instrument, with
+// its first line on the staff and Add to My songs
+function showSongImport() {
+	var shared = pendingSongImport;
+	if (!shared) {
+		showSongList();
+		return;
+	}
+	stopSongPlayback();
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	setPracticeMode("import");
+	practice.step = -1;
+	var song = transposeSharedSong(shared.song, shared.instrument, practice.instrument);
+	song.custom = true;
+	song.title = shared.title;
+	var events = customSongEvents(song);
+	practice.importSong = { song: song, events: events, measures: events[events.length - 1].measure + 1 };
+	document.getElementById("practice-view").setAttribute("data-step", "song-import");
+	document.getElementById("practice-steps").innerHTML = "";
+	document.getElementById("practice-prompt").textContent = "A friend shared “" + song.title + "”!";
+
+	var body = document.getElementById("practice-body");
+	body.innerHTML = '<div class="practice-feedback-sub" id="import-note"></div>';
+	var note = document.getElementById("import-note");
+	if (shared.instrument !== practice.instrument) {
+		note.textContent = "Written for " + instrumentLabel(shared.instrument) + ", changed for your " + instrumentLabel(practice.instrument) + ".";
+	} else {
+		var count = events.filter(function(e) { return e.midi !== null; }).length;
+		note.textContent = count + (count === 1 ? " note" : " notes");
+	}
+	var actions = document.createElement("div");
+	actions.className = "practice-actions";
+	var hear = practiceButton("▶ Hear it", "secondary", function() {
+		if (songPlayTimer !== null) {
+			stopSongPlayback();
+		} else {
+			hear.textContent = "■ Stop";
+			playSongEvents(practice.importSong.events, drawImportPreview);
+		}
+	});
+	hear.id = "import-hear";
+	actions.appendChild(hear);
+	actions.appendChild(practiceButton("No thanks", "secondary", function() {
+		pendingSongImport = null;
+		showSongList();
+	}));
+	actions.appendChild(practiceButton("Add to My songs", "primary", addImportedSong));
+	body.appendChild(actions);
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
+	drawImportPreview(-1);
+}
+
+// The import's staff: the first line, or the line of event hl as it plays
+function drawImportPreview(hl) {
+	var imp = practice.importSong;
+	var line = hl >= 0 ? Math.floor(imp.events[hl].measure / SONG_MEASURES_PER_LINE) : 0;
+	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
+	renderSongLine(document.getElementById("practice-staff-output"), imp.song, imp.events, line, imp.measures,
+		{ end: true }, function(i) { return i === hl ? accent : null; });
+}
+
+// Keep the friend's song (once: the same song again isn't added twice)
+function addImportedSong() {
+	var song = practice.importSong.song;
+	pendingSongImport = null;
+	var same = practice.customSongs.filter(function(s) {
+		return s.title === song.title && JSON.stringify(s.notes) === JSON.stringify(song.notes);
+	})[0];
+	if (!same) {
+		song.id = "my-" + Date.now().toString(36);
+		practice.customSongs.push(song);
+		saveCustomSongs(practice.instrument, practice.customSongs);
+	}
+	showSongList();
+	showToast("“" + song.title + "” is in My songs!");
+}
+
+// Open the import screen through the menu and song list, so back (and the
+// phone's back gesture) steps out the usual way
+function openSongImport() {
+	if (!practiceOpen) {
+		openPractice();  // which comes back here
+		return;
+	}
+	syncPracticeHistory();
+	showPracticeMenu("more");
+	syncPracticeHistory();
+	showSongList();
+	syncPracticeHistory();
+	showSongImport();
+}
+
+// A song link: take the song out of the address (so a reload doesn't bring
+// it back) and show it. With no instrument chosen yet, take the sharer's.
+function checkSongLink() {
+	var m = /^#song=([A-Za-z0-9_-]+)$/.exec(location.hash);
+	if (!m) return;
+	history.replaceState(history.state, "", location.pathname + location.search);
+	var shared = decodeSongShare(m[1]);
+	if (!shared) {
+		showToast("That song link didn’t work. Ask your friend to share it again.");
+		return;
+	}
+	pendingSongImport = shared;
+	var select = document.getElementById("instrument");
+	if (!select.value) {
+		select.value = shared.instrument;
+		if (select.value === shared.instrument) select.dispatchEvent(new Event("change"));
+		else select.value = "";
+	}
+	if (!select.value) {
+		showToast("Choose your instrument, then open Practice to get your friend’s song.");
+		return;
+	}
+	openSongImport();
+}
+
+document.addEventListener("DOMContentLoaded", function() { setTimeout(checkSongLink, 0); });
+window.addEventListener("hashchange", checkSongLink);
 
 // ---------------------------------------------------------------------------
 // First sounds: the flute head joint, the clarinet mouthpiece and barrel,
@@ -3127,6 +3402,7 @@ function practiceHistoryState() {
 	var depth = isMoreActivity(activity) ? 3 : 2;
 	if (practice.mode === "song") return { practice: "song", song: practice.song.id, depth: depth + 1 };
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
+	if (practice.mode === "import") return { practice: "import", depth: depth + 1 };
 	if (practice.mode === "songs") return { practice: "songs", depth: depth };
 	return { practice: activity, depth: depth };
 }
@@ -3181,7 +3457,8 @@ window.addEventListener("popstate", function(event) {
 	else if (state.practice === "songs") showSongList();
 	else if (state.practice === "song" && findSong(state.song)) startSong(state.song);
 	else if (state.practice === "editor" && findSong(state.song)) openSongEditor(state.song);
-	else if (state.practice !== "song" && state.practice !== "editor") startPracticeActivity(state.practice);
+	else if (state.practice === "import" && pendingSongImport) showSongImport();
+	else if (state.practice !== "song" && state.practice !== "editor" && state.practice !== "import") startPracticeActivity(state.practice);
 	else showSongList();
 });
 
