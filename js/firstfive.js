@@ -258,15 +258,16 @@ function setPracticeMode(mode) {
 }
 
 // The activities, each with its best result for this instrument. Those
-// marked more sit on the menu's second page, behind the More button.
+// marked more (the B♭ scale and songs) sit on the menu's second page,
+// behind the More button.
 var PRACTICE_ACTIVITIES = [
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note" },
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "Name the notes on the staff" },
 	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" },
-	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "Hot Cross Buns, Jingle Bells and more", wide: true },
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", more: true },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", more: true },
+	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "Hot Cross Buns, Jingle Bells and more", more: true, wide: true },
 	{ id: "firstsounds", firstSounds: true }  // title, sub and icon from FIRST_SOUNDS
 ];
 
@@ -1272,7 +1273,7 @@ var SONG_BEATS = { w: 4, h: 2, q: 1 };
 // first five notes) plus duration (w, h, q). Ordered easiest first.
 var SONGS = [
 	{ id: "hotcrossbuns", title: "Hot Cross Buns",
-		measures: ["3q 2q 1h", "3q 2q 1h", "1q 1q 1q 1q", "2q 2q 2q 2q", "3q 2q 1h"] },
+		measures: ["3h 2h", "1w", "3h 2h", "1w", "1q 1q 1q 1q", "2q 2q 2q 2q", "3h 2h", "1w"] },
 	{ id: "auclair", title: "Au Clair de la Lune",
 		measures: ["1q 1q 1q 2q", "3h 2h", "1q 3q 2q 2q", "1w"] },
 	{ id: "mary", title: "Mary Had a Little Lamb",
