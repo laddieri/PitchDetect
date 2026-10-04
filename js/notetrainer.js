@@ -1614,10 +1614,14 @@ function playNote() {
 	});
 }
 
+var TONE_RELEASE = 0.08; // seconds; playTone()'s release for a given length
+
 // Play a concert-pitch frequency with the selected instrument's timbre,
 // replacing whatever is sounding. onStarted(timbre) runs once the sound is
-// scheduled (after any AudioContext resume).
-function playTone(freq, sustain, onStarted) {
+// scheduled (after any AudioContext resume). length (seconds, optional) gives
+// the note its own release so it has died away by then: notes played in
+// sequence (Hear the song) end smoothly instead of being cut off by the next.
+function playTone(freq, sustain, onStarted, length) {
 	if (!freq) return;
 
 	// Stop any currently playing note
@@ -1637,6 +1641,13 @@ function playTone(freq, sustain, onStarted) {
 	// Capture values now (before any async gap)
 	var instrument = document.getElementById("instrument").value;
 	var timbre = getTimbre(instrument);
+	if (length && !sustain && timbre.type === "wind") {
+		// Hold a wind note at least as long as asked; the master gain
+		// releases it below. (Struck tones keep their natural decay.)
+		timbre = Object.assign({}, timbre, {
+			duration: Math.max(timbre.duration, length + 0.3)
+		});
+	}
 
 	function startAudio() {
 		try {
@@ -1646,6 +1657,11 @@ function playTone(freq, sustain, onStarted) {
 			// Master gain for overall volume control
 			var masterGain = audioContext.createGain();
 			masterGain.gain.setValueAtTime(timbre.gain, t);
+			if (length && !sustain) {
+				var release = Math.min(TONE_RELEASE, length / 2);
+				masterGain.gain.setValueAtTime(timbre.gain, t + length - release);
+				masterGain.gain.linearRampToValueAtTime(0, t + length);
+			}
 			masterGain.connect(audioContext.destination);
 			activeAudioNodes.push(masterGain);
 
