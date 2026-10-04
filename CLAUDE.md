@@ -90,8 +90,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   and sound, but only unhelped notes score; `challengeStars()` turns the
   score into 0–3 trophy stars, best score per instrument in
   `pitchdetect-first-five-challenge`.
-- **B♭ scale** (two menu cards, last on the menu; desktop shows the menu in
-  three topic columns via CSS `order`, mobile in list order): **Learn the
+- **B♭ scale** (two cards on the menu's **More** page: activities marked
+  `more` in `PRACTICE_ACTIVITIES` show only after the `#practice-more`
+  arrow under the main cards → `showPracticeMenu("more")`;
+  `practice.menuPage` / `#practice-view[data-menu-page]`, and the back
+  arrow returns an activity to its page and More to the main menu): **Learn the
   B♭ scale** runs the same lessons over `SCALE_STEPS` (concert B♭ up the
   octave, 8 notes) — lesson sets live in `LESSON_SETS` /
   `practice.lessons`, `practice.lesson` picks one, `currentLesson()` gives

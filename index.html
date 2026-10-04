@@ -2265,17 +2265,19 @@
 			   belongs to the lessons */
 			.practice-view[data-mode="menu"] .practice-card,
 			.practice-view:not([data-mode="menu"]) .practice-menu,
+			.practice-view:not([data-mode="menu"]) .practice-more,
+			.practice-view[data-menu-page="more"] .practice-more,
 			.practice-view:not([data-mode="lesson"]) .practice-map {
 				display: none;
 			}
 
-			/* Menu: one big button per activity, in columns by topic: first
-			   five lesson + quiz, the two drills, the B♭ scale lesson + run */
+			/* Menu: one big button per activity. The main page has the first
+			   five notes activities; More leads to a page with the B♭ scale. */
 			.practice-menu {
 				flex: 1;
 				min-height: 0;
 				display: grid;
-				grid-template-columns: repeat(3, minmax(0, 1fr));
+				grid-template-columns: repeat(2, minmax(0, 1fr));
 				grid-auto-rows: minmax(0, 1fr);
 				gap: 14px;
 				max-height: 420px;
@@ -2344,22 +2346,45 @@
 				color: var(--text-muted);
 			}
 
-			.practice-choice[data-activity="learn"] { order: 1; }
-			.practice-choice[data-activity="names"] { order: 2; }
-			.practice-choice[data-activity="scale"] { order: 3; }
-			.practice-choice[data-activity="quiz"] { order: 4; }
-			.practice-choice[data-activity="fingerings"] { order: 5; }
-			.practice-choice[data-activity="scalerun"] { order: 6; }
-
 			/* An instrument-specific activity (first sounds) leads the menu
 			   as a full-width card */
-			.practice-menu[data-count="7"] {
+			.practice-menu[data-count="5"] {
 				max-height: 560px;
+			}
+
+			.practice-menu[data-count="2"] {
+				max-height: 230px;
 			}
 
 			.practice-choice.wide {
 				grid-column: 1 / -1;
-				order: 0;
+			}
+
+			/* The More arrow under the main menu */
+			.practice-more {
+				align-self: center;
+				flex-shrink: 0;
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				padding: 10px 16px 10px 24px;
+				border: 1px solid var(--border-strong);
+				border-radius: 999px;
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1.15rem;
+				font-weight: 700;
+				cursor: pointer;
+			}
+
+			.practice-more:hover {
+				border-color: var(--accent);
+			}
+
+			.practice-more:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
 			}
 
 			.practice-choice-score {
@@ -2914,6 +2939,7 @@
 			body.kid-mode .practice-card,
 			body.kid-mode .practice-map-note,
 			body.kid-mode .practice-close,
+			body.kid-mode .practice-more,
 			body.kid-mode .practice-instrument {
 				border: var(--cartoon-border);
 				box-shadow: 4px 4px 0 var(--ink);
@@ -3065,16 +3091,16 @@
 					gap: 6px;
 				}
 
-				/* Menu: full-width rows, icon left, in list order */
+				/* Menu: full-width rows, icon left */
 				.practice-menu,
-				.practice-menu[data-count="7"] {
+				.practice-menu[data-count="5"] {
 					grid-template-columns: minmax(0, 1fr);
-					max-height: 600px;
+					max-height: 520px;
 					gap: 10px;
 				}
 
-				.practice-menu .practice-choice {
-					order: 0;
+				.practice-menu[data-count="2"] {
+					max-height: 220px;
 				}
 
 				.first-sounds-drawing {
@@ -3352,6 +3378,7 @@
 					<span class="practice-header-spacer" aria-hidden="true"></span>
 				</div>
 				<div id="practice-menu" class="practice-menu"></div>
+				<button id="practice-more" class="practice-more" onclick="showPracticeMenu('more')">More<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></button>
 				<div id="practice-map" class="practice-map"></div>
 				<div class="practice-card">
 					<div id="practice-steps" class="practice-steps"></div>
