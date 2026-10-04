@@ -453,12 +453,113 @@ function closePractice() {
 	if (button && button.offsetParent !== null) button.focus();
 }
 
-// Open a lesson set ("first5" or "scale") on the first note that still has
-// stars to earn
+// Open a lesson set ("first5" or "scale"): an overview of its notes and
+// their names first, so the Read step never asks a name before it's taught
 function startLesson(id) {
 	practice.lesson = id;
-	var next = currentLesson().stars.findIndex(function(s) { return s < 3; });
-	startPracticeNote(next >= 0 ? next : 0);
+	showLessonOverview();
+}
+
+// Every note of the lesson on one staff, named, with Hear them and a button
+// into the first note that still has stars to earn
+function showLessonOverview() {
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	setPracticeMode("lesson");
+	practice.index = -1;
+	practice.step = -1;
+	document.getElementById("practice-view").setAttribute("data-step", "overview");
+	document.getElementById("practice-steps").innerHTML = "";
+	var notes = currentLesson().notes;
+	document.getElementById("practice-prompt").textContent = practice.lesson === "scale"
+		? "Meet the B\u266d scale!" : "Meet your first 5 notes!";
+	drawLessonOverview(-1);
+
+	var body = document.getElementById("practice-body");
+	body.innerHTML = "";
+	var text = document.createElement("div");
+	text.className = "practice-feedback-sub";
+	text.textContent = "Learn their names. Next, we\u2019ll practice them one at a time.";
+	body.appendChild(text);
+	var actions = document.createElement("div");
+	actions.className = "practice-actions";
+	var hear = practiceButton("\u25b6 Hear them", "secondary", function() {
+		if (songPlayTimer !== null) {
+			stopSongPlayback();
+			return;
+		}
+		hear.textContent = "\u25a0 Stop";
+		playSongEvents(notes.map(function(midi) { return { midi: midi, dur: "h" }; }), drawLessonOverview);
+	});
+	hear.id = "overview-hear";
+	actions.appendChild(hear);
+	actions.appendChild(practiceButton("Let\u2019s start \u2192", "primary", function() {
+		var next = currentLesson().stars.findIndex(function(s) { return s < 3; });
+		startPracticeNote(next >= 0 ? next : 0);
+	}));
+	body.appendChild(actions);
+}
+
+// The overview's staff: the lesson's notes with their names lined up
+// underneath, note hl (while Hear them plays) in the accent color
+function drawLessonOverview(hl) {
+	var out = document.getElementById("practice-staff-output");
+	out.innerHTML = "";
+	var VF = Vex.Flow;
+	var clef = getCurrentClef();
+	var notes = currentLesson().notes;
+	var styles = getComputedStyle(document.body);
+	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
+	var W = 50 + notes.length * 40, H = STAFF_VIEWBOX_HEIGHT;
+	var renderer = new VF.Renderer(out, VF.Renderer.Backends.SVG);
+	renderer.resize(W, H);
+	var context = renderer.getContext();
+	var stave = new VF.Stave(5, Math.round((H - 4 * LINE_SPACING) / 2), W - 10);
+	stave.addClef(clef);
+	stave.setContext(context).draw();
+	var tickables = [];
+	try {
+		tickables = notes.map(function(midi, i) {
+			var spelled = flatNoteSpellings[((midi % 12) + 12) % 12];
+			var note = new VF.StaveNote({ clef: clef, keys: [spelled.toLowerCase() + "/" + (Math.floor(midi / 12) - 1)], duration: "w" });
+			if (spelled.length > 1) note.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
+			if (i === hl) note.setStyle({ fillStyle: accent, strokeStyle: accent });
+			return note;
+		});
+		var voice = new VF.Voice({ num_beats: 4 * notes.length, beat_value: 4 }).setStrict(false);
+		voice.addTickables(tickables);
+		new VF.Formatter().joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 10);
+		voice.draw(context, stave);
+	} catch (e) {
+		console.log("Could not render the lesson overview:", e.message);
+		tickables = [];
+	}
+
+	var svg = out.querySelector("svg");
+	if (!svg) return;
+	// The names share one line below the staff and the lowest note
+	var top = stave.getYForLine(0) - 2 * LINE_SPACING;
+	var low = stave.getYForLine(4);
+	tickables.forEach(function(t) {
+		top = Math.min(top, t.getYs()[0] - 2 * LINE_SPACING);
+		low = Math.max(low, t.getYs()[0]);
+	});
+	var baseline = low + 28;
+	tickables.forEach(function(t, i) {
+		var text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+		text.setAttribute("x", t.getAbsoluteX() + t.getGlyphWidth() / 2);
+		text.setAttribute("y", baseline);
+		text.setAttribute("text-anchor", "middle");
+		text.setAttribute("class", "overview-name");
+		if (i === hl) text.setAttribute("fill", accent);
+		text.textContent = practiceNoteName(notes[i]);
+		svg.appendChild(text);
+	});
+	var bottom = baseline + 6;
+	svg.setAttribute("viewBox", "0 " + top + " " + W + " " + (bottom - top));
+	svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+	svg.style.width = "100%";
+	svg.style.height = "100%";
 }
 
 // Begin (or restart) the lesson for note i of the current set
@@ -1969,6 +2070,12 @@ function stopSongPlayback() {
 		var importHear = document.getElementById("import-hear");
 		if (importHear) importHear.textContent = "\u25b6 Hear it";
 		drawImportPreview(-1);
+		return;
+	}
+	if (practice && practice.mode === "lesson" && practice.step === -1) {
+		var overviewHear = document.getElementById("overview-hear");
+		if (overviewHear) overviewHear.textContent = "\u25b6 Hear them";
+		drawLessonOverview(-1);
 		return;
 	}
 	if (!practice || !practice.song || practice.mode !== "song") return;
