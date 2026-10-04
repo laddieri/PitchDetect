@@ -3254,7 +3254,7 @@ var FIRST_SOUNDS = {
 		setupTitle: "First sounds: just the head joint!",
 		tips: [
 			"Take the head joint off the flute.",
-			"Hold it with your left hand and rest the lip plate on your chin.",
+			"Hold it with your left hand and rest the lip plate against your bottom lip.",
 			"Cover about a quarter of the hole with your bottom lip.",
 			"Blow a gentle stream of air across the hole, like saying \u201ctoo.\u201d"
 		],
