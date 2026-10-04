@@ -58,7 +58,7 @@ It opens on a **menu** (`showPracticeMenu()`, `PRACTICE_ACTIVITIES`) of
 activities, each card showing its best result: **Learn the first 5 notes**
 (lessons), **First 5 note quiz** (the challenge round), **Practice note
 names** and **Practice fingerings** (drills; "slide positions" on trombone,
-"the keyboard" without charts), and **Play songs**. `#practice-view[data-mode]` (`setPracticeMode()`:
+"the keyboard" without charts). `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / firstsounds) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
 to the menu and the menu to the app; the menu also stops the mic. The lessons
@@ -104,8 +104,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   back down (`scaleRunSequence()`, 15 notes), best in
   `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
   10/8/5 thresholds. The quiz and drills stay on the first five notes.
-- **Songs** (`showSongList()` → `startSong(id)`, a wide card on the main
-  menu): `SONGS` holds tunes on the first five notes (Hot Cross Buns, Au
+- **Songs** (`showSongList()` → `startSong(id)`, a wide card on the
+  menu's **More** page, under the B♭ scale cards): `SONGS` holds tunes on the first five notes (Hot Cross Buns, Au
   Clair de la Lune, Mary Had a Little Lamb, Ode to Joy, Go Tell Aunt Rhody,
   Jingle Bells), each measure a string of scale degree + duration
   (`"3q 2q 1h"`; degrees 1–5 index `practice.notes`). `drawSongLine()`
@@ -123,7 +123,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   along and the mic ignoring it; `setPracticeMode()` and `closePractice()`
   stop it. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
-  from a song returns to the song list.
+  from a song returns to the song list, and from the list to More.
 - **Drills** (`startDrill("names" | "fingerings")`, no mic): the same
   10-note sequence, progress dots and result screen (`showRoundResult()`).
   Names shows the staff; fingerings hides it and shows only the chart
