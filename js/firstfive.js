@@ -71,6 +71,7 @@ var PRACTICE_PASS_CENTS = 30;      // "close enough" for a beginner
 var PRACTICE_TUNE_CENTS = 12;      // average offset for the in-tune star
 var PRACTICE_GAP_MS = 250;         // dropouts shorter than this keep the hold
 var PRACTICE_HINT_FRAMES = 4;      // frames a wrong note must last to be named
+var PRACTICE_GHOST_CLEAR_MS = 600; // silence before the wrong-note ghost goes
 
 var CHALLENGE_STORAGE_KEY = "pitchdetect-first-five-challenge";
 var CHALLENGE_LENGTH = 10;
@@ -751,6 +752,7 @@ function resetPracticeHold() {
 	practice.lastSound = 0;
 	practice.hintDiff = null;
 	practice.hintFrames = 0;
+	practice.ghost = null;
 	var fill = document.getElementById("practice-hold-fill");
 	if (fill) fill.style.width = "0%";
 }
@@ -803,12 +805,16 @@ function updatePracticeListen(now, freq, level) {
 			practice.lastGood = now;
 			practice.hintDiff = null;
 			practice.hintFrames = 0;
+			setPracticeGhost(null);
 			setPracticeFeedback(Math.abs(cents) <= PRACTICE_TUNE_CENTS ? "Just right! Hold it\u2026" : "That\u2019s it! Hold it\u2026",
 				Math.abs(cents) <= PRACTICE_TUNE_CENTS ? "\u00a0" : (cents < 0 ? "A tiny bit low" : "A tiny bit high"), "good");
 		} else {
 			practiceWrongNoteHint(diff, challenge);
 		}
-	} else if (now - practice.lastSound > 1500) {
+	} else if (now - practice.lastSound > PRACTICE_GHOST_CLEAR_MS) {
+		setPracticeGhost(null);
+	}
+	if (!freq && now - practice.lastSound > 1500) {
 		setPracticeFeedback(challenge ? "Hold it until the bar fills" : "Play " + name + " and hold it", "\u00a0");
 	}
 
@@ -843,6 +849,10 @@ function practiceWrongNoteHint(diff, hideTarget) {
 		practice.hintFrames = 1;
 	}
 	if (practice.hintFrames < PRACTICE_HINT_FRAMES) return;
+	// A wrong note shows faintly beside the target, so the student sees how
+	// far off it is (a slightly out-of-tune right note doesn't; squeaks
+	// beyond an octave would only clutter the staff)
+	setPracticeGhost(r !== 0 && Math.abs(r) <= 12 ? practice.target + r : null);
 	if (r === 0) {
 		setPracticeFeedback(cents < 0 ? "A little low" : "A little high",
 			cents < 0 ? "Push the pitch up a bit" : "Relax the pitch down a bit", "close");
@@ -1686,17 +1696,22 @@ function updateSongListen(now, freq, level) {
 			practice.lastGood = now;
 			practice.hintDiff = null;
 			practice.hintFrames = 0;
+			setPracticeGhost(null);
 			setPracticeFeedback("That’s it!", " ", "good");
 		} else if (practice.prevTarget !== null && Math.abs(written - practice.prevTarget) < 0.5) {
 			// Still sounding the note just passed: not a mistake, just not
 			// moved on yet (a nudge if it lingers)
 			practice.hintDiff = null;
 			practice.hintFrames = 0;
+			setPracticeGhost(null);
 			if (now - practice.noteShownAt > 1200) setPracticeFeedback("Next note!", "Play the glowing note", "close");
 		} else {
 			practiceWrongNoteHint(diff, true);
 		}
-	} else if (now - practice.lastSound > 1500) {
+	} else if (now - practice.lastSound > PRACTICE_GHOST_CLEAR_MS) {
+		setPracticeGhost(null);
+	}
+	if (!freq && now - practice.lastSound > 1500) {
 		setPracticeFeedback("Play the glowing note", " ");
 	}
 
@@ -1785,13 +1800,14 @@ function songLineOf(pos) {
 function drawSongLine(pos) {
 	var s = practice.song;
 	var hl = pos < s.notes.length ? s.notes[pos].event : s.events.length;
-	// An arrow over the note the mic is waiting for
-	drawSongEvent(hl, pos < s.notes.length ? hl : null);
+	// An arrow over the note the mic is waiting for, and beside it the
+	// wrong note being played, if any
+	drawSongEvent(hl, pos < s.notes.length ? hl : null, practice.ghost);
 }
 
 // Draw the line holding event hl (a note or rest; past the end = the last
 // line, all played), events before it green; arrow: an event to point at
-function drawSongEvent(hl, arrow) {
+function drawSongEvent(hl, arrow, ghost) {
 	var s = practice.song;
 	var styles = getComputedStyle(document.body);
 	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
@@ -1799,7 +1815,7 @@ function drawSongEvent(hl, arrow) {
 	var e = s.events[Math.min(hl, s.events.length - 1)];
 	renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
-		{ end: true, arrow: arrow === undefined ? null : arrow },
+		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null },
 		function(i) { return i === hl ? accent : i < hl ? done : null; });
 }
 
@@ -1838,7 +1854,8 @@ function measureBeats(time) {
 // no key signature and write every flat out; the student's own songs
 // follow their key and time signatures, with accidentals lasting the
 // measure as printed. opts.arrow: an event index to mark with an arrow
-// above it (the note the mic is listening for). Returns { svg, stave, xs (event index → x), measureX
+// above it (the note the mic is listening for); opts.ghost: a written MIDI
+// note to show faintly beside that one (the wrong note being played). Returns { svg, stave, xs (event index → x), measureX
 // (measure → [start, end] of its note area) }, in SVG units.
 function renderSongLine(out, song, events, line, measures, opts, color) {
 	out.innerHTML = "";
@@ -1931,6 +1948,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 				if (indexes[k] === opts.arrow) {
 					var box = t.getBoundingBox();
 					arrowAt = { x: result.xs[indexes[k]], top: Math.min(box ? box.getY() : Infinity, stave.getYForLine(0)), color: color(indexes[k]) };
+					if (opts.ghost) drawPracticeGhost(context, stave, clef, opts.ghost, t);
 				}
 			});
 		} catch (err) {
@@ -3574,7 +3592,7 @@ function playChime() {
 
 // Draw the note on a plain staff: no key signature, explicit flats, so a
 // beginner sees exactly what to play
-function drawPracticeStaff(writtenMidi, sharp) {
+function drawPracticeStaff(writtenMidi, sharp, ghost) {
 	var out = document.getElementById("practice-staff-output");
 	out.innerHTML = "";
 	var VF = Vex.Flow;
@@ -3596,6 +3614,7 @@ function drawPracticeStaff(writtenMidi, sharp) {
 		voice.addTickables([note]);
 		new VF.Formatter().joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 20);
 		voice.draw(context, stave);
+		if (ghost) drawPracticeGhost(context, stave, clef, ghost, note);
 	} catch (e) {
 		console.log("Could not render practice note:", spelled, octave, e.message);
 	}
@@ -3608,6 +3627,36 @@ function drawPracticeStaff(writtenMidi, sharp) {
 		svg.style.width = "100%";
 		svg.style.height = "100%";
 	}
+}
+
+// Show (or with null, clear) the wrong note being played beside the target,
+// redrawing the staff only when it changes
+function setPracticeGhost(midi) {
+	if (!practice || practice.ghost === midi || practice.step !== 3) return;
+	practice.ghost = midi;
+	if (practice.mode === "song") drawSongLine(practice.song.pos);
+	else if (practice.mode === "lesson" || practice.mode === "challenge") drawPracticeStaff(practice.target, false, midi);
+}
+
+// A faint whole note for the wrong note played, just right of the target (a
+// formatted StaveNote), so the two read side by side: here vs. there
+function drawPracticeGhost(context, stave, clef, midi, target) {
+	var VF = Vex.Flow;
+	var spelled = flatNoteSpellings[((midi % 12) + 12) % 12];
+	var g = new VF.StaveNote({ clef: clef, keys: [spelled.toLowerCase() + "/" + (Math.floor(midi / 12) - 1)], duration: "w" });
+	if (spelled.length > 1) g.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
+	var color = "rgba(100, 116, 139, 0.55)";
+	g.setStyle({ fillStyle: color, strokeStyle: color });
+	g.setLedgerLineStyle({ fillStyle: color, strokeStyle: color });
+	g.setStave(stave);
+	var tc = new VF.TickContext();
+	tc.addTickable(g).preFormat().setX(0);
+	// Clear of the target's head, and room for its own accidental
+	var want = target.getAbsoluteX() + target.getGlyphWidth() + 6 + (spelled.length > 1 ? 10 : 0);
+	tc.setX(want - g.getAbsoluteX());
+	context.openGroup("practice-ghost");
+	g.setContext(context).draw();
+	context.closeGroup();
 }
 
 document.addEventListener("keydown", function(event) {
