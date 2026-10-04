@@ -2171,6 +2171,119 @@ function songEndMeasure(song, events) {
 	return filled >= measureBeats(song.time) - 1e-6 ? last + 1 : last;
 }
 
+// Keeping measures honest: notes fill measures in order, so every measure
+// but the last must be exactly full and no note may cross a bar line. Each
+// edit is tried on a copy and kept only if it overflows no measure (songs
+// from before this rule, which may, can't get worse). Edits before the last
+// measure never move a bar line: there, time is only traded with rests.
+var EDITOR_LENGTHS = [  // longest first
+	{ d: "w", dot: 0 }, { d: "h", dot: 1 }, { d: "h", dot: 0 }, { d: "q", dot: 1 },
+	{ d: "q", dot: 0 }, { d: "8", dot: 1 }, { d: "8", dot: 0 }
+];
+
+function noteBeats(n) {
+	return SONG_BEATS[n.d] * (n.dot ? 1.5 : 1);
+}
+
+// Which notes run past their measure's bar line
+function overflowingNotes(notes, time) {
+	var cap = measureBeats(time);
+	var filled = 0;
+	return notes.map(function(n) {
+		if (filled >= cap - 1e-6) filled = 0;
+		var b = noteBeats(n);
+		var over = filled + b > cap + 1e-6;
+		filled += b;
+		return over;
+	});
+}
+
+function countTrue(list) {
+	return list.filter(Boolean).length;
+}
+
+// Whether notes (the song's, edited) are allowed; i: the note just changed
+function editorNotesFit(notes, time, i) {
+	var after = overflowingNotes(notes, time);
+	if (i !== undefined && after[i]) return false;
+	var song = practice.editor.song;
+	return countTrue(after) <= countTrue(overflowingNotes(song.notes, song.time));
+}
+
+// Beats left in the last measure (a whole measure once it's full)
+function editorRoomAtEnd() {
+	var song = practice.editor.song;
+	var cap = measureBeats(song.time);
+	var filled = 0;
+	song.notes.forEach(function(n) {
+		if (filled >= cap - 1e-6) filled = 0;
+		filled += noteBeats(n);
+	});
+	return filled >= cap - 1e-6 ? cap : cap - filled;
+}
+
+// Rests adding up to beats (longest first), or null if no rests can
+function restsFor(beats) {
+	var rests = [];
+	EDITOR_LENGTHS.forEach(function(l) {
+		while (beats >= noteBeats(l) - 1e-6) {
+			rests.push({ r: 1, d: l.d, dot: l.dot });
+			beats -= noteBeats(l);
+		}
+	});
+	return beats > 1e-6 ? null : rests;
+}
+
+// The length the next note at the end gets: the one chosen, or the longest
+// that still fits the measure
+function editorNextLength() {
+	var ed = practice.editor;
+	var room = editorRoomAtEnd();
+	var chosen = { d: ed.dur, dot: ed.dots ? 1 : 0 };
+	if (noteBeats(chosen) <= room + 1e-6) return chosen;
+	for (var k = 0; k < EDITOR_LENGTHS.length; k++) {
+		if (noteBeats(EDITOR_LENGTHS[k]) <= room + 1e-6) return EDITOR_LENGTHS[k];
+	}
+	return EDITOR_LENGTHS[EDITOR_LENGTHS.length - 1];
+}
+
+// Note i at a new length, or null if it won't fit. Shortening leaves a rest
+// in the time it gave up (so later measures don't shift), except in the
+// last measure; lengthening takes the time from rests right after it.
+function editorNotesWithLength(i, d, dot) {
+	var ed = practice.editor;
+	var notes = JSON.parse(JSON.stringify(ed.song.notes));
+	var events = customSongEvents(ed.song);
+	var measure = events[i].measure;
+	var old = noteBeats(notes[i]);
+	notes[i].d = d;
+	notes[i].dot = dot ? 1 : 0;
+	var diff = noteBeats(notes[i]) - old;
+	var lastMeasure = events[events.length - 1].measure;
+	if (diff < -1e-6 && measure !== lastMeasure) {
+		var fill = restsFor(-diff);
+		if (!fill) return null;
+		Array.prototype.splice.apply(notes, [i + 1, 0].concat(fill));
+	} else if (diff > 1e-6) {
+		// k walks the song as it was; the rests it uses come out at i + 1
+		for (var k = i + 1; diff > 1e-6 && k < events.length && events[k].measure === measure && ed.song.notes[k].r; k++) {
+			var b = noteBeats(ed.song.notes[k]);
+			if (b <= diff + 1e-6) {
+				notes.splice(i + 1, 1);
+				diff -= b;
+			} else {
+				var rest = restsFor(b - diff);
+				if (!rest) return null;
+				Array.prototype.splice.apply(notes, [i + 1, 1].concat(rest));
+				diff = 0;
+			}
+		}
+		// Only the last measure has room to grow into
+		if (diff > 1e-6 && measure !== lastMeasure) return null;
+	}
+	return editorNotesFit(notes, ed.song.time, i) ? notes : null;
+}
+
 // The diatonic step of the staff's top line (F5 treble, A3 bass) and the
 // range of steps the editor offers around the staff
 function editorTopStep() {
@@ -2261,6 +2374,12 @@ function openSongEditor(id) {
 	SONG_TIMES.forEach(function(t) { time.add(new Option(t, t)); });
 	time.value = song.time;
 	time.onchange = function() {
+		var counts = countTrue(overflowingNotes(song.notes, song.time));
+		if (countTrue(overflowingNotes(song.notes, time.value)) > counts) {
+			showToast("Your notes don\u2019t fit in " + time.value + ". Pick the time signature before adding notes.");
+			time.value = song.time;
+			return;
+		}
 		song.time = time.value;
 		editorChanged(true);
 	};
@@ -2472,10 +2591,22 @@ function drawEditor(playing) {
 
 	var selected = target >= 0 ? events[target] : null;
 	var isNote = !!selected;
+	// Lengths that won't fit the measure are disabled; at the end the next
+	// note's length is the longest that fits
+	var chosenNote = ed.sel < n ? song.notes[ed.sel] : null;
+	var shown = chosenNote ? { d: chosenNote.d, dot: chosenNote.dot ? 1 : 0 } : editorNextLength();
+	var room = editorRoomAtEnd();
+	function lengthFits(d, dot) {
+		return chosenNote ? !!editorNotesWithLength(ed.sel, d, dot) : noteBeats({ d: d, dot: dot }) <= room + 1e-6;
+	}
 	document.querySelectorAll("#editor-lengths [data-dur]").forEach(function(b) {
-		b.setAttribute("aria-pressed", b.getAttribute("data-dur") === ed.dur ? "true" : "false");
+		var d = b.getAttribute("data-dur");
+		b.setAttribute("aria-pressed", d === shown.d ? "true" : "false");
+		b.disabled = !isPlaying && !(d === shown.d || lengthFits(d, chosenNote ? shown.dot : 0));
 	});
-	document.getElementById("editor-dot").setAttribute("aria-pressed", ed.dots ? "true" : "false");
+	var dot = document.getElementById("editor-dot");
+	dot.setAttribute("aria-pressed", shown.dot ? "true" : "false");
+	dot.disabled = !isPlaying && !lengthFits(shown.d, shown.dot ? 0 : 1);
 	document.querySelectorAll("#editor-pitch .editor-accidental").forEach(function(b) {
 		b.disabled = !isNote;
 		b.setAttribute("aria-pressed", isNote && parseInt(b.getAttribute("data-alter"), 10) === selected.alter ? "true" : "false");
@@ -2546,7 +2677,13 @@ function insertEditorNote(note, atEnd) {
 	var ed = practice.editor;
 	var n = ed.song.notes.length;
 	var pos = atEnd || ed.sel >= n - 1 ? n : ed.sel + 1;
-	ed.song.notes.splice(pos, 0, note);
+	var notes = ed.song.notes.slice();
+	notes.splice(pos, 0, note);
+	if (!editorInLastMeasure(pos) || !editorNotesFit(notes, ed.song.time, pos)) {
+		showToast("That measure is full. Make a note shorter, or add it at the end.");
+		return;
+	}
+	ed.song.notes = notes;
 	ed.sel = pos === n ? n + 1 : pos;
 	ed.showEnd = false;
 	editorChanged(true);
@@ -2559,12 +2696,28 @@ function newEditorNote(s, pos) {
 	var ed = practice.editor;
 	s = clampEditorStep(s);
 	var measure = pos >= ed.events.length ? ed.endMeasure : pos > 0 ? ed.events[pos - 1].measure : 0;
-	return { s: s, a: editorAlterAt(pos, s, measure), d: ed.dur, dot: ed.dots ? 1 : 0 };
+	var length = editorInsertLength(pos);
+	return { s: s, a: editorAlterAt(pos, s, measure), d: length.d, dot: length.dot };
+}
+
+// Whether everything from note pos on is in the last measure, so adding or
+// removing a note there moves no bar line
+function editorInLastMeasure(pos) {
+	var events = customSongEvents(practice.editor.song);
+	return pos >= events.length || events[pos].measure === events[events.length - 1].measure;
+}
+
+// At the end a new note takes the longest length that fits the measure
+function editorInsertLength(pos) {
+	var ed = practice.editor;
+	return pos >= ed.song.notes.length ? editorNextLength() : { d: ed.dur, dot: ed.dots ? 1 : 0 };
 }
 
 function insertEditorRest() {
 	var ed = practice.editor;
-	insertEditorNote({ r: 1, d: ed.dur, dot: ed.dots ? 1 : 0 });
+	var n = ed.song.notes.length;
+	var length = editorInsertLength(ed.sel >= n - 1 ? n : ed.sel + 1);
+	insertEditorNote({ r: 1, d: length.d, dot: length.dot });
 }
 
 // Type a letter (desktop): the nearest such note to the one before
@@ -2583,28 +2736,37 @@ function insertEditorLetter(letter) {
 	insertEditorNote(newEditorNote(s, pos));
 }
 
-function setEditorDuration(d) {
+// A new length for the selected note (if it fits) or for the next note
+function setEditorLength(d, dot) {
 	var ed = practice.editor;
-	ed.dur = d;
-	var note = ed.song.notes[ed.sel];
-	if (note) {
-		note.d = d;
+	if (ed.sel < ed.song.notes.length) {
+		var notes = editorNotesWithLength(ed.sel, d, dot);
+		if (!notes) {
+			showToast("That\u2019s too long for this measure.");
+			return;
+		}
+		ed.song.notes = notes;
+		ed.dur = d;
+		ed.dots = dot ? 1 : 0;
 		editorChanged(true);
 	} else {
+		ed.dur = d;
+		ed.dots = dot ? 1 : 0;
 		drawEditor();
 	}
 }
 
+function setEditorDuration(d) {
+	var ed = practice.editor;
+	var note = ed.song.notes[ed.sel];
+	setEditorLength(d, note ? note.dot : ed.dots);
+}
+
 function toggleEditorDot() {
 	var ed = practice.editor;
-	ed.dots = ed.dots ? 0 : 1;
 	var note = ed.song.notes[ed.sel];
-	if (note) {
-		note.dot = ed.dots;
-		editorChanged(true);
-	} else {
-		drawEditor();
-	}
+	if (note) setEditorLength(note.d, !note.dot);
+	else setEditorLength(editorNextLength().d, !editorNextLength().dot);
 }
 
 function setEditorAccidental(alter) {
@@ -2638,8 +2800,20 @@ function deleteEditorNote() {
 		ed.song.notes.pop();
 		ed.sel = n - 1;
 	} else {
-		ed.song.notes.splice(ed.sel, 1);
-		selectEditorEvent(ed.sel > 0 ? ed.sel - 1 : 0);
+		var notes = ed.song.notes.slice();
+		notes.splice(ed.sel, 1);
+		if (editorInLastMeasure(ed.sel)) {
+			ed.song.notes = notes;
+			selectEditorEvent(ed.sel > 0 ? ed.sel - 1 : 0);
+		} else if (!ed.song.notes[ed.sel].r) {
+			// Taking it out would pull later notes across bar lines: a rest
+			// keeps its time (tap the rest to make it a note again)
+			var note = ed.song.notes[ed.sel];
+			ed.song.notes[ed.sel] = { r: 1, d: note.d, dot: note.dot ? 1 : 0 };
+		} else {
+			showToast("This rest keeps the measure full. Tap it to make it a note.");
+			return;
+		}
 	}
 	editorChanged(true);
 }
@@ -2714,7 +2888,11 @@ function editorStaffTap(event) {
 		insertEditorNote(newEditorNote(s, n), true);
 	} else if (nearest >= 0) {
 		var note = ed.song.notes[nearest];
-		if (nearest === editorTargetIndex() && nearestDist < 16 && note.s !== s) {
+		if (nearest === ed.sel && nearestDist < 16 && note.r) {
+			// The selected rest becomes a note where it was tapped
+			ed.song.notes[nearest] = { s: s, a: editorAlterAt(nearest, s, ed.events[nearest].measure), d: note.d, dot: note.dot ? 1 : 0 };
+			editorChanged(true);
+		} else if (nearest === editorTargetIndex() && nearestDist < 16 && note.s !== s) {
 			note.s = s;
 			note.a = editorAlterAt(nearest, s, ed.events[nearest].measure);
 			editorChanged(true);
