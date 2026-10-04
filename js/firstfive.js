@@ -25,6 +25,12 @@
  * with their own stars. Play the B♭ scale is a challenge round in order, up
  * the octave and back down (scaleRunSequence()), with Help like the quiz.
  *
+ * Play songs (SONGS) is a list of tunes made of the first five notes: Hot
+ * Cross Buns, Mary Had a Little Lamb, Jingle Bells and more. The staff shows
+ * one line (two measures) at a time with the note to play glowing; each note
+ * passes after SONG_HOLD_MS, and a repeated note must be tongued again.
+ * Hear the song plays the whole tune; Help works like the quiz's.
+ *
  * Flute, clarinet and alto sax also get a "first sounds" tutorial
  * (startFirstSounds(), configured by FIRST_SOUNDS): playing just the head
  * joint / mouthpiece and barrel / mouthpiece and neck before the first notes.
@@ -222,6 +228,7 @@ function loadPracticeInstrument() {
 		challengeBest: loadChallengeBest(select.value),
 		scaleRunBest: loadChallengeBest(select.value, SCALE_RUN_STORAGE_KEY),
 		drillBest: loadDrillBest(select.value),
+		songBest: loadSongBest(select.value),
 		firstSoundsBest: loadFirstSoundsBest(select.value),
 		index: 0,
 		step: -1
@@ -233,6 +240,7 @@ function loadPracticeInstrument() {
 // the note map only for lessons). Switching modes also ends any fireworks
 // still playing from the last result.
 function setPracticeMode(mode) {
+	stopSongPlayback();
 	practice.mode = mode;
 	if (fireworksAnimID) {
 		cancelAnimationFrame(fireworksAnimID);
@@ -244,7 +252,7 @@ function setPracticeMode(mode) {
 	}
 	document.getElementById("practice-view").setAttribute("data-mode", mode);
 	var back = document.getElementById("practice-close");
-	var label = mode === "menu" ? "Back to the app" : "Back to the practice menu";
+	var label = mode === "menu" ? "Back to the app" : mode === "song" ? "Back to the songs" : "Back to the practice menu";
 	back.setAttribute("aria-label", label);
 	back.title = label;
 }
@@ -256,6 +264,7 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "Name the notes on the staff" },
 	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" },
+	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "Hot Cross Buns, Jingle Bells and more", wide: true },
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", more: true },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", more: true },
 	{ id: "firstsounds", firstSounds: true }  // title, sub and icon from FIRST_SOUNDS
@@ -316,6 +325,9 @@ function showPracticeMenu(page) {
 			score = total + " / " + stars.length * 3 + " \u2605";
 		} else if (a.firstSounds) {
 			score = starText(practice.firstSoundsBest);
+		} else if (a.id === "songs") {
+			var songTotal = SONGS.reduce(function(t, song) { return t + songStars(song); }, 0);
+			score = songTotal + " / " + SONGS.length * 3 + " \u2605";
 		} else if (a.id === "scalerun") {
 			var run = practice.scaleRunBest;
 			score = typeof run === "number" ? starText(challengeStars(run, scaleRunSequence().length)) : "\u2606\u2606\u2606";
@@ -325,7 +337,7 @@ function showPracticeMenu(page) {
 		}
 
 		var b = document.createElement("button");
-		b.className = "practice-choice" + (a.firstSounds ? " wide" : "");
+		b.className = "practice-choice" + (a.firstSounds || a.wide ? " wide" : "");
 		b.setAttribute("data-activity", a.id);
 		b.innerHTML = '<span class="practice-choice-icon" aria-hidden="true"></span>' +
 			'<span class="practice-choice-text"><span class="practice-choice-title"></span>' +
@@ -355,6 +367,8 @@ function startPracticeActivity(id) {
 		startScaleRun();
 	} else if (id === "firstsounds") {
 		startFirstSounds();
+	} else if (id === "songs") {
+		showSongList();
 	} else {
 		startDrill(id);
 	}
@@ -363,7 +377,9 @@ function startPracticeActivity(id) {
 // The back arrow (and Escape): an activity returns to its menu page, the
 // More page to the main menu, and the main menu leaves practice
 function practiceBack() {
-	if (practice && practice.mode !== "menu") {
+	if (practice && practice.mode === "song") {
+		showSongList();
+	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
 	} else if (practice && practice.menuPage === "more") {
 		showPracticeMenu("main");
@@ -378,6 +394,7 @@ function currentPracticeActivity() {
 	if (practice.mode === "challenge") return practice.challenge.kind === "scale" ? "scalerun" : "quiz";
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
+	if (practice.mode === "songs" || practice.mode === "song") return "songs";
 	return "menu";
 }
 
@@ -389,6 +406,8 @@ function changePracticeInstrument(value) {
 	if (!value || value === select.value) return;
 	var activity = currentPracticeActivity();
 	var menuPage = practice.menuPage;
+	var songId = practice.mode === "song" ? practice.song.id : null;
+	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
 	select.value = value;
@@ -399,6 +418,8 @@ function changePracticeInstrument(value) {
 		showPracticeMenu(menuPage);
 	} else if (activity === "firstsounds" && !FIRST_SOUNDS[value]) {
 		showPracticeMenu("main");
+	} else if (songId) {
+		startSong(songId);
 	} else {
 		startPracticeActivity(activity);
 	}
@@ -407,6 +428,7 @@ function changePracticeInstrument(value) {
 function closePractice() {
 	if (!practiceOpen) return;
 	practiceOpen = false;
+	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
 	if (practiceStartedMic && listenActive) stopListening();
@@ -628,10 +650,15 @@ function setPracticeFeedback(main, sub, state) {
 }
 
 // Called from the mic loop every frame while practice is open. freq is the
-// confidently detected concert frequency, or null for silence/noise.
-function updatePracticeListen(now, freq) {
+// confidently detected concert frequency, or null for silence/noise; level is
+// the frame's RMS loudness (songs use it to hear a repeated note re-tongued).
+function updatePracticeListen(now, freq, level) {
 	if (practice && practice.mode === "firstsounds") {
 		updateFirstSoundsListen(now, freq);
+		return;
+	}
+	if (practice && practice.mode === "song") {
+		updateSongListen(now, freq, level || 0);
 		return;
 	}
 	if (!practice || practice.step !== 3) return;
@@ -664,28 +691,7 @@ function updatePracticeListen(now, freq) {
 			setPracticeFeedback(Math.abs(cents) <= PRACTICE_TUNE_CENTS ? "Just right! Hold it\u2026" : "That\u2019s it! Hold it\u2026",
 				Math.abs(cents) <= PRACTICE_TUNE_CENTS ? "\u00a0" : (cents < 0 ? "A tiny bit low" : "A tiny bit high"), "good");
 		} else {
-			// Name a wrong note only once it's steady, so attacks don't flash hints
-			var r = Math.round(diff);
-			if (r === practice.hintDiff) {
-				practice.hintFrames++;
-			} else {
-				practice.hintDiff = r;
-				practice.hintFrames = 1;
-			}
-			if (practice.hintFrames >= PRACTICE_HINT_FRAMES) {
-				if (r === 0) {
-					setPracticeFeedback(cents < 0 ? "A little low" : "A little high",
-						cents < 0 ? "Push the pitch up a bit" : "Relax the pitch down a bit", "close");
-				} else if (r % 12 === 0) {
-					var which = challenge ? "one" : name;
-					setPracticeFeedback("Right note, wrong octave",
-						r > 0 ? "That\u2019s a higher " + which + " \u2014 try the lower one" : "That\u2019s a lower " + which + " \u2014 try the higher one", "off");
-				} else {
-					var check = practice.instrument === "trombone" ? ". Check your slide."
-						: hasFingeringData(practice.instrument) ? ". Check your fingering." : ". Try again.";
-					setPracticeFeedback("Not quite!", "That sounded like " + practiceNoteName(practice.target + r) + check, "off");
-				}
-			}
+			practiceWrongNoteHint(diff, challenge);
 		}
 	} else if (now - practice.lastSound > 1500) {
 		setPracticeFeedback(challenge ? "Hold it until the bar fills" : "Play " + name + " and hold it", "\u00a0");
@@ -706,6 +712,33 @@ function updatePracticeListen(now, freq) {
 		} else {
 			finishPracticeNote(practice.centsTotal / practice.holdMs <= PRACTICE_TUNE_CENTS);
 		}
+	}
+}
+
+// Feedback for a note outside the pass zone (diff: semitones from the
+// target). A wrong note is named only once it's steady, so attacks don't
+// flash hints. hideTarget keeps the target's name out of the hint.
+function practiceWrongNoteHint(diff, hideTarget) {
+	var cents = diff * 100;
+	var r = Math.round(diff);
+	if (r === practice.hintDiff) {
+		practice.hintFrames++;
+	} else {
+		practice.hintDiff = r;
+		practice.hintFrames = 1;
+	}
+	if (practice.hintFrames < PRACTICE_HINT_FRAMES) return;
+	if (r === 0) {
+		setPracticeFeedback(cents < 0 ? "A little low" : "A little high",
+			cents < 0 ? "Push the pitch up a bit" : "Relax the pitch down a bit", "close");
+	} else if (r % 12 === 0) {
+		var which = hideTarget ? "one" : practiceNoteName(practice.target);
+		setPracticeFeedback("Right note, wrong octave",
+			r > 0 ? "That\u2019s a higher " + which + " \u2014 try the lower one" : "That\u2019s a lower " + which + " \u2014 try the higher one", "off");
+	} else {
+		var check = practice.instrument === "trombone" ? ". Check your slide."
+			: hasFingeringData(practice.instrument) ? ". Check your fingering." : ". Try again.";
+		setPracticeFeedback("Not quite!", "That sounded like " + practiceNoteName(practice.target + r) + check, "off");
 	}
 }
 
@@ -811,6 +844,10 @@ function renderPracticeSteps() {
 	}
 	if (practice.mode === "firstsounds") {
 		renderFirstSoundsSteps();
+		return;
+	}
+	if (practice.mode === "song") {
+		renderSongProgress();
 		return;
 	}
 	var labels = ["Read", practice.instrument === "trombone" ? "Slide"
@@ -986,9 +1023,10 @@ function finishScaleRun() {
 		startScaleRun, c.seq.length);
 }
 
-// End of a quiz, scale run or drill round: trophy, stars, score line, what's
-// next. total defaults to CHALLENGE_LENGTH.
-function showRoundResult(score, newBest, title, scoreText, again, total) {
+// End of a quiz, scale run, drill round or song: trophy, stars, score line,
+// what's next. total defaults to CHALLENGE_LENGTH; back (optional
+// { label, onclick }) replaces the Back to the menu button.
+function showRoundResult(score, newBest, title, scoreText, again, total, back) {
 	stopNote();
 	var stars = challengeStars(score, total);
 	practice.step = -1;
@@ -1015,7 +1053,8 @@ function showRoundResult(score, newBest, title, scoreText, again, total) {
 
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
-	actions.appendChild(practiceButton("Back to the menu", "secondary", showPracticeMenu));
+	actions.appendChild(back ? practiceButton(back.label, "secondary", back.onclick)
+		: practiceButton("Back to the menu", "secondary", showPracticeMenu));
 	actions.appendChild(practiceButton("Play again", "primary", again));
 	body.appendChild(actions);
 
@@ -1213,6 +1252,443 @@ function finishDrill() {
 		score === CHALLENGE_LENGTH ? "Perfect score!" : "Round complete!",
 		"You got " + score + " of " + CHALLENGE_LENGTH + " right on the first try",
 		function() { startDrill(kind); });
+}
+
+// ---------------------------------------------------------------------------
+// Songs: real tunes made of the first five notes, played note by note from
+// the staff. The rhythm is shown but not judged; a repeated note has to be
+// tongued again (a dip in loudness or a break) before it counts.
+// ---------------------------------------------------------------------------
+
+var SONGS_STORAGE_KEY = "pitchdetect-songs";
+var SONG_HOLD_MS = 300;            // short, so the tune keeps moving
+var SONG_TEMPO = 100;              // quarter notes per minute for Hear the song
+var SONG_RETONGUE_DIP = 0.75;      // loudness this far below the note = re-tongued
+var SONG_MEASURES_PER_LINE = 2;
+var SONG_MEASURE_WIDTH = 170;      // staff units per measure
+var SONG_BEATS = { w: 4, h: 2, q: 1 };
+
+// Each measure lists notes as scale degree (1–5: B♭ C D E♭ F concert, the
+// first five notes) plus duration (w, h, q). Ordered easiest first.
+var SONGS = [
+	{ id: "hotcrossbuns", title: "Hot Cross Buns",
+		measures: ["3q 2q 1h", "3q 2q 1h", "1q 1q 1q 1q", "2q 2q 2q 2q", "3q 2q 1h"] },
+	{ id: "auclair", title: "Au Clair de la Lune",
+		measures: ["1q 1q 1q 2q", "3h 2h", "1q 3q 2q 2q", "1w"] },
+	{ id: "mary", title: "Mary Had a Little Lamb",
+		measures: ["3q 2q 1q 2q", "3q 3q 3h", "2q 2q 2h", "3q 5q 5h",
+			"3q 2q 1q 2q", "3q 3q 3q 3q", "2q 2q 3q 2q", "1w"] },
+	{ id: "odetojoy", title: "Ode to Joy",
+		measures: ["3q 3q 4q 5q", "5q 4q 3q 2q", "1q 1q 2q 3q", "3q 2q 2h",
+			"3q 3q 4q 5q", "5q 4q 3q 2q", "1q 1q 2q 3q", "2q 1q 1h"] },
+	{ id: "auntrhody", title: "Go Tell Aunt Rhody",
+		measures: ["3h 3q 2q", "1h 1h", "2h 2q 4q", "3q 2q 1h",
+			"5h 5q 4q", "3h 3h", "2q 1q 2q 3q", "1w"] },
+	{ id: "jinglebells", title: "Jingle Bells",
+		measures: ["3q 3q 3h", "3q 3q 3h", "3q 5q 1q 2q", "3w",
+			"4q 4q 4q 4q", "4q 3q 3q 3q", "3q 2q 2q 3q", "2h 5h"] }
+];
+
+var songPlayTimer = null;  // Hear the song playback, see playSong()
+
+// A song's notes for this instrument: [{ midi, dur, measure }]
+function songNotes(song) {
+	var notes = [];
+	song.measures.forEach(function(m, measure) {
+		m.split(" ").forEach(function(token) {
+			notes.push({
+				midi: practice.notes[parseInt(token.charAt(0), 10) - 1],
+				dur: token.charAt(1),
+				measure: measure
+			});
+		});
+	});
+	return notes;
+}
+
+function findSong(id) {
+	return SONGS.filter(function(s) { return s.id === id; })[0];
+}
+
+// Best scores (notes played without help) per song for an instrument
+function loadSongBest(instrument) {
+	try {
+		var best = JSON.parse(localStorage.getItem(SONGS_STORAGE_KEY) || "{}")[instrument];
+		if (best && typeof best === "object") return best;
+	} catch (e) {}
+	return {};
+}
+
+function saveSongBest(instrument, best) {
+	try {
+		var all = JSON.parse(localStorage.getItem(SONGS_STORAGE_KEY) || "{}");
+		all[instrument] = best;
+		localStorage.setItem(SONGS_STORAGE_KEY, JSON.stringify(all));
+	} catch (e) {}
+}
+
+// Trophy stars earned on a song so far (0 if never finished)
+function songStars(song) {
+	var best = practice.songBest[song.id];
+	return typeof best === "number" ? challengeStars(best, songNotes(song).length) : 0;
+}
+
+// The song list: one button per song with its stars
+function showSongList() {
+	stopSongPlayback();
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	setPracticeMode("songs");
+	practice.step = -1;
+	document.getElementById("practice-view").setAttribute("data-step", "song-list");
+	document.getElementById("practice-steps").innerHTML = "";
+	document.getElementById("practice-prompt").textContent = "Pick a song!";
+	var body = document.getElementById("practice-body");
+	body.innerHTML = "";
+	var list = document.createElement("div");
+	list.className = "song-list";
+	SONGS.forEach(function(song) {
+		var stars = songStars(song);
+		var b = document.createElement("button");
+		b.className = "song-choice";
+		b.innerHTML = '<span class="song-choice-title"></span><span class="song-choice-stars" aria-hidden="true"></span>';
+		b.firstChild.textContent = song.title;
+		b.lastChild.textContent = starText(stars);
+		b.setAttribute("aria-label", song.title + ", " + stars + " of 3 stars");
+		b.onclick = function() { startSong(song.id); };
+		list.appendChild(b);
+	});
+	body.appendChild(list);
+	// Nothing here listens; the mic starts with the song
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
+}
+
+function startSong(id) {
+	stopSongPlayback();
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	var song = findSong(id);
+	setPracticeMode("song");
+	practice.index = -1;
+	practice.song = { id: id, song: song, notes: songNotes(song), pos: 0, results: [], streak: 0 };
+	document.getElementById("practice-view").setAttribute("data-step", "song");
+	document.getElementById("practice-prompt").textContent = song.title;
+
+	var body = document.getElementById("practice-body");
+	body.innerHTML =
+		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready…</div>' +
+		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>' +
+		'<div class="practice-hold" aria-hidden="true"><div class="practice-hold-fill" id="practice-hold-fill"></div></div>';
+	var actions = document.createElement("div");
+	actions.className = "practice-actions";
+	var hear = practiceButton("▶ Hear the song", "secondary", function() {
+		if (songPlayTimer !== null) stopSongPlayback(); else playSong();
+	});
+	hear.id = "song-hear";
+	var help = practiceButton("Help", "secondary", showSongHelp);
+	help.id = "song-help";
+	actions.appendChild(hear);
+	actions.appendChild(help);
+	body.appendChild(actions);
+
+	if (!listenActive) {
+		practiceStartedMic = true;
+		startListening();
+	}
+	showSongNote();
+}
+
+// Point the round at the current note: highlight it, reset the hold, and put
+// away any help from the last note
+function showSongNote() {
+	var s = practice.song;
+	var prev = s.pos > 0 ? s.notes[s.pos - 1].midi : null;
+	practice.target = s.notes[s.pos].midi;
+	practice.prevTarget = prev;
+	practice.noteShownAt = performance.now();
+	practice.step = 3;
+	s.helped = false;
+	resetPracticeHold();
+	// Played straight on from the same note, a repeat would pass by itself
+	practice.needRetongue = prev === practice.target;
+	practice.retonguePeak = practice.songLevel || 0;
+
+	var view = document.getElementById("practice-view");
+	view.setAttribute("data-step", "song");
+	var box = document.querySelector("#practice-body .practice-fingering");
+	if (box) box.remove();
+	var help = document.getElementById("song-help");
+	if (help) {
+		help.textContent = "Help";
+		help.onclick = showSongHelp;
+	}
+	document.getElementById("practice-prompt").textContent = s.song.title;
+	drawSongLine(s.pos);
+	renderSongProgress();
+	if (s.pos === 0) {
+		setPracticeFeedback("Play the glowing note", " ");
+	} else if (practice.needRetongue) {
+		setPracticeFeedback("Again!", "Tongue it: “too”", "good");
+	}
+}
+
+// Reveal the current note's name, fingering and sound. It no longer scores.
+function showSongHelp() {
+	var s = practice.song;
+	s.helped = true;
+	s.streak = 0;
+	renderSongProgress();
+	document.getElementById("practice-view").setAttribute("data-step", "challenge-help");
+	document.getElementById("practice-prompt").textContent = "This is " + practiceNoteName(practice.target) + ". Play it!";
+	var help = document.getElementById("song-help");
+	help.parentNode.parentNode.insertBefore(practiceFingeringBox(), help.parentNode);
+	help.textContent = "▶ Hear it";
+	help.onclick = function() {
+		stopSongPlayback();
+		playPracticeExample();
+	};
+	stopSongPlayback();
+	playPracticeExample();
+}
+
+// Mic frames during a song (see updatePracticeListen)
+function updateSongListen(now, freq, level) {
+	if (practice.step !== 3) return;
+	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
+	practice.lastFrame = now;
+	if (freq) practice.songLevel = practice.songLevel ? practice.songLevel * 0.7 + level * 0.3 : level;
+
+	if (now < (practice.ignoreUntil || 0)) {
+		setPracticeFeedback("Listen…", " ");
+		return;
+	}
+
+	// A repeated note counts once it's been tongued again: a break in the
+	// sound or a dip in loudness
+	if (practice.needRetongue) {
+		if (!freq || level < practice.retonguePeak * SONG_RETONGUE_DIP) {
+			practice.needRetongue = false;
+		} else {
+			practice.retonguePeak = Math.max(practice.retonguePeak, level);
+		}
+	}
+
+	var inZone = false;
+	if (freq) {
+		practice.lastSound = now;
+		var written = 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition();
+		var diff = written - practice.target;
+		var cents = diff * 100;
+		if (Math.abs(cents) <= PRACTICE_PASS_CENTS && practice.needRetongue) {
+			setPracticeFeedback("Again!", "Tongue it: “too”", "good");
+		} else if (Math.abs(cents) <= PRACTICE_PASS_CENTS) {
+			inZone = true;
+			practice.holdMs += dt;
+			practice.lastGood = now;
+			practice.hintDiff = null;
+			practice.hintFrames = 0;
+			setPracticeFeedback("That’s it!", " ", "good");
+		} else if (practice.prevTarget !== null && Math.abs(written - practice.prevTarget) < 0.5) {
+			// Still sounding the note just passed: not a mistake, just not
+			// moved on yet (a nudge if it lingers)
+			practice.hintDiff = null;
+			practice.hintFrames = 0;
+			if (now - practice.noteShownAt > 1200) setPracticeFeedback("Next note!", "Play the glowing note", "close");
+		} else {
+			practiceWrongNoteHint(diff, true);
+		}
+	} else if (now - practice.lastSound > 1500) {
+		setPracticeFeedback("Play the glowing note", " ");
+	}
+
+	if (!inZone && now - practice.lastGood > PRACTICE_GAP_MS && practice.holdMs > 0) {
+		practice.holdMs = 0;
+	}
+
+	var fill = document.getElementById("practice-hold-fill");
+	if (fill) fill.style.width = Math.min(100, practice.holdMs / SONG_HOLD_MS * 100) + "%";
+
+	if (practice.holdMs >= SONG_HOLD_MS) passSongNote();
+}
+
+function passSongNote() {
+	var s = practice.song;
+	s.results.push(!s.helped);
+	s.streak = s.helped ? 0 : s.streak + 1;
+	s.pos++;
+	if (s.pos < s.notes.length) {
+		showSongNote();
+		if (!practice.needRetongue) setPracticeFeedback("That’s it!", " ", "good");
+		return;
+	}
+	practice.step = 4;
+	drawSongLine(s.pos);
+	renderSongProgress();
+	practiceAdvanceTimer = setTimeout(finishSong, 700);
+}
+
+function finishSong() {
+	var s = practice.song;
+	var total = s.notes.length;
+	var score = s.results.filter(Boolean).length;
+	var prev = practice.songBest[s.id];
+	var newBest = typeof prev !== "number" || score > prev;
+	if (newBest) {
+		practice.songBest[s.id] = score;
+		saveSongBest(practice.instrument, practice.songBest);
+	}
+	showRoundResult(score, newBest,
+		"You played " + s.song.title + "!",
+		"You played " + score + " of " + total + " notes on your own",
+		function() { startSong(s.id); }, total,
+		{ label: "All songs", onclick: showSongList });
+	// The next song waits on the result, beside Play again
+	var i = SONGS.indexOf(s.song);
+	if (i + 1 < SONGS.length) {
+		var next = SONGS[i + 1];
+		var actions = document.querySelector("#practice-body .practice-actions");
+		actions.lastChild.className = "practice-btn secondary";
+		actions.appendChild(practiceButton("Next song →", "primary", function() { startSong(next.id); }));
+	}
+}
+
+// One dot per line of the song: green = played on your own, yellow = with
+// some help, ringed = the line being played
+function renderSongProgress() {
+	var s = practice.song;
+	var list = document.getElementById("practice-steps");
+	list.innerHTML = "";
+	var row = document.createElement("div");
+	row.className = "challenge-progress";
+	row.setAttribute("role", "img");
+	var lines = Math.ceil(s.song.measures.length / SONG_MEASURES_PER_LINE);
+	var current = s.pos < s.notes.length ? songLineOf(s.pos) : lines;
+	row.setAttribute("aria-label", "Line " + Math.min(current + 1, lines) + " of " + lines);
+	for (var line = 0; line < lines; line++) {
+		var dot = document.createElement("span");
+		var helped = s.results.some(function(own, i) { return !own && songLineOf(i) === line; });
+		dot.className = "challenge-dot" +
+			(line < current ? (helped ? " helped" : " own")
+				: line === current ? " current" + (helped || s.helped ? " helping" : "") : "");
+		row.appendChild(dot);
+	}
+	list.appendChild(row);
+}
+
+function songLineOf(pos) {
+	return Math.floor(practice.song.notes[pos].measure / SONG_MEASURES_PER_LINE);
+}
+
+// Draw the line of the song holding note pos (the last line once the song is
+// done): played notes green, note pos glowing in the accent color. No key
+// signature, so every flat is written out.
+function drawSongLine(pos) {
+	var s = practice.song;
+	var out = document.getElementById("practice-staff-output");
+	out.innerHTML = "";
+	var VF = Vex.Flow;
+	var clef = getCurrentClef();
+	var lastMeasure = s.song.measures.length - 1;
+	var line = s.notes[Math.min(pos, s.notes.length - 1)].measure;
+	line = Math.floor(line / SONG_MEASURES_PER_LINE);
+	var first = line * SONG_MEASURES_PER_LINE;
+	var count = Math.min(SONG_MEASURES_PER_LINE, lastMeasure - first + 1);
+
+	var styles = getComputedStyle(document.body);
+	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
+	var done = styles.getPropertyValue("--success").trim() || "#16a34a";
+
+	var H = STAFF_VIEWBOX_HEIGHT;
+	var y = Math.round((H - 4 * LINE_SPACING) / 2);
+	// Measure the clef's width once so every line uses the same scale
+	var probe = new VF.Stave(0, y, SONG_MEASURE_WIDTH);
+	probe.addClef(clef);
+	var clefW = probe.getNoteStartX() - probe.getX();
+	var W = clefW + SONG_MEASURES_PER_LINE * SONG_MEASURE_WIDTH + 10;
+	var renderer = new VF.Renderer(out, VF.Renderer.Backends.SVG);
+	renderer.resize(W, H);
+	var context = renderer.getContext();
+
+	var x = 5 + (SONG_MEASURES_PER_LINE - count) * SONG_MEASURE_WIDTH / 2;
+	var stave0 = null;
+	for (var m = first; m < first + count; m++) {
+		var stave = new VF.Stave(x, y, SONG_MEASURE_WIDTH + (m === first ? clefW : 0));
+		if (m === first) stave.addClef(clef);
+		if (m === lastMeasure) stave.setEndBarType(VF.Barline.type.END);
+		stave.setContext(context).draw();
+		if (!stave0) stave0 = stave;
+		x += stave.getWidth();
+
+		var tickables = [];
+		s.notes.forEach(function(n, i) {
+			if (n.measure !== m) return;
+			var spelled = flatNoteSpellings[((n.midi % 12) + 12) % 12];
+			var octave = Math.floor(n.midi / 12) - 1;
+			var note = new VF.StaveNote({ clef: clef, keys: [spelled.toLowerCase() + "/" + octave], duration: n.dur, auto_stem: true });
+			if (spelled.length > 1) note.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
+			var color = i === pos ? accent : i < pos ? done : null;
+			if (color) note.setStyle({ fillStyle: color, strokeStyle: color });
+			tickables.push(note);
+		});
+		try {
+			var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+			voice.addTickables(tickables);
+			// A low softmax spaces notes by their length, so a measure reads
+			// like printed music instead of bunching at its start
+			new VF.Formatter({ softmaxFactor: 2 }).joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 10);
+			voice.draw(context, stave);
+		} catch (e) {
+			console.log("Could not render song measure:", m, e.message);
+		}
+	}
+
+	var svg = out.querySelector("svg");
+	if (svg && stave0) {
+		var center = (stave0.getYForLine(0) + stave0.getYForLine(4)) / 2;
+		svg.setAttribute("viewBox", "0 " + (center - H / 2) + " " + W + " " + H);
+		svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+		svg.style.width = "100%";
+		svg.style.height = "100%";
+	}
+}
+
+// Hear the song: play the whole tune at SONG_TEMPO with the instrument's
+// sound, the staff following along. The mic ignores it while it plays.
+function playSong() {
+	var s = practice.song;
+	var beatMs = 60000 / SONG_TEMPO;
+	var i = 0;
+	var hear = document.getElementById("song-hear");
+	if (hear) hear.textContent = "■ Stop";
+	function next() {
+		if (i >= s.notes.length) {
+			stopSongPlayback();
+			return;
+		}
+		var n = s.notes[i];
+		var ms = SONG_BEATS[n.dur] * beatMs;
+		practice.ignoreUntil = performance.now() + ms + 600;
+		drawSongLine(i);
+		playTone(frequencyFromNoteNumber(n.midi - getTransposition()), false);
+		i++;
+		songPlayTimer = setTimeout(next, ms);
+	}
+	next();
+}
+
+// Stop Hear the song (if playing) and return the staff to the student's note
+function stopSongPlayback() {
+	if (songPlayTimer === null) return;
+	clearTimeout(songPlayTimer);
+	songPlayTimer = null;
+	stopNote();
+	if (!practice || !practice.song || practice.mode !== "song") return;
+	practice.ignoreUntil = performance.now() + 400;
+	resetPracticeHold();
+	var hear = document.getElementById("song-hear");
+	if (hear) hear.textContent = "▶ Hear the song";
+	drawSongLine(practice.song.pos);
 }
 
 // ---------------------------------------------------------------------------
