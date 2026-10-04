@@ -2508,6 +2508,15 @@
 				display: block;
 			}
 
+			/* The wrong note being played, faint beside the target */
+			.vf-practice-ghost {
+				animation: practice-ghost-in 0.25s ease-out;
+			}
+
+			@keyframes practice-ghost-in {
+				from { opacity: 0; }
+			}
+
 			/* The arrow over the song note the mic is listening for */
 			.song-arrow {
 				animation: song-arrow-bob 1s ease-in-out infinite;

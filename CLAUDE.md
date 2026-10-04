@@ -88,6 +88,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   note passes within `PRACTICE_PASS_CENTS` held for `PRACTICE_HOLD_MS`, with
   gaps under `PRACTICE_GAP_MS` forgiven. Wrong notes are named only after
   `PRACTICE_HINT_FRAMES` steady frames (octave errors get their own hint).
+  At the same moment the wrong note appears as a faint gray whole note just
+  right of the target (`setPracticeGhost()` → `drawPracticeGhost()`, in the
+  lesson Play step, quiz, scale run and songs; not for an out-of-tune right
+  note or anything over an octave off). It clears in tune, after
+  `PRACTICE_GHOST_CLEAR_MS` of silence, or on the next note.
 - `practice.ignoreUntil` mutes the check while the example tone sounds, so
   the app can't pass the student's turn for them.
 - Note names in the map stay hidden (numbers) until learned, so the map never
