@@ -156,6 +156,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   are tappable. Every change autosaves
   (`saveEditorSong()`; a song emptied of notes is removed, and changed notes
   clear its best score); Delete takes two taps. Back returns to the list.
+- **Whole song view** (`songWholeView`, persisted as `pitchdetect-song-whole`,
+  `#practice-view[data-whole]`): a toggle (`songViewButton()`, beside the
+  song's line dots, the editor's nav dots and on the import screen) stacks
+  every line in `#practice-staff-output`, which becomes the scroller.
+  `renderSongView()` wraps `renderSongLine()` for all three screens: one
+  `.song-line` div per line (shorter viewBox, `SONG_WHOLE_LINE_HEIGHT`,
+  ledger notes overhang), keeps the scroll position across redraws and
+  scrolls the current line into view only as far as needed (so it follows
+  along while playing). It returns layouts by line; the editor's tap handler
+  uses the tapped `.song-line`'s layout.
 - **Sharing songs** (no server): the editor's share button
   (`shareEditorSong()`) makes a link `#song=<payload>` — base64url JSON
   `{ v, t, i (instrument), k, m, n }`, notes as tokens like `q.Bb4` / `hr`

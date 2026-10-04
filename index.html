@@ -2709,6 +2709,43 @@
 				cursor: pointer;
 			}
 
+			/* The whole song: every line stacked in the staff's place, scrolling */
+			.practice-view[data-whole="1"][data-step="song"] .practice-staff,
+			.practice-view[data-whole="1"][data-step="song-editor"] .practice-staff,
+			.practice-view[data-whole="1"][data-step="song-import"] .practice-staff {
+				flex: 1 1 0;
+				height: auto;
+				min-height: 120px;
+			}
+
+			.practice-view[data-whole="1"] #practice-staff-output {
+				position: relative;
+				overflow-y: auto;
+				overscroll-behavior: contain;
+			}
+
+			.song-line {
+				width: 100%;
+			}
+
+			.song-line + .song-line {
+				margin-top: 6px;
+			}
+
+			.song-line svg {
+				overflow: visible;
+			}
+
+			.editor-tool.song-view-toggle {
+				width: 36px;
+				height: 36px;
+				flex-shrink: 0;
+			}
+
+			.practice-steps .song-view-toggle {
+				margin-left: 10px;
+			}
+
 			/* Up and down beside the staff (overlapping its end a little) */
 			.practice-view[data-step="song-editor"] .practice-staff {
 				position: relative;

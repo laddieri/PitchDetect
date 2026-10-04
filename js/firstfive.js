@@ -201,6 +201,7 @@ function openPractice() {
 	practiceStartedMic = false;
 	var view = document.getElementById("practice-view");
 	view.hidden = false;
+	view.setAttribute("data-whole", songWholeView ? "1" : "0");
 	document.querySelector(".container").inert = true;
 
 	loadPracticeInstrument();
@@ -1662,6 +1663,7 @@ function renderSongProgress() {
 	var lines = Math.ceil(s.measures / SONG_MEASURES_PER_LINE);
 	var current = s.pos < s.notes.length ? songLineOf(s.pos) : lines;
 	row.setAttribute("aria-label", "Line " + Math.min(current + 1, lines) + " of " + lines);
+	list.appendChild(songViewButton());
 	for (var line = 0; line < lines; line++) {
 		var dot = document.createElement("span");
 		var helped = s.results.some(function(own, i) { return !own && songLineOf(i) === line; });
@@ -1692,7 +1694,7 @@ function drawSongEvent(hl) {
 	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
 	var done = styles.getPropertyValue("--success").trim() || "#16a34a";
 	var e = s.events[Math.min(hl, s.events.length - 1)];
-	renderSongLine(document.getElementById("practice-staff-output"), s.song, s.events,
+	renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures, { end: true },
 		function(i) { return i === hl ? accent : i < hl ? done : null; });
 }
@@ -1744,7 +1746,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 	// The editor always draws whole lines, so there's room to add notes
 	var count = opts.left ? perLine : Math.max(1, Math.min(perLine, measures - first));
 
-	var H = STAFF_VIEWBOX_HEIGHT;
+	var H = opts.height || STAFF_VIEWBOX_HEIGHT;
 	var y = Math.round((H - 4 * LINE_SPACING) / 2);
 	// The widest line start (clef, key and time) sets the scale for all lines
 	function startWidth(withTime) {
@@ -1762,9 +1764,12 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 
 	var x = 5 + (opts.left ? 0 : (perLine - count) * SONG_MEASURE_WIDTH / 2);
 	var result = { svg: null, stave: null, xs: {}, measureX: {} };
+	// Lines without the time signature share out its room, so every line of
+	// a whole line's width ends at the same place
+	var slack = count === perLine ? (widest - startWidth(first === 0)) / count : 0;
 	for (var m = first; m < first + count; m++) {
 		var extra = m === first ? startWidth(m === 0) : 0;
-		var stave = new VF.Stave(x, y, SONG_MEASURE_WIDTH + extra);
+		var stave = new VF.Stave(x, y, SONG_MEASURE_WIDTH + extra + slack);
 		if (m === first) {
 			stave.addClef(clef);
 			if (key !== "C") stave.addKeySignature(key);
@@ -1832,7 +1837,86 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 		svg.style.height = "100%";
 	}
 	result.svg = svg;
+	result.width = W;
+	result.height = H;
 	return result;
+}
+
+// The whole song at once (every line stacked, scrolling) or one line at a
+// time, for songs, the editor and a friend's song; remembered per browser
+var SONG_WHOLE_STORAGE_KEY = "pitchdetect-song-whole";
+var SONG_WHOLE_LINE_HEIGHT = 100;  // tighter than a lone line; ledger notes may overhang
+var songWholeView = false;
+try { songWholeView = localStorage.getItem(SONG_WHOLE_STORAGE_KEY) === "1"; } catch (e) {}
+
+// Draw a song into out: line alone, or with the whole song showing, every
+// line stacked with line scrolled into view. Returns the layouts by line.
+function renderSongView(out, song, events, line, measures, opts, color) {
+	var layouts = {};
+	if (!songWholeView) {
+		layouts[line] = renderSongLine(out, song, events, line, measures, opts, color);
+		return layouts;
+	}
+	var scroll = out.scrollTop;
+	out.innerHTML = "";
+	var perLine = opts.perLine || SONG_MEASURES_PER_LINE;
+	var lineOpts = {};
+	Object.keys(opts).forEach(function(k) { lineOpts[k] = opts[k]; });
+	lineOpts.height = SONG_WHOLE_LINE_HEIGHT;
+	for (var l = 0; l < Math.ceil(measures / perLine); l++) {
+		var div = document.createElement("div");
+		div.className = "song-line" + (l === line ? " current" : "");
+		div.setAttribute("data-line", l);
+		out.appendChild(div);
+		var r = renderSongLine(div, song, events, l, measures, lineOpts, color);
+		div.style.aspectRatio = r.width + " / " + r.height;
+		layouts[l] = r;
+	}
+	out.scrollTop = scroll;
+	// Bring the current line into view (only as far as it takes)
+	var el = out.querySelector(".song-line.current");
+	if (el) {
+		var top = el.offsetTop, bottom = top + el.offsetHeight;
+		var to = top < out.scrollTop ? top - 6
+			: bottom > out.scrollTop + out.clientHeight ? bottom - out.clientHeight + 6 : null;
+		if (to !== null) {
+			var smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+			out.scrollTo({ top: to, behavior: smooth ? "smooth" : "auto" });
+		}
+	}
+	return layouts;
+}
+
+var WHOLE_SONG_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">' +
+	'<rect x="4" y="2.5" width="16" height="19" rx="2.5"/><path d="M8 7.5h8M8 11.5h8M8 15.5h8"/></svg>';
+
+// The button that switches between the whole song and one line
+function songViewButton() {
+	var b = document.createElement("button");
+	b.className = "editor-tool song-view-toggle";
+	b.innerHTML = WHOLE_SONG_SVG;
+	b.onclick = toggleSongView;
+	updateSongViewButton(b);
+	return b;
+}
+
+function updateSongViewButton(b) {
+	var label = songWholeView ? "Show one line at a time" : "Show the whole song";
+	b.setAttribute("aria-label", label);
+	b.title = label;
+	b.setAttribute("aria-pressed", songWholeView ? "true" : "false");
+}
+
+function toggleSongView() {
+	songWholeView = !songWholeView;
+	try { localStorage.setItem(SONG_WHOLE_STORAGE_KEY, songWholeView ? "1" : "0"); } catch (e) {}
+	document.getElementById("practice-view").setAttribute("data-whole", songWholeView ? "1" : "0");
+	document.querySelectorAll(".song-view-toggle").forEach(updateSongViewButton);
+	stopSongPlayback();
+	document.getElementById("practice-staff-output").scrollTop = 0;
+	if (practice.mode === "song") drawSongLine(practice.song.pos);
+	else if (practice.mode === "editor") drawEditor();
+	else if (practice.mode === "import") drawImportPreview(-1);
 }
 
 // Play a song's events (notes and rests) from the start at SONG_TEMPO with
@@ -2094,6 +2178,7 @@ function openSongEditor(id) {
 	document.querySelector("#practice-view .practice-staff").appendChild(arrows);
 	document.getElementById("editor-prev").onclick = function() { moveEditorSelection(-1); };
 	document.getElementById("editor-next").onclick = function() { moveEditorSelection(1); };
+	document.querySelector("#practice-body .editor-nav").appendChild(songViewButton());
 
 	var actions = document.createElement("div");
 	actions.className = "practice-actions editor-actions";
@@ -2186,11 +2271,13 @@ function drawEditor(playing) {
 
 	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
 	var out = document.getElementById("practice-staff-output");
-	ed.layout = renderSongLine(out, song, events, ed.line, ed.measures, { left: true, perLine: ed.perLine },
+	ed.layouts = renderSongView(out, song, events, ed.line, ed.measures, { left: true, perLine: ed.perLine },
 		function(i) { return i === focus || i === target ? accent : null; });
+	ed.layout = ed.layouts[ed.line];
 
-	// A blinking caret where the next note goes
-	var r = ed.layout;
+	// A blinking caret where the next note goes (with the whole song showing,
+	// on the end's own line)
+	var r = songWholeView ? ed.layouts[Math.floor(ed.endMeasure / ed.perLine)] : ed.layout;
 	if (!isPlaying && ed.sel === n && r.svg && (r.measureX[ed.endMeasure] || r.xs[n - 1] !== undefined)) {
 		var x;
 		if (r.measureX[ed.endMeasure]) {
@@ -2446,7 +2533,12 @@ function editorStaffTap(event) {
 		stopSongPlayback();
 		return;
 	}
+	// With the whole song showing, the line tapped
 	var r = ed.layout;
+	if (songWholeView) {
+		var lineEl = event.target.closest ? event.target.closest(".song-line") : null;
+		r = lineEl ? ed.layouts[lineEl.getAttribute("data-line")] : null;
+	}
 	if (!r || !r.svg || !r.stave) return;
 	var pt = r.svg.createSVGPoint();
 	pt.x = event.clientX;
@@ -2618,7 +2710,7 @@ function shareEditorSong() {
 	var url = location.origin + location.pathname + "#song=" + encodeSongShare(song, practice.instrument);
 	var title = song.title.trim() || "My song";
 	if (navigator.share) {
-		navigator.share({ title: title, text: "Play my song “" + title + "”!", url: url }).catch(function(e) {
+		navigator.share({ title: title, text: "Play my song \u201c" + title + "\u201d!", url: url }).catch(function(e) {
 			if (e && e.name !== "AbortError") copySongLink(url);
 		});
 	} else {
@@ -2628,13 +2720,13 @@ function shareEditorSong() {
 
 function copySongLink(url) {
 	if (!navigator.clipboard) {
-		showToast("Couldn’t copy the link on this browser.");
+		showToast("Couldn\u2019t copy the link on this browser.");
 		return;
 	}
 	navigator.clipboard.writeText(url).then(function() {
 		showToast("Link copied! Send it to a friend.");
 	}, function() {
-		showToast("Couldn’t copy the link. Try again.");
+		showToast("Couldn\u2019t copy the link. Try again.");
 	});
 }
 
@@ -2662,8 +2754,10 @@ function showSongImport() {
 	var events = customSongEvents(song);
 	practice.importSong = { song: song, events: events, measures: events[events.length - 1].measure + 1 };
 	document.getElementById("practice-view").setAttribute("data-step", "song-import");
-	document.getElementById("practice-steps").innerHTML = "";
-	document.getElementById("practice-prompt").textContent = "A friend shared “" + song.title + "”!";
+	var steps = document.getElementById("practice-steps");
+	steps.innerHTML = "";
+	steps.appendChild(songViewButton());
+	document.getElementById("practice-prompt").textContent = "A friend shared \u201c" + song.title + "\u201d!";
 
 	var body = document.getElementById("practice-body");
 	body.innerHTML = '<div class="practice-feedback-sub" id="import-note"></div>';
@@ -2676,11 +2770,11 @@ function showSongImport() {
 	}
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
-	var hear = practiceButton("▶ Hear it", "secondary", function() {
+	var hear = practiceButton("\u25b6 Hear it", "secondary", function() {
 		if (songPlayTimer !== null) {
 			stopSongPlayback();
 		} else {
-			hear.textContent = "■ Stop";
+			hear.textContent = "\u25a0 Stop";
 			playSongEvents(practice.importSong.events, drawImportPreview);
 		}
 	});
@@ -2697,12 +2791,13 @@ function showSongImport() {
 	drawImportPreview(-1);
 }
 
-// The import's staff: the first line, or the line of event hl as it plays
+// The import's staff: the first line (or the whole song), following event hl
+// as it plays
 function drawImportPreview(hl) {
 	var imp = practice.importSong;
 	var line = hl >= 0 ? Math.floor(imp.events[hl].measure / SONG_MEASURES_PER_LINE) : 0;
 	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
-	renderSongLine(document.getElementById("practice-staff-output"), imp.song, imp.events, line, imp.measures,
+	renderSongView(document.getElementById("practice-staff-output"), imp.song, imp.events, line, imp.measures,
 		{ end: true }, function(i) { return i === hl ? accent : null; });
 }
 
@@ -2719,7 +2814,7 @@ function addImportedSong() {
 		saveCustomSongs(practice.instrument, practice.customSongs);
 	}
 	showSongList();
-	showToast("“" + song.title + "” is in My songs!");
+	showToast("\u201c" + song.title + "\u201d is in My songs!");
 }
 
 // Open the import screen through the menu and song list, so back (and the
@@ -2745,7 +2840,7 @@ function checkSongLink() {
 	history.replaceState(history.state, "", location.pathname + location.search);
 	var shared = decodeSongShare(m[1]);
 	if (!shared) {
-		showToast("That song link didn’t work. Ask your friend to share it again.");
+		showToast("That song link didn\u2019t work. Ask your friend to share it again.");
 		return;
 	}
 	pendingSongImport = shared;
@@ -2756,7 +2851,7 @@ function checkSongLink() {
 		else select.value = "";
 	}
 	if (!select.value) {
-		showToast("Choose your instrument, then open Practice to get your friend’s song.");
+		showToast("Choose your instrument, then open Practice to get your friend\u2019s song.");
 		return;
 	}
 	openSongImport();
