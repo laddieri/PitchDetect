@@ -1673,7 +1673,10 @@ function playSong() {
 		var ms = SONG_BEATS[n.dur] * beatMs;
 		practice.ignoreUntil = performance.now() + ms + 600;
 		drawSongLine(i);
-		playTone(frequencyFromNoteNumber(n.midi - getTransposition()), false);
+		// End each note just before the next (a tongued gap, which also
+		// keeps repeated notes distinct) so nothing is cut off mid-sound.
+		playTone(frequencyFromNoteNumber(n.midi - getTransposition()), false,
+			null, Math.max(0.1, ms / 1000 - TONE_RELEASE));
 		i++;
 		songPlayTimer = setTimeout(next, ms);
 	}
