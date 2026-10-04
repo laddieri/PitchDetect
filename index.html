@@ -2630,6 +2630,220 @@
 				letter-spacing: 1px;
 			}
 
+			.song-choice-title {
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			/* My songs: each song beside its edit button, then Make a song.
+			   The list scrolls once it outgrows the card. */
+			.practice-view[data-step="song-list"] #practice-body {
+				flex: 0 1 auto;
+				overflow-y: auto;
+				padding: 4px;
+			}
+
+			.practice-view[data-step="song-list"] .song-list {
+				margin: auto 0;
+			}
+
+			.song-list-heading {
+				grid-column: 1 / -1;
+				margin-top: 6px;
+				color: var(--text-muted);
+				font-size: 0.85rem;
+				font-weight: 700;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+			}
+
+			.song-item {
+				display: flex;
+				gap: 8px;
+				min-width: 0;
+			}
+
+			.song-item .song-choice {
+				flex: 1;
+				min-width: 0;
+			}
+
+			.song-edit {
+				flex-shrink: 0;
+				width: 56px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--accent);
+				cursor: pointer;
+			}
+
+			.song-edit:hover {
+				border-color: var(--accent);
+			}
+
+			.song-edit:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.song-new {
+				justify-content: flex-start;
+				border-style: dashed;
+				color: var(--accent);
+			}
+
+			.song-new-plus {
+				font-size: 1.6rem;
+				line-height: 1;
+			}
+
+			/* Song editor: name and signatures, the staff to tap, the tools */
+			.practice-view[data-step="song-editor"] .practice-staff {
+				height: clamp(120px, 28vh, 240px);
+				cursor: pointer;
+			}
+
+			.editor-caret {
+				opacity: 0.55;
+				animation: editor-caret 1.1s steps(1) infinite;
+			}
+
+			@keyframes editor-caret {
+				50% { opacity: 0.1; }
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.editor-caret {
+					animation: none;
+				}
+			}
+
+			.editor-meta {
+				display: flex;
+				gap: 8px;
+				width: 100%;
+				max-width: 620px;
+				margin: 0 auto;
+			}
+
+			.editor-title,
+			.editor-select {
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+			}
+
+			.editor-title {
+				flex: 1;
+				min-width: 0;
+				padding: 8px 12px;
+				font-size: 1.1rem;
+				font-weight: 700;
+			}
+
+			.editor-select {
+				padding: 8px 10px;
+				font-size: 1rem;
+				font-weight: 600;
+				cursor: pointer;
+			}
+
+			.editor-title:focus,
+			.editor-select:focus-visible {
+				outline: none;
+				border-color: var(--accent);
+				box-shadow: var(--ring);
+			}
+
+			.editor-nav {
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 10px;
+			}
+
+			.editor-lines .challenge-dot {
+				padding: 0;
+				border: none;
+				cursor: pointer;
+			}
+
+			.editor-tools {
+				display: flex;
+				flex-wrap: wrap;
+				justify-content: center;
+				gap: 8px 18px;
+			}
+
+			.editor-group {
+				display: flex;
+				gap: 6px;
+			}
+
+			.editor-tool {
+				width: 46px;
+				height: 46px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				padding: 0;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1.5rem;
+				line-height: 1;
+				cursor: pointer;
+			}
+
+			.editor-tool:hover:not(:disabled) {
+				border-color: var(--accent);
+			}
+
+			.editor-tool[aria-pressed="true"] {
+				background: var(--accent);
+				border-color: var(--accent);
+				color: #fff;
+			}
+
+			.editor-tool:disabled {
+				opacity: 0.4;
+				cursor: default;
+			}
+
+			.editor-tool:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.editor-tool.editor-step {
+				width: 40px;
+				height: 40px;
+				border-color: transparent;
+				background: transparent;
+			}
+
+			.practice-btn:disabled {
+				opacity: 0.45;
+				cursor: default;
+			}
+
+			.practice-btn.danger,
+			.practice-btn.danger:hover {
+				background: var(--danger);
+				border-color: var(--danger);
+				color: #fff;
+			}
+
 			/* First sounds (head joint, mouthpiece) */
 			.practice-view[data-step="fs-setup"] .practice-staff,
 			.practice-view[data-step="fs-done"] .practice-staff {
@@ -3049,6 +3263,32 @@
 				box-shadow: 4px 4px 0 var(--ink);
 			}
 
+			body.kid-mode .song-new {
+				border-style: dashed;
+			}
+
+			body.kid-mode .song-edit,
+			body.kid-mode .editor-tool,
+			body.kid-mode .editor-title,
+			body.kid-mode .editor-select {
+				border: var(--cartoon-border);
+				box-shadow: 3px 3px 0 var(--ink);
+			}
+
+			body.kid-mode .editor-tool {
+				color: var(--ink);
+			}
+
+			body.kid-mode .editor-tool[aria-pressed="true"] {
+				background: var(--accent);
+				color: #fff;
+			}
+
+			body.kid-mode .editor-tool.editor-step {
+				border-color: transparent;
+				box-shadow: none;
+			}
+
 			body.kid-mode .challenge-dot {
 				border: 2px solid var(--ink);
 			}
@@ -3201,6 +3441,50 @@
 				.song-choice {
 					min-height: 50px;
 					font-size: 1.05rem;
+				}
+
+				.song-edit {
+					width: 50px;
+				}
+
+				.practice-view[data-step="song-editor"] .practice-staff {
+					height: clamp(100px, 22vh, 180px);
+				}
+
+				.editor-meta {
+					gap: 6px;
+				}
+
+				.editor-title {
+					padding: 6px 10px;
+					font-size: 1rem;
+				}
+
+				.editor-select {
+					padding: 6px 4px;
+					font-size: 0.9rem;
+				}
+
+				.editor-tools {
+					gap: 8px;
+				}
+
+				.editor-group {
+					gap: 5px;
+				}
+
+				.editor-tool {
+					width: 42px;
+					height: 42px;
+					font-size: 1.35rem;
+				}
+
+				.editor-actions {
+					gap: 8px;
+				}
+
+				.editor-actions .practice-btn {
+					padding: 10px 14px;
 				}
 
 				.first-sounds-drawing {

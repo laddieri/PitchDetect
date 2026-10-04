@@ -130,6 +130,27 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   stop it. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
   from a song returns to the song list, and from the list to More.
+  Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
+  dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
+  playable ones, each with its `event` index. `renderSongLine()` draws a
+  line for both song mode and the editor; built-in songs render exactly as
+  before (no key/time signature, every flat written out).
+- **My songs** (`openSongEditor(id)`, mode `editor`, under "My songs" in the
+  song list, with **Make a song** and a pencil per song): the student copies
+  a tune from their own printed part. Stored per instrument, in written pitch,
+  in `pitchdetect-my-songs` as `{ id, title, time, key, notes }`, a note being
+  `{ s: diatonic step (octave × 7 + letter), a: −1/0/1, d: w|h|q|8, dot }` or
+  a rest `{ r: 1, d, dot }`; `customSongEvents()` fills measures from the time
+  signature (`SONG_TIMES`; no ties or pickups). Key signatures (`SONG_KEYS`,
+  labeled by counting flats/sharps) and accidentals lasting the measure
+  follow print rules; changing the key moves notes that followed the old one.
+  Editing: tap past the last note to add one, tap a note to select it, tap
+  the selected note again to move it (`editorStaffTap()`); length, dot, rest,
+  ♭♮♯, ▲▼ (diatonic) and delete buttons; on desktop letters A–G, R, 1/2/4/8,
+  `.`, arrows and Backspace (`editorKeyDown()`). Phones get one measure per
+  line so lines and spaces are tappable. Every change autosaves
+  (`saveEditorSong()`; a song emptied of notes is removed, and changed notes
+  clear its best score); Delete takes two taps. Back returns to the list.
 - **Drills** (`startDrill("names" | "fingerings")`, no mic): the same
   10-note sequence, progress dots and result screen (`showRoundResult()`).
   Names shows the staff; fingerings hides it and shows only the chart
