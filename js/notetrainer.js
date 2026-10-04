@@ -400,7 +400,7 @@ function autoCorrelate(buf, sampleRate) {
 		rms += val * val;
 	}
 	rms = Math.sqrt(rms / SIZE);
-	if (rms < 0.01) return { frequency: -1, confidence: 0 };
+	if (rms < 0.01) return { frequency: -1, confidence: 0, rms: rms };
 
 	var maxLag = Math.floor(SIZE / 2);
 	var nsdf = new Float32Array(maxLag);
@@ -427,7 +427,7 @@ function autoCorrelate(buf, sampleRate) {
 		}
 	}
 	if (inPositiveRegion) peaks.push({ lag: peakLag, value: peakVal });
-	if (peaks.length === 0) return { frequency: -1, confidence: 0 };
+	if (peaks.length === 0) return { frequency: -1, confidence: 0, rms: rms };
 
 	var maxPeakValue = 0;
 	for (var i = 0; i < peaks.length; i++) {
@@ -438,7 +438,7 @@ function autoCorrelate(buf, sampleRate) {
 	for (var i = 0; i < peaks.length; i++) {
 		if (peaks[i].value >= threshold) { bestPeak = peaks[i]; break; }
 	}
-	if (!bestPeak || bestPeak.value < 0.5) return { frequency: -1, confidence: 0 };
+	if (!bestPeak || bestPeak.value < 0.5) return { frequency: -1, confidence: 0, rms: rms };
 
 	var T0 = bestPeak.lag;
 	var confidence = bestPeak.value;
@@ -448,7 +448,7 @@ function autoCorrelate(buf, sampleRate) {
 		var b = (x3 - x1) / 2;
 		if (a !== 0) T0 = T0 - b / (2 * a);
 	}
-	return { frequency: sampleRate / T0, confidence: confidence };
+	return { frequency: sampleRate / T0, confidence: confidence, rms: rms };
 }
 
 // Draw the staff with VexFlow
@@ -2073,7 +2073,7 @@ function updateListenPitch() {
 		// Practice may accept less certain pitches than the main display
 		// (breathy first sounds), so it gets its own confidence gate
 		var practicePitched = result.frequency > 0 && result.confidence > practiceConfidenceGate();
-		updatePracticeListen(now, practicePitched ? result.frequency : null);
+		updatePracticeListen(now, practicePitched ? result.frequency : null, result.rms);
 	} else if (kidMode) {
 		updateKidCelebration(now);
 	}
