@@ -1465,14 +1465,16 @@ var SONGS = [
 		measures: ["1q. 1q.", "1q 28 3q.", "3q 28 3q 48", "5h.",
 			"88 88 88 58 58 58", "38 38 38 18 18 18", "5q 48 3q 28", "1h."] }
 ];
-// The song list's sections, in order; each song names its level
+// The song list's levels, in order, each opening to its songs; each song
+// names its level
 var SONG_LEVELS = [
 	{ id: "beginner", title: "Beginner", sub: "First 5 notes" },
-	{ id: "intermediate", title: "Intermediate", sub: "Rests, dotted notes, more notes" },
-	{ id: "advanced", title: "Advanced", sub: "Eighth notes, the whole scale" }
+	{ id: "intermediate", title: "Intermediate", sub: "Rests, dots, more notes" },
+	{ id: "advanced", title: "Advanced", sub: "Eighth notes, whole scale" }
 ];
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
+var songLevelsOpen = {};   // song list levels shown open, by level id
 
 // Every note and rest of a song for this instrument, in order:
 // [{ midi (null for a rest), dur, dots, measure, letter, alter, octave }]
@@ -1595,26 +1597,45 @@ function showSongList() {
 		b.onclick = function() { playThroughSong(song.id); };
 		return b;
 	}
-	function heading(text, sub) {
-		var h = document.createElement("div");
-		h.className = "song-list-heading";
-		h.textContent = text;
-		if (sub) {
-			var span = document.createElement("span");
-			span.className = "song-list-sub";
-			span.textContent = sub;
-			h.appendChild(span);
-		}
-		list.appendChild(h);
-	}
+	// Each level is a button that shows or hides its songs in place; what's
+	// open stays open (and the level of the song just played opens)
+	if (practice.song && practice.song.song.level) songLevelsOpen[practice.song.song.level] = true;
 	SONG_LEVELS.forEach(function(level) {
-		heading(level.title, level.sub);
-		SONGS.forEach(function(song) {
-			if (song.level === level.id) list.appendChild(songButton(song));
-		});
+		var songs = SONGS.filter(function(song) { return song.level === level.id; });
+		var earned = songs.reduce(function(t, song) { return t + songStars(song); }, 0);
+		var toggle = document.createElement("button");
+		toggle.className = "song-choice song-level";
+		toggle.setAttribute("data-level", level.id);
+		toggle.innerHTML = '<span class="song-level-chevron" aria-hidden="true"></span>' +
+			'<span class="song-level-text"><span class="song-choice-title"></span><span class="song-level-sub"></span></span>' +
+			'<span class="song-choice-stars"></span>';
+		toggle.querySelector(".song-choice-title").textContent = level.title;
+		toggle.querySelector(".song-level-sub").textContent = level.sub;
+		toggle.querySelector(".song-choice-stars").textContent = "\u2605 " + earned + "/" + songs.length * 3;
+		toggle.querySelector(".song-choice-stars").setAttribute("aria-label", earned + " of " + songs.length * 3 + " stars");
+		var panel = document.createElement("div");
+		panel.className = "song-level-songs";
+		panel.id = "song-level-" + level.id;
+		songs.forEach(function(song) { panel.appendChild(songButton(song)); });
+		toggle.setAttribute("aria-controls", panel.id);
+		function show(open) {
+			panel.hidden = !open;
+			toggle.setAttribute("aria-expanded", open ? "true" : "false");
+		}
+		show(!!songLevelsOpen[level.id]);
+		toggle.onclick = function() {
+			songLevelsOpen[level.id] = !songLevelsOpen[level.id];
+			show(songLevelsOpen[level.id]);
+			if (songLevelsOpen[level.id]) panel.lastChild.scrollIntoView({ block: "nearest", behavior: "smooth" });
+		};
+		list.appendChild(toggle);
+		list.appendChild(panel);
 	});
 
-	heading("My songs");
+	var heading = document.createElement("div");
+	heading.className = "song-list-heading";
+	heading.textContent = "My songs";
+	list.appendChild(heading);
 	practice.customSongs.forEach(function(song) {
 		var item = document.createElement("div");
 		item.className = "song-item";

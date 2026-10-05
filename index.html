@@ -2587,8 +2587,9 @@
 				flex: 1 1 auto;
 			}
 
-			/* Steps other than Finger group their content mid-card */
-			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]) .practice-stage {
+			/* Steps other than Finger group their content mid-card (not the song
+			   list: its levels open in place, so it stays put at the top) */
+			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]):not([data-step="song-list"]) .practice-stage {
 				justify-content: center;
 			}
 
@@ -2729,7 +2730,7 @@
 			}
 
 			.practice-view[data-step="song-list"] .song-list {
-				margin: auto 0;
+				margin: 0 auto;
 			}
 
 			.song-list-heading {
@@ -2742,12 +2743,64 @@
 				text-transform: uppercase;
 			}
 
-			.song-list-sub {
-				margin-left: 8px;
+			/* Song levels: a button per level, its songs shown below it */
+			.song-level {
+				grid-column: 1 / -1;
+				justify-content: flex-start;
+				gap: 14px;
+			}
+
+			.song-level .song-choice-stars {
+				margin-left: auto;
+				font-size: 1rem;
+			}
+
+			.song-level-chevron {
+				flex-shrink: 0;
+				width: 10px;
+				height: 10px;
+				margin: 0 4px;
+				border-right: 3px solid currentColor;
+				border-bottom: 3px solid currentColor;
+				transform: rotate(-45deg);
+				transition: transform 0.2s;
+			}
+
+			.song-level[aria-expanded="true"] .song-level-chevron {
+				transform: rotate(45deg);
+			}
+
+			.song-level-text {
+				display: flex;
+				flex-direction: column;
+				min-width: 0;
+			}
+
+			.song-level-sub {
+				color: var(--text-muted);
+				font-size: 0.85rem;
 				font-weight: 600;
-				letter-spacing: normal;
-				text-transform: none;
-				opacity: 0.8;
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.song-level-songs {
+				grid-column: 1 / -1;
+				display: grid;
+				grid-template-columns: inherit;
+				gap: inherit;
+				padding: 0 0 6px 18px;
+			}
+
+			.song-level-songs[hidden] {
+				display: none;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.song-level-chevron {
+					transition: none;
+				}
 			}
 
 			.song-item {
@@ -3420,6 +3473,14 @@
 			body.kid-mode .song-choice {
 				border: var(--cartoon-border);
 				box-shadow: 4px 4px 0 var(--ink);
+			}
+
+			body.kid-mode .song-level[data-level="beginner"] { background: #c8f2b8; }
+			body.kid-mode .song-level[data-level="intermediate"] { background: #ffe58f; }
+			body.kid-mode .song-level[data-level="advanced"] { background: #ffc2d1; }
+
+			body.kid-mode .song-level .song-choice-stars {
+				color: var(--ink);
 			}
 
 			body.kid-mode .song-new {
