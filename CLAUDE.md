@@ -120,7 +120,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   back down (`scaleRunSequence()`, 15 notes), best in
   `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
   10/8/5 thresholds. The quiz and drills stay on the first five notes.
-- **Songs** (`showSongList()` → `startSong(id)`, a wide card on the
+- **Songs** (`showSongList()` → `playThroughSong(id)`, a wide card on the
   menu's **More** page, under the B♭ scale cards): `SONGS` holds tunes on the first five notes (Hot Cross Buns, Au
   Clair de la Lune, Mary Had a Little Lamb, Ode to Joy, Go Tell Aunt Rhody,
   Jingle Bells), each measure a string of scale degree + duration
@@ -130,7 +130,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   arrow above it, `opts.arrow` → `drawSongArrow()`; not during playback);
   `renderSongProgress()` shows one dot per line. `updateSongListen()` takes
   over the mic loop: a note passes after `SONG_HOLD_MS`; rhythm isn't
-  judged. A repeated note needs re-tonguing (`practice.needRetongue`): a
+  judged (no hold bar: it distracted). A repeated note needs re-tonguing (`practice.needRetongue`): a
   pitch dropout or a loudness dip below `SONG_RETONGUE_DIP` × the held
   level. For that the mic loop passes the frame's RMS (`autoCorrelate()`
   returns `rms`) as `updatePracticeListen()`'s third argument. Still
@@ -141,9 +141,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   stop it. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
   from a song returns to the song list, and from the list to More.
-  A perfect run (every note unhelped; `songMastered()`) unlocks **Play it
-  through** (`playThroughSong()`, on the result card and on that song's
-  screen afterwards): the whole song stacked as in whole song view
+  A song opens in **Play it through** (`playThroughSong()`; the song list,
+  the editor's Play it, Next song); note by note (`startSong()`) is the
+  practice path, behind **Note by note** and **Practice the red notes**, and
+  its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
   (`data-step="song-free"`, `practice.song.free`), no arrow and no waiting
   on each note. The mic follows along instead (`updateFollowListen()`, run
   from `updateSongListen()`): the sound is cut into notes (a new semitone,
@@ -154,7 +155,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   skip in a run of repeats marked on the last). Right notes turn green as
   they're played; `finishFollow()` (last note right, or
   `FOLLOW_END_SILENCE_MS` quiet) marks mistakes red with a score and stars
-  (not saved). **Practice the red notes** opens note-by-note at the start
+  (best notes right saved in `pitchdetect-songs`, shared with note by note;
+  a perfect run offers Next song). **Practice the red notes** opens note-by-note at the start
   of the first red note's line (`startSong(id, from)`: earlier notes count
   done, no best saved, the result offers Play it through again). Hear the
   song restarts the run; **Note by note** returns to `startSong()`.
