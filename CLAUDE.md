@@ -128,7 +128,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 - **Songs** (`showSongList()` → `playThroughSong(id)`, a wide card on the
   menu's **More** page, under the B♭ scale cards): `SONGS` holds public
   domain tunes, each with a `level` the song list groups them by
-  (`SONG_LEVELS`, a heading plus a short hint each): **Beginner** (first five
+  (`SONG_LEVELS`): each level is a colored button (hint, stars earned) that
+  opens its songs in place below it, closed by default; `songLevelsOpen`
+  keeps what's open for the session, and the level of the song just played
+  opens on the way back. The list sits at the top of the card (not centered)
+  so opening a level doesn't move the others. **Beginner** (first five
   notes, plain rhythms: Hot Cross Buns, Au Clair de la Lune, Mary Had a
   Little Lamb, Lightly Row, Ode to Joy, Go Tell Aunt Rhody, Jingle Bells),
   **Intermediate** (rests, dotted notes or notes past the fifth: Goin' Home,
