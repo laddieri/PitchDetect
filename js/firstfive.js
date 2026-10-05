@@ -85,6 +85,7 @@ var DRILL_STORAGE_KEY = "pitchdetect-first-five-drills-timed";
 var DRILL_SECONDS = 30;            // length of a drill round
 var DRILL_STAR_GOAL = 15;          // notes for 3 stars (12 for 2, 8 for 1)
 var DRILL_NEXT_MS = 500;           // pause on a right answer before the next
+var DRILL_BALLOON_GOAL = 10;       // right answers that fill and pop the balloon
 var SCALE_STORAGE_KEY = "pitchdetect-bb-scale";
 var SCALE_RUN_STORAGE_KEY = "pitchdetect-bb-scale-run";
 
@@ -1285,8 +1286,15 @@ function startDrillClock(c) {
 	renderDrillProgress();
 }
 
-// The clock bar draining from full, the seconds left and the score so far
-// (gold once it beats the best), in place of the step chips
+// A balloon beside the score, inflating with each right answer until it pops
+var DRILL_BALLOON_SVG = '<svg viewBox="0 0 40 58" aria-hidden="true">' +
+	'<path d="M20 47 Q17 52 21 55 T19 58" fill="none" stroke="#8a80a3" stroke-width="1.5"/>' +
+	'<ellipse cx="20" cy="22" rx="18" ry="21.5" fill="#ff4d6d"/>' +
+	'<ellipse cx="13" cy="13" rx="4" ry="7" fill="#fff" opacity="0.45" transform="rotate(-20 13 13)"/>' +
+	'<path d="M17 42.5 L23 42.5 L21.5 47 L18.5 47 Z" fill="#ff4d6d"/></svg>';
+
+// The clock bar draining from full, the seconds left, the balloon and the
+// score so far (gold once it beats the best), in place of the step chips
 function renderDrillProgress() {
 	var c = practice.challenge;
 	var list = document.getElementById("practice-steps");
@@ -1297,6 +1305,7 @@ function renderDrillProgress() {
 		row.className = "drill-progress";
 		row.innerHTML = '<span class="drill-time"></span>' +
 			'<span class="drill-clock"><span class="drill-clock-fill"></span></span>' +
+			'<span class="drill-balloon">' + DRILL_BALLOON_SVG + '</span>' +
 			'<span class="drill-score"></span>';
 		list.appendChild(row);
 	}
@@ -1312,6 +1321,61 @@ function renderDrillProgress() {
 	score.textContent = "\u2713 " + c.score;
 	score.setAttribute("aria-label", c.score + " right" + (typeof best === "number" ? ", best " + best : ""));
 	score.classList.toggle("beat", typeof best === "number" && c.score > best);
+	var balloon = row.querySelector(".drill-balloon");
+	balloon.style.setProperty("--fill", Math.min(c.score, DRILL_BALLOON_GOAL) / DRILL_BALLOON_GOAL);
+	balloon.classList.toggle("popped", !!c.popped);
+}
+
+// The balloon is full: it bursts into confetti, and the round goes on
+function popDrillBalloon() {
+	var c = practice.challenge;
+	c.popped = true;
+	renderDrillProgress();
+	playPop();
+	var balloon = document.querySelector("#practice-steps .drill-balloon");
+	if (balloon) launchConfetti(balloon);
+}
+
+// Confetti bursting out of an element and fluttering down across the
+// practice card (on the balloons' layer, so it's clipped and lets taps
+// through). Skipped when the student prefers reduced motion.
+function launchConfetti(from) {
+	if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+	var stage = document.getElementById("practice-stage");
+	if (!stage || !from.animate) return;
+	var layer = document.getElementById("balloon-layer");
+	if (!layer) {
+		layer = document.createElement("div");
+		layer.id = "balloon-layer";
+		layer.className = "balloon-layer";
+		layer.setAttribute("aria-hidden", "true");
+	}
+	if (layer.parentNode !== stage) stage.appendChild(layer);
+	var box = stage.getBoundingClientRect();
+	var r = from.getBoundingClientRect();
+	var x = r.left + r.width / 2 - box.left;
+	var y = r.top + r.height / 2 - box.top;
+	for (var i = 0; i < 60; i++) {
+		var piece = document.createElement("div");
+		piece.className = "confetti";
+		piece.style.left = x + "px";
+		piece.style.top = y + "px";
+		piece.style.background = BALLOON_COLORS[i % BALLOON_COLORS.length];
+		if (Math.random() < 0.3) piece.style.borderRadius = "50%";
+		var angle = Math.random() * Math.PI * 2;
+		var burst = 40 + Math.random() * 110;
+		var dx = Math.cos(angle) * burst;
+		var dy = Math.sin(angle) * burst * 0.7 - 30;
+		var fall = box.height * (0.5 + Math.random() * 0.5);
+		var spin = (Math.random() < 0.5 ? -1 : 1) * (360 + Math.random() * 540);
+		var anim = piece.animate([
+			{ transform: "translate(0, 0) rotate(0deg)", opacity: 1 },
+			{ transform: "translate(" + dx + "px, " + dy + "px) rotate(" + spin * 0.3 + "deg)", opacity: 1, offset: 0.2 },
+			{ transform: "translate(" + dx * 1.4 + "px, " + (dy + fall) + "px) rotate(" + spin + "deg)", opacity: 0 }
+		], { duration: 1600 + Math.random() * 900, easing: "cubic-bezier(.2,.6,.4,1)", fill: "forwards" });
+		layer.appendChild(piece);
+		anim.onfinish = (function(p) { return function() { p.remove(); }; })(piece);
+	}
 }
 
 // One key per practice note, equal when two notes share a fingering (trumpet
@@ -1447,6 +1511,10 @@ function answerDrill(button, midi) {
 	button.classList.add("right");
 	prompt.textContent = praiseWord() + " That\u2019s " + practiceNoteName(practice.target) + "." + streakText(c.streak);
 	renderPracticeSteps();
+	if (c.score === DRILL_BALLOON_GOAL && !c.popped) {
+		popDrillBalloon();
+		prompt.textContent = "Pop! " + DRILL_BALLOON_GOAL + " right! Keep going!";
+	}
 	// No balloons mid-round (they'd distract from the race); they come at the end
 	celebrateCorrect(button, true);
 	// Quick, so the clock is spent naming notes (it keeps running meanwhile)
@@ -4230,6 +4298,35 @@ function playChime() {
 		});
 	} catch (e) {
 		// No audio available; the balloons still celebrate
+	}
+}
+
+// A balloon pop: a short burst of filtered noise, then the chime
+function playPop() {
+	try {
+		if (!audioContext || audioContext.state === "closed") {
+			audioContext = new (window.AudioContext || window.webkitAudioContext)();
+		}
+		if (audioContext.state !== "running") audioContext.resume();
+		var t = audioContext.currentTime + 0.01;
+		var length = Math.floor(audioContext.sampleRate * 0.08);
+		var buffer = audioContext.createBuffer(1, length, audioContext.sampleRate);
+		var data = buffer.getChannelData(0);
+		for (var i = 0; i < length; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 4);
+		var noise = audioContext.createBufferSource();
+		noise.buffer = buffer;
+		var filter = audioContext.createBiquadFilter();
+		filter.type = "bandpass";
+		filter.frequency.value = 1800;
+		filter.Q.value = 0.8;
+		var gain = audioContext.createGain();
+		gain.gain.value = 0.6;
+		noise.connect(filter);
+		filter.connect(gain);
+		gain.connect(audioContext.destination);
+		noise.start(t);
+	} catch (e) {
+		// No audio available; the confetti still celebrates
 	}
 }
 

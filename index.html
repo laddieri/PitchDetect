@@ -2698,6 +2698,39 @@
 				color: #fff;
 			}
 
+			/* The balloon grows from its knot with each right answer (--fill
+			   0 to 1) and bursts at the goal; its slot stays reserved */
+			.drill-balloon {
+				width: 36px;
+				height: 52px;
+				flex-shrink: 0;
+				display: flex;
+				align-items: flex-end;
+				justify-content: center;
+			}
+
+			.drill-balloon svg {
+				display: block;
+				width: 100%;
+				height: auto;
+				transform-origin: 50% 80%;
+				transform: scale(calc(0.35 + 0.65 * var(--fill, 0)));
+				transition: transform 0.3s cubic-bezier(.3, 1.6, .5, 1), opacity 0.15s;
+			}
+
+			.drill-balloon.popped svg {
+				transform: scale(1.5);
+				opacity: 0;
+			}
+
+			.confetti {
+				position: absolute;
+				width: 8px;
+				height: 12px;
+				margin: -6px 0 0 -4px;
+				border-radius: 2px;
+			}
+
 			/* A lesson's overview: every note named on one staff, before
 			   the first question */
 			.practice-view[data-step="overview"] .practice-steps {
