@@ -248,7 +248,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`startDrillClock()`, `drillClockTimer`, cleared by `setPracticeMode()` /
   `closePractice()`) starts once the answers can be tapped;
   `renderDrillProgress()` replaces the dots with seconds left, a draining
-  bar and the score (gold once past the best). Names shows the staff;
+  bar, a balloon and the score (gold once past the best). The balloon
+  (`.drill-balloon`, `--fill`) inflates with each right answer and at
+  `DRILL_BALLOON_GOAL` (10) pops (`popDrillBalloon()`: `playPop()` and
+  `launchConfetti()`, skipped under reduced motion); the round carries on. Names shows the staff;
   fingerings hides it and shows only the chart (`practiceFingeringBox(true)`
   leaves the piano key unlabeled). Result via `showRoundResult()` with stars
   out of `DRILL_STAR_GOAL`; bests (notes per round) in
