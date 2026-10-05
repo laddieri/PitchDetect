@@ -181,19 +181,14 @@ function getWrittenKey() {
 	return fifthsToKey[String(writtenFifths)] || "C";
 }
 
-// Return the spelled note name for pitch class pc, using the key's accidental preference
+// Return the spelled note name for pitch class pc. Band music reads in
+// flats, so black keys are flats unless the key signature itself sharps
+// that note (alto sax's written F♯ in G, i.e. concert B♭)
 function spellNoteForKey(pc, writtenKey) {
-	return (flatKeyNames.indexOf(writtenKey) >= 0 ? flatNoteSpellings : sharpNoteSpellings)[pc];
+	var sharp = sharpNoteSpellings[pc];
+	if (sharp.length > 1 && (keySignatureNotes[writtenKey] || []).indexOf(sharp) >= 0) return sharp;
+	return flatNoteSpellings[pc];
 }
-
-// Enharmonic equivalents
-var enharmonicMap = {
-	"C#": "Db",
-	"D#": "Eb",
-	"F#": "Gb",
-	"G#": "Ab",
-	"A#": "Bb"
-};
 
 // Get current clef based on instrument
 function getCurrentClef() {
@@ -549,18 +544,6 @@ function drawStaff(noteName, octave, ghostNoteName, ghostNoteOctave, ghostModifi
 					note.addAccidental(0, new VF.Accidental("n"));
 					if (isGhost) note.setStyle({ fillStyle: "rgba(0, 128, 0, 0.4)", strokeStyle: "rgba(0, 128, 0, 0.4)" });
 					notes.push(note);
-				} else if (enharmonicMap[noteName] && !isGhost && !kidMode) {
-					// Enharmonic note not covered by key — show both spellings as half notes
-					var sharpSpelled = sharpNoteSpellings[pc];
-					var flatSpelled  = flatNoteSpellings[pc];
-
-					var sharpNote = new VF.StaveNote({ clef: clef, keys: [sharpSpelled.toLowerCase() + "/" + noteOctave], duration: "h" });
-					sharpNote.addAccidental(0, new VF.Accidental("#"));
-					notes.push(sharpNote);
-
-					var flatNote = new VF.StaveNote({ clef: clef, keys: [flatSpelled.toLowerCase() + "/" + noteOctave], duration: "h" });
-					flatNote.addAccidental(0, new VF.Accidental("b"));
-					notes.push(flatNote);
 				} else {
 					// Normal note — add explicit accidental only if note has one and is not in key
 					var note = new VF.StaveNote({ clef: clef, keys: [spelledName.toLowerCase() + "/" + noteOctave], duration: "w" });
@@ -730,18 +713,6 @@ function drawDetectedStaff(noteName, octave) {
 			var note = new VF.StaveNote({ clef: clef, keys: [firstLetter.toLowerCase() + "/" + octave], duration: "w" });
 			note.addAccidental(0, new VF.Accidental("n"));
 			notes.push(note);
-		} else if (enharmonicMap[noteName]) {
-			// Enharmonic note not covered by key — show both spellings
-			var sharpSpelled = sharpNoteSpellings[pc];
-			var flatSpelled  = flatNoteSpellings[pc];
-
-			var sharpNote = new VF.StaveNote({ clef: clef, keys: [sharpSpelled.toLowerCase() + "/" + octave], duration: "h" });
-			sharpNote.addAccidental(0, new VF.Accidental("#"));
-			notes.push(sharpNote);
-
-			var flatNote = new VF.StaveNote({ clef: clef, keys: [flatSpelled.toLowerCase() + "/" + octave], duration: "h" });
-			flatNote.addAccidental(0, new VF.Accidental("b"));
-			notes.push(flatNote);
 		} else {
 			// Normal note with explicit accidental if needed
 			var note = new VF.StaveNote({ clef: clef, keys: [spelledName.toLowerCase() + "/" + octave], duration: "w" });
@@ -1065,18 +1036,12 @@ function updatePianoDisplay(writtenMidi) {
 	drawPianoKeyboard(concertPc, keyDisplayName(concertNoteName));
 }
 
-// Build the big note label as HTML: note letters with real sharp/flat glyphs
-// and a smaller octave number, e.g. A4 or C(sharp)4 / D(flat)4 for enharmonics
+// Build the big note label as HTML: the note spelled for the written key
+// (flats, as band parts read) with a real ♭/♯ glyph and a smaller octave
+// number, e.g. A4 or B♭4
 function writtenNoteHTML(noteName, octave) {
-	if (kidMode) {
-		var spelled = spellNoteForKey(noteStrings.indexOf(noteName), getWrittenKey());
-		return keyDisplayName(spelled) + '<span class="note-octave">' + octave + '</span>';
-	}
-	var html = keyDisplayName(noteName) + '<span class="note-octave">' + octave + '</span>';
-	if (enharmonicMap[noteName]) {
-		html += ' / ' + keyDisplayName(enharmonicMap[noteName]) + '<span class="note-octave">' + octave + '</span>';
-	}
-	return html;
+	var spelled = spellNoteForKey(noteStrings.indexOf(noteName), getWrittenKey());
+	return keyDisplayName(spelled) + '<span class="note-octave">' + octave + '</span>';
 }
 
 // Update the two lines under the big note name. The first shows the sounding
@@ -1149,8 +1114,8 @@ function updateNoteDisplay() {
 	updateIdleState();
 }
 
-// Shrink the note-name text so longer labels (sharps/flats shown with their
-// enharmonic spelling, e.g. "C♯ / D♭") fit on a single line. Without this the
+// Shrink the note-name text so longer labels (e.g. "B♭5" in a narrow box)
+// fit on a single line. Without this the
 // text wraps and the note box grows taller, shifting the rest of the layout.
 // The CSS clamp() defines the maximum size; this only ever scales down from it,
 // and is re-run whenever the text or the box width changes.
