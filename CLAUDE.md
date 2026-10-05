@@ -127,11 +127,14 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   10/8/5 thresholds. The quiz and drills stay on the first five notes.
 - **Songs** (`showSongList()` → `playThroughSong(id)`, a wide card on the
   menu's **More** page, under the B♭ scale cards): `SONGS` holds public
-  domain tunes, listed under two headings: "First 5 notes" (Hot Cross Buns,
-  Au Clair de la Lune, Mary Had a Little Lamb, Lightly Row, Ode to Joy, Go
-  Tell Aunt Rhody, Goin' Home, When the Saints, Jingle Bells), then, from
-  `FIRST_SCALE_SONG`, "B♭ scale" (Twinkle, All My Little Ducklings, London
-  Bridge, Michael Row the Boat, Row Row Row Your Boat). Each measure is a
+  domain tunes, each with a `level` the song list groups them by
+  (`SONG_LEVELS`, a heading plus a short hint each): **Beginner** (first five
+  notes, plain rhythms: Hot Cross Buns, Au Clair de la Lune, Mary Had a
+  Little Lamb, Lightly Row, Ode to Joy, Go Tell Aunt Rhody, Jingle Bells),
+  **Intermediate** (rests, dotted notes or notes past the fifth: Goin' Home,
+  When the Saints, Twinkle, All My Little Ducklings), **Advanced** (eighth
+  notes on the whole scale: London Bridge, Michael Row the Boat, Row Row Row
+  Your Boat). Keep `SONGS` in level order (Next song follows it). Each measure is a
   string of scale degree + duration (`"3q 2q 1h"`, `"5q. 68"` dotted,
   `"rq"` a rest; degrees 1–8 index the B♭ scale, spelled up the letters from
   the first note so alto sax gets F♯); a song may set `time` (e.g. `"6/8"`),
