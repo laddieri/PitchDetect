@@ -126,10 +126,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
   10/8/5 thresholds. The quiz and drills stay on the first five notes.
 - **Songs** (`showSongList()` → `playThroughSong(id)`, a wide card on the
-  menu's **More** page, under the B♭ scale cards): `SONGS` holds tunes on the first five notes (Hot Cross Buns, Au
-  Clair de la Lune, Mary Had a Little Lamb, Ode to Joy, Go Tell Aunt Rhody,
-  Jingle Bells), each measure a string of scale degree + duration
-  (`"3q 2q 1h"`; degrees 1–5 index `practice.notes`). `drawSongLine()`
+  menu's **More** page, under the B♭ scale cards): `SONGS` holds public
+  domain tunes, listed under two headings: "First 5 notes" (Hot Cross Buns,
+  Au Clair de la Lune, Mary Had a Little Lamb, Lightly Row, Ode to Joy, Go
+  Tell Aunt Rhody, Goin' Home, When the Saints, Jingle Bells), then, from
+  `FIRST_SCALE_SONG`, "B♭ scale" (Twinkle, All My Little Ducklings, London
+  Bridge, Michael Row the Boat, Row Row Row Your Boat). Each measure is a
+  string of scale degree + duration (`"3q 2q 1h"`, `"5q. 68"` dotted,
+  `"rq"` a rest; degrees 1–8 index the B♭ scale, spelled up the letters from
+  the first note so alto sax gets F♯); a song may set `time` (e.g. `"6/8"`),
+  which is then shown. `drawSongLine()`
   draws one line of `SONG_MEASURES_PER_LINE` measures with real rhythms
   (played notes green, the current one in the accent color with a bobbing
   arrow above it, `opts.arrow` → `drawSongArrow()`; not during playback);

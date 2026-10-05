@@ -25,8 +25,9 @@
  * with their own stars. Play the B♭ scale is a challenge round in order, up
  * the octave and back down (scaleRunSequence()), with Help like the quiz.
  *
- * Play songs (SONGS) is a list of tunes made of the first five notes: Hot
- * Cross Buns, Mary Had a Little Lamb, Jingle Bells and more. The staff shows
+ * Play songs (SONGS) is a list of tunes made of the first five notes (Hot
+ * Cross Buns, Mary Had a Little Lamb, Jingle Bells and more), then tunes on
+ * the whole B♭ scale (Twinkle, Twinkle, London Bridge...). The staff shows
  * one line (two measures) at a time with the note to play glowing; each note
  * passes after SONG_HOLD_MS, and a repeated note must be tongued again.
  * Hear the song plays the whole tune; Help works like the quiz's. My songs:
@@ -1410,8 +1411,12 @@ var SONG_MEASURE_WIDTH = 170;      // staff units per measure
 var SONG_BEATS = { w: 4, h: 2, q: 1, "8": 0.5 };  // in quarter notes
 var MY_SONGS_STORAGE_KEY = "pitchdetect-my-songs";
 
-// Each measure lists notes as scale degree (1–5: B♭ C D E♭ F concert, the
-// first five notes) plus duration (w, h, q). Ordered easiest first.
+// Each measure lists notes as scale degree plus duration (w, h, q, 8), with
+// a trailing "." for a dotted note; "r" in place of the degree is a rest.
+// Degrees 1–5 are the first five notes (B♭ C D E♭ F concert), 6–8 the rest
+// of the B♭ scale (G A B♭). An optional time signature is shown (default
+// 4/4, not shown). Songs on the first five notes come first, easiest first;
+// songs that need the whole scale follow under their own heading.
 var SONGS = [
 	{ id: "hotcrossbuns", title: "Hot Cross Buns",
 		measures: ["3h 2h", "1w", "3h 2h", "1w", "1q 1q 1q 1q", "2q 2q 2q 2q", "3h 2h", "1w"] },
@@ -1420,16 +1425,48 @@ var SONGS = [
 	{ id: "mary", title: "Mary Had a Little Lamb",
 		measures: ["3q 2q 1q 2q", "3q 3q 3h", "2q 2q 2h", "3q 5q 5h",
 			"3q 2q 1q 2q", "3q 3q 3q 3q", "2q 2q 3q 2q", "1w"] },
+	{ id: "lightlyrow", title: "Lightly Row",
+		measures: ["5q 3q 3h", "4q 2q 2h", "1q 2q 3q 4q", "5q 5q 5h",
+			"5q 3q 3h", "4q 2q 2h", "1q 3q 5q 5q", "1w",
+			"2q 2q 2q 2q", "2q 3q 4h", "3q 3q 3q 3q", "3q 4q 5h",
+			"5q 3q 3h", "4q 2q 2h", "1q 3q 5q 5q", "1w"] },
 	{ id: "odetojoy", title: "Ode to Joy",
 		measures: ["3q 3q 4q 5q", "5q 4q 3q 2q", "1q 1q 2q 3q", "3q 2q 2h",
 			"3q 3q 4q 5q", "5q 4q 3q 2q", "1q 1q 2q 3q", "2q 1q 1h"] },
 	{ id: "auntrhody", title: "Go Tell Aunt Rhody",
 		measures: ["3h 3q 2q", "1h 1h", "2h 2q 4q", "3q 2q 1h",
 			"5h 5q 4q", "3h 3h", "2q 1q 2q 3q", "1w"] },
+	{ id: "goinghome", title: "Goin\u2019 Home",  // Dvořák, the Largo of the New World Symphony
+		measures: ["3q. 58 5h", "3q. 28 1h", "2q 3q 5q 3q", "2w",
+			"3q. 58 5h", "3q. 28 1h", "2q 3q 2q. 18", "1w"] },
+	{ id: "saints", title: "When the Saints",
+		measures: ["rq 1q 3q 4q", "5w", "rq 1q 3q 4q", "5w",
+			"rq 1q 3q 4q", "5h 3h", "1h 3h", "2w",
+			"rq 3q 3q 2q", "1h. 1q", "3h 5h", "4w",
+			"rq 1q 3q 4q", "5h 3h", "1h 2h", "1w"] },
 	{ id: "jinglebells", title: "Jingle Bells",
 		measures: ["3q 3q 3h", "3q 3q 3h", "3q 5q 1q 2q", "3w",
-			"4q 4q 4q 4q", "4q 3q 3q 3q", "3q 2q 2q 3q", "2h 5h"] }
+			"4q 4q 4q 4q", "4q 3q 3q 3q", "3q 2q 2q 3q", "2h 5h"] },
+	// The whole B♭ scale
+	{ id: "twinkle", title: "Twinkle, Twinkle",
+		measures: ["1q 1q 5q 5q", "6q 6q 5h", "4q 4q 3q 3q", "2q 2q 1h",
+			"5q 5q 4q 4q", "3q 3q 2h", "5q 5q 4q 4q", "3q 3q 2h",
+			"1q 1q 5q 5q", "6q 6q 5h", "4q 4q 3q 3q", "2q 2q 1h"] },
+	{ id: "ducklings", title: "All My Little Ducklings",
+		measures: ["1q 2q 3q 4q", "5h 5h", "6q 6q 6q 6q", "5w",
+			"6q 6q 6q 6q", "5w", "4q 4q 4q 4q", "3h 3h", "2q 2q 2q 2q", "1w"] },
+	{ id: "londonbridge", title: "London Bridge",
+		measures: ["5q. 68 5q 4q", "3q 4q 5h", "2q 3q 4h", "3q 4q 5h",
+			"5q. 68 5q 4q", "3q 4q 5h", "2h 5h", "3q 1h."] },
+	{ id: "michaelrow", title: "Michael, Row the Boat",
+		measures: ["1q 3q 5q. 38", "5q 6q 5h", "3q 5q 6h", "5w",
+			"3q 5q 5q. 38", "4q 3q 2h", "1q 2q 3q. 28", "1w"] },
+	{ id: "rowyourboat", title: "Row, Row, Row Your Boat", time: "6/8",
+		measures: ["1q. 1q.", "1q 28 3q.", "3q 28 3q 48", "5h.",
+			"88 88 88 58 58 58", "38 38 38 18 18 18", "5q 48 3q 28", "1h."] }
 ];
+// Songs from here on use the whole B♭ scale (see showSongList())
+var FIRST_SCALE_SONG = "twinkle";
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
 
@@ -1438,19 +1475,24 @@ var songPlayTimer = null;  // Hear the song playback, see playSong()
 function songEvents(song) {
 	if (song.custom) return customSongEvents(song);
 	var events = [];
+	// Scale degrees are spelled up the letters from the first note's, so a
+	// written scale with a sharp (alto sax: G A B C D E F♯) reads right
+	var scale = practiceNotes(SCALE_STEPS);
+	var first = flatNoteSpellings[((scale[0] % 12) + 12) % 12];
+	var firstLetter = "CDEFGAB".indexOf(first.charAt(0));
+	var firstOctave = Math.floor((scale[0] - (first.length > 1 ? -1 : 0)) / 12) - 1;
 	song.measures.forEach(function(m, measure) {
 		m.split(" ").forEach(function(token) {
-			var midi = practice.notes[parseInt(token.charAt(0), 10) - 1];
-			var spelled = flatNoteSpellings[((midi % 12) + 12) % 12];
-			events.push({
-				midi: midi,
-				dur: token.charAt(1),
-				dots: 0,
-				measure: measure,
-				letter: "CDEFGAB".indexOf(spelled.charAt(0)),
-				alter: spelled.length > 1 ? -1 : 0,
-				octave: Math.floor(midi / 12) - 1
-			});
+			var e = { midi: null, dur: token.charAt(1), dots: token.charAt(2) === "." ? 1 : 0, measure: measure };
+			if (token.charAt(0) !== "r") {
+				var step = parseInt(token.charAt(0), 10) - 1;
+				var place = firstLetter + step;
+				e.midi = scale[step];
+				e.letter = place % 7;
+				e.octave = firstOctave + Math.floor(place / 7);
+				e.alter = e.midi - (12 * (e.octave + 1) + NATURAL_SEMITONES[e.letter]);
+			}
+			events.push(e);
 		});
 	});
 	return events;
@@ -1549,12 +1591,19 @@ function showSongList() {
 		b.onclick = function() { playThroughSong(song.id); };
 		return b;
 	}
-	SONGS.forEach(function(song) { list.appendChild(songButton(song)); });
+	function heading(text) {
+		var h = document.createElement("div");
+		h.className = "song-list-heading";
+		h.textContent = text;
+		list.appendChild(h);
+	}
+	heading("First 5 notes");
+	SONGS.forEach(function(song) {
+		if (song.id === FIRST_SCALE_SONG) heading("B\u266d scale");
+		list.appendChild(songButton(song));
+	});
 
-	var heading = document.createElement("div");
-	heading.className = "song-list-heading";
-	heading.textContent = "My songs";
-	list.appendChild(heading);
+	heading("My songs");
 	practice.customSongs.forEach(function(song) {
 		var item = document.createElement("div");
 		item.className = "song-item";
@@ -2159,7 +2208,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 	var VF = Vex.Flow;
 	var clef = getCurrentClef();
 	var key = song.custom && song.key ? song.key : "C";
-	var time = song.custom ? song.time || "4/4" : null;
+	var time = song.custom ? song.time || "4/4" : song.time || null;
 	var perLine = opts.perLine || SONG_MEASURES_PER_LINE;
 	var first = line * perLine;
 	// The editor always draws whole lines, so there's room to add notes
