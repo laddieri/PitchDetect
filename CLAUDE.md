@@ -239,18 +239,28 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `transposeSharedSong()`: same sounding tune, in their octave (the two
   instruments' first band notes line up), key moved round the circle of
   fifths, notes respelled. **Add to My songs** skips an identical copy.
-- **Drills** (`startDrill("names" | "fingerings")`, no mic): the same
-  10-note sequence, progress dots and result screen (`showRoundResult()`).
-  Names shows the staff; fingerings hides it and shows only the chart
-  (`practiceFingeringBox(true)` leaves the piano key unlabeled). A note scores
-  if named on the first try; bests in `pitchdetect-first-five-drills`.
+- **Drills** (`startDrill("names" | "fingerings")`, no mic): races against
+  the clock: name as many notes as you can in `DRILL_SECONDS` (30), trying
+  to beat your best. Random notes (`nextDrillNote()`, no back-to-back
+  repeats); a note scores if named on the first try (a wrong one must still
+  be fixed), and a right answer moves on after `DRILL_NEXT_MS` with just the chime and
+  bounce; the balloons wait for the result screen. The clock
+  (`startDrillClock()`, `drillClockTimer`, cleared by `setPracticeMode()` /
+  `closePractice()`) starts once the answers can be tapped;
+  `renderDrillProgress()` replaces the dots with seconds left, a draining
+  bar and the score (gold once past the best). Names shows the staff;
+  fingerings hides it and shows only the chart (`practiceFingeringBox(true)`
+  leaves the piano key unlabeled). Result via `showRoundResult()` with stars
+  out of `DRILL_STAR_GOAL`; bests (notes per round) in
+  `pitchdetect-first-five-drills-timed`, shown on the menu cards as "Best: n".
   In the fingerings drill, `drillChoices()` drops notes that share the
   target's fingering (trumpet C/G open; trombone, euphonium, tuba B♭/F) so
   only one answer is right. While those keys load, the question shows with
   the answers disabled in place. `loadFingeringKeys()` keys valve/clarinet notes by
   their fingering data and image charts by a hash of the file
   (`fingeringImagePath()`), since shared fingerings share identical images.
-- **Correct answers** in the quiz, both drills and the lesson's Read step
+- **Correct answers** in the quiz, both drills (no balloons until the end)
+  and the lesson's Read step
   get `celebrateCorrect()`: balloons rising through the card
   (`launchBalloons()`, a `.balloon-layer` that clips them and ignores taps;
   skipped under reduced motion), a short chime (`playChime()`, outside
