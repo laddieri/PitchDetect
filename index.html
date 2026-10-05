@@ -2642,6 +2642,62 @@
 				background: var(--warning);
 			}
 
+			/* Drills race the clock: seconds left, a draining bar, the score */
+			.drill-progress {
+				flex: 1;
+				max-width: 560px;
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				min-height: 30px;
+				font-weight: 700;
+				font-variant-numeric: tabular-nums;
+			}
+
+			.drill-time {
+				min-width: 3em;
+				text-align: right;
+				color: var(--text);
+			}
+
+			.drill-clock {
+				flex: 1;
+				height: 14px;
+				border-radius: var(--radius-pill);
+				background: var(--border);
+				overflow: hidden;
+			}
+
+			.drill-clock-fill {
+				display: block;
+				height: 100%;
+				background: var(--accent);
+				border-radius: inherit;
+				transition: width 0.1s linear, background-color 0.3s;
+			}
+
+			.drill-progress.hurry .drill-time {
+				color: var(--danger);
+			}
+
+			.drill-progress.hurry .drill-clock-fill {
+				background: var(--danger);
+			}
+
+			.drill-score {
+				min-width: 3.2em;
+				padding: 2px 10px;
+				border-radius: var(--radius-pill);
+				background: var(--success-soft);
+				color: var(--success);
+				text-align: center;
+			}
+
+			.drill-score.beat {
+				background: #f5b301;
+				color: #fff;
+			}
+
 			/* A lesson's overview: every note named on one staff, before
 			   the first question */
 			.practice-view[data-step="overview"] .practice-steps {
@@ -3510,6 +3566,11 @@
 			}
 
 			body.kid-mode .challenge-dot {
+				border: 2px solid var(--ink);
+			}
+
+			body.kid-mode .drill-clock,
+			body.kid-mode .drill-score {
 				border: 2px solid var(--ink);
 			}
 
