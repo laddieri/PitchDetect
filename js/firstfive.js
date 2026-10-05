@@ -418,6 +418,7 @@ function changePracticeInstrument(value) {
 	var activity = currentPracticeActivity();
 	var menuPage = practice.menuPage;
 	var songId = practice.mode === "song" ? practice.song.id : null;
+	var songFree = songId && practice.song.free;
 	var importing = practice.mode === "import";
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
@@ -431,7 +432,7 @@ function changePracticeInstrument(value) {
 	} else if (activity === "firstsounds" && !FIRST_SOUNDS[value]) {
 		showPracticeMenu("main");
 	} else if (songId) {
-		startSong(songId);
+		if (songFree) playThroughSong(songId); else startSong(songId);
 	} else if (importing) {
 		showSongImport();
 	} else {
@@ -1511,11 +1512,6 @@ function songStars(song) {
 	return typeof best === "number" ? challengeStars(best, songNotes(song).length) : 0;
 }
 
-// Played note by note with no help: the song can be played straight through
-function songMastered(song) {
-	return practice.songBest[song.id] === songNotes(song).length;
-}
-
 // The song list: one button per song with its stars, then the student's
 // own songs (each with an edit button) and Make a song
 function showSongList() {
@@ -1539,7 +1535,7 @@ function showSongList() {
 		b.firstChild.textContent = song.title;
 		b.lastChild.textContent = starText(stars);
 		b.setAttribute("aria-label", song.title + ", " + stars + " of 3 stars");
-		b.onclick = function() { startSong(song.id); };
+		b.onclick = function() { playThroughSong(song.id); };
 		return b;
 	}
 	SONGS.forEach(function(song) { list.appendChild(songButton(song)); });
@@ -1601,8 +1597,7 @@ function startSong(id, from) {
 	var body = document.getElementById("practice-body");
 	body.innerHTML =
 		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready…</div>' +
-		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>' +
-		'<div class="practice-hold" aria-hidden="true"><div class="practice-hold-fill" id="practice-hold-fill"></div></div>';
+		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>';
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
 	var hear = practiceButton("▶ Hear the song", "secondary", function() {
@@ -1613,9 +1608,7 @@ function startSong(id, from) {
 	help.id = "song-help";
 	actions.appendChild(hear);
 	actions.appendChild(help);
-	if (songMastered(song)) {
-		actions.appendChild(practiceButton("Play it through", "secondary", function() { playThroughSong(id); }));
-	}
+	actions.appendChild(practiceButton("Play it through", "secondary", function() { playThroughSong(id); }));
 	body.appendChild(actions);
 
 	if (!listenActive) {
@@ -1821,6 +1814,11 @@ function finishFollow() {
 	var octaves = s.results.filter(function(r) { return r === "octave"; }).length;
 	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
 	var stars = challengeStars(right, total);
+	var prev = practice.songBest[s.id];
+	if (typeof prev !== "number" || right > prev) {
+		practice.songBest[s.id] = right;
+		saveSongBest(practice.instrument, practice.songBest);
+	}
 	setPracticeFeedback(
 		right === total ? "Perfect! " + starText(stars) : right + " of " + total + " notes right " + starText(stars),
 		octaves ? octaves + (octaves === 1 ? " note was" : " notes were") + " an octave off"
@@ -1834,7 +1832,13 @@ function finishFollow() {
 			startSong(s.id, songLineStart(firstMiss));
 		}));
 	}
-	actions.appendChild(practiceButton("Play again", "primary", resetFollow));
+	actions.appendChild(practiceButton("Play again", right === total ? "secondary" : "primary", resetFollow));
+	// Played it all right: the next song waits beside Play again
+	var songs = s.song.custom ? practice.customSongs.filter(function(song) { return songNotes(song).length; }) : SONGS;
+	var next = songs[songs.indexOf(s.song) + 1];
+	if (right === total && next) {
+		actions.appendChild(practiceButton("Next song \u2192", "primary", function() { playThroughSong(next.id); }));
+	}
 	if (right === total) launchFireworks(document.getElementById("practice-stage"));
 }
 
@@ -1962,9 +1966,6 @@ function updateSongListen(now, freq, level) {
 		practice.holdMs = 0;
 	}
 
-	var fill = document.getElementById("practice-hold-fill");
-	if (fill) fill.style.width = Math.min(100, practice.holdMs / SONG_HOLD_MS * 100) + "%";
-
 	if (practice.holdMs >= SONG_HOLD_MS) passSongNote();
 }
 
@@ -2013,28 +2014,10 @@ function finishSong() {
 		"You played " + score + " of " + total + " notes on your own",
 		function() { startSong(s.id); }, total,
 		{ label: "All songs", onclick: showSongList });
-	// The next song waits on the result, beside Play again
-	var songs = s.song.custom ? practice.customSongs.filter(function(song) { return songNotes(song).length; }) : SONGS;
-	var i = songs.indexOf(s.song);
-	if (i + 1 < songs.length) {
-		var next = songs[i + 1];
-		var actions = document.querySelector("#practice-body .practice-actions");
-		actions.lastChild.className = "practice-btn secondary";
-		actions.appendChild(practiceButton("Next song →", "primary", function() { startSong(next.id); }));
-	}
-	// Every note on their own: now play it smoothly, the whole song at once
-	if (score === total) {
-		var line = document.querySelector("#practice-body .challenge-score");
-		var unlock = document.createElement("div");
-		unlock.className = "song-unlock";
-		unlock.textContent = "Perfect! Now play it all the way through.";
-		line.parentNode.insertBefore(unlock, line.nextSibling);
-		var through = practiceButton("Play it through \u2192", "primary", function() { playThroughSong(s.id); });
-		through.classList.add("song-through");
-		line.parentNode.insertBefore(through, unlock.nextSibling);
-		var nextSong = document.querySelector("#practice-body .practice-actions").lastChild;
-		nextSong.className = "practice-btn secondary";
-	}
+	// Note by note is practice: next, play it through again
+	var actions = document.querySelector("#practice-body .practice-actions");
+	actions.lastChild.className = "practice-btn secondary";
+	actions.appendChild(practiceButton("Play it through \u2192", "primary", function() { playThroughSong(s.id); }));
 }
 
 // One dot per line of the song: green = played on your own, yellow = with
@@ -2752,7 +2735,7 @@ function openSongEditor(id) {
 	hear.id = "editor-hear";
 	var remove = practiceButton("Delete", "secondary", deleteEditorSong);
 	remove.id = "editor-remove";
-	var play = practiceButton("Play it \u2192", "primary", function() { startSong(song.id); });
+	var play = practiceButton("Play it \u2192", "primary", function() { playThroughSong(song.id); });
 	play.id = "editor-play";
 	actions.appendChild(hear);
 	actions.appendChild(remove);
@@ -4200,7 +4183,7 @@ window.addEventListener("popstate", function(event) {
 	if (state.practice === "menu") showPracticeMenu(state.page);
 	else if (state.practice === "songs") showSongList();
 	else if (state.practice === "song" && findSong(state.song)) {
-		if (state.free && songMastered(findSong(state.song))) playThroughSong(state.song); else startSong(state.song);
+		if (state.free) playThroughSong(state.song); else startSong(state.song);
 	}
 	else if (state.practice === "editor" && findSong(state.song)) openSongEditor(state.song);
 	else if (state.practice === "import" && pendingSongImport) showSongImport();
