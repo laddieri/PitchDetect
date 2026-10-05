@@ -144,9 +144,20 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   A perfect run (every note unhelped; `songMastered()`) unlocks **Play it
   through** (`playThroughSong()`, on the result card and on that song's
   screen afterwards): the whole song stacked as in whole song view
-  (`data-step="song-free"`, `practice.song.free`), no arrow, no colors, the
-  mic off and `practice.step` 5 so nothing is checked note by note; Hear the
-  song still plays along, and **Note by note** returns to `startSong()`.
+  (`data-step="song-free"`, `practice.song.free`), no arrow and no waiting
+  on each note. The mic follows along instead (`updateFollowListen()`, run
+  from `updateSongListen()`): the sound is cut into notes (a new semitone,
+  or the same pitch re-tongued: a loudness dip below `SONG_RETONGUE_DIP`
+  then a rise), each counting after `FOLLOW_NOTE_MS`; `followNote()`
+  re-aligns everything heard with the song by edit distance
+  (`alignFollow()`: right / octave / wrong / missed, extra notes free, a
+  skip in a run of repeats marked on the last). Right notes turn green as
+  they're played; `finishFollow()` (last note right, or
+  `FOLLOW_END_SILENCE_MS` quiet) marks mistakes red with a score and stars
+  (not saved). **Practice the red notes** opens note-by-note at the start
+  of the first red note's line (`startSong(id, from)`: earlier notes count
+  done, no best saved, the result offers Play it through again). Hear the
+  song restarts the run; **Note by note** returns to `startSong()`.
   Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
   dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
   playable ones, each with its `event` index. `renderSongLine()` draws a
