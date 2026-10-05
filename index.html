@@ -2161,6 +2161,47 @@
 
 			.practice-header-spacer {
 				flex: 0 0 44px;
+				display: flex;
+				justify-content: center;
+			}
+
+			/* The mic is on: a badge where the header's right side is kept
+			   free, with a ring that swells with the sound it hears */
+			.practice-mic {
+				position: relative;
+				width: 40px;
+				height: 40px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: 50%;
+				background: var(--danger);
+				color: #fff;
+				border: var(--cartoon-border, 0);
+			}
+
+			.practice-mic[hidden] {
+				display: none;
+			}
+
+			.practice-mic::before {
+				content: "";
+				position: absolute;
+				inset: -4px;
+				border-radius: 50%;
+				border: 3px solid var(--danger);
+				opacity: calc(0.25 + var(--mic-level, 0) * 0.75);
+				transform: scale(calc(1 + var(--mic-level, 0) * 0.35));
+				transition: transform 0.08s linear, opacity 0.08s linear;
+			}
+
+			.visually-hidden-mic {
+				position: absolute;
+				width: 1px;
+				height: 1px;
+				overflow: hidden;
+				clip: rect(0 0 0 0);
+				white-space: nowrap;
 			}
 
 			#practice-title {
@@ -3874,7 +3915,12 @@
 							<svg class="practice-instrument-chevron" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
 						</span>
 					</div>
-					<span class="practice-header-spacer" aria-hidden="true"></span>
+					<span class="practice-header-spacer">
+						<span id="practice-mic" class="practice-mic" role="status" hidden title="The microphone is on. The sound stays on this device.">
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+							<span class="visually-hidden-mic">Listening</span>
+						</span>
+					</span>
 				</div>
 				<div id="practice-menu" class="practice-menu"></div>
 				<button id="practice-more" class="practice-more" onclick="showPracticeMenu('more')">More<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></button>

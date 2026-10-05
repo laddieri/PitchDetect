@@ -767,10 +767,21 @@ function setPracticeFeedback(main, sub, state) {
 	el.setAttribute("data-state", state || "");
 }
 
+// The practice header's mic badge shows whenever the mic is on
+// (startListening() / stopListening() call this)
+function updatePracticeMicBadge() {
+	var mic = document.getElementById("practice-mic");
+	if (!mic) return;
+	mic.hidden = !listenActive;
+	if (!listenActive) mic.style.removeProperty("--mic-level");
+}
+
 // Called from the mic loop every frame while practice is open. freq is the
 // confidently detected concert frequency, or null for silence/noise; level is
 // the frame's RMS loudness (songs use it to hear a repeated note re-tongued).
 function updatePracticeListen(now, freq, level) {
+	var mic = document.getElementById("practice-mic");
+	if (mic) mic.style.setProperty("--mic-level", Math.min(1, (level || 0) * 8).toFixed(2));
 	if (practice && practice.mode === "firstsounds") {
 		updateFirstSoundsListen(now, freq);
 		return;
@@ -1642,11 +1653,6 @@ function playThroughSong(id) {
 	document.getElementById("practice-steps").innerHTML = "";
 	document.getElementById("practice-staff-output").scrollTop = 0;
 	resetFollow();
-
-	if (!listenActive) {
-		practiceStartedMic = true;
-		startListening();
-	}
 }
 
 // Start (or restart) a run through the song: nothing played yet
@@ -1672,8 +1678,16 @@ function resetFollow() {
 	hear.id = "song-hear";
 	actions.appendChild(hear);
 	actions.appendChild(practiceButton("Note by note", "secondary", function() { startSong(s.id); }));
+	var done = practiceButton("\u25a0 Stop and score", "secondary", finishFollow);
+	done.id = "follow-done";
+	actions.appendChild(done);
 	body.appendChild(actions);
 	drawSongLine(0);
+	// The mic is on only while a run is going
+	if (!listenActive) {
+		practiceStartedMic = true;
+		startListening();
+	}
 }
 
 // Mic frames during Play it through. The sound is cut into notes: a new note
@@ -1806,24 +1820,37 @@ function finishFollow() {
 	s.done = true;
 	practice.step = 4;
 	clearTimeout(practiceAdvanceTimer);
-	s.results = alignFollow(s.follow.heard, s.notes, true).results;
-	s.pos = s.notes.length;
-	drawSongLine(s.pos);
+	// Stopped partway (Stop and score, or a long quiet): notes never reached
+	// stay black. At the end, line up with the whole song, so a wrong or
+	// missing last note shows.
 	var total = s.notes.length;
+	var a = alignFollow(s.follow.heard, s.notes, false);
+	var partway = a.end < total - 1;
+	if (!partway) a = alignFollow(s.follow.heard, s.notes, true);
+	s.results = a.results;
+	s.pos = total;
+	drawSongLine(s.pos);
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
 	var right = s.results.filter(function(r) { return r === "right" || r === "octave"; }).length;
 	var octaves = s.results.filter(function(r) { return r === "octave"; }).length;
 	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
 	var stars = challengeStars(right, total);
 	var prev = practice.songBest[s.id];
-	if (typeof prev !== "number" || right > prev) {
+	if (s.follow.heard.length && (typeof prev !== "number" || right > prev)) {
 		practice.songBest[s.id] = right;
 		saveSongBest(practice.instrument, practice.songBest);
 	}
-	setPracticeFeedback(
-		right === total ? "Perfect! " + starText(stars) : right + " of " + total + " notes right " + starText(stars),
-		octaves ? octaves + (octaves === 1 ? " note was" : " notes were") + " an octave off"
-			: firstMiss >= 0 ? "The red notes need practice" : "\u00a0",
-		right === total ? "good" : "close");
+	if (!s.follow.heard.length) {
+		setPracticeFeedback("No notes heard", "Play into the mic, then try again", "close");
+	} else {
+		setPracticeFeedback(
+			right === total ? "Perfect! " + starText(stars) : right + " of " + total + " notes right " + starText(stars),
+			octaves ? octaves + (octaves === 1 ? " note was" : " notes were") + " an octave off"
+				: partway ? "You stopped partway through"
+				: firstMiss >= 0 ? "The red notes need practice" : "\u00a0",
+			right === total ? "good" : "close");
+	}
 
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.innerHTML = "";
