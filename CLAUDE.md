@@ -93,6 +93,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   lesson Play step, quiz, scale run and songs; not for an out-of-tune right
   note or anything over an octave off). It clears in tune, after
   `PRACTICE_GHOST_CLEAR_MS` of silence, or on the next note.
+- Whenever the mic is on, the practice header shows a red mic badge
+  (`#practice-mic` in the header's right spacer, `updatePracticeMicBadge()`,
+  called by `startListening()` / `stopListening()`), its ring swelling with
+  the level (`--mic-level`). Audio never leaves the device: it only feeds an
+  `AnalyserNode`; nothing is recorded or sent.
 - `practice.ignoreUntil` mutes the check while the example tone sounds, so
   the app can't pass the student's turn for them.
 - Note names in the map stay hidden (numbers) until learned, so the map never
@@ -153,8 +158,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   re-aligns everything heard with the song by edit distance
   (`alignFollow()`: right / octave / wrong / missed, extra notes free, a
   skip in a run of repeats marked on the last). Right notes turn green as
-  they're played; `finishFollow()` (last note right, or
-  `FOLLOW_END_SILENCE_MS` quiet) marks mistakes red with a score and stars
+  they're played; `finishFollow()` (last note right, **Stop and score**, or
+  `FOLLOW_END_SILENCE_MS` quiet; stopped partway, unreached notes stay
+  black) turns the mic off and marks mistakes red with a score and stars
   (best notes right saved in `pitchdetect-songs`, shared with note by note;
   a perfect run offers Next song). **Practice the red notes** opens note-by-note at the start
   of the first red note's line (`startSong(id, from)`: earlier notes count

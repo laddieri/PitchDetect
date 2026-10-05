@@ -2126,6 +2126,7 @@ function startListening() {
 		listenBuffer = new Float32Array(listenAnalyser.fftSize);
 
 		listenActive = true;
+		if (typeof updatePracticeMicBadge === "function") updatePracticeMicBadge();
 		pendingMidi = null;
 		pendingFrames = 0;
 		lastPitchTime = 0;
@@ -2181,6 +2182,7 @@ function micErrorMessage(err) {
 // Stop microphone listening and clear detected note
 function stopListening() {
 	listenActive = false;
+	if (typeof updatePracticeMicBadge === "function") updatePracticeMicBadge();
 
 	if (listenRafID) {
 		cancelAnimationFrame(listenRafID);
