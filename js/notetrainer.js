@@ -183,10 +183,13 @@ function getWrittenKey() {
 
 // Return the spelled note name for pitch class pc. Band music reads in
 // flats, so black keys are flats unless the key signature itself sharps
-// that note (alto sax's written F♯ in G, i.e. concert B♭)
+// that note. F♯ is the exception: parts write it far more than G♭ (sax,
+// trumpet), so it's F♯ unless the key signature flats G (D♭, G♭ major)
 function spellNoteForKey(pc, writtenKey) {
 	var sharp = sharpNoteSpellings[pc];
-	if (sharp.length > 1 && (keySignatureNotes[writtenKey] || []).indexOf(sharp) >= 0) return sharp;
+	var keySig = keySignatureNotes[writtenKey] || [];
+	if (sharp.length > 1 && keySig.indexOf(sharp) >= 0) return sharp;
+	if (sharp === "F#" && keySig.indexOf("Gb") < 0) return sharp;
 	return flatNoteSpellings[pc];
 }
 
