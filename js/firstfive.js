@@ -1390,6 +1390,10 @@ var SONG_HOLD_MS = 300;            // short, so the tune keeps moving
 var SONG_TEMPO = 100;              // quarter notes per minute for Hear the song
 var SONG_RETONGUE_DIP = 0.75;      // loudness this far below the note = re-tongued
 var SONG_MEASURES_PER_LINE = 2;
+// Play it through: the mic follows along without waiting on each note
+var FOLLOW_NOTE_MS = 100;          // a steady pitch this long counts as a note played
+var FOLLOW_GAP_MS = 60;            // silence this long ends a note
+var FOLLOW_END_SILENCE_MS = 5000;  // quiet this long after starting ends the run
 var SONG_MEASURE_WIDTH = 170;      // staff units per measure
 var SONG_BEATS = { w: 4, h: 2, q: 1, "8": 0.5 };  // in quarter notes
 var MY_SONGS_STORAGE_KEY = "pitchdetect-my-songs";
@@ -1572,7 +1576,8 @@ function showSongList() {
 	practiceStartedMic = false;
 }
 
-function startSong(id) {
+// from: start partway (Practice the red notes), notes before it counted done
+function startSong(id, from) {
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
@@ -1585,6 +1590,11 @@ function startSong(id) {
 		measures: events.length ? events[events.length - 1].measure + 1 : 0,
 		pos: 0, results: [], streak: 0
 	};
+	if (from) {
+		practice.song.from = from;
+		practice.song.pos = from;
+		for (var i = 0; i < from; i++) practice.song.results.push(true);
+	}
 	document.getElementById("practice-view").setAttribute("data-step", "song");
 	document.getElementById("practice-prompt").textContent = song.title;
 
@@ -1615,9 +1625,10 @@ function startSong(id) {
 	showSongNote();
 }
 
-// Play it through: the whole song on the page, no arrow and no listening
-// note by note, so a student who has played it perfectly can play it
-// smoothly. Hear the song still plays along.
+// Play it through: the whole song on the page with no arrow and no waiting
+// on each note, so a student who has played it perfectly can play it
+// smoothly. The mic follows along (updateFollowListen): notes played right
+// turn green as they go, and mistakes show only at the end.
 function playThroughSong(id) {
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
@@ -1625,7 +1636,6 @@ function playThroughSong(id) {
 	var song = findSong(id);
 	setPracticeMode("song");
 	practice.index = -1;
-	practice.step = 5;  // not 3: the mic loop doesn't check notes
 	practice.target = null;
 	practice.ghost = null;
 	var events = songEvents(song);
@@ -1634,14 +1644,33 @@ function playThroughSong(id) {
 		measures: events.length ? events[events.length - 1].measure + 1 : 0,
 		pos: 0, results: [], streak: 0, free: true
 	};
-	if (practiceStartedMic && listenActive) stopListening();
-	practiceStartedMic = false;
 	document.getElementById("practice-view").setAttribute("data-step", "song-free");
 	document.getElementById("practice-prompt").textContent = song.title;
 	document.getElementById("practice-steps").innerHTML = "";
+	document.getElementById("practice-staff-output").scrollTop = 0;
+	resetFollow();
+
+	if (!listenActive) {
+		practiceStartedMic = true;
+		startListening();
+	}
+}
+
+// Start (or restart) a run through the song: nothing played yet
+function resetFollow() {
+	var s = practice.song;
+	clearTimeout(practiceAdvanceTimer);
+	practice.step = 3;
+	practice.lastFrame = null;
+	s.pos = 0;
+	s.results = s.notes.map(function() { return null; });
+	s.follow = { seg: null, silentMs: 0, heard: [], started: false, lastSound: 0 };
+	s.done = false;
 
 	var body = document.getElementById("practice-body");
-	body.innerHTML = '<div class="practice-feedback" id="practice-feedback">Play it all the way through!</div>';
+	body.innerHTML =
+		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Play it all the way through!</div>' +
+		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>';
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
 	var hear = practiceButton("\u25b6 Hear the song", "secondary", function() {
@@ -1649,10 +1678,172 @@ function playThroughSong(id) {
 	});
 	hear.id = "song-hear";
 	actions.appendChild(hear);
-	actions.appendChild(practiceButton("Note by note", "secondary", function() { startSong(id); }));
+	actions.appendChild(practiceButton("Note by note", "secondary", function() { startSong(s.id); }));
 	body.appendChild(actions);
-	document.getElementById("practice-staff-output").scrollTop = 0;
 	drawSongLine(0);
+}
+
+// Mic frames during Play it through. The sound is cut into notes: a new note
+// starts when the pitch moves to another semitone or the same pitch is
+// tongued again (a dip in loudness, then a rise), and counts once it has
+// held FOLLOW_NOTE_MS. Each note played goes to followNote().
+function updateFollowListen(now, freq, level) {
+	var s = practice.song, f = s.follow;
+	if (practice.step !== 3) return;
+	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
+	practice.lastFrame = now;
+	if (now < (practice.ignoreUntil || 0)) {
+		f.seg = null;
+		return;
+	}
+
+	if (!freq) {
+		f.silentMs += dt;
+		if (f.silentMs >= FOLLOW_GAP_MS) f.seg = null;
+		// Stopped: soon after reaching the last note, or after a long quiet
+		var quiet = s.pos >= s.notes.length ? 1500 : FOLLOW_END_SILENCE_MS;
+		if (f.started && now - f.lastSound > quiet) finishFollow();
+		return;
+	}
+	f.silentMs = 0;
+	f.lastSound = now;
+	var written = 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition();
+	var pitch = Math.round(written);
+	// Between two semitones: too far out of tune to say which note it is
+	if (Math.abs(written - pitch) * 100 > PRACTICE_PASS_CENTS + 15) return;
+
+	var seg = f.seg;
+	if (seg && seg.pitch === pitch) {
+		if (!seg.dipped) {
+			if (level < seg.peak * SONG_RETONGUE_DIP) {
+				seg.dipped = true;
+				seg.low = level;
+			} else {
+				seg.peak = Math.max(seg.peak, level);
+			}
+		} else {
+			seg.low = Math.min(seg.low, level);
+			// Loud again after the dip: tongued again, so a new note
+			if (level * SONG_RETONGUE_DIP >= seg.low) seg = null;
+		}
+	} else {
+		seg = null;
+	}
+	if (!seg) seg = f.seg = { pitch: pitch, ms: 0, peak: level, dipped: false, low: 0, counted: false };
+	seg.ms += dt;
+	if (!seg.counted && seg.ms >= FOLLOW_NOTE_MS) {
+		seg.counted = true;
+		f.started = true;
+		followNote(pitch);
+	}
+}
+
+// A note was played: line up everything heard so far with the song
+// (alignFollow) and color what it says was played right. The run ends once
+// the last note is played right; otherwise after the student stops.
+function followNote(pitch) {
+	var s = practice.song, f = s.follow;
+	f.heard.push(pitch);
+	var a = alignFollow(f.heard, s.notes, false);
+	s.results = a.results;
+	s.pos = a.end;
+	drawSongLine(a.end);
+	if (a.end >= s.notes.length && (a.results[a.end - 1] === "right" || a.results[a.end - 1] === "octave")) {
+		practice.step = 4;
+		practiceAdvanceTimer = setTimeout(finishFollow, 700);
+	}
+}
+
+// Line up the notes heard with the song's notes (edit distance): each heard
+// note matches a song note (right, or an octave off), replaces one (wrong)
+// or is extra; song notes nothing lines up with were missed. The whole run
+// is weighed at once, so a wrong note and a skipped one aren't mixed up.
+// Unless toEnd, the song may stop partway (the student isn't done):
+// results past end stay null.
+function alignFollow(heard, notes, toEnd) {
+	var m = heard.length, n = notes.length, i, j;
+	function cost(h, e) {
+		var d = Math.abs(h - e);
+		return d === 0 ? 0 : d === 12 ? 0.2 : 1;
+	}
+	var D = [];
+	for (i = 0; i <= m; i++) {
+		D.push([]);
+		for (j = 0; j <= n; j++) {
+			if (i === 0) D[i][j] = j;
+			else if (j === 0) D[i][j] = i;
+			else D[i][j] = Math.min(D[i - 1][j - 1] + cost(heard[i - 1], notes[j - 1].midi),
+				D[i - 1][j] + 1, D[i][j - 1] + 1);
+		}
+	}
+	// Where the student has got to: the cheapest place, the furthest on a tie
+	var end = n;
+	if (!toEnd) {
+		end = 0;
+		for (j = 1; j <= n; j++) if (D[m][j] < D[m][end] + 1e-6) end = j;
+	}
+	var results = notes.map(function() { return null; });
+	i = m;
+	j = end;
+	// Walk back from the end. Where skipping a note costs the same as
+	// matching it, skip it: in a run of the same note, the last one is the
+	// one missed.
+	function same(x, y) { return Math.abs(x - y) < 1e-6; }
+	while (j > 0) {
+		var c = i > 0 ? cost(heard[i - 1], notes[j - 1].midi) : 0;
+		if (same(D[i][j], D[i][j - 1] + 1)) {
+			results[j - 1] = "missed";
+			j--;
+		} else if (i > 0 && same(D[i][j], D[i - 1][j - 1] + c)) {
+			results[j - 1] = c === 0 ? "right" : c < 1 ? "octave" : "wrong";
+			i--;
+			j--;
+		} else {
+			i--;  // an extra note
+		}
+	}
+	return { results: results, end: end };
+}
+
+// The end of a run (the last note, or the student stopped): the whole song
+// in green and red, a score, and the way to fix the misses
+function finishFollow() {
+	var s = practice.song;
+	if (s.done) return;
+	s.done = true;
+	practice.step = 4;
+	clearTimeout(practiceAdvanceTimer);
+	s.results = alignFollow(s.follow.heard, s.notes, true).results;
+	s.pos = s.notes.length;
+	drawSongLine(s.pos);
+	var total = s.notes.length;
+	var right = s.results.filter(function(r) { return r === "right" || r === "octave"; }).length;
+	var octaves = s.results.filter(function(r) { return r === "octave"; }).length;
+	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
+	var stars = challengeStars(right, total);
+	setPracticeFeedback(
+		right === total ? "Perfect! " + starText(stars) : right + " of " + total + " notes right " + starText(stars),
+		octaves ? octaves + (octaves === 1 ? " note was" : " notes were") + " an octave off"
+			: firstMiss >= 0 ? "The red notes need practice" : "\u00a0",
+		right === total ? "good" : "close");
+
+	var actions = document.querySelector("#practice-body .practice-actions");
+	actions.innerHTML = "";
+	if (firstMiss >= 0) {
+		actions.appendChild(practiceButton("Practice the red notes", "secondary", function() {
+			startSong(s.id, songLineStart(firstMiss));
+		}));
+	}
+	actions.appendChild(practiceButton("Play again", "primary", resetFollow));
+	if (right === total) launchFireworks(document.getElementById("practice-stage"));
+}
+
+// The first note on the line holding note pos, so practice starts from the
+// beginning of the tricky line
+function songLineStart(pos) {
+	var line = songLineOf(pos);
+	for (var i = 0; i < pos; i++) if (songLineOf(i) === line) return i;
+	return pos;
 }
 
 // Point the round at the current note: highlight it, reset the hold, and put
@@ -1710,6 +1901,10 @@ function showSongHelp() {
 
 // Mic frames during a song (see updatePracticeListen)
 function updateSongListen(now, freq, level) {
+	if (practice.song.free) {
+		updateFollowListen(now, freq, level);
+		return;
+	}
 	if (practice.step !== 3) return;
 	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
 	practice.lastFrame = now;
@@ -1792,6 +1987,20 @@ function passSongNote() {
 function finishSong() {
 	var s = practice.song;
 	var total = s.notes.length;
+	// Practiced from the red notes on: no best score, straight back to
+	// playing it through
+	if (s.from) {
+		var part = s.results.slice(s.from);
+		var own = part.filter(Boolean).length;
+		showRoundResult(own, false, "You practiced the red notes!",
+			"You played " + own + " of " + part.length + " notes on your own",
+			function() { startSong(s.id, s.from); }, part.length,
+			{ label: "All songs", onclick: showSongList });
+		var acts = document.querySelector("#practice-body .practice-actions");
+		acts.lastChild.className = "practice-btn secondary";
+		acts.appendChild(practiceButton("Play it through \u2192", "primary", function() { playThroughSong(s.id); }));
+		return;
+	}
 	var score = s.results.filter(Boolean).length;
 	var prev = practice.songBest[s.id];
 	var newBest = typeof prev !== "number" || score > prev;
@@ -1862,8 +2071,19 @@ function songLineOf(pos) {
 function drawSongLine(pos) {
 	var s = practice.song;
 	if (s.free) {
-		renderSongView(document.getElementById("practice-staff-output"), s.song, s.events, -1, s.measures,
-			{ end: true, whole: true }, function() { return null; });
+		// Right notes green as they're played; mistakes show only at the end
+		var styles = getComputedStyle(document.body);
+		var good = styles.getPropertyValue("--success").trim() || "#16a34a";
+		var bad = styles.getPropertyValue("--danger").trim() || "#e11d48";
+		var byEvent = {};
+		s.notes.forEach(function(n, i) { byEvent[n.event] = s.results[i]; });
+		var at = Math.min(pos, s.notes.length - 1);
+		renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
+			s.done || pos === 0 ? -1 : songLineOf(at), s.measures, { end: true, whole: true },
+			function(i) {
+				var r = byEvent[i];
+				return r === "right" || r === "octave" ? good : s.done && r ? bad : null;
+			});
 		return;
 	}
 	var hl = pos < s.notes.length ? s.notes[pos].event : s.events.length;
@@ -2161,6 +2381,7 @@ function playSongEvents(events, show) {
 
 // Hear the song: play the whole tune, the staff following along
 function playSong() {
+	if (practice.song.free && practice.song.pos > 0) resetFollow();
 	var hear = document.getElementById("song-hear");
 	if (hear) hear.textContent = "\u25a0 Stop";
 	playSongEvents(practice.song.events, drawSongEvent);
