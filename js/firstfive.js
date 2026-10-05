@@ -1415,58 +1415,62 @@ var MY_SONGS_STORAGE_KEY = "pitchdetect-my-songs";
 // a trailing "." for a dotted note; "r" in place of the degree is a rest.
 // Degrees 1–5 are the first five notes (B♭ C D E♭ F concert), 6–8 the rest
 // of the B♭ scale (G A B♭). An optional time signature is shown (default
-// 4/4, not shown). Songs on the first five notes come first, easiest first;
-// songs that need the whole scale follow under their own heading.
+// 4/4, not shown). Each song has a level (SONG_LEVELS): beginner songs stay
+// on the first five notes in plain rhythms; intermediate adds rests, dotted
+// notes or notes past the fifth; advanced, eighth notes on the whole scale.
 var SONGS = [
-	{ id: "hotcrossbuns", title: "Hot Cross Buns",
+	{ id: "hotcrossbuns", level: "beginner", title: "Hot Cross Buns",
 		measures: ["3h 2h", "1w", "3h 2h", "1w", "1q 1q 1q 1q", "2q 2q 2q 2q", "3h 2h", "1w"] },
-	{ id: "auclair", title: "Au Clair de la Lune",
+	{ id: "auclair", level: "beginner", title: "Au Clair de la Lune",
 		measures: ["1q 1q 1q 2q", "3h 2h", "1q 3q 2q 2q", "1w"] },
-	{ id: "mary", title: "Mary Had a Little Lamb",
+	{ id: "mary", level: "beginner", title: "Mary Had a Little Lamb",
 		measures: ["3q 2q 1q 2q", "3q 3q 3h", "2q 2q 2h", "3q 5q 5h",
 			"3q 2q 1q 2q", "3q 3q 3q 3q", "2q 2q 3q 2q", "1w"] },
-	{ id: "lightlyrow", title: "Lightly Row",
+	{ id: "lightlyrow", level: "beginner", title: "Lightly Row",
 		measures: ["5q 3q 3h", "4q 2q 2h", "1q 2q 3q 4q", "5q 5q 5h",
 			"5q 3q 3h", "4q 2q 2h", "1q 3q 5q 5q", "1w",
 			"2q 2q 2q 2q", "2q 3q 4h", "3q 3q 3q 3q", "3q 4q 5h",
 			"5q 3q 3h", "4q 2q 2h", "1q 3q 5q 5q", "1w"] },
-	{ id: "odetojoy", title: "Ode to Joy",
+	{ id: "odetojoy", level: "beginner", title: "Ode to Joy",
 		measures: ["3q 3q 4q 5q", "5q 4q 3q 2q", "1q 1q 2q 3q", "3q 2q 2h",
 			"3q 3q 4q 5q", "5q 4q 3q 2q", "1q 1q 2q 3q", "2q 1q 1h"] },
-	{ id: "auntrhody", title: "Go Tell Aunt Rhody",
+	{ id: "auntrhody", level: "beginner", title: "Go Tell Aunt Rhody",
 		measures: ["3h 3q 2q", "1h 1h", "2h 2q 4q", "3q 2q 1h",
 			"5h 5q 4q", "3h 3h", "2q 1q 2q 3q", "1w"] },
-	{ id: "goinghome", title: "Goin\u2019 Home",  // Dvořák, the Largo of the New World Symphony
+	{ id: "jinglebells", level: "beginner", title: "Jingle Bells",
+		measures: ["3q 3q 3h", "3q 3q 3h", "3q 5q 1q 2q", "3w",
+			"4q 4q 4q 4q", "4q 3q 3q 3q", "3q 2q 2q 3q", "2h 5h"] },
+	{ id: "goinghome", level: "intermediate", title: "Goin\u2019 Home",  // Dvořák, the Largo of the New World Symphony
 		measures: ["3q. 58 5h", "3q. 28 1h", "2q 3q 5q 3q", "2w",
 			"3q. 58 5h", "3q. 28 1h", "2q 3q 2q. 18", "1w"] },
-	{ id: "saints", title: "When the Saints",
+	{ id: "saints", level: "intermediate", title: "When the Saints",
 		measures: ["rq 1q 3q 4q", "5w", "rq 1q 3q 4q", "5w",
 			"rq 1q 3q 4q", "5h 3h", "1h 3h", "2w",
 			"rq 3q 3q 2q", "1h. 1q", "3h 5h", "4w",
 			"rq 1q 3q 4q", "5h 3h", "1h 2h", "1w"] },
-	{ id: "jinglebells", title: "Jingle Bells",
-		measures: ["3q 3q 3h", "3q 3q 3h", "3q 5q 1q 2q", "3w",
-			"4q 4q 4q 4q", "4q 3q 3q 3q", "3q 2q 2q 3q", "2h 5h"] },
-	// The whole B♭ scale
-	{ id: "twinkle", title: "Twinkle, Twinkle",
+	{ id: "twinkle", level: "intermediate", title: "Twinkle, Twinkle",
 		measures: ["1q 1q 5q 5q", "6q 6q 5h", "4q 4q 3q 3q", "2q 2q 1h",
 			"5q 5q 4q 4q", "3q 3q 2h", "5q 5q 4q 4q", "3q 3q 2h",
 			"1q 1q 5q 5q", "6q 6q 5h", "4q 4q 3q 3q", "2q 2q 1h"] },
-	{ id: "ducklings", title: "All My Little Ducklings",
+	{ id: "ducklings", level: "intermediate", title: "All My Little Ducklings",
 		measures: ["1q 2q 3q 4q", "5h 5h", "6q 6q 6q 6q", "5w",
 			"6q 6q 6q 6q", "5w", "4q 4q 4q 4q", "3h 3h", "2q 2q 2q 2q", "1w"] },
-	{ id: "londonbridge", title: "London Bridge",
+	{ id: "londonbridge", level: "advanced", title: "London Bridge",
 		measures: ["5q. 68 5q 4q", "3q 4q 5h", "2q 3q 4h", "3q 4q 5h",
 			"5q. 68 5q 4q", "3q 4q 5h", "2h 5h", "3q 1h."] },
-	{ id: "michaelrow", title: "Michael, Row the Boat",
+	{ id: "michaelrow", level: "advanced", title: "Michael, Row the Boat",
 		measures: ["1q 3q 5q. 38", "5q 6q 5h", "3q 5q 6h", "5w",
 			"3q 5q 5q. 38", "4q 3q 2h", "1q 2q 3q. 28", "1w"] },
-	{ id: "rowyourboat", title: "Row, Row, Row Your Boat", time: "6/8",
+	{ id: "rowyourboat", level: "advanced", title: "Row, Row, Row Your Boat", time: "6/8",
 		measures: ["1q. 1q.", "1q 28 3q.", "3q 28 3q 48", "5h.",
 			"88 88 88 58 58 58", "38 38 38 18 18 18", "5q 48 3q 28", "1h."] }
 ];
-// Songs from here on use the whole B♭ scale (see showSongList())
-var FIRST_SCALE_SONG = "twinkle";
+// The song list's sections, in order; each song names its level
+var SONG_LEVELS = [
+	{ id: "beginner", title: "Beginner", sub: "First 5 notes" },
+	{ id: "intermediate", title: "Intermediate", sub: "Rests, dotted notes, more notes" },
+	{ id: "advanced", title: "Advanced", sub: "Eighth notes, the whole scale" }
+];
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
 
@@ -1591,16 +1595,23 @@ function showSongList() {
 		b.onclick = function() { playThroughSong(song.id); };
 		return b;
 	}
-	function heading(text) {
+	function heading(text, sub) {
 		var h = document.createElement("div");
 		h.className = "song-list-heading";
 		h.textContent = text;
+		if (sub) {
+			var span = document.createElement("span");
+			span.className = "song-list-sub";
+			span.textContent = sub;
+			h.appendChild(span);
+		}
 		list.appendChild(h);
 	}
-	heading("First 5 notes");
-	SONGS.forEach(function(song) {
-		if (song.id === FIRST_SCALE_SONG) heading("B\u266d scale");
-		list.appendChild(songButton(song));
+	SONG_LEVELS.forEach(function(level) {
+		heading(level.title, level.sub);
+		SONGS.forEach(function(song) {
+			if (song.level === level.id) list.appendChild(songButton(song));
+		});
 	});
 
 	heading("My songs");
