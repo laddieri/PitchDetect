@@ -2754,13 +2754,15 @@
 			/* The whole song: every line stacked in the staff's place, scrolling */
 			.practice-view[data-whole="1"][data-step="song"] .practice-staff,
 			.practice-view[data-whole="1"][data-step="song-editor"] .practice-staff,
-			.practice-view[data-whole="1"][data-step="song-import"] .practice-staff {
+			.practice-view[data-whole="1"][data-step="song-import"] .practice-staff,
+			.practice-view[data-step="song-free"] .practice-staff {
 				flex: 1 1 0;
 				height: auto;
 				min-height: 120px;
 			}
 
-			.practice-view[data-whole="1"] #practice-staff-output {
+			.practice-view[data-whole="1"] #practice-staff-output,
+			.practice-view[data-step="song-free"] #practice-staff-output {
 				position: relative;
 				overflow-y: auto;
 				overscroll-behavior: contain;
@@ -2768,6 +2770,17 @@
 
 			.song-line {
 				width: 100%;
+			}
+
+			/* Played perfectly: the song can now be played straight through */
+			.song-unlock {
+				font-weight: 700;
+				color: var(--success);
+				text-align: center;
+			}
+
+			.practice-view[data-step="song-free"] .practice-steps {
+				display: none;
 			}
 
 			.song-line + .song-line {

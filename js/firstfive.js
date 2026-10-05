@@ -1507,6 +1507,11 @@ function songStars(song) {
 	return typeof best === "number" ? challengeStars(best, songNotes(song).length) : 0;
 }
 
+// Played note by note with no help: the song can be played straight through
+function songMastered(song) {
+	return practice.songBest[song.id] === songNotes(song).length;
+}
+
 // The song list: one button per song with its stars, then the student's
 // own songs (each with an edit button) and Make a song
 function showSongList() {
@@ -1598,6 +1603,9 @@ function startSong(id) {
 	help.id = "song-help";
 	actions.appendChild(hear);
 	actions.appendChild(help);
+	if (songMastered(song)) {
+		actions.appendChild(practiceButton("Play it through", "secondary", function() { playThroughSong(id); }));
+	}
 	body.appendChild(actions);
 
 	if (!listenActive) {
@@ -1605,6 +1613,46 @@ function startSong(id) {
 		startListening();
 	}
 	showSongNote();
+}
+
+// Play it through: the whole song on the page, no arrow and no listening
+// note by note, so a student who has played it perfectly can play it
+// smoothly. Hear the song still plays along.
+function playThroughSong(id) {
+	stopSongPlayback();
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	var song = findSong(id);
+	setPracticeMode("song");
+	practice.index = -1;
+	practice.step = 5;  // not 3: the mic loop doesn't check notes
+	practice.target = null;
+	practice.ghost = null;
+	var events = songEvents(song);
+	practice.song = {
+		id: id, song: song, events: events, notes: songNotes(song, events),
+		measures: events.length ? events[events.length - 1].measure + 1 : 0,
+		pos: 0, results: [], streak: 0, free: true
+	};
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
+	document.getElementById("practice-view").setAttribute("data-step", "song-free");
+	document.getElementById("practice-prompt").textContent = song.title;
+	document.getElementById("practice-steps").innerHTML = "";
+
+	var body = document.getElementById("practice-body");
+	body.innerHTML = '<div class="practice-feedback" id="practice-feedback">Play it all the way through!</div>';
+	var actions = document.createElement("div");
+	actions.className = "practice-actions";
+	var hear = practiceButton("\u25b6 Hear the song", "secondary", function() {
+		if (songPlayTimer !== null) stopSongPlayback(); else playSong();
+	});
+	hear.id = "song-hear";
+	actions.appendChild(hear);
+	actions.appendChild(practiceButton("Note by note", "secondary", function() { startSong(id); }));
+	body.appendChild(actions);
+	document.getElementById("practice-staff-output").scrollTop = 0;
+	drawSongLine(0);
 }
 
 // Point the round at the current note: highlight it, reset the hold, and put
@@ -1765,6 +1813,19 @@ function finishSong() {
 		actions.lastChild.className = "practice-btn secondary";
 		actions.appendChild(practiceButton("Next song →", "primary", function() { startSong(next.id); }));
 	}
+	// Every note on their own: now play it smoothly, the whole song at once
+	if (score === total) {
+		var line = document.querySelector("#practice-body .challenge-score");
+		var unlock = document.createElement("div");
+		unlock.className = "song-unlock";
+		unlock.textContent = "Perfect! Now play it all the way through.";
+		line.parentNode.insertBefore(unlock, line.nextSibling);
+		var through = practiceButton("Play it through \u2192", "primary", function() { playThroughSong(s.id); });
+		through.classList.add("song-through");
+		line.parentNode.insertBefore(through, unlock.nextSibling);
+		var nextSong = document.querySelector("#practice-body .practice-actions").lastChild;
+		nextSong.className = "practice-btn secondary";
+	}
 }
 
 // One dot per line of the song: green = played on your own, yellow = with
@@ -1773,6 +1834,7 @@ function renderSongProgress() {
 	var s = practice.song;
 	var list = document.getElementById("practice-steps");
 	list.innerHTML = "";
+	if (s.free) return;
 	var row = document.createElement("div");
 	row.className = "challenge-progress";
 	row.setAttribute("role", "img");
@@ -1799,6 +1861,11 @@ function songLineOf(pos) {
 // done): played notes green, note pos glowing in the accent color
 function drawSongLine(pos) {
 	var s = practice.song;
+	if (s.free) {
+		renderSongView(document.getElementById("practice-staff-output"), s.song, s.events, -1, s.measures,
+			{ end: true, whole: true }, function() { return null; });
+		return;
+	}
 	var hl = pos < s.notes.length ? s.notes[pos].event : s.events.length;
 	// An arrow over the note the mic is waiting for, and beside it the
 	// wrong note being played, if any
@@ -1815,7 +1882,7 @@ function drawSongEvent(hl, arrow, ghost) {
 	var e = s.events[Math.min(hl, s.events.length - 1)];
 	renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
-		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null },
+		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null, whole: !!s.free },
 		function(i) { return i === hl ? accent : i < hl ? done : null; });
 }
 
@@ -1999,7 +2066,7 @@ try { songWholeView = localStorage.getItem(SONG_WHOLE_STORAGE_KEY) === "1"; } ca
 // line stacked with line scrolled into view. Returns the layouts by line.
 function renderSongView(out, song, events, line, measures, opts, color) {
 	var layouts = {};
-	if (!songWholeView) {
+	if (!songWholeView && !opts.whole) {
 		layouts[line] = renderSongLine(out, song, events, line, measures, opts, color);
 		return layouts;
 	}
@@ -3856,7 +3923,7 @@ function practiceHistoryState() {
 		return { practice: "menu", page: practice.menuPage, depth: practice.menuPage === "more" ? 2 : 1 };
 	}
 	var depth = isMoreActivity(activity) ? 3 : 2;
-	if (practice.mode === "song") return { practice: "song", song: practice.song.id, depth: depth + 1 };
+	if (practice.mode === "song") return { practice: "song", song: practice.song.id, free: !!practice.song.free, depth: depth + 1 };
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
 	if (practice.mode === "import") return { practice: "import", depth: depth + 1 };
 	if (practice.mode === "songs") return { practice: "songs", depth: depth };
@@ -3869,7 +3936,7 @@ function practiceHistoryDepth(state) {
 
 function samePracticeState(a, b) {
 	if (!a || !a.practice) return !b;
-	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song;
+	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song && !a.free === !b.free;
 }
 
 function syncPracticeHistory() {
@@ -3911,7 +3978,9 @@ window.addEventListener("popstate", function(event) {
 	}
 	if (state.practice === "menu") showPracticeMenu(state.page);
 	else if (state.practice === "songs") showSongList();
-	else if (state.practice === "song" && findSong(state.song)) startSong(state.song);
+	else if (state.practice === "song" && findSong(state.song)) {
+		if (state.free && songMastered(findSong(state.song))) playThroughSong(state.song); else startSong(state.song);
+	}
 	else if (state.practice === "editor" && findSong(state.song)) openSongEditor(state.song);
 	else if (state.practice === "import" && pendingSongImport) showSongImport();
 	else if (state.practice !== "song" && state.practice !== "editor" && state.practice !== "import") startPracticeActivity(state.practice);
