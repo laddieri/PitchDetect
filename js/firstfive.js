@@ -19,6 +19,8 @@
  *   Names  — a drill: name each note shown on the staff (no mic)
  *   Fingerings — a drill: name the note a fingering chart shows (no mic)
  * Rounds score notes done unaided; the best score per instrument is kept.
+ * The drills are races against the clock: as many as you can in
+ * DRILL_SECONDS, trying to beat your best.
  *
  * Learn the B♭ scale extends the lessons to the first octave: concert
  * B♭ C D E♭ F G A B♭ (SCALE_STEPS) from the same starting B♭, eight lessons
@@ -77,7 +79,12 @@ var PRACTICE_GHOST_CLEAR_MS = 600; // silence before the wrong-note ghost goes
 var CHALLENGE_STORAGE_KEY = "pitchdetect-first-five-challenge";
 var CHALLENGE_LENGTH = 10;
 var CHALLENGE_HOLD_MS = 800;       // shorter hold keeps the round moving
-var DRILL_STORAGE_KEY = "pitchdetect-first-five-drills";
+// Timed drill bests (the key changed when drills went from 10 questions to
+// a race against the clock, so old scores out of 10 don't count as bests)
+var DRILL_STORAGE_KEY = "pitchdetect-first-five-drills-timed";
+var DRILL_SECONDS = 30;            // length of a drill round
+var DRILL_STAR_GOAL = 15;          // notes for 3 stars (12 for 2, 8 for 1)
+var DRILL_NEXT_MS = 500;           // pause on a right answer before the next
 var SCALE_STORAGE_KEY = "pitchdetect-bb-scale";
 var SCALE_RUN_STORAGE_KEY = "pitchdetect-bb-scale-run";
 
@@ -90,6 +97,7 @@ var LESSON_SETS = {
 var practiceOpen = false;
 var practiceStartedMic = false;
 var practiceAdvanceTimer = null;
+var drillClockTimer = null;
 var practice = null;  // per-session state, see openPractice()
 
 // Written MIDI notes of a lesson set (default: the first five notes) for the
@@ -248,6 +256,7 @@ function loadPracticeInstrument() {
 // still playing from the last result.
 function setPracticeMode(mode) {
 	stopSongPlayback();
+	clearInterval(drillClockTimer);
 	practice.mode = mode;
 	if (fireworksAnimID) {
 		cancelAnimationFrame(fireworksAnimID);
@@ -274,8 +283,8 @@ function setPracticeMode(mode) {
 var PRACTICE_ACTIVITIES = [
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note" },
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
-	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "Name the notes on the staff" },
-	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "Name the note from its fingering" },
+	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?" },
+	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?" },
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", more: true },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", more: true },
 	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "Hot Cross Buns, Jingle Bells, or make your own", more: true, wide: true },
@@ -324,10 +333,10 @@ function showPracticeMenu(page) {
 		var sub = a.firstSounds ? fsCfg.sub : a.sub;
 		if (a.id === "fingerings" && slide) {
 			title = "Practice slide positions";
-			sub = "Name the note from its slide position";
+			sub = "How many slide positions can you name in 30 seconds?";
 		} else if (a.id === "fingerings" && !chart) {
 			title = "Practice the keyboard";
-			sub = "Name the note from its key";
+			sub = "How many keys can you name in 30 seconds?";
 		}
 
 		var score;
@@ -343,9 +352,12 @@ function showPracticeMenu(page) {
 		} else if (a.id === "scalerun") {
 			var run = practice.scaleRunBest;
 			score = typeof run === "number" ? starText(challengeStars(run, scaleRunSequence().length)) : "\u2606\u2606\u2606";
-		} else {
-			var best = a.id === "quiz" ? practice.challengeBest : practice.drillBest[a.id];
+		} else if (a.id === "quiz") {
+			var best = practice.challengeBest;
 			score = typeof best === "number" ? starText(challengeStars(best)) : "\u2606\u2606\u2606";
+		} else {
+			var drillBest = practice.drillBest[a.id];
+			score = typeof drillBest === "number" ? "Best: " + drillBest : DRILL_SECONDS + " sec";
 		}
 
 		var b = document.createElement("button");
@@ -446,6 +458,7 @@ function closePractice() {
 	practiceOpen = false;
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
+	clearInterval(drillClockTimer);
 	stopNote();
 	if (practiceStartedMic && listenActive) stopListening();
 	practiceStartedMic = false;
@@ -976,7 +989,11 @@ var SCALE_RUN_SVG = '<svg width="34" height="26" viewBox="0 0 34 26" fill="curre
 
 // Read / Finger / Hear / Play chips. Steps already reached can be revisited.
 function renderPracticeSteps() {
-	if (practice.mode === "challenge" || practice.mode === "drill") {
+	if (practice.mode === "drill") {
+		renderDrillProgress();
+		return;
+	}
+	if (practice.mode === "challenge") {
 		renderChallengeProgress();
 		return;
 	}
@@ -1224,18 +1241,77 @@ function renderChallengeProgress() {
 // Drills: note names and fingerings (no mic)
 // ---------------------------------------------------------------------------
 
-// A round of CHALLENGE_LENGTH questions. kind "names" shows the note on the
-// staff; "fingerings" shows only its chart (or unlabeled piano key). Either
-// way the student picks its name; a note scores if named on the first try.
-// Shares the challenge's sequence, progress dots and result screen.
+// A race against the clock: name as many notes as you can in DRILL_SECONDS.
+// kind "names" shows the note on the staff; "fingerings" shows only its chart
+// (or unlabeled piano key). Either way the student picks its name; a note
+// scores if named on the first try (a wrong answer still has to be fixed
+// before moving on). The clock starts once the first answers can be tapped.
+// Shares the challenge's result screen.
 function startDrill(kind) {
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
 	setPracticeMode("drill");
 	practice.drillKind = kind;
 	practice.index = -1;
-	practice.challenge = { kind: "drill", notes: practice.notes, seq: makeChallengeSequence(), pos: 0, results: [] };
+	practice.challenge = { kind: "drill", notes: practice.notes, seq: [], pos: 0, results: [], score: 0, endsAt: 0 };
+	document.getElementById("practice-steps").innerHTML = "";
 	showDrillQuestion();
+}
+
+// A random note index for the next question, never the same twice in a row
+function nextDrillNote(seq) {
+	var count = practice.notes.length;
+	var last = seq.length ? seq[seq.length - 1] : -1;
+	var i = Math.floor(Math.random() * (count - (last < 0 ? 0 : 1)));
+	return last >= 0 && i >= last ? i + 1 : i;
+}
+
+// Start the round's clock (once); it ends the round when it runs out
+function startDrillClock(c) {
+	if (c.endsAt) return;
+	c.endsAt = Date.now() + DRILL_SECONDS * 1000;
+	clearInterval(drillClockTimer);
+	drillClockTimer = setInterval(function() {
+		if (practice.challenge !== c || practice.mode !== "drill") {
+			clearInterval(drillClockTimer);
+			return;
+		}
+		if (Date.now() >= c.endsAt) {
+			finishDrill();
+		} else {
+			renderDrillProgress();
+		}
+	}, 100);
+	renderDrillProgress();
+}
+
+// The clock bar draining from full, the seconds left and the score so far
+// (gold once it beats the best), in place of the step chips
+function renderDrillProgress() {
+	var c = practice.challenge;
+	var list = document.getElementById("practice-steps");
+	var row = list.querySelector(".drill-progress");
+	if (!row) {
+		list.innerHTML = "";
+		row = document.createElement("div");
+		row.className = "drill-progress";
+		row.innerHTML = '<span class="drill-time"></span>' +
+			'<span class="drill-clock"><span class="drill-clock-fill"></span></span>' +
+			'<span class="drill-score"></span>';
+		list.appendChild(row);
+	}
+	var left = c.endsAt ? Math.max(0, c.endsAt - Date.now()) : DRILL_SECONDS * 1000;
+	var secs = Math.ceil(left / 1000);
+	var time = row.querySelector(".drill-time");
+	time.textContent = "0:" + (secs < 10 ? "0" : "") + secs;
+	time.setAttribute("aria-label", secs + " seconds left");
+	row.querySelector(".drill-clock-fill").style.width = (left / (DRILL_SECONDS * 1000) * 100) + "%";
+	row.classList.toggle("hurry", !!c.endsAt && secs <= 5);
+	var best = practice.drillBest[practice.drillKind];
+	var score = row.querySelector(".drill-score");
+	score.textContent = "\u2713 " + c.score;
+	score.setAttribute("aria-label", c.score + " right" + (typeof best === "number" ? ", best " + best : ""));
+	score.classList.toggle("beat", typeof best === "number" && c.score > best);
 }
 
 // One key per practice note, equal when two notes share a fingering (trumpet
@@ -1290,6 +1366,7 @@ function showDrillQuestion() {
 	var c = practice.challenge;
 	clearTimeout(practiceAdvanceTimer);
 	var pos = c.pos;
+	if (c.seq.length <= pos) c.seq.push(nextDrillNote(c.seq));
 	practice.target = practice.notes[c.seq[pos]];
 	practice.step = -1;  // no mic scoring
 	c.helped = false;    // set by a wrong answer
@@ -1315,7 +1392,7 @@ function showDrillQuestion() {
 	// The fingerings drill needs the fingerprints (a moment: five small local
 	// files) to pick its choices; the question shows now, with all five
 	// answers disabled in place until then (unless the student has left this
-	// question by the time they load)
+	// question by the time they load). The clock waits for the answers.
 	var answers = drillAnswers();
 	body.appendChild(answers);
 	if (!names && !practice.fingeringKeys) {
@@ -1325,8 +1402,11 @@ function showDrillQuestion() {
 			state.fingeringKeys = keys;
 			if (practice === state && state.challenge === c && c.pos === pos && state.mode === "drill" && answers.parentNode) {
 				answers.parentNode.replaceChild(drillAnswers(), answers);
+				startDrillClock(c);
 			}
 		});
+	} else {
+		startDrillClock(c);
 	}
 }
 
@@ -1348,7 +1428,7 @@ function drillAnswers() {
 
 function answerDrill(button, midi) {
 	var c = practice.challenge;
-	if (c.answered) return;
+	if (c.answered || !c.endsAt || Date.now() >= c.endsAt) return;
 	var prompt = document.getElementById("practice-prompt");
 	if (midi !== practice.target) {
 		c.helped = true;
@@ -1362,34 +1442,37 @@ function answerDrill(button, midi) {
 	}
 	c.answered = true;
 	c.results.push(!c.helped);
+	if (!c.helped) c.score++;
 	c.streak = c.helped ? 0 : (c.streak || 0) + 1;
 	button.classList.add("right");
 	prompt.textContent = praiseWord() + " That\u2019s " + practiceNoteName(practice.target) + "." + streakText(c.streak);
 	renderPracticeSteps();
 	celebrateCorrect(button);
+	// Quick, so the clock is spent naming notes (it keeps running meanwhile)
 	practiceAdvanceTimer = setTimeout(function() {
 		c.pos++;
-		if (c.pos < CHALLENGE_LENGTH) {
-			showDrillQuestion();
-		} else {
-			finishDrill();
-		}
-	}, 1200);
+		showDrillQuestion();
+	}, DRILL_NEXT_MS);
 }
 
+// Time's up: the score is the notes named right on the first try
 function finishDrill() {
+	clearInterval(drillClockTimer);
+	clearTimeout(practiceAdvanceTimer);
 	var kind = practice.drillKind;
-	var score = practice.challenge.results.filter(Boolean).length;
+	var score = practice.challenge.score;
 	var prev = practice.drillBest[kind];
 	var newBest = typeof prev !== "number" || score > prev;
 	if (newBest) {
 		practice.drillBest[kind] = score;
 		saveDrillBest(practice.instrument, practice.drillBest);
 	}
+	var line = "You named " + score + " note" + (score === 1 ? "" : "s") + " in " + DRILL_SECONDS + " seconds";
+	if (!newBest) line += score === prev ? " \u2014 that ties your best" : " \u2014 your best is " + prev;
 	showRoundResult(score, newBest,
-		score === CHALLENGE_LENGTH ? "Perfect score!" : "Round complete!",
-		"You got " + score + " of " + CHALLENGE_LENGTH + " right on the first try",
-		function() { startDrill(kind); });
+		newBest && typeof prev === "number" && score > 0 ? "You beat your best!" : "Time\u2019s up!",
+		line,
+		function() { startDrill(kind); }, DRILL_STAR_GOAL);
 }
 
 // ---------------------------------------------------------------------------
