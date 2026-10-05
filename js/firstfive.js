@@ -3621,16 +3621,16 @@ function firstSoundsSVG(drawing) {
 			s += '<ellipse cx="226" cy="48" rx="4" ry="8" fill="#2b2140"/>';
 		}
 	} else if (drawing === "clarinet-barrel") {
-		var x0 = 40;
+		var x0 = 48;
 		s += airArrowSVG(x0 + 2, 46) +
-			// reed under the beak, mouthpiece body, ligature, tenon
+			// reed under the beak, mouthpiece body, ligature, then the barrel
+			// right against it (the tenon hides inside the barrel)
 			'<path d="M' + (x0 + 4) + ' 55 L' + (x0 + 70) + ' 55 L' + (x0 + 70) + ' 59 L' + (x0 + 8) + ' 59 Z" fill="#e8c77a" stroke="#a8843a" stroke-width="1.5"/>' +
 			'<path d="M' + x0 + ' 50 Q' + (x0 + 10) + ' 38 ' + (x0 + 34) + ' 36 L' + (x0 + 90) + ' 36 L' + (x0 + 90) + ' 56 L' + (x0 + 2) + ' 55 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
 			'<rect x="' + (x0 + 48) + '" y="33" width="14" height="28" rx="3" fill="#c7cfd8" stroke="#6b7685" stroke-width="2"/>' +
-			'<rect x="' + (x0 + 90) + '" y="39" width="16" height="14" fill="#3a3a44" stroke="#15151b" stroke-width="2"/>' +
-			'<path d="M' + (x0 + 106) + ' 32 Q' + (x0 + 150) + ' 26 ' + (x0 + 194) + ' 32 L' + (x0 + 194) + ' 60 Q' + (x0 + 150) + ' 66 ' + (x0 + 106) + ' 60 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
-				'<rect x="' + (x0 + 106) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>' +
-				'<rect x="' + (x0 + 188) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>';
+			'<path d="M' + (x0 + 90) + ' 32 Q' + (x0 + 134) + ' 26 ' + (x0 + 178) + ' 32 L' + (x0 + 178) + ' 60 Q' + (x0 + 134) + ' 66 ' + (x0 + 90) + ' 60 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
+				'<rect x="' + (x0 + 90) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>' +
+				'<rect x="' + (x0 + 172) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>';
 	} else {
 		var m0 = 14;
 		s += airArrowSVG(m0 + 2, 46) +
