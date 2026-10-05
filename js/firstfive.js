@@ -1447,7 +1447,8 @@ function answerDrill(button, midi) {
 	button.classList.add("right");
 	prompt.textContent = praiseWord() + " That\u2019s " + practiceNoteName(practice.target) + "." + streakText(c.streak);
 	renderPracticeSteps();
-	celebrateCorrect(button);
+	// No balloons mid-round (they'd distract from the race); they come at the end
+	celebrateCorrect(button, true);
 	// Quick, so the clock is spent naming notes (it keeps running meanwhile)
 	practiceAdvanceTimer = setTimeout(function() {
 		c.pos++;
@@ -1473,6 +1474,7 @@ function finishDrill() {
 		newBest && typeof prev === "number" && score > 0 ? "You beat your best!" : "Time\u2019s up!",
 		line,
 		function() { startDrill(kind); }, DRILL_STAR_GOAL);
+	if (score > 0) launchBalloons();
 }
 
 // ---------------------------------------------------------------------------
@@ -4151,14 +4153,15 @@ function streakText(streak) {
 	return streak >= 3 ? " " + streak + " in a row!" : "";
 }
 
-// The whole celebration for one correct answer
-function celebrateCorrect(button) {
+// The whole celebration for one correct answer; noBalloons keeps it to the
+// bounce and chime (the timed drills save the balloons for the end)
+function celebrateCorrect(button, noBalloons) {
 	if (button) {
 		button.classList.remove("cheer");
 		void button.offsetWidth;  // restart the bounce
 		button.classList.add("cheer");
 	}
-	launchBalloons();
+	if (!noBalloons) launchBalloons();
 	playChime();
 }
 

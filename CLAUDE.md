@@ -243,7 +243,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   the clock: name as many notes as you can in `DRILL_SECONDS` (30), trying
   to beat your best. Random notes (`nextDrillNote()`, no back-to-back
   repeats); a note scores if named on the first try (a wrong one must still
-  be fixed), and a right answer moves on after `DRILL_NEXT_MS`. The clock
+  be fixed), and a right answer moves on after `DRILL_NEXT_MS` with just the chime and
+  bounce; the balloons wait for the result screen. The clock
   (`startDrillClock()`, `drillClockTimer`, cleared by `setPracticeMode()` /
   `closePractice()`) starts once the answers can be tapped;
   `renderDrillProgress()` replaces the dots with seconds left, a draining
@@ -258,7 +259,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   the answers disabled in place. `loadFingeringKeys()` keys valve/clarinet notes by
   their fingering data and image charts by a hash of the file
   (`fingeringImagePath()`), since shared fingerings share identical images.
-- **Correct answers** in the quiz, both drills and the lesson's Read step
+- **Correct answers** in the quiz, both drills (no balloons until the end)
+  and the lesson's Read step
   get `celebrateCorrect()`: balloons rising through the card
   (`launchBalloons()`, a `.balloon-layer` that clips them and ignores taps;
   skipped under reduced motion), a short chime (`playChime()`, outside
