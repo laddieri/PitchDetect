@@ -2698,24 +2698,45 @@
 				color: #fff;
 			}
 
-			/* The balloon grows from its knot with each right answer (--fill
-			   0 to 1) and bursts at the goal; its slot stays reserved */
+			/* Drills: a big balloon in a column at the side of the card grows
+			   from its knot with each right answer (--fill 0 to 1) and bursts
+			   at the goal. The prompt, staff and chart leave the column free;
+			   the answers run full width under it. */
+			.practice-view[data-mode="drill"] {
+				--drill-balloon-w: 190px;
+			}
+
+			.practice-view[data-mode="drill"]:not([data-step="challenge-done"]) .practice-prompt,
+			.practice-view[data-mode="drill"]:not([data-step="challenge-done"]) .practice-staff,
+			.practice-view[data-mode="drill"]:not([data-step="challenge-done"]) .practice-fingering {
+				box-sizing: border-box;
+				padding-right: var(--drill-balloon-w);
+			}
+
 			.drill-balloon {
-				width: 36px;
-				height: 52px;
-				flex-shrink: 0;
+				position: absolute;
+				top: 0;
+				right: 0;
+				bottom: 84px;
+				width: var(--drill-balloon-w);
 				display: flex;
-				align-items: flex-end;
+				align-items: center;
 				justify-content: center;
+				pointer-events: none;
+			}
+
+			.practice-view:not([data-mode="drill"]) .drill-balloon,
+			.practice-view[data-step="challenge-done"] .drill-balloon {
+				display: none;
 			}
 
 			.drill-balloon svg {
 				display: block;
-				width: 100%;
+				width: 94%;
 				height: auto;
 				transform-origin: 50% 80%;
-				transform: scale(calc(0.35 + 0.65 * var(--fill, 0)));
-				transition: transform 0.3s cubic-bezier(.3, 1.6, .5, 1), opacity 0.15s;
+				transform: scale(calc(0.3 + 0.7 * var(--fill, 0)));
+				transition: transform 0.35s cubic-bezier(.3, 1.6, .5, 1), opacity 0.15s;
 			}
 
 			.drill-balloon.popped svg {
@@ -3879,6 +3900,14 @@
 
 				.practice-answers {
 					gap: 6px;
+				}
+
+				.practice-view[data-mode="drill"] {
+					--drill-balloon-w: 112px;
+				}
+
+				.drill-balloon {
+					bottom: 70px;
 				}
 
 				.practice-answer {
