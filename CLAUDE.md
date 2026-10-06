@@ -251,8 +251,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   bar and the score (gold once past the best). The big balloon
   (`#drill-balloon`, `--drill-balloon-w`, `--fill`) sits in the stage's
   top right corner, floating over the staff or chart (only the phone prompt
-  wraps short of it), inflates with each right answer and at
-  `DRILL_BALLOON_GOAL` (10) pops (`popDrillBalloon()`: `playPop()` and
+  wraps short of it), inflates with each right answer toward the goal written on it
+  (`drillBalloonGoal()`: `DRILL_BALLOON_GOAL` (10), and once the best has
+  reached that, best + 1, so popping it again means beating your best) and
+  pops (`popDrillBalloon()`: `playPop()` and
   `launchConfetti()`, skipped under reduced motion); the round carries on. Names shows the staff;
   fingerings hides it and shows only the chart (`practiceFingeringBox(true)`
   leaves the piano key unlabeled). Result via `showRoundResult()` with stars
