@@ -1256,6 +1256,8 @@ function startDrill(kind) {
 	practice.index = -1;
 	practice.challenge = { kind: "drill", notes: practice.notes, seq: [], pos: 0, results: [], score: 0, endsAt: 0 };
 	document.getElementById("practice-steps").innerHTML = "";
+	var balloon = document.getElementById("drill-balloon");
+	if (balloon) balloon.remove();
 	showDrillQuestion();
 }
 
@@ -1286,15 +1288,17 @@ function startDrillClock(c) {
 	renderDrillProgress();
 }
 
-// A balloon beside the score, inflating with each right answer until it pops
+// A big balloon beside the question, inflating with each right answer until
+// it pops
 var DRILL_BALLOON_SVG = '<svg viewBox="0 0 40 58" aria-hidden="true">' +
 	'<path d="M20 47 Q17 52 21 55 T19 58" fill="none" stroke="#8a80a3" stroke-width="1.5"/>' +
 	'<ellipse cx="20" cy="22" rx="18" ry="21.5" fill="#ff4d6d"/>' +
 	'<ellipse cx="13" cy="13" rx="4" ry="7" fill="#fff" opacity="0.45" transform="rotate(-20 13 13)"/>' +
 	'<path d="M17 42.5 L23 42.5 L21.5 47 L18.5 47 Z" fill="#ff4d6d"/></svg>';
 
-// The clock bar draining from full, the seconds left, the balloon and the
-// score so far (gold once it beats the best), in place of the step chips
+// The clock bar draining from full, the seconds left and the score so far
+// (gold once it beats the best), in place of the step chips; and the balloon
+// in its column at the side of the card
 function renderDrillProgress() {
 	var c = practice.challenge;
 	var list = document.getElementById("practice-steps");
@@ -1305,7 +1309,6 @@ function renderDrillProgress() {
 		row.className = "drill-progress";
 		row.innerHTML = '<span class="drill-time"></span>' +
 			'<span class="drill-clock"><span class="drill-clock-fill"></span></span>' +
-			'<span class="drill-balloon">' + DRILL_BALLOON_SVG + '</span>' +
 			'<span class="drill-score"></span>';
 		list.appendChild(row);
 	}
@@ -1321,7 +1324,15 @@ function renderDrillProgress() {
 	score.textContent = "\u2713 " + c.score;
 	score.setAttribute("aria-label", c.score + " right" + (typeof best === "number" ? ", best " + best : ""));
 	score.classList.toggle("beat", typeof best === "number" && c.score > best);
-	var balloon = row.querySelector(".drill-balloon");
+	var balloon = document.getElementById("drill-balloon");
+	if (!balloon) {
+		balloon = document.createElement("div");
+		balloon.id = "drill-balloon";
+		balloon.className = "drill-balloon";
+		balloon.setAttribute("aria-hidden", "true");
+		balloon.innerHTML = DRILL_BALLOON_SVG;
+		document.getElementById("practice-stage").appendChild(balloon);
+	}
 	balloon.style.setProperty("--fill", Math.min(c.score, DRILL_BALLOON_GOAL) / DRILL_BALLOON_GOAL);
 	balloon.classList.toggle("popped", !!c.popped);
 }
@@ -1332,7 +1343,7 @@ function popDrillBalloon() {
 	c.popped = true;
 	renderDrillProgress();
 	playPop();
-	var balloon = document.querySelector("#practice-steps .drill-balloon");
+	var balloon = document.querySelector("#drill-balloon svg");
 	if (balloon) launchConfetti(balloon);
 }
 
