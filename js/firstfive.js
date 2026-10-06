@@ -85,7 +85,8 @@ var DRILL_STORAGE_KEY = "pitchdetect-first-five-drills-timed";
 var DRILL_SECONDS = 30;            // length of a drill round
 var DRILL_STAR_GOAL = 15;          // notes for 3 stars (12 for 2, 8 for 1)
 var DRILL_NEXT_MS = 500;           // pause on a right answer before the next
-var DRILL_BALLOON_GOAL = 10;       // right answers that fill and pop the balloon
+var DRILL_BALLOON_GOAL = 10;       // right answers that pop the balloon, until
+                                   // the best reaches it; then beat the best
 var SCALE_STORAGE_KEY = "pitchdetect-bb-scale";
 var SCALE_RUN_STORAGE_KEY = "pitchdetect-bb-scale-run";
 
@@ -1254,7 +1255,8 @@ function startDrill(kind) {
 	setPracticeMode("drill");
 	practice.drillKind = kind;
 	practice.index = -1;
-	practice.challenge = { kind: "drill", notes: practice.notes, seq: [], pos: 0, results: [], score: 0, endsAt: 0 };
+	practice.challenge = { kind: "drill", notes: practice.notes, seq: [], pos: 0, results: [], score: 0, endsAt: 0,
+		balloonGoal: drillBalloonGoal(kind) };
 	document.getElementById("practice-steps").innerHTML = "";
 	var balloon = document.getElementById("drill-balloon");
 	if (balloon) balloon.remove();
@@ -1288,13 +1290,21 @@ function startDrillClock(c) {
 	renderDrillProgress();
 }
 
+// Right answers needed to pop the balloon: DRILL_BALLOON_GOAL, and once the
+// student has popped it, one more than their best
+function drillBalloonGoal(kind) {
+	var best = practice.drillBest[kind];
+	return typeof best === "number" && best >= DRILL_BALLOON_GOAL ? best + 1 : DRILL_BALLOON_GOAL;
+}
+
 // A big balloon beside the question, inflating with each right answer until
-// it pops
+// it pops; the number on it is the goal
 var DRILL_BALLOON_SVG = '<svg viewBox="0 0 40 58" aria-hidden="true">' +
 	'<path d="M20 47 Q17 52 21 55 T19 58" fill="none" stroke="#8a80a3" stroke-width="1.5"/>' +
 	'<ellipse cx="20" cy="22" rx="18" ry="21.5" fill="#ff4d6d"/>' +
 	'<ellipse cx="13" cy="13" rx="4" ry="7" fill="#fff" opacity="0.45" transform="rotate(-20 13 13)"/>' +
-	'<path d="M17 42.5 L23 42.5 L21.5 47 L18.5 47 Z" fill="#ff4d6d"/></svg>';
+	'<path d="M17 42.5 L23 42.5 L21.5 47 L18.5 47 Z" fill="#ff4d6d"/>' +
+	'<text class="drill-balloon-goal" x="20" y="28.5" text-anchor="middle"></text></svg>';
 
 // The clock bar draining from full, the seconds left and the score so far
 // (gold once it beats the best), in place of the step chips; and the balloon
@@ -1331,9 +1341,10 @@ function renderDrillProgress() {
 		balloon.className = "drill-balloon";
 		balloon.setAttribute("aria-hidden", "true");
 		balloon.innerHTML = DRILL_BALLOON_SVG;
+		balloon.querySelector(".drill-balloon-goal").textContent = c.balloonGoal;
 		document.getElementById("practice-stage").appendChild(balloon);
 	}
-	balloon.style.setProperty("--fill", Math.min(c.score, DRILL_BALLOON_GOAL) / DRILL_BALLOON_GOAL);
+	balloon.style.setProperty("--fill", Math.min(c.score, c.balloonGoal) / c.balloonGoal);
 	balloon.classList.toggle("popped", !!c.popped);
 }
 
@@ -1522,9 +1533,10 @@ function answerDrill(button, midi) {
 	button.classList.add("right");
 	prompt.textContent = praiseWord() + " That\u2019s " + practiceNoteName(practice.target) + "." + streakText(c.streak);
 	renderPracticeSteps();
-	if (c.score === DRILL_BALLOON_GOAL && !c.popped) {
+	if (c.score === c.balloonGoal && !c.popped) {
 		popDrillBalloon();
-		prompt.textContent = "Pop! " + DRILL_BALLOON_GOAL + " right! Keep going!";
+		prompt.textContent = c.balloonGoal > DRILL_BALLOON_GOAL ? "Pop! A new best! Keep going!"
+			: "Pop! " + c.balloonGoal + " right! Keep going!";
 	}
 	// No balloons mid-round (they'd distract from the race); they come at the end
 	celebrateCorrect(button, true);
