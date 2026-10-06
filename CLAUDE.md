@@ -248,8 +248,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`startDrillClock()`, `drillClockTimer`, cleared by `setPracticeMode()` /
   `closePractice()`) starts once the answers can be tapped;
   `renderDrillProgress()` replaces the dots with seconds left, a draining
-  bar, a balloon and the score (gold once past the best). The balloon
-  (`.drill-balloon`, `--fill`) inflates with each right answer and at
+  bar and the score (gold once past the best). The big balloon
+  (`#drill-balloon`, `--drill-balloon-w`, `--fill`) sits in the stage's
+  top right corner, floating over the staff or chart (only the phone prompt
+  wraps short of it), inflates with each right answer and at
   `DRILL_BALLOON_GOAL` (10) pops (`popDrillBalloon()`: `playPop()` and
   `launchConfetti()`, skipped under reduced motion); the round carries on. Names shows the staff;
   fingerings hides it and shows only the chart (`practiceFingeringBox(true)`

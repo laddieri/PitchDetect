@@ -2698,24 +2698,35 @@
 				color: #fff;
 			}
 
-			/* The balloon grows from its knot with each right answer (--fill
-			   0 to 1) and bursts at the goal; its slot stays reserved */
+			/* Drills: a big balloon in the card's top right corner grows with
+			   each right answer (--fill 0 to 1) and bursts at the goal. It
+			   floats over the staff or chart rather than shrinking them, and
+			   lets taps through. */
+			.practice-view[data-mode="drill"] {
+				--drill-balloon-w: 190px;
+			}
+
 			.drill-balloon {
-				width: 36px;
-				height: 52px;
-				flex-shrink: 0;
-				display: flex;
-				align-items: flex-end;
-				justify-content: center;
+				position: absolute;
+				top: 0;
+				right: 0;
+				z-index: 3;
+				width: var(--drill-balloon-w);
+				pointer-events: none;
+			}
+
+			.practice-view:not([data-mode="drill"]) .drill-balloon,
+			.practice-view[data-step="challenge-done"] .drill-balloon {
+				display: none;
 			}
 
 			.drill-balloon svg {
 				display: block;
-				width: 100%;
+				width: 94%;
 				height: auto;
-				transform-origin: 50% 80%;
-				transform: scale(calc(0.35 + 0.65 * var(--fill, 0)));
-				transition: transform 0.3s cubic-bezier(.3, 1.6, .5, 1), opacity 0.15s;
+				transform-origin: 75% 15%;
+				transform: scale(calc(0.3 + 0.7 * var(--fill, 0)));
+				transition: transform 0.35s cubic-bezier(.3, 1.6, .5, 1), opacity 0.15s;
 			}
 
 			.drill-balloon.popped svg {
@@ -3879,6 +3890,17 @@
 
 				.practice-answers {
 					gap: 6px;
+				}
+
+				/* The prompt spans the card on a phone, so it wraps short of
+				   the balloon */
+				.practice-view[data-mode="drill"] {
+					--drill-balloon-w: 120px;
+				}
+
+				.practice-view[data-mode="drill"]:not([data-step="challenge-done"]) .practice-prompt {
+					box-sizing: border-box;
+					padding-right: calc(var(--drill-balloon-w) * 0.8);
 				}
 
 				.practice-answer {
