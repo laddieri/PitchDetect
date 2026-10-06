@@ -2698,30 +2698,20 @@
 				color: #fff;
 			}
 
-			/* Drills: a big balloon in a column at the side of the card grows
-			   from its knot with each right answer (--fill 0 to 1) and bursts
-			   at the goal. The prompt, staff and chart leave the column free;
-			   the answers run full width under it. */
+			/* Drills: a big balloon in the card's top right corner grows with
+			   each right answer (--fill 0 to 1) and bursts at the goal. It
+			   floats over the staff or chart rather than shrinking them, and
+			   lets taps through. */
 			.practice-view[data-mode="drill"] {
 				--drill-balloon-w: 190px;
-			}
-
-			.practice-view[data-mode="drill"]:not([data-step="challenge-done"]) .practice-prompt,
-			.practice-view[data-mode="drill"]:not([data-step="challenge-done"]) .practice-staff,
-			.practice-view[data-mode="drill"]:not([data-step="challenge-done"]) .practice-fingering {
-				box-sizing: border-box;
-				padding-right: var(--drill-balloon-w);
 			}
 
 			.drill-balloon {
 				position: absolute;
 				top: 0;
 				right: 0;
-				bottom: 84px;
+				z-index: 3;
 				width: var(--drill-balloon-w);
-				display: flex;
-				align-items: center;
-				justify-content: center;
 				pointer-events: none;
 			}
 
@@ -2734,7 +2724,7 @@
 				display: block;
 				width: 94%;
 				height: auto;
-				transform-origin: 50% 80%;
+				transform-origin: 75% 15%;
 				transform: scale(calc(0.3 + 0.7 * var(--fill, 0)));
 				transition: transform 0.35s cubic-bezier(.3, 1.6, .5, 1), opacity 0.15s;
 			}
@@ -3902,12 +3892,15 @@
 					gap: 6px;
 				}
 
+				/* The prompt spans the card on a phone, so it wraps short of
+				   the balloon */
 				.practice-view[data-mode="drill"] {
-					--drill-balloon-w: 112px;
+					--drill-balloon-w: 120px;
 				}
 
-				.drill-balloon {
-					bottom: 70px;
+				.practice-view[data-mode="drill"]:not([data-step="challenge-done"]) .practice-prompt {
+					box-sizing: border-box;
+					padding-right: calc(var(--drill-balloon-w) * 0.8);
 				}
 
 				.practice-answer {
