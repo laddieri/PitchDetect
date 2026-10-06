@@ -2587,6 +2587,49 @@
 				flex: 1 1 auto;
 			}
 
+			/* Quiz Help: the name in big letters and a bigger chart, with the
+			   staff giving up some room for them */
+			.practice-view[data-step="challenge-help"] .practice-staff {
+				height: clamp(80px, 16vh, 150px);
+			}
+
+			.practice-view[data-step="challenge-help"] .practice-prompt {
+				display: flex;
+				align-items: baseline;
+				justify-content: center;
+				gap: 0.4em;
+			}
+
+			.challenge-help-this {
+				font-size: 1.1rem;
+				color: var(--text-muted);
+			}
+
+			.challenge-help-name {
+				font-size: 5.5rem;
+				font-weight: 800;
+				line-height: 1;
+				color: var(--accent);
+			}
+
+			.practice-view[data-step="challenge-help"] .practice-fingering {
+				height: calc(var(--fingering-h, 180px) * 1.6);
+			}
+
+			.practice-view[data-step="challenge-help"] .practice-fingering img {
+				object-fit: contain;
+			}
+
+			.practice-view[data-step="challenge-help"] .practice-fingering > svg {
+				width: min(100%, 480px);
+			}
+
+			/* Valve diagrams carry a fixed size: let them scale up too */
+			.practice-view[data-step="challenge-help"] .primary-fingering svg {
+				width: auto;
+				height: 100cqh;
+			}
+
 			/* Steps other than Finger group their content mid-card (not the song
 			   list: its levels open in place, so it stays put at the top) */
 			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]):not([data-step="song-list"]) .practice-stage {
@@ -3922,6 +3965,18 @@
 				.practice-fingering {
 					height: auto;
 					flex: 1 1 0;
+				}
+
+				.practice-view[data-step="challenge-help"] .practice-fingering {
+					height: auto;
+				}
+
+				.practice-view[data-step="challenge-help"] .practice-staff {
+					height: clamp(70px, 12vh, 110px);
+				}
+
+				.challenge-help-name {
+					font-size: 4rem;
 				}
 			}
 			/* Narrowest phones: tighter step chips so four fit on one line */

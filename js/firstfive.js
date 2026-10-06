@@ -14,8 +14,9 @@
  * Practice opens on a menu of activities (showPracticeMenu()):
  *   Learn  — the lessons above
  *   Quiz   — the challenge round: CHALLENGE_LENGTH notes mixed at random,
- *            staff only, played into the mic. Help reveals a note's name,
- *            fingering and sound, but only notes played without help score.
+ *            staff only: name each note, then play it into the mic. Help
+ *            reveals a note's name (big), fingering and sound, but only notes
+ *            named first try and played without help score.
  *   Names  — a drill: name each note shown on the staff (no mic)
  *   Fingerings — a drill: name the note a fingering chart shows (no mic)
  * Rounds score notes done unaided; the best score per instrument is kept.
@@ -809,9 +810,11 @@ function updatePracticeListen(now, freq, level) {
 	if (!practice || practice.step !== 3) return;
 	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
 	practice.lastFrame = now;
-	// The challenge is reading from the staff, so feedback never names the
-	// target (naming what the student actually played is fine)
+	// The scale run is reading from the staff, so its feedback never names
+	// the target (naming what the student actually played is fine); the
+	// quiz has the student name it before playing
 	var challenge = practice.mode === "challenge";
+	var hideName = challenge && practice.challenge.kind === "scale";
 	var name = practiceNoteName(practice.target);
 	var holdNeeded = challenge ? CHALLENGE_HOLD_MS : PRACTICE_HOLD_MS;
 
@@ -837,13 +840,13 @@ function updatePracticeListen(now, freq, level) {
 			setPracticeFeedback(Math.abs(cents) <= PRACTICE_TUNE_CENTS ? "Just right! Hold it\u2026" : "That\u2019s it! Hold it\u2026",
 				Math.abs(cents) <= PRACTICE_TUNE_CENTS ? "\u00a0" : (cents < 0 ? "A tiny bit low" : "A tiny bit high"), "good");
 		} else {
-			practiceWrongNoteHint(diff, challenge);
+			practiceWrongNoteHint(diff, hideName);
 		}
 	} else if (now - practice.lastSound > PRACTICE_GHOST_CLEAR_MS) {
 		setPracticeGhost(null);
 	}
 	if (!freq && now - practice.lastSound > 1500) {
-		setPracticeFeedback(challenge ? "Hold it until the bar fills" : "Play " + name + " and hold it", "\u00a0");
+		setPracticeFeedback(hideName ? "Hold it until the bar fills" : "Play " + name + " and hold it", "\u00a0");
 	}
 
 	// Short gaps (a breath, a wobble) keep the progress; longer ones reset it
@@ -1082,47 +1085,126 @@ function showChallengeNote() {
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
 	practice.target = c.notes[c.seq[c.pos]];
-	practice.step = 3;
 	c.helped = false;
+	c.revealed = false;
 	resetPracticeHold();
 
 	document.getElementById("practice-view").setAttribute("data-step", "challenge");
 	drawPracticeStaff(practice.target);
 	renderPracticeSteps();
+	if (c.kind !== "scale") {
+		showChallengeName();
+		return;
+	}
 	var top = SCALE_STEPS.length - 1;
-	document.getElementById("practice-prompt").textContent = c.kind !== "scale" ? "Play this note!"
-		: c.pos === 0 ? "Start the scale on this note!"
+	document.getElementById("practice-prompt").textContent = c.pos === 0 ? "Start the scale on this note!"
 		: c.pos < top ? "Next note up!"
 		: c.pos === top ? "Up to the top!"
 		: "Now back down!";
+	showChallengePlay();
+}
+
+// The quiz asks the note's name first (no mic scoring yet); a wrong name
+// still has to be fixed, and the note then no longer scores
+function showChallengeName() {
+	var c = practice.challenge;
+	c.phase = "name";
+	practice.step = -1;
+	document.getElementById("practice-prompt").textContent = "What\u2019s the name of this note?";
+	var body = document.getElementById("practice-body");
+	body.innerHTML = "";
+	var answers = document.createElement("div");
+	answers.className = "practice-answers";
+	answers.setAttribute("data-count", c.notes.length);
+	c.notes.forEach(function(midi) {
+		var b = document.createElement("button");
+		b.className = "practice-answer";
+		b.textContent = practiceNoteName(midi);
+		b.onclick = function() { answerChallengeName(b, midi); };
+		answers.appendChild(b);
+	});
+	body.appendChild(answers);
+	var help = practiceButton("Help", "secondary", showChallengeHelp);
+	help.id = "challenge-help-button";
+	body.appendChild(help);
+}
+
+function answerChallengeName(button, midi) {
+	var c = practice.challenge;
+	if (c.phase !== "name") return;
+	var prompt = document.getElementById("practice-prompt");
+	if ((((midi - practice.target) % 12) + 12) % 12 !== 0) {
+		c.helped = true;
+		button.classList.remove("wrong");
+		void button.offsetWidth;  // restart the shake
+		button.classList.add("wrong");
+		button.disabled = true;
+		prompt.textContent = "Not that one \u2014 try again!";
+		renderPracticeSteps();
+		return;
+	}
+	c.phase = "named";
+	button.classList.add("right");
+	prompt.textContent = praiseWord() + " That\u2019s " + practiceNoteName(practice.target) + ".";
+	// Just the bounce and chime: the balloons wait for it to be played
+	celebrateCorrect(button, true);
+	practiceAdvanceTimer = setTimeout(function() {
+		document.getElementById("practice-prompt").textContent = "Now play " + practiceNoteName(practice.target) + "!";
+		showChallengePlay();
+	}, 900);
+}
+
+// The note's turn to be played: the hold bar, Help (until it's been used),
+// and the mic
+function showChallengePlay() {
+	var c = practice.challenge;
+	clearTimeout(practiceAdvanceTimer);
+	c.phase = "play";
+	practice.step = 3;
+	resetPracticeHold();
+	// The chime after a right name mustn't count as the student playing
+	practice.ignoreUntil = performance.now() + 600;
 	var body = document.getElementById("practice-body");
 	body.innerHTML =
 		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready\u2026</div>' +
 		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>' +
 		'<div class="practice-hold" aria-hidden="true"><div class="practice-hold-fill" id="practice-hold-fill"></div></div>';
-	var help = practiceButton("Help", "secondary", function() { showChallengeHelp(help); });
-	body.appendChild(help);
+	if (!c.revealed) {
+		var help = practiceButton("Help", "secondary", showChallengeHelp);
+		help.id = "challenge-help-button";
+		body.appendChild(help);
+	}
 
 	if (!listenActive) {
 		practiceStartedMic = true;
 		startListening();
 	}
-	setPracticeFeedback("Hold it until the bar fills", "\u00a0");
+	setPracticeFeedback(c.kind === "scale" ? "Hold it until the bar fills"
+		: "Play " + practiceNoteName(practice.target) + " and hold it", "\u00a0");
 }
 
-// Reveal the name, fingering and sound. The note still has to be played,
-// but it no longer scores.
-function showChallengeHelp(button) {
+// Reveal the name (big), fingering (big) and sound. The note still has to
+// be played, but it no longer scores. In the quiz's name step this answers
+// the name too and moves on to playing.
+function showChallengeHelp() {
 	var c = practice.challenge;
+	if (c.phase !== "play") showChallengePlay();
 	c.helped = true;
+	c.revealed = true;
 	renderPracticeSteps();
 	var name = practiceNoteName(practice.target);
 	document.getElementById("practice-view").setAttribute("data-step", "challenge-help");
-	document.getElementById("practice-prompt").textContent = "This is " + name + ". Play it!";
+	var prompt = document.getElementById("practice-prompt");
+	prompt.innerHTML = '<span class="challenge-help-this">This is</span> <span class="challenge-help-name"></span>';
+	prompt.lastChild.textContent = name;
 
-	button.parentNode.insertBefore(practiceFingeringBox(), button);
-	button.textContent = "\u25b6 Hear it";
-	button.onclick = playPracticeExample;
+	var body = document.getElementById("practice-body");
+	var help = document.getElementById("challenge-help-button");
+	if (help) help.remove();
+	body.insertBefore(practiceFingeringBox(), body.firstChild);
+	var hear = practiceButton("\u25b6 Hear it", "secondary", playPracticeExample);
+	body.appendChild(hear);
+	setPracticeFeedback("Play " + name + " and hold it", "\u00a0");
 	playPracticeExample();
 }
 
