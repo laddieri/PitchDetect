@@ -105,10 +105,14 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   flats only.
 - **Quiz / challenge round** (`startChallenge()`): from the menu, and offered
   on the lesson result when the fifth note is first learned. `CHALLENGE_LENGTH` notes from `makeChallengeSequence()`
-  (each note at least once, no back-to-back repeats), staff only, held for
-  `CHALLENGE_HOLD_MS`; progress dots replace the step chips. Feedback never
-  names the target. **Help** (`showChallengeHelp()`) reveals name, fingering
-  and sound, but only unhelped notes score; `challengeStars()` turns the
+  (each note at least once, no back-to-back repeats), staff only. Each note
+  asks its name first (`showChallengeName()`, answer buttons, no mic
+  scoring; a wrong name must be fixed and the note no longer scores), then
+  to play it (`showChallengePlay()`), held for `CHALLENGE_HOLD_MS`; progress
+  dots replace the step chips. **Help** (`showChallengeHelp()`, in either
+  step) reveals the name in big letters (`.challenge-help-name`), a bigger
+  fingering chart (`data-step="challenge-help"` scales `--fingering-h`) and
+  the sound, but only unhelped notes score; `challengeStars()` turns the
   score into 0–3 trophy stars, best score per instrument in
   `pitchdetect-first-five-challenge`.
 - **B♭ scale** (two cards on the menu's **More** page: activities marked
@@ -122,7 +126,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   its notes and stars (best per note in `pitchdetect-bb-scale`); the Read
   step offers each name once. **Play the B♭ scale** (`startScaleRun()`) is a
   challenge round (`practice.challenge.kind === "scale"`) in order up and
-  back down (`scaleRunSequence()`, 15 notes), best in
+  back down (`scaleRunSequence()`, 15 notes; no name step, and feedback
+  never names the target), best in
   `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
   10/8/5 thresholds. The quiz and drills stay on the first five notes.
 - **Songs** (`showSongList()` → `playThroughSong(id)`, a wide card on the
