@@ -37,9 +37,10 @@
  * the student copies a tune from their own music into a song editor
  * (openSongEditor()) and plays it the same way.
  *
- * Flute, clarinet and alto sax also get a "first sounds" tutorial
- * (startFirstSounds(), configured by FIRST_SOUNDS): playing just the head
- * joint / mouthpiece and barrel / mouthpiece and neck before the first notes.
+ * Flute, clarinet, alto sax, oboe and the brass also get a "first sounds"
+ * tutorial (startFirstSounds(), configured by FIRST_SOUNDS): playing just the
+ * head joint / mouthpiece and barrel / mouthpiece and neck / reed (a crow) /
+ * mouthpiece (a buzz) before the first notes.
  *
  * Uses notetrainer.js globals: playTone(), startListening()/stopListening(),
  * launchFireworks(), getTransposition(), drawPianoKeyboard(), keyDisplayName(),
@@ -3829,7 +3830,7 @@ window.addEventListener("hashchange", checkSongLink);
 
 // ---------------------------------------------------------------------------
 // First sounds: the flute head joint, the clarinet mouthpiece and barrel,
-// the alto sax mouthpiece and neck
+// the alto sax mouthpiece and neck, the oboe reed, the brass mouthpiece
 // ---------------------------------------------------------------------------
 
 function loadFirstSoundsBest(instrument) {
@@ -3862,7 +3863,10 @@ function firstSoundsSVG(drawing) {
 		"flute-open": "Head joint with the end open",
 		"flute-covered": "Head joint with the end covered by your palm",
 		"clarinet-barrel": "Clarinet mouthpiece and barrel",
-		"sax-neck": "Saxophone mouthpiece on the neck"
+		"sax-neck": "Saxophone mouthpiece on the neck",
+		"mouthpiece-small": "Brass mouthpiece",
+		"mouthpiece-large": "Large brass mouthpiece",
+		"oboe-reed": "Oboe reed"
 	}[drawing];
 	var s = '<svg class="first-sounds-drawing" viewBox="0 0 250 84" role="img" aria-label="' + label + '">';
 
@@ -3889,6 +3893,26 @@ function firstSoundsSVG(drawing) {
 			'<path d="M' + (x0 + 90) + ' 32 Q' + (x0 + 134) + ' 26 ' + (x0 + 178) + ' 32 L' + (x0 + 178) + ' 60 Q' + (x0 + 134) + ' 66 ' + (x0 + 90) + ' 60 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
 				'<rect x="' + (x0 + 90) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>' +
 				'<rect x="' + (x0 + 172) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>';
+	} else if (drawing === "mouthpiece-small" || drawing === "mouthpiece-large") {
+		// rim and cup on the left (where the lips go), then the stem narrowing
+		// to the throat and widening a little to the shank
+		var big = drawing === "mouthpiece-large";
+		var r = big ? 30 : 22, c0 = 40, cupEnd = c0 + (big ? 50 : 40), end = 236;
+		var t = big ? 7 : 5, sh = big ? 11 : 8;
+		s += airArrowSVG(c0 - 6, 42 - r + 6) +
+			'<path d="M' + c0 + ' ' + (42 - r) + ' Q' + (cupEnd - 6) + ' ' + (42 - r) + ' ' + cupEnd + ' ' + (42 - t) +
+				' L' + (end - 70) + ' ' + (42 - t) + ' L' + end + ' ' + (42 - sh) + ' L' + end + ' ' + (42 + sh) +
+				' L' + (end - 70) + ' ' + (42 + t) + ' L' + cupEnd + ' ' + (42 + t) +
+				' Q' + (cupEnd - 6) + ' ' + (42 + r) + ' ' + c0 + ' ' + (42 + r) + ' Z" fill="#e9c46a" stroke="#a37b1e" stroke-width="2"/>' +
+			'<rect x="' + (c0 - 6) + '" y="' + (42 - r - 3) + '" width="10" height="' + (2 * r + 6) + '" rx="5" fill="#f1d58a" stroke="#a37b1e" stroke-width="2"/>' +
+			'<path d="M' + (end - 70) + ' ' + (42 - t) + ' L' + (end - 70) + ' ' + (42 + t) + '" stroke="#a37b1e" stroke-width="1.5"/>';
+	} else if (drawing === "oboe-reed") {
+		// two cane blades meeting at a thin tip, thread wrapping, cork and staple
+		s += airArrowSVG(30, 38) +
+			'<path d="M30 38 Q60 30 120 33 L120 51 Q60 54 30 46 Z" fill="#e8c77a" stroke="#a8843a" stroke-width="2"/>' +
+			'<path d="M30 42 L120 42" stroke="#a8843a" stroke-width="1.5"/>' +
+			'<rect x="120" y="32" width="44" height="20" rx="3" fill="#d84a4a" stroke="#8f2626" stroke-width="2"/>' +
+			'<path d="M164 34 L226 37 L226 47 L164 50 Z" fill="#c9a27a" stroke="#86643f" stroke-width="2"/>';
 	} else {
 		var m0 = 14;
 		s += airArrowSVG(m0 + 2, 46) +
@@ -3908,6 +3932,13 @@ var FLUTE_ICON_SVG = '<svg width="34" height="20" viewBox="0 0 34 20" aria-hidde
 var MOUTHPIECE_ICON_SVG = '<svg width="34" height="20" viewBox="0 0 34 20" aria-hidden="true">' +
 	'<path d="M2 13 Q5 5 12 5 L31 6 L31 15 L3 15 Z" fill="currentColor"/>' +
 	'<rect x="13" y="3" width="5" height="14" rx="1" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+
+var BRASS_ICON_SVG = '<svg width="34" height="20" viewBox="0 0 34 20" aria-hidden="true">' +
+	'<path d="M3 3 Q11 3 12 8 L22 8 L32 7 L32 13 L22 12 L12 12 Q11 17 3 17 Z" fill="currentColor"/></svg>';
+var REED_ICON_SVG = '<svg width="34" height="20" viewBox="0 0 34 20" aria-hidden="true">' +
+	'<path d="M2 8 Q8 6 15 6 L15 14 Q8 14 2 12 Z" fill="currentColor"/>' +
+	'<rect x="15" y="5" width="6" height="10" rx="1" fill="currentColor"/>' +
+	'<path d="M21 7 L32 8 L32 12 L21 13 Z" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
 
 // Confidence a pitch frame needs for practice to use it (called by the mic
 // loop): looser for first sounds, the main display's 0.85 otherwise
@@ -4006,7 +4037,8 @@ function showFirstSoundListen(sound, withExample) {
 		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Get ready\u2026</div>' +
 		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>' +
 		'<div class="practice-hold" aria-hidden="true"><div class="practice-hold-fill" id="practice-hold-fill"></div></div>');
-	if (withExample) {
+	fs.shownMidi = null;
+	if (withExample && !sound.noExample) {
 		body.appendChild(practiceButton("\u25b6 Hear what it sounds like", "secondary", playPracticeExample));
 	}
 	if (!listenActive) {
@@ -4060,7 +4092,12 @@ function updateFirstSoundsListen(now, freq) {
 			practice.holdMs += dt;
 			practice.lastGood = now;
 			practice.hintFrames = 0;
-			setPracticeFeedback(onFinal && cfg.final === "long" ? "Steady\u2026 keep it going!" : "That\u2019s it! Keep blowing\u2026", "\u00a0", "good");
+			setPracticeFeedback(onFinal && cfg.final === "long" ? "Steady\u2026 keep it going!" : cfg.goodText || "That\u2019s it! Keep blowing\u2026", "\u00a0", "good");
+			// A wide band (a buzz, a crow): the staff shows the note being played
+			if (sound.follow && Math.round(m) !== fs.shownMidi) {
+				fs.shownMidi = Math.round(m);
+				drawPracticeStaff(fs.shownMidi + getTransposition(), sound.sharp);
+			}
 		} else {
 			// Hint only once a wrong sound is steady
 			var r = Math.round(m);
@@ -4077,12 +4114,12 @@ function updateFirstSoundsListen(now, freq) {
 				var otherCents = other ? (m - other.midi) * 100 : NaN;
 				if (other && otherCents >= other.low && otherCents <= other.high) {
 					setPracticeFeedback(sound.otherHint[0], sound.otherHint[1], "off");
-				} else if (cents > sound.high && (sound.squeakMidi ? Math.abs(m - sound.squeakMidi) <= 1 : cents >= 300)) {
+				} else if (cfg.squeakHint && cents > sound.high && (sound.squeakMidi ? Math.abs(m - sound.squeakMidi) <= 1 : cents >= 300)) {
 					setPracticeFeedback("That\u2019s a squeak", cfg.squeakHint, "close");
 				} else if (cents < sound.low) {
-					setPracticeFeedback("A little low", cfg.lowHint, "close");
+					setPracticeFeedback(cfg.lowTitle || "A little low", cfg.lowHint, "close");
 				} else {
-					setPracticeFeedback("A little high", cfg.highHint, "close");
+					setPracticeFeedback(cfg.highTitle || "A little high", cfg.highHint, "close");
 				}
 			}
 		}
@@ -4122,7 +4159,7 @@ function passFirstSound() {
 	}
 	if (fs.step === finalStep) {
 		fs.done[finalStep - 1] = true;
-		setPracticeFeedback("What a long tone!", "\u00a0", "good");
+		setPracticeFeedback(fs.cfg.longPassTitle || "What a long tone!", "\u00a0", "good");
 		practiceAdvanceTimer = setTimeout(function() { goToFirstSoundsStep(finalStep + 1); }, 1200);
 		return;
 	}
@@ -4199,6 +4236,13 @@ function renderFirstSoundsSteps() {
 //     would be ≈ concert C6, but beginners start on the barrel.)
 //   Alto sax: mouthpiece and neck ≈ concert A♭4, usually a bit above. (The
 //     mouthpiece alone would be ≈ concert A5; beginners start on the neck.)
+//   Brass mouthpiece buzz: the mouthpiece alone has no pitch of its own, so
+//     the buzz goes wherever the lips do; beginners land all over. Each band
+//     is about two and a half octaves (around the notes method books ask
+//     for), so any real buzz passes and only a raspberry or a shriek misses.
+//     The staff follows the note being buzzed.
+//   Oboe reed crow: a good reed alone crows a C, usually C5 and C6 at once,
+//     so the pitch can read as either; accepted B♭4–D6.
 // Each sound is a step, then the final step: "switch" alternates the two
 // sounds (both are possible on one setup); "long" holds the last sound for
 // FIRST_SOUNDS_LONG_TONE_MS.
@@ -4213,6 +4257,42 @@ var FIRST_SOUNDS_LONG_TONE_MS = 4000;
 var FIRST_SOUNDS_MIN_CONFIDENCE = 0.7;
 var FIRST_SOUNDS_GAP_MS = 400;
 var REED_TIPS_START = "Wet the reed, then put the reed and ligature on the mouthpiece.";
+
+// A brass mouthpiece buzz tutorial: midi is the concert note the buzz
+// centers on, low/high the accepted band in cents, placement the tip about
+// where the mouthpiece sits on the lips
+function brassBuzzConfig(drawing, midi, low, high, placement) {
+	return {
+		title: "Learn to buzz",
+		sub: "Your first sounds: buzzing on the mouthpiece",
+		icon: BRASS_ICON_SVG,
+		setupTitle: "First sounds: just the mouthpiece!",
+		tips: [
+			"Take the mouthpiece out of the instrument and hold it by the stem.",
+			"Say \u201cmm\u201d: lips together, corners firm, chin flat.",
+			placement,
+			"Blow fast air through your lips so they buzz, like a bee."
+		],
+		steps: ["Set up", "Buzz", "Hold"],
+		final: "long",
+		goodText: "That\u2019s a buzz! Keep it going\u2026",
+		longPassTitle: "What a long buzz!",
+		sounds: [
+			{ midi: midi, low: low, high: high, drawing: drawing, follow: true, noExample: true,
+				prompt: "Buzz into the mouthpiece.",
+				idle: "Buzz and hold it",
+				passTitle: "Great buzz!", passSub: "That\u2019s how every brass note starts" }
+		],
+		lowTitle: "Very low and floppy",
+		lowHint: "Firm the corners of your lips and blow faster air",
+		highTitle: "Very high",
+		highHint: "Relax your lips a little and use slower air",
+		noSoundHint: "No buzz yet? Take the mouthpiece away and buzz your lips alone first.",
+		results: ["Buzz", "Long buzz"],
+		doneTitle: "You can buzz!"
+	};
+}
+
 var FIRST_SOUNDS = {
 	"flute": {
 		title: "Learn the head joint",
@@ -4298,7 +4378,45 @@ var FIRST_SOUNDS = {
 		noSoundHint: "No sound yet? Check the reed is wet and lined up with the tip.",
 		results: ["Mouthpiece & neck sound", "Long tone"],
 		doneTitle: "You can play the mouthpiece and neck!"
-	}
+	},
+	"oboe": {
+		title: "Learn the reed",
+		sub: "Your first oboe sounds: a crow on the reed",
+		icon: REED_ICON_SVG,
+		setupTitle: "First sounds: just the reed!",
+		tips: [
+			"Soak the reed in a little water for 2\u20133 minutes.",
+			"Hold it by the cork, never by the cane.",
+			"Roll both lips over your teeth, like saying \u201coo.\u201d",
+			"Put about a third of the cane in your mouth and blow fast air."
+		],
+		steps: ["Set up", "Crow", "Hold"],
+		final: "long",
+		goodText: "That\u2019s a crow! Keep it going\u2026",
+		longPassTitle: "What a long crow!",
+		sounds: [
+			{ midi: 72, low: -200, high: 1400, drawing: "oboe-reed", follow: true, noExample: true,
+				prompt: "Crow on the reed.",
+				idle: "Blow and hold the crow",
+				passTitle: "Great crow!", passSub: "A good reed crows a C" }
+		],
+		squeakHint: "Take less reed and don\u2019t bite",
+		lowHint: "Take a little more reed and blow faster air",
+		highHint: "Relax your lips \u2014 don\u2019t bite",
+		noSoundHint: "No sound yet? Make sure the reed has soaked and the tip is open.",
+		results: ["Reed crow", "Long crow"],
+		doneTitle: "You can crow on the reed!"
+	},
+	"trumpet": brassBuzzConfig("mouthpiece-small", 67, -1200, 1700,
+		"Center the mouthpiece on your lips: about half top lip, half bottom."),
+	"horn": brassBuzzConfig("mouthpiece-small", 65, -1200, 1900,
+		"Center the mouthpiece on your lips: about two thirds top lip, one third bottom."),
+	"trombone": brassBuzzConfig("mouthpiece-large", 53, -1200, 1700,
+		"Center the mouthpiece on your lips: about half top lip, half bottom."),
+	"euphonium": brassBuzzConfig("mouthpiece-large", 53, -1200, 1700,
+		"Center the mouthpiece on your lips: about half top lip, half bottom."),
+	"tuba": brassBuzzConfig("mouthpiece-large", 46, -1200, 1500,
+		"Center the mouthpiece on your lips, with lots of both lips inside the rim.")
 };
 
 // ---------------------------------------------------------------------------

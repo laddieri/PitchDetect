@@ -282,19 +282,27 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 - **First sounds** (`FIRST_SOUNDS`, one config per instrument; the menu card
   appears only for instruments in it and leads the menu, full-width on
   desktop): flute "Learn the head joint", clarinet "Learn the mouthpiece &
-  barrel", alto sax "Learn the mouthpiece & neck". `startFirstSounds()` →
+  barrel", alto sax "Learn the mouthpiece & neck", oboe "Learn the reed"
+  (a crow), and trumpet, horn, trombone, euphonium, tuba "Learn to buzz"
+  (`brassBuzzConfig()`). `startFirstSounds()` →
   `goToFirstSoundsStep()`: Set up (tips + `firstSoundsSVG()` drawing) → one
   step per sound in the config → final (`firstSoundsFinalStep()`;
   `"switch"`: alternate both sounds, flute; `"long"`: hold the last sound for
   `FIRST_SOUNDS_LONG_TONE_MS`) → result. Flute: Set up / Open / Covered /
   Switch; clarinet and sax skip the mouthpiece alone (not how beginners are
-  started): Set up / Barrel or Neck / Hold. Stars = parts completed scaled to
+  started): Set up / Barrel or Neck / Hold; oboe Set up / Crow / Hold; brass
+  Set up / Buzz / Hold. Stars = parts completed scaled to
   3, best per instrument in `pitchdetect-first-five-headjoint` (key predates
   clarinet/sax). Concert pitches with accepted cents bands: flute open ≈ A5
   (accepts G5–B5), covered ≈ A4 (accepts G4–B♭4; can overblow to E6) — wide
   because real head joints vary; clarinet
   mouthpiece + barrel ≈ F♯5; alto sax mouthpiece + neck ≈ A♭4 (usually a bit
-  above). The staff shows the written pitch (`sharp` spells F♯/G♯).
+  above); oboe reed crow ≈ C5/C6 (accepts B♭4–D6); brass mouthpiece buzz has
+  no pitch of its own, so each band is ~2½ octaves around a typical buzz
+  (trumpet G3–C6, horn F3–C6, trombone/euphonium F2–B♭4, tuba B♭1–C♯4).
+  The staff shows the written pitch (`sharp` spells F♯/G♯); wide-band sounds
+  (`follow`) redraw it to the note being played, and skip the example tone
+  (`noExample`).
   First sounds are breathy, so this mode uses a looser confidence gate
   (`practiceConfidenceGate()` → `FIRST_SOUNDS_MIN_CONFIDENCE` 0.7; the mic
   loop passes practice its own gated frequency, the main display keeps 0.85)
