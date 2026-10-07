@@ -346,8 +346,14 @@ Loaded after firstfive.js; no server, everything stays on the device.
   from before sign-in stays with the guest. `pitchdetect-song-whole` stays
   device-wide. `signInStudent()` reloads practice and restores the
   student's saved instrument (if the current mode offers it).
+- **Names:** a student ID with no name yet goes on to **What's your name?**
+  (`showNameStep()`, still mode `signin`; Skip asks again next sign-in).
+  The ID signs in; the name (`profile.name`, `cleanStudentName()`, at most
+  `STUDENT_NAME_MAX`, only ever set as text) is what the app shows:
+  `studentLabel()` gives the name, else "Student <ID>", else "Guest". The
+  profile's pencil (`showNameStep("rename")`) changes it.
 - **Profile** (`pitchdetect-profile[@ID]`, `loadProfile()` / `saveProfile()`):
-  `{ xp, avatar, goal, days: { "YYYY-MM-DD": seconds }, streak, bestStreak,
+  `{ name, xp, avatar, goal, days: { "YYYY-MM-DD": seconds }, streak, bestStreak,
   lastGoalDay, freezes, badges: { id: day }, instrument }`.
 - **XP / levels:** the result handlers in firstfive.js call
   `recordProgress(xp)` (lesson note 10 + 5/star, quiz and scale run 10 +

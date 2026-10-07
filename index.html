@@ -3833,6 +3833,53 @@
 				overflow-wrap: anywhere;
 			}
 
+			.profile-name-row {
+				display: flex;
+				align-items: center;
+				gap: 6px;
+			}
+
+			.profile-name-row .profile-name {
+				min-width: 0;
+			}
+
+			.profile-rename {
+				flex: 0 0 34px;
+				height: 34px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				border: 1px solid var(--border-strong);
+				border-radius: 50%;
+				background: var(--surface);
+				color: var(--text-muted);
+				cursor: pointer;
+			}
+
+			.profile-rename svg {
+				width: 16px;
+				height: 16px;
+			}
+
+			.profile-rename:hover {
+				border-color: var(--accent);
+				color: var(--accent);
+			}
+
+			.profile-rename:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.profile-id {
+				font-size: 0.8rem;
+				color: var(--text-muted);
+			}
+
+			.signin-input.signin-name {
+				letter-spacing: 0;
+			}
+
 			.profile-level {
 				color: var(--text-muted);
 				font-weight: 600;
@@ -4418,6 +4465,11 @@
 
 			body.kid-mode .player-xp {
 				height: 12px;
+			}
+
+			body.kid-mode .profile-rename {
+				border: 2px solid var(--ink);
+				color: var(--ink);
 			}
 
 			body.kid-mode .signin-input {

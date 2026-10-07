@@ -114,6 +114,15 @@ function normalizeStudentId(text) {
 	return /^[A-Z0-9]{3,12}$/.test(id) ? id : null;
 }
 
+// A typed first name, tidied: no control characters, spaces collapsed, at
+// most STUDENT_NAME_MAX characters ("" if none). It's only ever shown as
+// text, never as HTML.
+var STUDENT_NAME_MAX = 20;
+function cleanStudentName(text) {
+	return String(text || "").replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, " ")
+		.trim().slice(0, STUDENT_NAME_MAX).trim();
+}
+
 function nonNegative(n) {
 	return typeof n === "number" && isFinite(n) && n > 0 ? Math.floor(n) : 0;
 }
@@ -138,7 +147,8 @@ function loadProfile() {
 		lastGoalDay: typeof p.lastGoalDay === "string" ? p.lastGoalDay : null,
 		freezes: Math.min(MAX_FREEZES, nonNegative(p.freezes)),
 		badges: p.badges && typeof p.badges === "object" ? p.badges : {},
-		instrument: typeof p.instrument === "string" ? p.instrument : null
+		instrument: typeof p.instrument === "string" ? p.instrument : null,
+		name: cleanStudentName(p.name)
 	};
 }
 
@@ -463,7 +473,9 @@ function markNextUp(menu, page) {
 // Screens: the player bar on the menu, the profile, sign-in
 // ---------------------------------------------------------------------------
 
+// The student's name, or their ID until they've given one
 function studentLabel() {
+	if (profile && profile.name) return profile.name;
 	return currentStudent ? "Student " + currentStudent : "Guest";
 }
 
@@ -578,6 +590,7 @@ function showSignIn(from) {
 // Switch to a student ("" = guest): their progress, and their instrument
 // if this device has one saved for them
 function signInStudent(id) {
+	var from = practice.signinFrom;  // loadPracticeInstrument() starts practice afresh
 	saveProfile();
 	currentStudent = id;
 	try { localStorage.setItem(STUDENT_STORAGE_KEY, id); } catch (e) {}
@@ -594,9 +607,73 @@ function signInStudent(id) {
 		}
 	}
 	loadPracticeInstrument();
+	// A student without a name yet is asked for one, to be greeted by
+	if (id && !profile.name) {
+		showNameStep(from);
+		return;
+	}
+	finishSignIn();
+}
+
+// Signed in (and named): on to the menu, with a hello
+function finishSignIn() {
 	showPracticeMenu("main");
-	if (id) showProgressPop("Hi, " + studentLabel() + "!", "goal");
+	if (currentStudent) showProgressPop("Hi, " + studentLabel() + "!", "goal");
 	if (pendingSongImport) openSongImport();
+}
+
+// What's your name? Right after a new ID (from: how sign-in was reached),
+// or "rename" from the profile's pencil
+function showNameStep(from) {
+	practice.step = -1;
+	practice.signinFrom = from === "open" ? "open" : "profile";
+	setPracticeMode("signin");
+	var renaming = from === "rename";
+	var back = document.getElementById("practice-close");
+	var label = practice.signinFrom === "profile" ? "Back to your profile" : "Back to the practice menu";
+	back.setAttribute("aria-label", label);
+	back.title = label;
+
+	var hub = hubElement();
+	var box = el("div", "signin");
+	box.appendChild(el("div", "signin-icon", "\uD83D\uDC4B"));
+	box.appendChild(el("h3", "signin-title", "What\u2019s your name?"));
+	var form = el("form", "signin-form");
+	var input = el("input", "signin-input signin-name");
+	input.id = "student-name";
+	input.type = "text";
+	input.autocomplete = "off";
+	input.autocapitalize = "words";
+	input.spellcheck = false;
+	input.maxLength = STUDENT_NAME_MAX;
+	input.placeholder = "First name";
+	input.value = profile.name;
+	input.setAttribute("aria-label", "First name");
+	form.appendChild(input);
+	var go = practiceButton(renaming ? "Save" : "Let\u2019s go!", "primary", function() {});
+	go.type = "submit";
+	form.appendChild(go);
+	form.onsubmit = function(event) {
+		event.preventDefault();
+		var name = cleanStudentName(input.value);
+		if (!name) {
+			showToast("Type your first name.");
+			input.focus();
+			return;
+		}
+		profile.name = name;
+		saveProfile();
+		if (renaming) showProfile(); else finishSignIn();
+	};
+	box.appendChild(form);
+	box.appendChild(el("p", "signin-note", "Student " + currentStudent));
+	if (!renaming) {
+		var skip = practiceButton("Skip", "secondary", finishSignIn);
+		skip.classList.add("signin-guest");
+		box.appendChild(skip);
+	}
+	hub.appendChild(box);
+	input.focus();
 }
 
 function showProfile() {
@@ -627,7 +704,18 @@ function renderProfile() {
 	};
 	top.appendChild(avatar);
 	var who = el("div", "profile-who");
-	who.appendChild(el("div", "profile-name", studentLabel()));
+	var nameRow = el("div", "profile-name-row");
+	nameRow.appendChild(el("div", "profile-name", studentLabel()));
+	if (currentStudent) {
+		var rename = el("button", "profile-rename");
+		rename.innerHTML = PENCIL_SVG;
+		rename.setAttribute("aria-label", profile.name ? "Change your name" : "Add your name");
+		rename.title = rename.getAttribute("aria-label");
+		rename.onclick = function() { showNameStep("rename"); };
+		nameRow.appendChild(rename);
+	}
+	who.appendChild(nameRow);
+	if (currentStudent && profile.name) who.appendChild(el("div", "profile-id", "Student " + currentStudent));
 	who.appendChild(el("div", "profile-level", "Level " + lv.level + " \u00B7 " + levelTitle(lv.level)));
 	var xpBar = el("div", "profile-xp");
 	var fill = el("div", "profile-xp-fill");
