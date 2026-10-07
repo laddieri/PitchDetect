@@ -230,6 +230,8 @@ function allNotesLearned() {
 }
 
 function openPractice() {
+	// A student practices on their own instrument (changed on the profile)
+	applyStudentInstrument();
 	var select = document.getElementById("instrument");
 	if (!select.value) {
 		showToast("Choose your instrument first.");
@@ -240,13 +242,6 @@ function openPractice() {
 	if (sustainPlaying) stopSustain();
 	if (listenActive) stopListening();
 	closePopovers();
-
-	// The header's instrument picker offers the app's instruments (minus the
-	// "Select an instrument" placeholder)
-	var picker = document.getElementById("practice-instrument");
-	picker.innerHTML = select.innerHTML;
-	var placeholder = picker.querySelector('option[value=""]');
-	if (placeholder) placeholder.remove();
 
 	practiceOpen = true;
 	practiceStartedMic = false;
@@ -296,7 +291,9 @@ function loadPracticeInstrument() {
 		index: 0,
 		step: -1
 	};
-	document.getElementById("practice-instrument").value = practice.instrument;
+	// The header names the instrument; the profile changes it
+	var option = select.options[select.selectedIndex];
+	document.getElementById("practice-instrument").textContent = option ? option.textContent : "";
 	onPracticeLoaded();
 }
 
@@ -586,7 +583,7 @@ function practiceBack() {
 	}
 }
 
-// The activity the student is in, for restarting it after an instrument change
+// The activity the student is in (for history)
 function currentPracticeActivity() {
 	if (practice.mode === "lesson") {
 		return Object.keys(LESSON_ACTIVITIES).filter(function(id) { return LESSON_ACTIVITIES[id] === practice.lesson; })[0];
@@ -599,37 +596,6 @@ function currentPracticeActivity() {
 		return practice.songList === "three" && practice.mode !== "import" ? "songs3" : "songs";
 	}
 	return "menu";
-}
-
-// Switch instruments from the practice header. The app's own select is the
-// source of truth, so its change handler saves the choice and updates the
-// app behind the practice view.
-function changePracticeInstrument(value) {
-	var select = document.getElementById("instrument");
-	if (!value || value === select.value) return;
-	var activity = currentPracticeActivity();
-	var menuPage = practice.menuPage;
-	var songId = practice.mode === "song" ? practice.song.id : null;
-	var songFree = songId && practice.song.free;
-	var importing = practice.mode === "import";
-	stopSongPlayback();
-	clearTimeout(practiceAdvanceTimer);
-	stopNote();
-	select.value = value;
-	select.dispatchEvent(new Event("change"));
-	loadPracticeInstrument();
-	// First sounds exist for some instruments only; others land on the menu
-	if (activity === "menu") {
-		showPracticeMenu(menuPage);
-	} else if (!practiceActivityAvailable(activity)) {
-		showPracticeMenu(activityPage(activity));
-	} else if (songId) {
-		if (songFree) playThroughSong(songId); else startSong(songId);
-	} else if (importing) {
-		showSongImport();
-	} else {
-		startPracticeActivity(activity);
-	}
 }
 
 function closePractice() {

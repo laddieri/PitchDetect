@@ -350,10 +350,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   7th position), so `centerChartDrawing()` measures the drawn pixels and
   shifts the image to center them; `.practice-fingering` clips the blank part.
   The main app's fingering panel leaves charts as drawn.
-- The header's big instrument picker (`#practice-instrument`, a styled native
-  select cloned from `#instrument`) switches instruments in place:
-  `changePracticeInstrument()` sets the app's select, fires its `change`
-  handler (which persists it), and `loadPracticeInstrument()` restarts.
+- The header's big instrument pill (`#practice-instrument`) is only a label
+  (set by `loadPracticeInstrument()`); the instrument is changed on the
+  profile (see progress.js).
 - Toolbar placement: beside Listen, always labeled "Practice". In kid mode on
   phones the star is dropped and the toolbar's Listen (mostly an invisible
   placeholder there — the note panel is the Listen button) becomes a round
@@ -383,6 +382,13 @@ Loaded after firstfive.js; no server, everything stays on the device.
   `STUDENT_NAME_MAX`, only ever set as text) is what the app shows:
   `studentLabel()` gives the name, else "Student <ID>", else "Guest". The
   profile's pencil (`showNameStep("rename")`) changes it.
+- **Instrument:** after the name (or Skip, or a guest), anyone whose profile
+  has no `instrument` yet gets **What do you play?** (`continueSignIn()` →
+  `showInstrumentStep()`, buttons from `instrumentPicker()`). From then on
+  it changes only in the profile's **Your instrument** section
+  (`setStudentInstrument()`): `openPractice()` and `signInStudent()` put the
+  app back on it (`applyStudentInstrument()`), so changing the instrument
+  in the app outside Practice doesn't move the student.
 - **Profile** (`pitchdetect-profile[@ID]`, `loadProfile()` / `saveProfile()`):
   `{ name, xp, avatar, goal, days: { "YYYY-MM-DD": seconds }, streak, bestStreak,
   lastGoalDay, freezes, badges: { id: day }, instrument }`.

@@ -527,15 +527,54 @@ function onPracticeMenuShown(menu, page) {
 	markNextUp(menu, page);
 }
 
-// Called by loadPracticeInstrument(): remember the student's instrument,
-// and award badges already earned before badges existed
+// Called by loadPracticeInstrument(): award badges already earned before
+// badges existed
 function onPracticeLoaded() {
 	if (!profile || currentStudent === null) return;
-	if (profile.instrument !== practice.instrument) {
-		profile.instrument = practice.instrument;
-		saveProfile();
-	}
 	checkBadges(true);
+}
+
+// Put the app on the student's instrument (picked at sign-in, changed only
+// on the profile), if the current mode offers it
+function applyStudentInstrument() {
+	var select = document.getElementById("instrument");
+	var saved = profile && currentStudent !== null ? profile.instrument : null;
+	if (!saved || saved === select.value) return;
+	var previous = select.value;
+	select.value = saved;
+	if (select.value === saved) {
+		select.dispatchEvent(new Event("change"));
+	} else {
+		select.value = previous;  // not offered in this mode
+	}
+}
+
+// The student picks an instrument: the app's select follows (its change
+// handler updates the app behind the practice view), then practice reloads
+function setStudentInstrument(value) {
+	var select = document.getElementById("instrument");
+	stopNote();
+	if (value !== select.value) {
+		select.value = value;
+		select.dispatchEvent(new Event("change"));
+		loadPracticeInstrument();
+	}
+	profile.instrument = value;
+	saveProfile();
+}
+
+// One button per instrument the app offers in this mode; chosen is pressed
+function instrumentPicker(chosen, onPick) {
+	var grid = el("div", "instrument-picker");
+	Array.prototype.forEach.call(document.getElementById("instrument").options, function(opt) {
+		if (!opt.value) return;
+		var b = el("button", "instrument-choice", opt.textContent);
+		b.type = "button";
+		b.setAttribute("aria-pressed", opt.value === chosen ? "true" : "false");
+		b.onclick = function() { onPick(opt.value); };
+		grid.appendChild(b);
+	});
+	return grid;
 }
 
 function hubElement() {
@@ -611,21 +650,20 @@ function signInStudent(id) {
 	currentStudent = id;
 	try { localStorage.setItem(STUDENT_STORAGE_KEY, id); } catch (e) {}
 	profile = loadProfile();
-	var select = document.getElementById("instrument");
-	var saved = profile.instrument;
-	if (saved && saved !== select.value) {
-		var previous = select.value;
-		select.value = saved;
-		if (select.value === saved) {
-			select.dispatchEvent(new Event("change"));
-		} else {
-			select.value = previous;  // not offered in this mode
-		}
-	}
+	applyStudentInstrument();
 	loadPracticeInstrument();
 	// A student without a name yet is asked for one, to be greeted by
 	if (id && !profile.name) {
 		showNameStep(from);
+		return;
+	}
+	continueSignIn(from);
+}
+
+// After the name: someone without an instrument yet picks one
+function continueSignIn(from) {
+	if (!profile.instrument) {
+		showInstrumentStep(from);
 		return;
 	}
 	finishSignIn();
@@ -679,17 +717,41 @@ function showNameStep(from) {
 		}
 		profile.name = name;
 		saveProfile();
-		if (renaming) showProfile(); else finishSignIn();
+		if (renaming) showProfile(); else continueSignIn(from);
 	};
 	box.appendChild(form);
 	box.appendChild(el("p", "signin-note", "Student " + currentStudent));
 	if (!renaming) {
-		var skip = practiceButton("Skip", "secondary", finishSignIn);
+		var skip = practiceButton("Skip", "secondary", function() { continueSignIn(from); });
 		skip.classList.add("signin-guest");
 		box.appendChild(skip);
 	}
 	hub.appendChild(box);
 	input.focus();
+}
+
+// What do you play? Once, at sign-in; after that the profile changes it
+function showInstrumentStep(from) {
+	practice.step = -1;
+	practice.signinFrom = from === "open" ? "open" : "profile";
+	setPracticeMode("signin");
+	var back = document.getElementById("practice-close");
+	var label = practice.signinFrom === "profile" ? "Back to your profile" : "Back to the practice menu";
+	back.setAttribute("aria-label", label);
+	back.title = label;
+
+	var hub = hubElement();
+	var box = el("div", "signin");
+	box.appendChild(el("div", "signin-icon", "\uD83C\uDFB7"));
+	box.appendChild(el("h3", "signin-title", "What do you play?"));
+	box.appendChild(instrumentPicker(profile.instrument, function(value) {
+		setStudentInstrument(value);
+		finishSignIn();
+	}));
+	box.appendChild(el("p", "signin-note", "You can change it later on your profile."));
+	hub.appendChild(box);
+	var first = box.querySelector(".instrument-choice");
+	if (first) first.focus();
 }
 
 function showProfile() {
@@ -825,6 +887,16 @@ function renderProfile() {
 	week.appendChild(goals);
 	view.appendChild(week);
 
+	// The instrument: changed here only, so it stays put from day to day
+	var inst = el("div", "profile-section");
+	inst.appendChild(el("h3", "profile-heading", "Your instrument"));
+	inst.appendChild(instrumentPicker(practice.instrument, function(value) {
+		if (value === practice.instrument) return;
+		setStudentInstrument(value);
+		showProfile();
+	}));
+	view.appendChild(inst);
+
 	// The path
 	var nodes = learningPath();
 	var next = nextPathNode(nodes);
@@ -895,13 +967,6 @@ setInterval(practiceTick, 1000);
 		if (document.hidden) saveProfile();
 	});
 	window.addEventListener("pagehide", saveProfile);
-	// The student's instrument comes back when they sign in again
-	document.getElementById("instrument").addEventListener("change", function(event) {
-		if (profile && currentStudent && event.target.value) {
-			profile.instrument = event.target.value;
-			saveProfile();
-		}
-	});
 	document.addEventListener("keydown", function(event) {
 		var card = document.getElementById("level-up");
 		if (event.key === "Escape" && card && !card.hidden) {
