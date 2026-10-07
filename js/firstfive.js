@@ -1987,7 +1987,7 @@ var SONGS = [
 	{ id: "upanddown", level: "three", title: "Up and Down",
 		measures: ["1q 2q 3q 2q", "1q 2q 3h", "3q 2q 1q 2q", "3q 2q 1h",
 			"1q 1q 2q 2q", "3q 3q 2h", "3q 3q 2q 2q", "1w"] },
-	{ id: "auclair", level: "beginner", title: "Au Clair de la Lune",
+	{ id: "auclair", level: "three", title: "Au Clair de la Lune",
 		measures: ["1q 1q 1q 2q", "3h 2h", "1q 3q 2q 2q", "1w"] },
 	{ id: "mary", level: "beginner", title: "Mary Had a Little Lamb",
 		measures: ["3q 2q 1q 2q", "3q 3q 3h", "2q 2q 2h", "3q 5q 5h",
