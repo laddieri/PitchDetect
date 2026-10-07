@@ -888,14 +888,11 @@ function renderProfile() {
 	week.appendChild(goals);
 	view.appendChild(week);
 
-	// The instrument: changed here only, so it stays put from day to day
+	// The instrument: changed here only (after a yes), so it stays put from
+	// day to day
 	var inst = el("div", "profile-section");
 	inst.appendChild(el("h3", "profile-heading", "Your instrument"));
-	inst.appendChild(instrumentPicker(practice.instrument, function(value) {
-		if (value === practice.instrument) return;
-		setStudentInstrument(value);
-		showProfile();
-	}));
+	inst.appendChild(profileInstrumentMenu());
 	view.appendChild(inst);
 
 	// The path
@@ -941,6 +938,71 @@ function renderProfile() {
 		function() { showSignIn("profile"); }));
 	view.appendChild(actions);
 	hub.appendChild(view);
+}
+
+// The profile's instrument drop-down. Picking one asks first: a student
+// rarely changes instruments, and the menu and path follow the new one.
+function profileInstrumentMenu() {
+	var box = el("div", "profile-instrument");
+	var wrap = el("span", "profile-instrument-select");
+	var pick = el("select");
+	pick.id = "profile-instrument";
+	pick.setAttribute("aria-label", "Your instrument");
+	var current = "";
+	Array.prototype.forEach.call(document.getElementById("instrument").options, function(opt) {
+		if (!opt.value) return;
+		pick.appendChild(new Option(opt.textContent, opt.value));
+		if (opt.value === practice.instrument) current = opt.textContent;
+	});
+	pick.value = practice.instrument;
+	wrap.appendChild(pick);
+	wrap.insertAdjacentHTML("beforeend", '<svg class="profile-instrument-chevron" width="18" height="18" viewBox="0 0 24 24" ' +
+		'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" ' +
+		'aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>');
+	box.appendChild(wrap);
+
+	var confirm = el("div", "instrument-confirm");
+	confirm.hidden = true;
+	confirm.setAttribute("role", "alertdialog");
+	confirm.setAttribute("aria-live", "polite");
+	function cancel() {
+		pick.value = practice.instrument;
+		confirm.hidden = true;
+		pick.focus();
+	}
+	pick.onchange = function() {
+		if (pick.value === practice.instrument) {
+			confirm.hidden = true;
+			return;
+		}
+		var value = pick.value;
+		var name = pick.options[pick.selectedIndex].textContent;
+		confirm.innerHTML = "";
+		confirm.appendChild(el("p", "instrument-confirm-title", "Switch to " + name + "?"));
+		if (current) {
+			confirm.appendChild(el("p", "instrument-confirm-note", "Your " + current +
+				" stars stay saved. Practice will use " + name + " from now on."));
+		}
+		var actions = el("div", "instrument-confirm-actions");
+		var yes = practiceButton("Yes, switch", "primary", function() {
+			setStudentInstrument(value);
+			showProfile();
+			showProgressPop("Now playing " + name, "goal");
+		});
+		actions.appendChild(yes);
+		actions.appendChild(practiceButton("Cancel", "secondary", cancel));
+		confirm.appendChild(actions);
+		confirm.hidden = false;
+		yes.focus();
+	};
+	confirm.addEventListener("keydown", function(event) {
+		if (event.key === "Escape") {
+			event.stopPropagation();
+			cancel();
+		}
+	});
+	box.appendChild(confirm);
+	return box;
 }
 
 function setDailyGoal(min) {
