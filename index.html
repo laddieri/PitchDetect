@@ -2261,48 +2261,18 @@
 				background: var(--surface);
 				border: 2px solid var(--accent);
 				color: var(--accent);
-				transition: background-color 0.15s, box-shadow 0.15s;
 			}
 
-			.practice-instrument:hover {
-				background: var(--accent-soft);
-			}
-
-			.practice-instrument:focus-within {
-				box-shadow: var(--ring);
-			}
-
+			/* The instrument is a label here; the profile changes it */
 			#practice-instrument {
 				max-width: 100%;
-				padding: 6px 48px 6px 22px;
-				border: none;
-				background: transparent;
-				color: inherit;
-				font-family: var(--font);
+				padding: 6px 22px;
+				overflow: hidden;
 				font-size: 1.9rem;
 				font-weight: 700;
 				line-height: 1.2;
+				white-space: nowrap;
 				text-overflow: ellipsis;
-				cursor: pointer;
-				-webkit-appearance: none;
-				-moz-appearance: none;
-				appearance: none;
-			}
-
-			#practice-instrument:focus {
-				outline: none;
-			}
-
-			#practice-instrument option,
-			#practice-instrument optgroup {
-				font-size: 1rem;
-				color: var(--text);
-			}
-
-			.practice-instrument-chevron {
-				position: absolute;
-				right: 16px;
-				pointer-events: none;
 			}
 
 			/* The five notes, with their stars */
@@ -4011,6 +3981,40 @@
 				color: var(--text-muted);
 			}
 
+			/* What do you play? (sign-in and the profile) */
+			.instrument-picker {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+				gap: 8px;
+			}
+
+			.instrument-choice {
+				padding: 10px 8px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1.05rem;
+				font-weight: 700;
+				cursor: pointer;
+			}
+
+			.instrument-choice:hover {
+				border-color: var(--accent);
+			}
+
+			.instrument-choice:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.instrument-choice[aria-pressed="true"] {
+				border-color: var(--accent);
+				background: var(--accent);
+				color: #fff;
+			}
+
 			.signin-input.signin-name {
 				letter-spacing: 0;
 			}
@@ -4624,6 +4628,16 @@
 				border: 2px solid var(--ink);
 			}
 
+			body.kid-mode .instrument-choice {
+				border: 2px solid var(--ink);
+				box-shadow: 3px 3px 0 var(--ink);
+			}
+
+			body.kid-mode .instrument-choice[aria-pressed="true"] {
+				color: var(--ink);
+				background: #ffd23f;
+			}
+
 			body.kid-mode .goal-option[aria-pressed="true"] {
 				color: var(--ink);
 				background: #ffd23f;
@@ -4771,13 +4785,7 @@
 
 				#practice-instrument {
 					font-size: 1.45rem;
-					padding: 4px 40px 4px 16px;
-				}
-
-				.practice-instrument-chevron {
-					right: 12px;
-					width: 18px;
-					height: 18px;
+					padding: 4px 16px;
 				}
 
 				.practice-map {
@@ -5136,7 +5144,7 @@
 					<svg class="icon-mic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
 					<span class="btn-label" id="listenLabel">Listen</span>
 				</button>
-				<button id="practiceButton" onclick="openPractice()" title="Practice your first five notes" aria-label="Practice your first five notes" disabled>
+				<button id="practiceButton" onclick="openPractice()" title="Practice your first five notes" aria-label="Practice your first five notes">
 					<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
 					<span class="btn-label">Practice</span>
 				</button>
@@ -5247,8 +5255,7 @@
 					<div class="practice-heading">
 						<h2 id="practice-title">Practice</h2>
 						<span class="practice-instrument">
-							<select id="practice-instrument" onchange="changePracticeInstrument(this.value)" aria-label="Instrument" title="Change instrument"></select>
-							<svg class="practice-instrument-chevron" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+							<span id="practice-instrument"></span>
 						</span>
 					</div>
 					<span class="practice-header-spacer">
