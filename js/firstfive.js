@@ -23,6 +23,9 @@
  * The drills are races against the clock: as many as you can in
  * DRILL_SECONDS, trying to beat your best.
  *
+ * Learn the first 3 notes is an easier start: concert D C B♭ (FIRST3_STEPS),
+ * the first three notes many band methods begin with, taught the same way.
+ *
  * Learn the B♭ scale extends the lessons to the first octave: concert
  * B♭ C D E♭ F G A B♭ (SCALE_STEPS) from the same starting B♭, eight lessons
  * with their own stars. Play the B♭ scale is a challenge round in order, up
@@ -69,6 +72,7 @@ var practiceStartConcertMidi = {
 };
 var PRACTICE_STEPS = [0, 2, 4, 5, 7];  // B♭ C D E♭ F
 var SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];  // B♭ C D E♭ F G A B♭
+var FIRST3_STEPS = [4, 2, 0];  // D C B♭, stepping down to the first B♭
 
 var PRACTICE_STORAGE_KEY = "pitchdetect-first-five";
 var PRACTICE_HOLD_MS = 1200;       // how long the note must be held to pass
@@ -91,9 +95,12 @@ var DRILL_BALLOON_GOAL = 10;       // right answers that pop the balloon, until
                                    // the best reaches it; then beat the best
 var SCALE_STORAGE_KEY = "pitchdetect-bb-scale";
 var SCALE_RUN_STORAGE_KEY = "pitchdetect-bb-scale-run";
+var FIRST3_STORAGE_KEY = "pitchdetect-first-three";
 
-// The note sets taught as lessons: the first five notes and the B♭ scale
+// The note sets taught as lessons: the first three notes, the first five
+// notes and the B♭ scale
 var LESSON_SETS = {
+	first3: { steps: FIRST3_STEPS, storage: FIRST3_STORAGE_KEY },
 	first5: { steps: PRACTICE_STEPS, storage: PRACTICE_STORAGE_KEY },
 	scale: { steps: SCALE_STEPS, storage: SCALE_STORAGE_KEY }
 };
@@ -287,10 +294,14 @@ function setPracticeMode(mode) {
 	back.title = label;
 }
 
+// Lesson set for each lesson activity id
+var LESSON_ACTIVITIES = { learn3: "first3", learn: "first5", scale: "scale" };
+
 // The activities, each with its best result for this instrument. Those
 // marked more (the B♭ scale and songs) sit on the menu's second page,
 // behind the More button.
 var PRACTICE_ACTIVITIES = [
+	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", wide: true },
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note" },
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?" },
@@ -350,8 +361,8 @@ function showPracticeMenu(page) {
 		}
 
 		var score;
-		if (a.id === "learn" || a.id === "scale") {
-			var stars = practice.lessons[a.id === "learn" ? "first5" : "scale"].stars;
+		if (LESSON_ACTIVITIES[a.id]) {
+			var stars = practice.lessons[LESSON_ACTIVITIES[a.id]].stars;
 			var total = stars.reduce(function(t, n) { return t + n; }, 0);
 			score = total + " / " + stars.length * 3 + " \u2605";
 		} else if (a.firstSounds) {
@@ -394,8 +405,8 @@ function showPracticeMenu(page) {
 }
 
 function startPracticeActivity(id) {
-	if (id === "learn" || id === "scale") {
-		startLesson(id === "scale" ? "scale" : "first5");
+	if (LESSON_ACTIVITIES[id]) {
+		startLesson(LESSON_ACTIVITIES[id]);
 	} else if (id === "quiz") {
 		startChallenge();
 	} else if (id === "scalerun") {
@@ -435,7 +446,9 @@ function practiceBack() {
 
 // The activity the student is in, for restarting it after an instrument change
 function currentPracticeActivity() {
-	if (practice.mode === "lesson") return practice.lesson === "scale" ? "scale" : "learn";
+	if (practice.mode === "lesson") {
+		return Object.keys(LESSON_ACTIVITIES).filter(function(id) { return LESSON_ACTIVITIES[id] === practice.lesson; })[0];
+	}
 	if (practice.mode === "challenge") return practice.challenge.kind === "scale" ? "scalerun" : "quiz";
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
@@ -491,7 +504,7 @@ function closePractice() {
 	if (button && button.offsetParent !== null) button.focus();
 }
 
-// Open a lesson set ("first5" or "scale"): an overview of its notes and
+// Open a lesson set ("first3", "first5" or "scale"): an overview of its notes and
 // their names first, so the Read step never asks a name before it's taught
 function startLesson(id) {
 	practice.lesson = id;
@@ -510,7 +523,7 @@ function showLessonOverview() {
 	document.getElementById("practice-steps").innerHTML = "";
 	var notes = currentLesson().notes;
 	document.getElementById("practice-prompt").textContent = practice.lesson === "scale"
-		? "Meet the B\u266d scale!" : "Meet your first 5 notes!";
+		? "Meet the B\u266d scale!" : practice.lesson === "first3" ? "Meet your first 3 notes!" : "Meet your first 5 notes!";
 	drawLessonOverview(-1);
 
 	var body = document.getElementById("practice-body");
@@ -936,10 +949,12 @@ function finishPracticeNote(inTune) {
 function renderPracticeResult() {
 	var name = practiceNoteName(practice.target);
 	var scale = practice.lesson === "scale";
+	var first3 = practice.lesson === "first3";
 	var prompt = document.getElementById("practice-prompt");
 	var body = document.getElementById("practice-body");
 	prompt.textContent = !practice.allLearned ? "You played " + name + "!"
 		: scale ? "You learned the whole B\u266d scale!"
+		: first3 ? "You learned your first 3 notes!"
 		: "You learned all five notes!";
 
 	var labels = ["Named it first try", "Played it", "Right in tune"];
@@ -968,6 +983,7 @@ function renderPracticeResult() {
 	}));
 	if (practice.allLearned) {
 		actions.appendChild(scale ? practiceButton("Play the whole scale \u2192", "primary", startScaleRun)
+			: first3 ? practiceButton("Learn 5 notes \u2192", "primary", function() { startLesson("first5"); })
 			: practiceButton("Take the quiz \u2192", "primary", startChallenge));
 	}
 	body.appendChild(actions);
@@ -4230,8 +4246,8 @@ function renderFirstSoundsResult() {
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
 	actions.appendChild(practiceButton("Play it again", "secondary", startFirstSounds));
-	actions.appendChild(practiceButton("Learn the first 5 notes \u2192", "primary", function() {
-		startPracticeActivity("learn");
+	actions.appendChild(practiceButton("Learn the first 3 notes \u2192", "primary", function() {
+		startPracticeActivity("learn3");
 	}));
 	body.appendChild(actions);
 	launchFireworks(document.getElementById("practice-stage"));

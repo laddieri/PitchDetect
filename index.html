@@ -2412,6 +2412,38 @@
 				grid-column: 1 / -1;
 			}
 
+			/* On desktop the main page's full-width cards (first sounds, the
+			   first 3 notes) lie flat, icon left, so four rows still fit */
+			@media (min-width: 701px) {
+				.practice-view[data-menu-page="main"] .practice-menu[data-count="5"] {
+					grid-template-rows: minmax(0, 0.6fr) repeat(2, minmax(0, 1fr));
+					max-height: 500px;
+				}
+
+				.practice-view[data-menu-page="main"] .practice-menu[data-count="6"] {
+					grid-template-rows: repeat(2, minmax(0, 0.6fr)) repeat(2, minmax(0, 1fr));
+					max-height: 620px;
+				}
+
+				.practice-view[data-menu-page="main"] .practice-choice.wide {
+					flex-direction: row;
+					gap: 16px;
+					padding: 10px 24px;
+					text-align: left;
+				}
+
+				.practice-view[data-menu-page="main"] .practice-choice.wide .practice-choice-text {
+					flex: 1;
+					min-width: 0;
+				}
+
+				.practice-view[data-menu-page="main"] .practice-choice.wide .practice-choice-icon {
+					width: 48px;
+					height: 48px;
+					font-size: 1.35rem;
+				}
+			}
+
 			/* The More arrow under the main menu */
 			.practice-more {
 				align-self: center;
@@ -3317,6 +3349,10 @@
 			}
 
 			/* The scale's seven names: one row, or rows centered on a phone */
+			.practice-answers[data-count="3"] {
+				grid-template-columns: repeat(3, minmax(0, 80px));
+			}
+
 			.practice-answers[data-count="7"] {
 				display: flex;
 				flex-wrap: wrap;
@@ -4426,6 +4462,7 @@
 				color: var(--ink);
 			}
 
+			body.kid-mode .practice-choice[data-activity="learn3"] .practice-choice-icon { background: #ffe9a8; }
 			body.kid-mode .practice-choice[data-activity="learn"] .practice-choice-icon { background: #ffd23f; }
 			body.kid-mode .practice-choice[data-activity="quiz"] .practice-choice-icon { background: #ff9f1c; }
 			body.kid-mode .practice-choice[data-activity="names"] .practice-choice-icon { background: #7ee081; }
