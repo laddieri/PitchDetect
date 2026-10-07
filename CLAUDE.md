@@ -400,8 +400,10 @@ Loaded after firstfive.js; no server, everything stays on the device.
 - **Instrument:** after the name (or Skip, or a guest), anyone whose profile
   has no `instrument` yet gets **What do you play?** (`continueSignIn()` →
   `showInstrumentStep()`, buttons from `instrumentPicker()`). From then on
-  it changes only in the profile's **Your instrument** section
-  (`setStudentInstrument()`): `openPractice()` and `signInStudent()` put the
+  it changes only in the profile's **Your instrument** drop-down
+  (`profileInstrumentMenu()`): picking one shows an inline "Switch to …?"
+  (`.instrument-confirm`; Cancel or Escape puts the menu back) before
+  `setStudentInstrument()`: `openPractice()` and `signInStudent()` put the
   app back on it (`applyStudentInstrument()`), so changing the instrument
   in the app outside Practice doesn't move the student. Practice doesn't
   need an instrument chosen in the app (the toolbar button is always

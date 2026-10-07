@@ -4011,6 +4011,78 @@
 				color: #fff;
 			}
 
+			/* The profile's instrument drop-down, and its "Switch?" */
+			.profile-instrument {
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				gap: 12px;
+			}
+
+			.profile-instrument-select {
+				position: relative;
+				display: inline-flex;
+				align-items: center;
+				max-width: 100%;
+				color: var(--text);
+			}
+
+			#profile-instrument {
+				max-width: 100%;
+				min-width: 200px;
+				padding: 10px 44px 10px 14px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: inherit;
+				font-family: var(--font);
+				font-size: 1.15rem;
+				font-weight: 700;
+				cursor: pointer;
+				-webkit-appearance: none;
+				-moz-appearance: none;
+				appearance: none;
+			}
+
+			#profile-instrument:focus {
+				outline: none;
+				border-color: var(--accent);
+				box-shadow: var(--ring);
+			}
+
+			.profile-instrument-chevron {
+				position: absolute;
+				right: 14px;
+				pointer-events: none;
+			}
+
+			.instrument-confirm {
+				align-self: stretch;
+				padding: 14px;
+				border: 2px solid var(--accent);
+				border-radius: var(--radius-sm);
+				background: var(--accent-soft);
+			}
+
+			.instrument-confirm-title {
+				margin: 0;
+				font-size: 1.15rem;
+				font-weight: 700;
+			}
+
+			.instrument-confirm-note {
+				margin: 4px 0 0;
+				font-size: 0.9rem;
+				color: var(--text-muted);
+			}
+
+			.instrument-confirm-actions {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 8px;
+				margin-top: 12px;
+			}
+
 			.signin-input.signin-name {
 				letter-spacing: 0;
 			}
@@ -4687,6 +4759,11 @@
 			body.kid-mode .progress-pop,
 			body.kid-mode .next-up-tag {
 				border: 2px solid var(--ink);
+			}
+
+			body.kid-mode #profile-instrument,
+			body.kid-mode .instrument-confirm {
+				border: var(--cartoon-border);
 			}
 
 			body.kid-mode .instrument-choice {
