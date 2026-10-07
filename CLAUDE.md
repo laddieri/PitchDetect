@@ -84,7 +84,10 @@ lesson for the set. Activities with `instruments` show only for those
 challenge round), **Practice note names** and **Practice fingerings**
 (drills; "slide positions" on trombone, "the keyboard" without charts) and
 **Play 5-note songs** (`songs5`: `showSongList("five")`, the Beginner songs
-only; `listSongs(list)` gives each list's built-in songs).
+and the student's 5-note songs; `listSongs(list)` gives each list's built-in
+songs, `listCustomSongs(list)` its own songs) and **Write a 5-note song**
+(`write5`: the editor on the first 5 notes, `song.three = "first5"`,
+`fiveNoteCustomSongs()`).
 **Scale & songs**: the B♭ scale cards and songs. `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
@@ -239,9 +242,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   a tune from their own printed part. Stored per instrument, in written pitch,
   in `pitchdetect-my-songs` as `{ id, title, time, key, notes }`, a note being
   `{ s: diatonic step (octave × 7 + letter), a: −1/0/1, d: w|h|q|8, dot }` or
-  a rest `{ r: 1, d, dot }`; a 3-note song (`openSongEditor(null, true)`)
-  also stores `three` (its note set): the editor then has no key picker,
-  one button per note in place of ♭♮♯ (`setEditorThreeNote()`: adds at
+  a rest `{ r: 1, d, dot }`; a 3- or 5-note song (`openSongEditor(null, set)`,
+  set `practice.threeSet` or `"first5"`) also stores `three` (its lesson
+  set): the editor then has no key picker, one button per note in place of ♭♮♯ (`setEditorThreeNote()`: adds at
   the end, or changes the selected note), and taps, ▲▼ and letters snap to
   the three notes (`editorThreeNear()`); `customSongEvents()` fills measures from the time
   signature (`SONG_TIMES`; no ties or pickups). Key signatures (`SONG_KEYS`,
@@ -436,7 +439,8 @@ Loaded after firstfive.js; no server, everything stays on the device.
   `loadPracticeInstrument()`) quietly awards ones already earned.
 - **Learning path:** `learningPath()` orders the activities (first sounds,
   the first 3 notes (the student's set), naming and fingering them, 2
-  3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs, B♭ scale,
+  3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
+  writing a 5-note song, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
   the tab of the page it's on), and the profile lists the path; tapping a step opens it.
