@@ -23,6 +23,11 @@
  * The drills are races against the clock: as many as you can in
  * DRILL_SECONDS, trying to beat your best.
  *
+ * Learn the first 3 notes is an easier start: concert D C B♭ (FIRST3_STEPS),
+ * the first three notes many band methods begin with, taught the same way.
+ * Flute and oboe also get Learn B, A and G (FIRST3_BAG_STEPS), where their
+ * classes usually start.
+ *
  * Learn the B♭ scale extends the lessons to the first octave: concert
  * B♭ C D E♭ F G A B♭ (SCALE_STEPS) from the same starting B♭, eight lessons
  * with their own stars. Play the B♭ scale is a challenge round in order, up
@@ -69,6 +74,9 @@ var practiceStartConcertMidi = {
 };
 var PRACTICE_STEPS = [0, 2, 4, 5, 7];  // B♭ C D E♭ F
 var SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];  // B♭ C D E♭ F G A B♭
+var FIRST3_STEPS = [4, 2, 0];  // D C B♭, stepping down to the first B♭
+var FIRST3_BAG_STEPS = [1, -1, -3];  // B A G, the flute and oboe start
+var FIRST3_BAG_INSTRUMENTS = ["flute", "oboe"];
 
 var PRACTICE_STORAGE_KEY = "pitchdetect-first-five";
 var PRACTICE_HOLD_MS = 1200;       // how long the note must be held to pass
@@ -91,9 +99,14 @@ var DRILL_BALLOON_GOAL = 10;       // right answers that pop the balloon, until
                                    // the best reaches it; then beat the best
 var SCALE_STORAGE_KEY = "pitchdetect-bb-scale";
 var SCALE_RUN_STORAGE_KEY = "pitchdetect-bb-scale-run";
+var FIRST3_STORAGE_KEY = "pitchdetect-first-three";
+var FIRST3_BAG_STORAGE_KEY = "pitchdetect-first-three-bag";
 
-// The note sets taught as lessons: the first five notes and the B♭ scale
+// The note sets taught as lessons: the first three notes (D C B♭, or B A G
+// on flute and oboe), the first five notes and the B♭ scale
 var LESSON_SETS = {
+	first3: { steps: FIRST3_STEPS, storage: FIRST3_STORAGE_KEY },
+	first3bag: { steps: FIRST3_BAG_STEPS, storage: FIRST3_BAG_STORAGE_KEY },
 	first5: { steps: PRACTICE_STEPS, storage: PRACTICE_STORAGE_KEY },
 	scale: { steps: SCALE_STEPS, storage: SCALE_STORAGE_KEY }
 };
@@ -287,31 +300,58 @@ function setPracticeMode(mode) {
 	back.title = label;
 }
 
-// The activities, each with its best result for this instrument. Those
-// marked more (the B♭ scale and songs) sit on the menu's second page,
-// behind the More button.
-var PRACTICE_ACTIVITIES = [
-	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note" },
-	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
-	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?" },
-	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?" },
-	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", more: true },
-	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", more: true },
-	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "Hot Cross Buns, Jingle Bells, or make your own", more: true, wide: true },
-	{ id: "firstsounds", firstSounds: true }  // title, sub and icon from FIRST_SOUNDS
-];
+// Lesson set for each lesson activity id
+var LESSON_ACTIVITIES = { learn3bag: "first3bag", learn3: "first3", learn: "first5", scale: "scale" };
 
-// Whether an activity id lives on the menu's More page
-function isMoreActivity(id) {
-	return PRACTICE_ACTIVITIES.some(function(a) { return a.id === id && a.more; });
+// Whether an activity is offered on the current instrument
+function practiceActivityAvailable(id) {
+	if (id === "firstsounds") return !!FIRST_SOUNDS[practice.instrument];
+	var a = PRACTICE_ACTIVITIES.filter(function(a) { return a.id === id; })[0];
+	return !a || !a.instruments || a.instruments.indexOf(practice.instrument) >= 0;
 }
 
-// Show the menu: page "main" or "more". Without one, the menu stays on its
-// page, and leaving an activity returns to the page it's on.
+// The first 3 notes lesson the instrument starts with (B A G on flute and oboe)
+function firstThreeActivity() {
+	return practiceActivityAvailable("learn3bag") ? "learn3bag" : "learn3";
+}
+
+// The menu's pages, one tab each
+var PRACTICE_PAGES = [
+	{ id: "learn", label: "Learn notes" },
+	{ id: "games", label: "Note games" },
+	{ id: "scale", label: "Scale & songs" }
+];
+
+// The activities, each with its best result for this instrument, in menu
+// order on their page. The learn page reads as a path, top to bottom.
+var PRACTICE_ACTIVITIES = [
+	{ id: "firstsounds", firstSounds: true, page: "learn" },  // title, sub and icon from FIRST_SOUNDS
+	{ id: "learn3bag", icon: "\u266a", title: "Learn B, A and G", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "learn" },
+	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", page: "learn" },
+	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "learn" },
+	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "games", wide: true },
+	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?", page: "games" },
+	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?", page: "games" },
+	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "scale" },
+	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "scale" },
+	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "Hot Cross Buns, Jingle Bells, or make your own", page: "scale", wide: true }
+];
+
+// The menu page an activity is on (null for screens off the menu)
+function activityPage(id) {
+	var a = PRACTICE_ACTIVITIES.filter(function(a) { return a.id === id; })[0];
+	return a ? a.page : null;
+}
+
+// Show menu page page. Without one, the menu stays on its page, leaving an
+// activity returns to the page it's on, and otherwise the page with the next
+// step on the learning path opens.
 function showPracticeMenu(page) {
-	if (page !== "main" && page !== "more") {
-		page = practice.mode === "menu" ? (practice.menuPage || "main")
-			: isMoreActivity(currentPracticeActivity()) ? "more" : "main";
+	if (!PRACTICE_PAGES.some(function(p) { return p.id === page; })) {
+		var next = typeof nextPathNode === "function" ? nextPathNode() : null;
+		page = practice.mode === "menu" ? practice.menuPage
+			: activityPage(currentPracticeActivity()) || practice.menuPage;
+		page = page || (next && activityPage(next.activity)) || "learn";
 	}
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
@@ -320,9 +360,9 @@ function showPracticeMenu(page) {
 	setPracticeMode("menu");
 	document.getElementById("practice-view").setAttribute("data-menu-page", page);
 	var back = document.getElementById("practice-close");
-	var label = page === "more" ? "Back to the practice menu" : "Back to the app";
-	back.setAttribute("aria-label", label);
-	back.title = label;
+	back.setAttribute("aria-label", "Back to the app");
+	back.title = "Back to the app";
+	renderPracticeTabs(page);
 	// Nothing on the menu listens; the mic restarts with the next Play step
 	if (practiceStartedMic && listenActive) stopListening();
 	practiceStartedMic = false;
@@ -331,16 +371,20 @@ function showPracticeMenu(page) {
 
 	var menu = document.getElementById("practice-menu");
 	menu.innerHTML = "";
-	// Instrument-specific activities (the head joint) lead the menu
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
 	var activities = PRACTICE_ACTIVITIES.filter(function(a) {
-		return (!a.firstSounds || fsCfg) && !a.more === (page === "main");
+		return practiceActivityAvailable(a.id) && a.page === page;
 	});
-	activities.sort(function(a, b) { return (b.firstSounds ? 1 : 0) - (a.firstSounds ? 1 : 0); });
+	var bag = activities.some(function(a) { return a.id === "learn3bag"; });
 	menu.setAttribute("data-count", activities.length);
 	activities.forEach(function(a) {
 		var title = a.firstSounds ? fsCfg.title : a.title;
 		var sub = a.firstSounds ? fsCfg.sub : a.sub;
+		if (a.id === "learn3bag") {
+			sub = "Where most " + (practice.instrument === "oboe" ? "oboe" : "flute") + " classes start";
+		} else if (a.id === "learn3" && bag) {
+			sub = "D, C and B\u266d, one at a time";
+		}
 		if (a.id === "fingerings" && slide) {
 			title = "Practice slide positions";
 			sub = "How many slide positions can you name in 30 seconds?";
@@ -350,8 +394,8 @@ function showPracticeMenu(page) {
 		}
 
 		var score;
-		if (a.id === "learn" || a.id === "scale") {
-			var stars = practice.lessons[a.id === "learn" ? "first5" : "scale"].stars;
+		if (LESSON_ACTIVITIES[a.id]) {
+			var stars = practice.lessons[LESSON_ACTIVITIES[a.id]].stars;
 			var total = stars.reduce(function(t, n) { return t + n; }, 0);
 			score = total + " / " + stars.length * 3 + " \u2605";
 		} else if (a.firstSounds) {
@@ -371,7 +415,7 @@ function showPracticeMenu(page) {
 		}
 
 		var b = document.createElement("button");
-		b.className = "practice-choice" + (a.firstSounds || a.wide ? " wide" : "");
+		b.className = "practice-choice" + (a.wide ? " wide" : "");
 		b.setAttribute("data-activity", a.id);
 		b.innerHTML = '<span class="practice-choice-icon" aria-hidden="true"></span>' +
 			'<span class="practice-choice-text"><span class="practice-choice-title"></span>' +
@@ -393,9 +437,25 @@ function showPracticeMenu(page) {
 	onPracticeMenuShown(menu, page);
 }
 
+// The page tabs above the menu
+function renderPracticeTabs(page) {
+	var tabs = document.getElementById("practice-tabs");
+	tabs.innerHTML = "";
+	PRACTICE_PAGES.forEach(function(p) {
+		var b = document.createElement("button");
+		b.className = "practice-tab";
+		b.setAttribute("role", "tab");
+		b.setAttribute("data-page", p.id);
+		b.setAttribute("aria-selected", p.id === page ? "true" : "false");
+		b.textContent = p.label;
+		b.onclick = function() { showPracticeMenu(p.id); };
+		tabs.appendChild(b);
+	});
+}
+
 function startPracticeActivity(id) {
-	if (id === "learn" || id === "scale") {
-		startLesson(id === "scale" ? "scale" : "first5");
+	if (LESSON_ACTIVITIES[id]) {
+		startLesson(LESSON_ACTIVITIES[id]);
 	} else if (id === "quiz") {
 		startChallenge();
 	} else if (id === "scalerun") {
@@ -413,21 +473,19 @@ function startPracticeActivity(id) {
 	}
 }
 
-// The back arrow (and Escape): an activity returns to its menu page, the
-// More page to the main menu, and the main menu leaves practice
+// The back arrow (and Escape): an activity returns to its menu page, and
+// the menu leaves practice
 function practiceBack() {
 	if (practice && practice.mode === "signin") {
 		if (currentStudent === null) closePractice();
 		else if (practice.signinFrom === "profile") showProfile();
-		else showPracticeMenu("main");
+		else showPracticeMenu();
 		return;
 	}
 	if (practice && (practice.mode === "song" || practice.mode === "editor" || practice.mode === "import")) {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
-	} else if (practice && practice.menuPage === "more") {
-		showPracticeMenu("main");
 	} else {
 		closePractice();
 	}
@@ -435,7 +493,9 @@ function practiceBack() {
 
 // The activity the student is in, for restarting it after an instrument change
 function currentPracticeActivity() {
-	if (practice.mode === "lesson") return practice.lesson === "scale" ? "scale" : "learn";
+	if (practice.mode === "lesson") {
+		return Object.keys(LESSON_ACTIVITIES).filter(function(id) { return LESSON_ACTIVITIES[id] === practice.lesson; })[0];
+	}
 	if (practice.mode === "challenge") return practice.challenge.kind === "scale" ? "scalerun" : "quiz";
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
@@ -464,8 +524,8 @@ function changePracticeInstrument(value) {
 	// First sounds exist for some instruments only; others land on the menu
 	if (activity === "menu") {
 		showPracticeMenu(menuPage);
-	} else if (activity === "firstsounds" && !FIRST_SOUNDS[value]) {
-		showPracticeMenu("main");
+	} else if (!practiceActivityAvailable(activity)) {
+		showPracticeMenu(activityPage(activity));
 	} else if (songId) {
 		if (songFree) playThroughSong(songId); else startSong(songId);
 	} else if (importing) {
@@ -491,7 +551,7 @@ function closePractice() {
 	if (button && button.offsetParent !== null) button.focus();
 }
 
-// Open a lesson set ("first5" or "scale"): an overview of its notes and
+// Open a lesson set ("first3", "first5" or "scale"): an overview of its notes and
 // their names first, so the Read step never asks a name before it's taught
 function startLesson(id) {
 	practice.lesson = id;
@@ -510,7 +570,7 @@ function showLessonOverview() {
 	document.getElementById("practice-steps").innerHTML = "";
 	var notes = currentLesson().notes;
 	document.getElementById("practice-prompt").textContent = practice.lesson === "scale"
-		? "Meet the B\u266d scale!" : "Meet your first 5 notes!";
+		? "Meet the B\u266d scale!" : practice.lesson.indexOf("first3") === 0 ? "Meet your first 3 notes!" : "Meet your first 5 notes!";
 	drawLessonOverview(-1);
 
 	var body = document.getElementById("practice-body");
@@ -936,10 +996,12 @@ function finishPracticeNote(inTune) {
 function renderPracticeResult() {
 	var name = practiceNoteName(practice.target);
 	var scale = practice.lesson === "scale";
+	var first3 = practice.lesson.indexOf("first3") === 0;
 	var prompt = document.getElementById("practice-prompt");
 	var body = document.getElementById("practice-body");
 	prompt.textContent = !practice.allLearned ? "You played " + name + "!"
 		: scale ? "You learned the whole B\u266d scale!"
+		: first3 ? "You learned your first 3 notes!"
 		: "You learned all five notes!";
 
 	var labels = ["Named it first try", "Played it", "Right in tune"];
@@ -968,6 +1030,7 @@ function renderPracticeResult() {
 	}));
 	if (practice.allLearned) {
 		actions.appendChild(scale ? practiceButton("Play the whole scale \u2192", "primary", startScaleRun)
+			: first3 ? practiceButton("Learn 5 notes \u2192", "primary", function() { startLesson("first5"); })
 			: practiceButton("Take the quiz \u2192", "primary", startChallenge));
 	}
 	body.appendChild(actions);
@@ -3822,7 +3885,7 @@ function openSongImport() {
 		return;
 	}
 	syncPracticeHistory();
-	showPracticeMenu("more");
+	showPracticeMenu("scale");
 	syncPracticeHistory();
 	showSongList();
 	syncPracticeHistory();
@@ -4230,8 +4293,8 @@ function renderFirstSoundsResult() {
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
 	actions.appendChild(practiceButton("Play it again", "secondary", startFirstSounds));
-	actions.appendChild(practiceButton("Learn the first 5 notes \u2192", "primary", function() {
-		startPracticeActivity("learn");
+	actions.appendChild(practiceButton("Learn the first 3 notes \u2192", "primary", function() {
+		startPracticeActivity(firstThreeActivity());
 	}));
 	body.appendChild(actions);
 	launchFireworks(document.getElementById("practice-stage"));
@@ -4664,7 +4727,7 @@ document.addEventListener("keydown", function(event) {
 
 // Browser history mirrors the practice screens, so the phone's back button
 // (Android) or edge swipe (iPhone) steps back like the back arrow: app <
-// menu < More < activity < song. Each screen has a depth; moving deeper
+// menu (any page) < activity < song. Each screen has a depth; moving deeper
 // pushes an entry (always from a tap, so browsers don't skip it), moving
 // sideways replaces it, and moving shallower (the back arrow, Escape, a
 // "Back to the menu" button) goes back through history to that entry.
@@ -4672,11 +4735,11 @@ function practiceHistoryState() {
 	if (!practiceOpen || !practice) return null;
 	var activity = currentPracticeActivity();
 	if (activity === "menu") {
-		return { practice: "menu", page: practice.menuPage, depth: practice.menuPage === "more" ? 2 : 1 };
+		return { practice: "menu", page: practice.menuPage, depth: 1 };
 	}
 	// Sign-in on opening stands in for the menu; from the profile it's a level deeper
 	if (activity === "signin") return { practice: "signin", depth: practice.signinFrom === "profile" ? 3 : 1 };
-	var depth = isMoreActivity(activity) ? 3 : 2;
+	var depth = 2;
 	if (practice.mode === "song") return { practice: "song", song: practice.song.id, free: !!practice.song.free, depth: depth + 1 };
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
 	if (practice.mode === "import") return { practice: "import", depth: depth + 1 };
@@ -4732,7 +4795,7 @@ window.addEventListener("popstate", function(event) {
 	}
 	if (state.practice === "menu") showPracticeMenu(state.page);
 	else if (state.practice === "signin" && currentStudent === null) showSignIn("open");
-	else if (state.practice === "signin") showPracticeMenu("main");
+	else if (state.practice === "signin") showPracticeMenu();
 	else if (state.practice === "songs") showSongList();
 	else if (state.practice === "song" && findSong(state.song)) {
 		if (state.free) playThroughSong(state.song); else startSong(state.song);

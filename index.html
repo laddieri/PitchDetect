@@ -2316,15 +2316,14 @@
 			   belongs to the lessons */
 			.practice-view[data-mode="menu"] .practice-card,
 			.practice-view:not([data-mode="menu"]) .practice-menu,
-			.practice-view:not([data-mode="menu"]) .practice-more,
-			.practice-view[data-menu-page="more"] .practice-more,
+			.practice-view:not([data-mode="menu"]) .practice-tabs,
 			.practice-view[data-step="overview"] .practice-map,
 			.practice-view:not([data-mode="lesson"]) .practice-map {
 				display: none;
 			}
 
-			/* Menu: one big button per activity. The main page has the first
-			   five notes activities; More leads to a page with the B♭ scale and songs. */
+			/* Menu: one big button per activity, on three pages (tabs): learn
+			   notes, note games, and the B♭ scale and songs */
 			.practice-menu {
 				flex: 1;
 				min-height: 0;
@@ -2398,12 +2397,6 @@
 				color: var(--text-muted);
 			}
 
-			/* An instrument-specific activity (first sounds) leads the menu
-			   as a full-width card */
-			.practice-menu[data-count="5"] {
-				max-height: 560px;
-			}
-
 			.practice-menu[data-count="2"] {
 				max-height: 230px;
 			}
@@ -2412,31 +2405,93 @@
 				grid-column: 1 / -1;
 			}
 
-			/* The More arrow under the main menu */
-			.practice-more {
-				align-self: center;
+			/* The learn page reads as a path: one flat row per lesson, top to
+			   bottom, icon left */
+			.practice-view[data-menu-page="learn"] .practice-menu {
+				grid-template-columns: minmax(0, 1fr);
+			}
+
+			.practice-view[data-menu-page="learn"] .practice-menu[data-count="1"] {
+				max-height: 120px;
+			}
+
+			.practice-view[data-menu-page="learn"] .practice-menu[data-count="2"] {
+				max-height: 230px;
+			}
+
+			.practice-view[data-menu-page="learn"] .practice-menu[data-count="3"] {
+				max-height: 340px;
+			}
+
+			.practice-view[data-menu-page="learn"] .practice-menu[data-count="4"] {
+				max-height: 450px;
+			}
+
+			.practice-view[data-menu-page="learn"] .practice-choice {
+				flex-direction: row;
+				gap: 16px;
+				padding: 10px 24px;
+				text-align: left;
+			}
+
+			.practice-view[data-menu-page="learn"] .practice-choice-text {
+				flex: 1;
+				min-width: 0;
+			}
+
+			/* The page tabs above the menu */
+			.practice-tabs {
 				flex-shrink: 0;
-				display: inline-flex;
-				align-items: center;
+				display: flex;
 				gap: 4px;
-				padding: 10px 16px 10px 24px;
-				border: 1px solid var(--border-strong);
-				border-radius: 999px;
+				padding: 4px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius-pill);
 				background: var(--surface);
-				color: var(--text);
+				box-shadow: var(--shadow-md);
+			}
+
+			.practice-tab {
+				position: relative;
+				flex: 1;
+				min-width: 0;
+				padding: 10px 8px;
+				border: none;
+				border-radius: var(--radius-pill);
+				background: transparent;
+				color: var(--text-muted);
 				font-family: var(--font);
-				font-size: 1.15rem;
+				font-size: 1.05rem;
 				font-weight: 700;
+				white-space: nowrap;
 				cursor: pointer;
 			}
 
-			.practice-more:hover {
-				border-color: var(--accent);
+			.practice-tab:hover {
+				color: var(--text);
 			}
 
-			.practice-more:focus-visible {
+			.practice-tab:focus-visible {
 				outline: none;
 				box-shadow: var(--ring);
+			}
+
+			.practice-tab[aria-selected="true"] {
+				background: var(--accent);
+				color: #fff;
+			}
+
+			/* The next step on the path is on this page */
+			.practice-tab.next-up::after {
+				content: "";
+				position: absolute;
+				top: 6px;
+				right: 10px;
+				width: 9px;
+				height: 9px;
+				border-radius: 50%;
+				background: var(--accent);
+				animation: next-up-bob 1.6s ease-in-out infinite;
 			}
 
 			.practice-choice-score {
@@ -3317,6 +3372,10 @@
 			}
 
 			/* The scale's seven names: one row, or rows centered on a phone */
+			.practice-answers[data-count="3"] {
+				grid-template-columns: repeat(3, minmax(0, 80px));
+			}
+
 			.practice-answers[data-count="7"] {
 				display: flex;
 				flex-wrap: wrap;
@@ -3688,8 +3747,7 @@
 			}
 
 			/* The next step on the learning path */
-			.practice-choice.next-up,
-			.practice-more.next-up {
+			.practice-choice.next-up {
 				position: relative;
 				outline: 3px solid var(--accent);
 				outline-offset: 3px;
@@ -4348,6 +4406,7 @@
 
 			@media (prefers-reduced-motion: reduce) {
 				.next-up-tag,
+				.practice-tab.next-up::after,
 				.level-up-burst,
 				.level-up-card {
 					animation: none;
@@ -4386,7 +4445,7 @@
 			body.kid-mode .practice-card,
 			body.kid-mode .practice-map-note,
 			body.kid-mode .practice-close,
-			body.kid-mode .practice-more,
+			body.kid-mode .practice-tabs,
 			body.kid-mode .practice-instrument {
 				border: var(--cartoon-border);
 				box-shadow: 4px 4px 0 var(--ink);
@@ -4426,6 +4485,8 @@
 				color: var(--ink);
 			}
 
+			body.kid-mode .practice-choice[data-activity="learn3"] .practice-choice-icon { background: #ffe9a8; }
+			body.kid-mode .practice-choice[data-activity="learn3bag"] .practice-choice-icon { background: #d8f5a2; }
 			body.kid-mode .practice-choice[data-activity="learn"] .practice-choice-icon { background: #ffd23f; }
 			body.kid-mode .practice-choice[data-activity="quiz"] .practice-choice-icon { background: #ff9f1c; }
 			body.kid-mode .practice-choice[data-activity="names"] .practice-choice-icon { background: #7ee081; }
@@ -4491,8 +4552,7 @@
 				border: 2px solid var(--ink);
 			}
 
-			body.kid-mode .practice-choice.next-up,
-			body.kid-mode .practice-more.next-up {
+			body.kid-mode .practice-choice.next-up {
 				outline: 4px dashed var(--accent);
 				outline-offset: 5px;
 			}
@@ -4670,11 +4730,25 @@
 				}
 
 				/* Menu: full-width rows, icon left */
-				.practice-menu,
-				.practice-menu[data-count="5"] {
+				.practice-menu {
 					grid-template-columns: minmax(0, 1fr);
-					max-height: 520px;
+					max-height: 440px;
 					gap: 10px;
+				}
+
+				.practice-view[data-menu-page="learn"] .practice-choice {
+					padding: 10px 14px;
+					gap: 14px;
+				}
+
+				.practice-tab {
+					padding: 9px 4px;
+					font-size: 0.95rem;
+				}
+
+				.practice-tab.next-up::after {
+					top: 3px;
+					right: 5px;
 				}
 
 				.practice-menu[data-count="2"] {
@@ -5109,8 +5183,8 @@
 						<span class="player-stat-value"></span>
 					</span>
 				</button>
+				<div id="practice-tabs" class="practice-tabs" role="tablist" aria-label="Practice"></div>
 				<div id="practice-menu" class="practice-menu"></div>
-				<button id="practice-more" class="practice-more" onclick="showPracticeMenu('more')">More<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></button>
 				<div id="practice-hub" class="practice-hub"></div>
 				<div id="practice-map" class="practice-map"></div>
 				<div class="practice-card">

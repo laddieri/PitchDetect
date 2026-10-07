@@ -54,7 +54,7 @@ var LEVEL_TITLES = ["New Musician", "Note Finder", "Practice Pal", "Rhythm Rooki
 // current instrument can't earn (unless it's already earned)
 var BADGES = [
 	{ id: "first-note", icon: "\uD83C\uDFB5", name: "First Note", how: "Earn a star on any note",
-		test: function(s) { return s.first5.concat(s.scale).some(function(n) { return n > 0; }); } },
+		test: function(s) { return s.first3.concat(s.first3bag, s.first5, s.scale).some(function(n) { return n > 0; }); } },
 	{ id: "five-alive", icon: "\u270B", name: "Five Alive", how: "Learn all of the first 5 notes",
 		test: function(s) { return s.first5.every(function(n) { return n > 0; }); } },
 	{ id: "gold-stars", icon: "\u2B50", name: "Gold Stars", how: "Get 3 stars on each of the first 5 notes",
@@ -310,6 +310,8 @@ function recordProgress(xp) {
 // state plus the profile
 function progressSnapshot() {
 	var s = {
+		first3: practice.lessons.first3.stars,
+		first3bag: practice.lessons.first3bag.stars,
 		first5: practice.lessons.first5.stars,
 		scale: practice.lessons.scale.stars,
 		quizBest: practice.challengeBest || 0,
@@ -417,6 +419,11 @@ function learningPath() {
 	var nodes = [];
 	var fs = FIRST_SOUNDS[practice.instrument];
 	if (fs) nodes.push({ title: fs.title, activity: "firstsounds", done: practice.firstSoundsBest >= 3 });
+	// Flute and oboe start on B A G; everyone else on D C B♭
+	var first3Id = firstThreeActivity();
+	var first3 = practice.lessons[LESSON_ACTIVITIES[first3Id]];
+	nodes.push({ title: first3Id === "learn3bag" ? "Learn B, A and G" : "Learn the first 3 notes", activity: first3Id,
+		done: first3.stars.every(function(n) { return n > 0; }) });
 	var first5 = practice.lessons.first5;
 	first5.notes.forEach(function(midi, i) {
 		nodes.push({ title: "Learn " + practiceNoteName(midi), activity: "learn", done: first5.stars[i] > 0 });
@@ -450,10 +457,9 @@ function startPathNode(node) {
 	startPracticeActivity(node.activity);
 }
 
-// Mark the menu card (or the More button) for the next step on the path
+// Mark the menu card (or the tab of the page it's on) for the next step on
+// the path
 function markNextUp(menu, page) {
-	var more = document.getElementById("practice-more");
-	more.classList.remove("next-up");
 	if (currentStudent === null) return;
 	var next = nextPathNode();
 	if (!next) return;
@@ -464,8 +470,9 @@ function markNextUp(menu, page) {
 		tag.className = "next-up-tag";
 		tag.textContent = "Next";
 		card.appendChild(tag);
-	} else if (page === "main" && isMoreActivity(next.activity)) {
-		more.classList.add("next-up");
+	} else {
+		var tab = document.querySelector('.practice-tab[data-page="' + activityPage(next.activity) + '"]');
+		if (tab) tab.classList.add("next-up");
 	}
 }
 
@@ -617,7 +624,7 @@ function signInStudent(id) {
 
 // Signed in (and named): on to the menu, with a hello
 function finishSignIn() {
-	showPracticeMenu("main");
+	showPracticeMenu();
 	if (currentStudent) showProgressPop("Hi, " + studentLabel() + "!", "goal");
 	if (pendingSongImport) openSongImport();
 }
