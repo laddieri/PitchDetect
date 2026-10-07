@@ -176,13 +176,14 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   so opening a level doesn't move the others. **First 3 notes** (degrees
   1–3 only, which are the student's first 3 notes from the bottom,
   `threeNoteScale()`: B♭ C D, or G A B on a flute or oboe on B A G; Hot
-  Cross Buns, Merrily We Roll Along, Stepping Stones, Up and Down; bests on
+  Cross Buns, Merrily We Roll Along, Stepping Stones, Up and Down, Au Clair
+  de la Lune; bests on
   B A G are kept apart under `id@bag`, `songBestKey()`). The First 3 notes
   page's list (`showSongList("three")`, `practice.songList`, kept for back
   and Next song) shows only these and the student's 3-note songs.
   **Beginner** (first five
   notes, plain rhythms, on the First 5 notes page's list
-  (`showSongList("five")`) and left out of Play songs: Au Clair de la Lune, Mary Had a
+  (`showSongList("five")`) and left out of Play songs: Mary Had a
   Little Lamb, Lightly Row, Ode to Joy, Go Tell Aunt Rhody, Jingle Bells),
   **Intermediate** (rests, dotted notes or notes past the fifth: Goin' Home,
   When the Saints, Twinkle, All My Little Ducklings), **Advanced** (eighth
