@@ -1150,9 +1150,6 @@ function fitNoteName() {
 function updateControlStates() {
 	var hasNote = currentNote !== null && currentMidi !== null;
 
-	// Practice needs to know which notes to teach
-	document.getElementById("practiceButton").disabled = !document.getElementById("instrument").value;
-
 	document.getElementById("playButton").disabled = !hasNote;
 	document.getElementById("clearButton").disabled = !hasNote;
 	document.getElementById("pitchUpButton").disabled = !hasNote;

@@ -388,7 +388,10 @@ Loaded after firstfive.js; no server, everything stays on the device.
   it changes only in the profile's **Your instrument** section
   (`setStudentInstrument()`): `openPractice()` and `signInStudent()` put the
   app back on it (`applyStudentInstrument()`), so changing the instrument
-  in the app outside Practice doesn't move the student.
+  in the app outside Practice doesn't move the student. Practice doesn't
+  need an instrument chosen in the app (the toolbar button is always
+  enabled): `openPractice()` goes to sign-in, or to the instrument step when
+  `practice.instrument` is empty, and back from there closes Practice.
 - **Profile** (`pitchdetect-profile[@ID]`, `loadProfile()` / `saveProfile()`):
   `{ name, xp, avatar, goal, days: { "YYYY-MM-DD": seconds }, streak, bestStreak,
   lastGoalDay, freezes, badges: { id: day }, instrument }`.

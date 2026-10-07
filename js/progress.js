@@ -530,7 +530,7 @@ function onPracticeMenuShown(menu, page) {
 // Called by loadPracticeInstrument(): award badges already earned before
 // badges existed
 function onPracticeLoaded() {
-	if (!profile || currentStudent === null) return;
+	if (!profile || currentStudent === null || !practice.instrument) return;
 	checkBadges(true);
 }
 
@@ -660,9 +660,10 @@ function signInStudent(id) {
 	continueSignIn(from);
 }
 
-// After the name: someone without an instrument yet picks one
+// After the name: someone without an instrument yet picks one (sign-in is
+// the only place a new student chooses; the profile changes it after)
 function continueSignIn(from) {
-	if (!profile.instrument) {
+	if (!profile.instrument || !practice.instrument) {
 		showInstrumentStep(from);
 		return;
 	}

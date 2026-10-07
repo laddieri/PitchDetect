@@ -230,13 +230,9 @@ function allNotesLearned() {
 }
 
 function openPractice() {
-	// A student practices on their own instrument (changed on the profile)
+	// A student practices on their own instrument: picked at sign-in,
+	// changed on the profile
 	applyStudentInstrument();
-	var select = document.getElementById("instrument");
-	if (!select.value) {
-		showToast("Choose your instrument first.");
-		return;
-	}
 
 	// Practice owns the audio while it's open
 	if (sustainPlaying) stopSustain();
@@ -254,6 +250,10 @@ function openPractice() {
 	// Nobody has signed in on this device yet: who's practicing?
 	if (currentStudent === null) {
 		showSignIn("open");
+		return;
+	}
+	if (!practice.instrument) {
+		showInstrumentStep("open");
 		return;
 	}
 	showPracticeMenu();
@@ -293,7 +293,9 @@ function loadPracticeInstrument() {
 	};
 	// The header names the instrument; the profile changes it
 	var option = select.options[select.selectedIndex];
-	document.getElementById("practice-instrument").textContent = option ? option.textContent : "";
+	var label = document.getElementById("practice-instrument");
+	label.textContent = select.value && option ? option.textContent : "";
+	label.parentNode.style.visibility = select.value ? "" : "hidden";
 	onPracticeLoaded();
 }
 
@@ -569,7 +571,8 @@ function startPracticeActivity(id) {
 // the menu leaves practice
 function practiceBack() {
 	if (practice && practice.mode === "signin") {
-		if (currentStudent === null) closePractice();
+		// Practice needs someone signed in on an instrument
+		if (currentStudent === null || !practice.instrument) closePractice();
 		else if (practice.signinFrom === "profile") showProfile();
 		else showPracticeMenu();
 		return;
@@ -4106,7 +4109,8 @@ function openSongImport() {
 }
 
 // A song link: take the song out of the address (so a reload doesn't bring
-// it back) and show it. With no instrument chosen yet, take the sharer's.
+// it back) and show it. With no instrument chosen yet, take the sharer's
+// (sign-in still asks a new student theirs).
 function checkSongLink() {
 	var m = /^#song=([A-Za-z0-9_-]+)$/.exec(location.hash);
 	if (!m) return;
@@ -4122,10 +4126,6 @@ function checkSongLink() {
 		select.value = shared.instrument;
 		if (select.value === shared.instrument) select.dispatchEvent(new Event("change"));
 		else select.value = "";
-	}
-	if (!select.value) {
-		showToast("Choose your instrument, then open Practice to get your friend\u2019s song.");
-		return;
 	}
 	openSongImport();
 }
@@ -5008,6 +5008,7 @@ window.addEventListener("popstate", function(event) {
 	}
 	if (state.practice === "menu") showPracticeMenu(state.page);
 	else if (state.practice === "signin" && currentStudent === null) showSignIn("open");
+	else if (state.practice === "signin" && !practice.instrument) showInstrumentStep("open");
 	else if (state.practice === "signin") showPracticeMenu();
 	else if (state.practice === "songs") showSongList();
 	else if (state.practice === "song" && findSong(state.song)) {
