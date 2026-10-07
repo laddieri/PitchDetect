@@ -1,0 +1,16 @@
+{
+	"name": "What Note Is This?",
+	"short_name": "Note Practice",
+	"description": "Play a note and see what it is, then practice your first notes, scales and songs.",
+	"start_url": "./",
+	"scope": "./",
+	"display": "standalone",
+	"background_color": "#c8ecff",
+	"theme_color": "#8fd3ff",
+	"icons": [
+		{ "src": "img/icon-192.png", "sizes": "192x192", "type": "image/png" },
+		{ "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png" },
+		{ "src": "img/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+		{ "src": "img/favicon.svg", "sizes": "any", "type": "image/svg+xml" }
+	]
+}
