@@ -1592,6 +1592,9 @@ var TONE_RELEASE = 0.08; // seconds; playTone()'s release for a given length
 function playTone(freq, sustain, onStarted, length) {
 	if (!freq) return;
 
+	setAudioSessionType("playback");
+	showSoundHint();
+
 	// Stop any currently playing note
 	stopNote();
 	sustainPlaying = false;
@@ -2079,6 +2082,7 @@ function startListening() {
 	// request would open a second stream that stopListening never releases
 	if (listenStarting) return;
 	listenStarting = true;
+	setAudioSessionType("play-and-record");
 
 	navigator.mediaDevices.getUserMedia({
 		audio: {
@@ -2478,11 +2482,45 @@ function showToast(message, duration) {
 	var toast = document.getElementById("toast");
 	if (!toast) return;
 	toast.textContent = message;
+	toast.classList.remove("info");
 	toast.classList.add("visible");
 	if (toastTimer) clearTimeout(toastTimer);
 	toastTimer = setTimeout(function() {
 		toast.classList.remove("visible");
 	}, duration || 4000);
+}
+
+// The first sound of each visit says to turn the volume up, so a quiet or
+// muted device doesn't read as a broken button
+var soundHintShown = false;
+function showSoundHint() {
+	if (soundHintShown) return;
+	soundHintShown = true;
+	var toast = document.getElementById("toast");
+	if (!toast) return;
+	toast.innerHTML = '<svg class="sound-hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+		'<path d="M11 5 6 9H3v6h3l5 4z" fill="currentColor"/>' +
+		'<path class="wave" d="M15.5 8.5a5 5 0 0 1 0 7"/>' +
+		'<path class="wave wave-2" d="M18.5 5.5a9 9 0 0 1 0 13"/></svg>';
+	var text = document.createElement("span");
+	text.textContent = "Turn up your volume to hear the notes";
+	toast.appendChild(text);
+	toast.classList.add("info", "visible");
+	if (toastTimer) clearTimeout(toastTimer);
+	toastTimer = setTimeout(function() {
+		toast.classList.remove("visible");
+	}, 3500);
+}
+
+// iPhones mute web audio with the ring/silent switch unless the page says it
+// plays media (iOS 17+). "play-and-record" keeps the mic working and also
+// ignores the switch.
+function setAudioSessionType(type) {
+	if (!navigator.audioSession) return;
+	if (type === "playback" && (listenActive || listenStarting)) return;
+	try {
+		if (navigator.audioSession.type !== type) navigator.audioSession.type = type;
+	} catch (e) {}
 }
 
 // Close the key-signature popup and the overflow menu (outside click, Escape)

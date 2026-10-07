@@ -1213,6 +1213,40 @@
 				transform: translateX(-50%) translateY(0);
 			}
 
+			/* Friendly notice (the sound hint), not an error */
+			.toast.info {
+				display: flex;
+				align-items: center;
+				gap: 10px;
+				background: var(--surface);
+				color: var(--text);
+				border-color: var(--border-strong);
+			}
+
+			.toast .sound-hint-icon {
+				flex: none;
+				width: 24px;
+				height: 24px;
+				color: var(--accent);
+			}
+
+			.toast .sound-hint-icon .wave {
+				animation: sound-wave 1.2s ease-in-out infinite;
+			}
+
+			.toast .sound-hint-icon .wave-2 {
+				animation-delay: 0.2s;
+			}
+
+			@keyframes sound-wave {
+				0%, 100% { opacity: 0.25; }
+				50% { opacity: 1; }
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.toast .sound-hint-icon .wave { animation: none; }
+			}
+
 			#staff-output,
 			#staff-output-2 {
 				flex: 1;
