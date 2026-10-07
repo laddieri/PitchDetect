@@ -25,6 +25,8 @@
  *
  * Learn the first 3 notes is an easier start: concert D C B♭ (FIRST3_STEPS),
  * the first three notes many band methods begin with, taught the same way.
+ * Flute and oboe also get Learn B, A and G (FIRST3_BAG_STEPS), where their
+ * classes usually start.
  *
  * Learn the B♭ scale extends the lessons to the first octave: concert
  * B♭ C D E♭ F G A B♭ (SCALE_STEPS) from the same starting B♭, eight lessons
@@ -73,6 +75,8 @@ var practiceStartConcertMidi = {
 var PRACTICE_STEPS = [0, 2, 4, 5, 7];  // B♭ C D E♭ F
 var SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];  // B♭ C D E♭ F G A B♭
 var FIRST3_STEPS = [4, 2, 0];  // D C B♭, stepping down to the first B♭
+var FIRST3_BAG_STEPS = [1, -1, -3];  // B A G, the flute and oboe start
+var FIRST3_BAG_INSTRUMENTS = ["flute", "oboe"];
 
 var PRACTICE_STORAGE_KEY = "pitchdetect-first-five";
 var PRACTICE_HOLD_MS = 1200;       // how long the note must be held to pass
@@ -96,11 +100,13 @@ var DRILL_BALLOON_GOAL = 10;       // right answers that pop the balloon, until
 var SCALE_STORAGE_KEY = "pitchdetect-bb-scale";
 var SCALE_RUN_STORAGE_KEY = "pitchdetect-bb-scale-run";
 var FIRST3_STORAGE_KEY = "pitchdetect-first-three";
+var FIRST3_BAG_STORAGE_KEY = "pitchdetect-first-three-bag";
 
-// The note sets taught as lessons: the first three notes, the first five
-// notes and the B♭ scale
+// The note sets taught as lessons: the first three notes (D C B♭, or B A G
+// on flute and oboe), the first five notes and the B♭ scale
 var LESSON_SETS = {
 	first3: { steps: FIRST3_STEPS, storage: FIRST3_STORAGE_KEY },
+	first3bag: { steps: FIRST3_BAG_STEPS, storage: FIRST3_BAG_STORAGE_KEY },
 	first5: { steps: PRACTICE_STEPS, storage: PRACTICE_STORAGE_KEY },
 	scale: { steps: SCALE_STEPS, storage: SCALE_STORAGE_KEY }
 };
@@ -295,13 +301,26 @@ function setPracticeMode(mode) {
 }
 
 // Lesson set for each lesson activity id
-var LESSON_ACTIVITIES = { learn3: "first3", learn: "first5", scale: "scale" };
+var LESSON_ACTIVITIES = { learn3bag: "first3bag", learn3: "first3", learn: "first5", scale: "scale" };
+
+// Whether an activity is offered on the current instrument
+function practiceActivityAvailable(id) {
+	if (id === "firstsounds") return !!FIRST_SOUNDS[practice.instrument];
+	var a = PRACTICE_ACTIVITIES.filter(function(a) { return a.id === id; })[0];
+	return !a || !a.instruments || a.instruments.indexOf(practice.instrument) >= 0;
+}
+
+// The first 3 notes lesson the instrument starts with (B A G on flute and oboe)
+function firstThreeActivity() {
+	return practiceActivityAvailable("learn3bag") ? "learn3bag" : "learn3";
+}
 
 // The activities, each with its best result for this instrument. Those
 // marked more (the B♭ scale and songs) sit on the menu's second page,
 // behind the More button.
 var PRACTICE_ACTIVITIES = [
-	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", wide: true },
+	{ id: "learn3bag", icon: "\u266a", title: "Learn B, A and G", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, wide: "alone" },
+	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", wide: "alone" },
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note" },
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see" },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?" },
@@ -345,13 +364,20 @@ function showPracticeMenu(page) {
 	// Instrument-specific activities (the head joint) lead the menu
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
 	var activities = PRACTICE_ACTIVITIES.filter(function(a) {
-		return (!a.firstSounds || fsCfg) && !a.more === (page === "main");
+		return practiceActivityAvailable(a.id) && !a.more === (page === "main");
 	});
+	// The first 3 notes cards span the menu, or share a row when there are two
+	var alone = activities.filter(function(a) { return a.wide === "alone"; }).length === 1;
 	activities.sort(function(a, b) { return (b.firstSounds ? 1 : 0) - (a.firstSounds ? 1 : 0); });
 	menu.setAttribute("data-count", activities.length);
 	activities.forEach(function(a) {
 		var title = a.firstSounds ? fsCfg.title : a.title;
 		var sub = a.firstSounds ? fsCfg.sub : a.sub;
+		if (a.id === "learn3bag") {
+			sub = "Where most " + (practice.instrument === "oboe" ? "oboe" : "flute") + " classes start";
+		} else if (a.id === "learn3" && !alone) {
+			sub = "D, C and B\u266d, one at a time";
+		}
 		if (a.id === "fingerings" && slide) {
 			title = "Practice slide positions";
 			sub = "How many slide positions can you name in 30 seconds?";
@@ -382,7 +408,7 @@ function showPracticeMenu(page) {
 		}
 
 		var b = document.createElement("button");
-		b.className = "practice-choice" + (a.firstSounds || a.wide ? " wide" : "");
+		b.className = "practice-choice" + (a.firstSounds || a.wide === true || (a.wide === "alone" && alone) ? " wide" : "");
 		b.setAttribute("data-activity", a.id);
 		b.innerHTML = '<span class="practice-choice-icon" aria-hidden="true"></span>' +
 			'<span class="practice-choice-text"><span class="practice-choice-title"></span>' +
@@ -477,7 +503,7 @@ function changePracticeInstrument(value) {
 	// First sounds exist for some instruments only; others land on the menu
 	if (activity === "menu") {
 		showPracticeMenu(menuPage);
-	} else if (activity === "firstsounds" && !FIRST_SOUNDS[value]) {
+	} else if (!practiceActivityAvailable(activity)) {
 		showPracticeMenu("main");
 	} else if (songId) {
 		if (songFree) playThroughSong(songId); else startSong(songId);
@@ -523,7 +549,7 @@ function showLessonOverview() {
 	document.getElementById("practice-steps").innerHTML = "";
 	var notes = currentLesson().notes;
 	document.getElementById("practice-prompt").textContent = practice.lesson === "scale"
-		? "Meet the B\u266d scale!" : practice.lesson === "first3" ? "Meet your first 3 notes!" : "Meet your first 5 notes!";
+		? "Meet the B\u266d scale!" : practice.lesson.indexOf("first3") === 0 ? "Meet your first 3 notes!" : "Meet your first 5 notes!";
 	drawLessonOverview(-1);
 
 	var body = document.getElementById("practice-body");
@@ -949,7 +975,7 @@ function finishPracticeNote(inTune) {
 function renderPracticeResult() {
 	var name = practiceNoteName(practice.target);
 	var scale = practice.lesson === "scale";
-	var first3 = practice.lesson === "first3";
+	var first3 = practice.lesson.indexOf("first3") === 0;
 	var prompt = document.getElementById("practice-prompt");
 	var body = document.getElementById("practice-body");
 	prompt.textContent = !practice.allLearned ? "You played " + name + "!"
@@ -4247,7 +4273,7 @@ function renderFirstSoundsResult() {
 	actions.className = "practice-actions";
 	actions.appendChild(practiceButton("Play it again", "secondary", startFirstSounds));
 	actions.appendChild(practiceButton("Learn the first 3 notes \u2192", "primary", function() {
-		startPracticeActivity("learn3");
+		startPracticeActivity(firstThreeActivity());
 	}));
 	body.appendChild(actions);
 	launchFireworks(document.getElementById("practice-stage"));

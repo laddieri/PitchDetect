@@ -2425,22 +2425,38 @@
 					max-height: 620px;
 				}
 
-				.practice-view[data-menu-page="main"] .practice-choice.wide {
+				/* Flute and oboe (both first 3 notes cards): every card lies flat */
+				.practice-view[data-menu-page="main"] .practice-menu[data-count="7"] {
+					max-height: 500px;
+				}
+
+				.practice-view[data-menu-page="main"] .practice-choice.wide,
+				.practice-view[data-menu-page="main"] .practice-menu[data-count="7"] .practice-choice {
 					flex-direction: row;
 					gap: 16px;
 					padding: 10px 24px;
 					text-align: left;
 				}
 
-				.practice-view[data-menu-page="main"] .practice-choice.wide .practice-choice-text {
+				.practice-view[data-menu-page="main"] .practice-choice.wide .practice-choice-text,
+				.practice-view[data-menu-page="main"] .practice-menu[data-count="7"] .practice-choice-text {
 					flex: 1;
 					min-width: 0;
 				}
 
-				.practice-view[data-menu-page="main"] .practice-choice.wide .practice-choice-icon {
+				.practice-view[data-menu-page="main"] .practice-choice.wide .practice-choice-icon,
+				.practice-view[data-menu-page="main"] .practice-menu[data-count="7"] .practice-choice-icon {
 					width: 48px;
 					height: 48px;
 					font-size: 1.35rem;
+				}
+
+				.practice-view[data-menu-page="main"] .practice-menu[data-count="7"] .practice-choice:not(.wide) {
+					padding: 10px 16px;
+				}
+
+				.practice-view[data-menu-page="main"] .practice-menu[data-count="7"] .practice-choice-sub {
+					font-size: 0.85rem;
 				}
 			}
 
@@ -4463,6 +4479,7 @@
 			}
 
 			body.kid-mode .practice-choice[data-activity="learn3"] .practice-choice-icon { background: #ffe9a8; }
+			body.kid-mode .practice-choice[data-activity="learn3bag"] .practice-choice-icon { background: #d8f5a2; }
 			body.kid-mode .practice-choice[data-activity="learn"] .practice-choice-icon { background: #ffd23f; }
 			body.kid-mode .practice-choice[data-activity="quiz"] .practice-choice-icon { background: #ff9f1c; }
 			body.kid-mode .practice-choice[data-activity="names"] .practice-choice-icon { background: #7ee081; }
@@ -4716,6 +4733,10 @@
 
 				.practice-menu[data-count="2"] {
 					max-height: 220px;
+				}
+
+				.practice-menu[data-count="7"] {
+					max-height: 600px;
 				}
 
 				.practice-menu[data-count="3"] {

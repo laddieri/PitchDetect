@@ -54,7 +54,7 @@ var LEVEL_TITLES = ["New Musician", "Note Finder", "Practice Pal", "Rhythm Rooki
 // current instrument can't earn (unless it's already earned)
 var BADGES = [
 	{ id: "first-note", icon: "\uD83C\uDFB5", name: "First Note", how: "Earn a star on any note",
-		test: function(s) { return s.first3.concat(s.first5, s.scale).some(function(n) { return n > 0; }); } },
+		test: function(s) { return s.first3.concat(s.first3bag, s.first5, s.scale).some(function(n) { return n > 0; }); } },
 	{ id: "five-alive", icon: "\u270B", name: "Five Alive", how: "Learn all of the first 5 notes",
 		test: function(s) { return s.first5.every(function(n) { return n > 0; }); } },
 	{ id: "gold-stars", icon: "\u2B50", name: "Gold Stars", how: "Get 3 stars on each of the first 5 notes",
@@ -311,6 +311,7 @@ function recordProgress(xp) {
 function progressSnapshot() {
 	var s = {
 		first3: practice.lessons.first3.stars,
+		first3bag: practice.lessons.first3bag.stars,
 		first5: practice.lessons.first5.stars,
 		scale: practice.lessons.scale.stars,
 		quizBest: practice.challengeBest || 0,
@@ -418,8 +419,10 @@ function learningPath() {
 	var nodes = [];
 	var fs = FIRST_SOUNDS[practice.instrument];
 	if (fs) nodes.push({ title: fs.title, activity: "firstsounds", done: practice.firstSoundsBest >= 3 });
-	var first3 = practice.lessons.first3;
-	nodes.push({ title: "Learn the first 3 notes", activity: "learn3",
+	// Flute and oboe start on B A G; everyone else on D C B♭
+	var first3Id = firstThreeActivity();
+	var first3 = practice.lessons[LESSON_ACTIVITIES[first3Id]];
+	nodes.push({ title: first3Id === "learn3bag" ? "Learn B, A and G" : "Learn the first 3 notes", activity: first3Id,
 		done: first3.stars.every(function(n) { return n > 0; }) });
 	var first5 = practice.lessons.first5;
 	first5.notes.forEach(function(midi, i) {

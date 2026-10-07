@@ -62,7 +62,13 @@ It opens on a **menu** (`showPracticeMenu()`, `PRACTICE_ACTIVITIES`) of
 activities, each card showing its best result: **Learn the first 3 notes**
 (an easier start: concert D C B♭, `FIRST3_STEPS`, best stars in
 `pitchdetect-first-three`; a wide card, laid flat with the icon left on
-desktop, offering the first 5 notes once learned), **Learn the first 5 notes**
+desktop, offering the first 5 notes once learned; flute and oboe also get
+**Learn B, A and G**, `FIRST3_BAG_STEPS` / `FIRST3_BAG_INSTRUMENTS`, in
+`pitchdetect-first-three-bag`, where their classes start: the two cards share
+a row, and with seven main cards every desktop card lies flat; activities
+with `instruments` show only for those, `practiceActivityAvailable()`,
+and `firstThreeActivity()` picks the one first sounds and the path lead to),
+**Learn the first 5 notes**
 (lessons), **First 5 note quiz** (the challenge round), **Practice note
 names** and **Practice fingerings** (drills; "slide positions" on trombone,
 "the keyboard" without charts). `#practice-view[data-mode]` (`setPracticeMode()`:
@@ -128,7 +134,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `practice.menuPage` / `#practice-view[data-menu-page]`, and the back
   arrow returns an activity to its page and More to the main menu): **Learn the
   B♭ scale** runs the same lessons over `SCALE_STEPS` (concert B♭ up the
-  octave, 8 notes) — lesson sets (`first3`, `first5`, `scale`) live in
+  octave, 8 notes) — lesson sets (`first3`, `first3bag`, `first5`, `scale`) live in
   `LESSON_SETS` / `practice.lessons` (menu ids map to them via
   `LESSON_ACTIVITIES`), `practice.lesson` picks one, `currentLesson()` gives
   its notes and stars (best per note in `pitchdetect-bb-scale`); the Read
