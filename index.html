@@ -5,6 +5,10 @@
 		<title>What Note Is This?</title>
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
 		<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+		<link rel="manifest" href="manifest.webmanifest">
+		<link rel="apple-touch-icon" href="img/icon-192.png">
+		<meta name="theme-color" content="#8fd3ff">
+		<meta name="apple-mobile-web-app-capable" content="yes">
 		<link rel="preconnect" href="https://fonts.googleapis.com">
 		<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 		<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Fredoka:wght@500;600;700&family=Baloo+2:wght@800&display=swap" rel="stylesheet">
@@ -3496,6 +3500,770 @@
 				gap: 10px;
 			}
 
+			/* Progress (progress.js): the player bar over the menu, the
+			   profile and sign-in screens (in #practice-hub), the "+XP" pops
+			   and the level-up card */
+			.practice-view:not([data-mode="menu"]) .player-bar,
+			.practice-view:not([data-mode="profile"]):not([data-mode="signin"]) .practice-hub,
+			.practice-view[data-mode="profile"] .practice-card,
+			.practice-view[data-mode="signin"] .practice-card {
+				display: none;
+			}
+
+			.player-bar {
+				flex-shrink: 0;
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				width: 100%;
+				padding: 10px 14px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				background: var(--surface);
+				box-shadow: var(--shadow-md);
+				color: var(--text);
+				font-family: var(--font);
+				text-align: left;
+				cursor: pointer;
+			}
+
+			.player-bar:hover {
+				border-color: var(--accent);
+			}
+
+			.player-bar:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.player-avatar {
+				flex: 0 0 44px;
+				height: 44px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: 50%;
+				background: var(--accent-soft);
+				font-size: 1.6rem;
+				line-height: 1;
+			}
+
+			.player-info {
+				flex: 1;
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+			}
+
+			.player-name,
+			.player-level {
+				white-space: nowrap;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.player-name {
+				font-size: 1rem;
+				font-weight: 700;
+			}
+
+			.player-level {
+				font-size: 0.82rem;
+				color: var(--text-muted);
+			}
+
+			.player-xp,
+			.profile-xp {
+				height: 8px;
+				margin-top: 4px;
+				border-radius: var(--radius-pill);
+				background: var(--border);
+				overflow: hidden;
+			}
+
+			.player-xp-fill,
+			.profile-xp-fill {
+				height: 100%;
+				border-radius: inherit;
+				background: #f5b301;
+				transition: width 0.4s ease;
+			}
+
+			.player-stat {
+				flex: 0 0 auto;
+				min-width: 44px;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 2px;
+				font-weight: 700;
+			}
+
+			.player-stat-icon {
+				font-size: 1.3rem;
+				line-height: 28px;
+			}
+
+			.player-stat-value {
+				font-size: 0.85rem;
+			}
+
+			.player-streak.cold .player-stat-icon,
+			.profile-stat.cold .profile-stat-icon {
+				filter: grayscale(1);
+				opacity: 0.45;
+			}
+
+			/* Today's minutes against the goal: a ring filling to --goal */
+			.goal-ring {
+				position: relative;
+				width: 28px;
+				height: 28px;
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+			}
+
+			.goal-ring::before {
+				content: "";
+				position: absolute;
+				inset: 0;
+				border-radius: 50%;
+				background: conic-gradient(var(--success) var(--goal, 0deg), var(--border) 0);
+				-webkit-mask: radial-gradient(farthest-side, transparent 60%, #000 62%);
+				mask: radial-gradient(farthest-side, transparent 60%, #000 62%);
+			}
+
+			.goal-ring.big {
+				width: 52px;
+				height: 52px;
+			}
+
+			.goal-ring-text {
+				font-size: 1.05rem;
+				font-weight: 700;
+			}
+
+			/* The next step on the learning path */
+			.practice-choice.next-up,
+			.practice-more.next-up {
+				position: relative;
+				outline: 3px solid var(--accent);
+				outline-offset: 3px;
+			}
+
+			.next-up-tag {
+				position: absolute;
+				top: 8px;
+				right: 8px;
+				padding: 3px 10px;
+				border-radius: var(--radius-pill);
+				background: var(--accent);
+				color: #fff;
+				font-size: 0.75rem;
+				font-weight: 700;
+				animation: next-up-bob 1.6s ease-in-out infinite;
+			}
+
+			@keyframes next-up-bob {
+				0%, 100% { transform: translateY(0); }
+				50% { transform: translateY(-3px); }
+			}
+
+			.practice-hub {
+				flex-shrink: 0;
+				display: flex;
+				flex-direction: column;
+			}
+
+			/* Who's practicing? */
+			.signin {
+				width: 100%;
+				max-width: 420px;
+				margin: 24px auto;
+				padding: 28px 24px;
+				display: flex;
+				flex-direction: column;
+				align-items: stretch;
+				gap: 14px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				background: var(--surface);
+				box-shadow: var(--shadow-md);
+				text-align: center;
+			}
+
+			.signin-icon {
+				font-size: 3rem;
+				line-height: 1;
+			}
+
+			.signin-title {
+				margin: 0;
+				font-size: 1.6rem;
+			}
+
+			.signin-form {
+				display: flex;
+				gap: 10px;
+			}
+
+			.signin-input {
+				flex: 1;
+				min-width: 0;
+				padding: 10px 12px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1.5rem;
+				font-weight: 600;
+				letter-spacing: 0.08em;
+				text-align: center;
+			}
+
+			.signin-input:focus {
+				outline: none;
+				border-color: var(--accent);
+				box-shadow: var(--ring);
+			}
+
+			.signin-note {
+				margin: 0;
+				font-size: 0.9rem;
+				color: var(--text-muted);
+			}
+
+			/* The profile */
+			.profile {
+				display: flex;
+				flex-direction: column;
+				gap: 14px;
+				padding-bottom: 12px;
+			}
+
+			.profile-top,
+			.profile-stat,
+			.profile-section,
+			.avatar-picker {
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				background: var(--surface);
+				box-shadow: var(--shadow-md);
+			}
+
+			.profile-top {
+				display: flex;
+				align-items: center;
+				gap: 16px;
+				padding: 16px;
+			}
+
+			.profile-avatar {
+				flex: 0 0 72px;
+				height: 72px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border: 2px solid var(--border-strong);
+				border-radius: 50%;
+				background: var(--accent-soft);
+				font-size: 2.5rem;
+				line-height: 1;
+				cursor: pointer;
+			}
+
+			.profile-avatar:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.profile-who {
+				flex: 1;
+				min-width: 0;
+			}
+
+			.profile-name {
+				font-size: 1.35rem;
+				font-weight: 700;
+				overflow-wrap: anywhere;
+			}
+
+			.profile-level {
+				color: var(--text-muted);
+				font-weight: 600;
+			}
+
+			.profile-xp {
+				height: 12px;
+				margin-top: 8px;
+			}
+
+			.profile-xp-text {
+				margin-top: 4px;
+				font-size: 0.8rem;
+				color: var(--text-muted);
+			}
+
+			.avatar-picker {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, 64px);
+				justify-content: center;
+				gap: 8px;
+				padding: 12px;
+			}
+
+			.avatar-choice {
+				position: relative;
+				aspect-ratio: 1;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border: 3px solid transparent;
+				border-radius: var(--radius-sm);
+				background: var(--surface-2);
+				font-size: 1.8rem;
+				line-height: 1;
+				cursor: pointer;
+			}
+
+			.avatar-choice.chosen {
+				border-color: var(--accent);
+			}
+
+			.avatar-choice:disabled {
+				cursor: default;
+			}
+
+			.avatar-choice:disabled .avatar-icon {
+				filter: grayscale(1);
+				opacity: 0.3;
+			}
+
+			.avatar-lock {
+				position: absolute;
+				bottom: 3px;
+				font-family: var(--font);
+				font-size: 0.7rem;
+				font-weight: 700;
+				color: var(--text-muted);
+			}
+
+			.profile-stats {
+				display: grid;
+				grid-template-columns: repeat(3, minmax(0, 1fr));
+				gap: 10px;
+			}
+
+			.profile-stat {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				justify-content: center;
+				gap: 2px;
+				padding: 12px 6px;
+				text-align: center;
+			}
+
+			.profile-stat-icon {
+				font-size: 1.7rem;
+				line-height: 52px;
+			}
+
+			.profile-stat-value {
+				font-size: 1.05rem;
+				font-weight: 700;
+			}
+
+			.profile-stat-label {
+				font-size: 0.8rem;
+				color: var(--text-muted);
+			}
+
+			.profile-section {
+				padding: 14px 16px;
+			}
+
+			.profile-heading {
+				margin: 0 0 10px;
+				font-size: 1.05rem;
+			}
+
+			.week-bars {
+				display: grid;
+				grid-template-columns: repeat(7, minmax(0, 1fr));
+				gap: 8px;
+				height: 96px;
+			}
+
+			.week-day {
+				display: flex;
+				flex-direction: column;
+				min-height: 0;
+			}
+
+			.week-track {
+				flex: 1;
+				display: flex;
+				align-items: flex-end;
+				border-radius: 6px;
+				background: var(--surface-2);
+				overflow: hidden;
+			}
+
+			.week-bar {
+				width: 100%;
+				border-radius: 6px 6px 0 0;
+				background: var(--accent);
+			}
+
+			.week-bar.met {
+				background: var(--success);
+			}
+
+			.week-label {
+				margin-top: 4px;
+				text-align: center;
+				font-size: 0.75rem;
+				color: var(--text-muted);
+			}
+
+			.week-day.today .week-label {
+				color: var(--text);
+				font-weight: 700;
+			}
+
+			.week-summary {
+				margin-top: 8px;
+				font-size: 0.9rem;
+				color: var(--text-muted);
+			}
+
+			.goal-picker {
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: 6px;
+				margin-top: 12px;
+			}
+
+			.goal-picker-label {
+				margin-right: 4px;
+				font-size: 0.9rem;
+				font-weight: 600;
+			}
+
+			.goal-option {
+				padding: 6px 12px;
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-pill);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 0.9rem;
+				font-weight: 600;
+				cursor: pointer;
+			}
+
+			.goal-option[aria-pressed="true"] {
+				border-color: var(--accent);
+				background: var(--accent);
+				color: #fff;
+			}
+
+			/* The path: dots joined by a line, green as steps are done */
+			.path-list {
+				list-style: none;
+				margin: 0;
+				padding: 0;
+			}
+
+			.path-node {
+				position: relative;
+			}
+
+			.path-node:not(:last-child)::after {
+				content: "";
+				position: absolute;
+				left: 16.5px;
+				top: 34px;
+				bottom: -6px;
+				width: 3px;
+				background: var(--border-strong);
+			}
+
+			.path-node.done:not(:last-child)::after {
+				background: var(--success);
+			}
+
+			.path-button {
+				display: flex;
+				align-items: center;
+				gap: 12px;
+				width: 100%;
+				padding: 6px 4px;
+				border: 0;
+				border-radius: var(--radius-sm);
+				background: none;
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1rem;
+				text-align: left;
+				cursor: pointer;
+			}
+
+			.path-button:hover {
+				background: var(--surface-2);
+			}
+
+			.path-button:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.path-dot {
+				position: relative;
+				z-index: 1;
+				flex: 0 0 28px;
+				height: 28px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border: 3px solid var(--border-strong);
+				border-radius: 50%;
+				background: var(--surface);
+				color: #fff;
+				font-size: 0.9rem;
+				font-weight: 700;
+			}
+
+			.path-node.done .path-dot {
+				border-color: var(--success);
+				background: var(--success);
+			}
+
+			.path-node.current .path-dot {
+				border-color: var(--accent);
+				box-shadow: 0 0 0 4px var(--accent-ring);
+			}
+
+			.path-title {
+				flex: 1;
+				min-width: 0;
+			}
+
+			.path-node.done .path-title {
+				color: var(--text-muted);
+			}
+
+			.path-node.current .path-title {
+				font-weight: 700;
+			}
+
+			.path-go {
+				padding: 4px 12px;
+				border-radius: var(--radius-pill);
+				background: var(--accent);
+				color: #fff;
+				font-size: 0.85rem;
+				font-weight: 700;
+			}
+
+			.badge-grid {
+				display: grid;
+				grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+				gap: 8px;
+			}
+
+			.badge {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 2px;
+				padding: 10px 6px;
+				border: 1px solid transparent;
+				border-radius: var(--radius-sm);
+				background: var(--surface-2);
+				text-align: center;
+			}
+
+			.badge.earned {
+				border-color: #f5d76e;
+				background: #fff7d6;
+			}
+
+			.badge-icon {
+				font-size: 1.9rem;
+				line-height: 1.2;
+				filter: grayscale(1);
+				opacity: 0.35;
+			}
+
+			.badge.earned .badge-icon {
+				filter: none;
+				opacity: 1;
+			}
+
+			.badge-name {
+				font-size: 0.85rem;
+				font-weight: 700;
+			}
+
+			.badge:not(.earned) .badge-name {
+				color: var(--text-muted);
+			}
+
+			.badge-how {
+				font-size: 0.72rem;
+				color: var(--text-muted);
+			}
+
+			/* "+30 XP", a new badge, the daily goal: floats up from the header */
+			.progress-pops {
+				position: fixed;
+				top: 84px;
+				left: 50%;
+				z-index: 70;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 6px;
+				transform: translateX(-50%);
+				pointer-events: none;
+			}
+
+			.progress-pop {
+				padding: 8px 18px;
+				border-radius: var(--radius-pill);
+				background: var(--accent);
+				color: #fff;
+				font-family: var(--font);
+				font-size: 1.1rem;
+				font-weight: 700;
+				white-space: nowrap;
+				box-shadow: var(--shadow-lg);
+				animation: progress-pop 2.6s ease forwards;
+			}
+
+			.progress-pop.xp {
+				background: #ffd23f;
+				color: #2b2140;
+			}
+
+			.progress-pop.badge {
+				background: #7c3aed;
+			}
+
+			.progress-pop.goal {
+				background: var(--success);
+			}
+
+			@keyframes progress-pop {
+				0% { opacity: 0; transform: translateY(14px) scale(0.9); }
+				12% { opacity: 1; transform: translateY(0) scale(1.06); }
+				20% { transform: scale(1); }
+				80% { opacity: 1; transform: translateY(0); }
+				100% { opacity: 0; transform: translateY(-16px); }
+			}
+
+			.level-up {
+				position: fixed;
+				inset: 0;
+				z-index: 80;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				padding: 16px;
+				background: rgba(20, 16, 40, 0.45);
+			}
+
+			.level-up[hidden] {
+				display: none;
+			}
+
+			.level-up-card {
+				position: relative;
+				width: 300px;
+				max-width: 100%;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 6px;
+				padding: 28px 24px 24px;
+				border-radius: var(--radius);
+				background: var(--surface);
+				box-shadow: var(--shadow-lg);
+				text-align: center;
+				overflow: hidden;
+				animation: level-up-in 0.35s ease;
+			}
+
+			.level-up-card > :not(.level-up-burst) {
+				position: relative;
+			}
+
+			.level-up-burst {
+				position: absolute;
+				inset: -50%;
+				background: repeating-conic-gradient(rgba(255, 210, 63, 0.3) 0 10deg, transparent 10deg 20deg);
+				animation: level-up-spin 14s linear infinite;
+			}
+
+			.level-up-heading {
+				font-size: 1.1rem;
+				font-weight: 700;
+				letter-spacing: 0.08em;
+				text-transform: uppercase;
+				color: var(--accent);
+			}
+
+			.level-up-number {
+				width: 96px;
+				height: 96px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border: 4px solid #2b2140;
+				border-radius: 50%;
+				background: #ffd23f;
+				color: #2b2140;
+				font-size: 3rem;
+				font-weight: 800;
+			}
+
+			.level-up-title {
+				font-size: 1.3rem;
+				font-weight: 700;
+			}
+
+			.level-up-unlock {
+				min-height: 1.3em;
+				color: var(--text-muted);
+				font-size: 1.05rem;
+			}
+
+			.level-up-card .practice-btn {
+				margin-top: 10px;
+			}
+
+			@keyframes level-up-in {
+				from { opacity: 0; transform: scale(0.8); }
+				to { opacity: 1; transform: scale(1); }
+			}
+
+			@keyframes level-up-spin {
+				to { transform: rotate(360deg); }
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.next-up-tag,
+				.level-up-burst,
+				.level-up-card {
+					animation: none;
+				}
+			}
+
 			/* Kid mode: the cartoon look */
 			body.kid-mode #practiceButton {
 				font-size: 1.2rem;
@@ -3576,6 +4344,63 @@
 			body.kid-mode .practice-choice[data-activity="scale"] .practice-choice-icon { background: #c9b6ff; }
 			body.kid-mode .practice-choice[data-activity="scalerun"] .practice-choice-icon { background: #ffcf8f; }
 			body.kid-mode .practice-choice[data-activity="songs"] .practice-choice-icon { background: #7fe0d0; }
+
+			body.kid-mode .player-bar,
+			body.kid-mode .profile-top,
+			body.kid-mode .profile-stat,
+			body.kid-mode .profile-section,
+			body.kid-mode .avatar-picker,
+			body.kid-mode .signin,
+			body.kid-mode .level-up-card {
+				border: var(--cartoon-border);
+				box-shadow: var(--cartoon-shadow);
+			}
+
+			body.kid-mode .player-bar:active {
+				transform: translate(3px, 3px);
+				box-shadow: 2px 2px 0 var(--ink);
+			}
+
+			body.kid-mode .player-avatar,
+			body.kid-mode .profile-avatar {
+				border: var(--cartoon-border);
+				background: #ffd23f;
+			}
+
+			body.kid-mode .player-xp,
+			body.kid-mode .profile-xp {
+				border: 2px solid var(--ink);
+				background: #fff;
+			}
+
+			body.kid-mode .player-xp {
+				height: 12px;
+			}
+
+			body.kid-mode .signin-input {
+				border: var(--cartoon-border);
+			}
+
+			body.kid-mode .goal-option,
+			body.kid-mode .progress-pop,
+			body.kid-mode .next-up-tag {
+				border: 2px solid var(--ink);
+			}
+
+			body.kid-mode .goal-option[aria-pressed="true"] {
+				color: var(--ink);
+				background: #ffd23f;
+			}
+
+			body.kid-mode .badge.earned {
+				border: 2px solid var(--ink);
+			}
+
+			body.kid-mode .practice-choice.next-up,
+			body.kid-mode .practice-more.next-up {
+				outline: 4px dashed var(--accent);
+				outline-offset: 5px;
+			}
 
 			body.kid-mode .song-choice {
 				border: var(--cartoon-border);
@@ -3923,6 +4748,53 @@
 					height: auto;
 					flex: 1 1 0;
 				}
+
+				.player-bar {
+					gap: 8px;
+					padding: 8px 10px;
+				}
+
+				.player-avatar {
+					flex-basis: 38px;
+					height: 38px;
+					font-size: 1.35rem;
+				}
+
+				.player-stat {
+					min-width: 36px;
+				}
+
+				.profile-top {
+					gap: 12px;
+					padding: 12px;
+				}
+
+				.profile-avatar {
+					flex-basis: 60px;
+					height: 60px;
+					font-size: 2rem;
+				}
+
+				.profile-stats {
+					gap: 6px;
+				}
+
+				.goal-picker-label {
+					flex-basis: 100%;
+				}
+
+				.badge-grid {
+					grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+				}
+
+				.signin {
+					margin: 8px auto;
+					padding: 20px 16px;
+				}
+
+				.signin-input {
+					font-size: 1.3rem;
+				}
 			}
 			/* Narrowest phones: tighter step chips so four fit on one line */
 			@media (max-width: 360px) {
@@ -4114,8 +4986,25 @@
 						</span>
 					</span>
 				</div>
+				<button id="player-bar" class="player-bar" onclick="showProfile()">
+					<span class="player-avatar" aria-hidden="true"></span>
+					<span class="player-info" aria-hidden="true">
+						<span class="player-name"></span>
+						<span class="player-level"></span>
+						<span class="player-xp"><span class="player-xp-fill"></span></span>
+					</span>
+					<span class="player-stat player-streak" aria-hidden="true" title="Days in a row you reached your practice goal">
+						<span class="player-stat-icon">&#128293;</span>
+						<span class="player-stat-value"></span>
+					</span>
+					<span class="player-stat player-goal" aria-hidden="true" title="Minutes practiced today">
+						<span class="goal-ring"></span>
+						<span class="player-stat-value"></span>
+					</span>
+				</button>
 				<div id="practice-menu" class="practice-menu"></div>
 				<button id="practice-more" class="practice-more" onclick="showPracticeMenu('more')">More<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 6 15 12 9 18"/></svg></button>
+				<div id="practice-hub" class="practice-hub"></div>
 				<div id="practice-map" class="practice-map"></div>
 				<div class="practice-card">
 					<div id="practice-steps" class="practice-steps"></div>
@@ -4126,11 +5015,23 @@
 					</div>
 				</div>
 			</div>
+			<div id="progress-pops" class="progress-pops" aria-live="polite"></div>
+			<div id="level-up" class="level-up" role="alertdialog" aria-labelledby="level-up-heading" hidden>
+				<div class="level-up-card">
+					<div class="level-up-burst" aria-hidden="true"></div>
+					<div id="level-up-heading" class="level-up-heading">Level up!</div>
+					<div class="level-up-number"></div>
+					<div class="level-up-title"></div>
+					<div class="level-up-unlock"></div>
+					<button class="practice-btn primary" onclick="closeLevelUp()">Awesome!</button>
+				</div>
+			</div>
 		</div>
 
 		<div id="toast" class="toast" role="alert"></div>
 
 		<script src="js/notetrainer.js"></script>
 		<script src="js/firstfive.js"></script>
+		<script src="js/progress.js"></script>
 	</body>
 </html>
