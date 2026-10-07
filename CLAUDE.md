@@ -22,11 +22,15 @@ PitchDetect/
 ├── js/
 │   ├── notetrainer.js  # All app logic (~2,700 lines, global scope)
 │   ├── fingerings.js   # Fingering data + diagram rendering
-│   ├── firstfive.js    # "First 5 Notes" practice game (loaded last)
+│   ├── firstfive.js    # "First 5 Notes" practice game
+│   ├── progress.js     # Students, XP/levels, streaks, badges, path (loaded last)
 │   └── vendor/
 │       └── vexflow-min.js  # VexFlow (staff/notation rendering)
 ├── img/Fingerings/     # Fingering chart images per instrument
 ├── img/favicon.svg     # Favicon (favicon.ico at the root is its 32px fallback)
+├── img/icon-192.png, icon-512.png  # App icons (rendered from favicon.svg)
+├── manifest.webmanifest  # Installable app (PWA)
+├── sw.js               # Service worker: network first, cached copy offline
 ├── CLAUDE.md           # This file
 └── _config.yml         # Jekyll config for GitHub Pages hosting
 ```
@@ -59,7 +63,7 @@ activities, each card showing its best result: **Learn the first 5 notes**
 (lessons), **First 5 note quiz** (the challenge round), **Practice note
 names** and **Practice fingerings** (drills; "slide positions" on trombone,
 "the keyboard" without charts). `#practice-view[data-mode]` (`setPracticeMode()`:
-menu / lesson / challenge / drill / songs / song / editor / import / firstsounds) decides what shows; the note map is
+menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
 to the menu and the menu to the app; the menu also stops the mic. Browser
 history mirrors these screens (`syncPracticeHistory()`, run after every
@@ -326,6 +330,64 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   instrument name both fit. In the full app on mobile Practice moves to the
   overflow menu (`applyResponsiveControls()`).
 
+### `js/progress.js` — students and the game layer
+
+Loaded after firstfive.js; no server, everything stays on the device.
+
+- **Students:** Practice opens on **Who's practicing?** (`showSignIn()`, mode
+  `signin`) until someone has chosen on this device: a student ID
+  (`normalizeStudentId()`: 3–12 letters/numbers, spaces and dashes dropped)
+  or **Practice as a guest**. `currentStudent` (`pitchdetect-student`: the
+  ID, `""` for a guest, absent = not chosen) stays signed in until **Switch
+  student** on the profile. `studentKey(key)` appends `@<ID>` to every
+  practice progress key (stars, bests, my songs, first sounds, the profile)
+  — firstfive.js's load/save helpers all go through it — so students sharing
+  a device each keep their own; the guest uses the bare keys, so progress
+  from before sign-in stays with the guest. `pitchdetect-song-whole` stays
+  device-wide. `signInStudent()` reloads practice and restores the
+  student's saved instrument (if the current mode offers it).
+- **Profile** (`pitchdetect-profile[@ID]`, `loadProfile()` / `saveProfile()`):
+  `{ xp, avatar, goal, days: { "YYYY-MM-DD": seconds }, streak, bestStreak,
+  lastGoalDay, freezes, badges: { id: day }, instrument }`.
+- **XP / levels:** the result handlers in firstfive.js call
+  `recordProgress(xp)` (lesson note 10 + 5/star, quiz and scale run 10 +
+  3/note, drill 5 + 2/note, songs 10 + 2/note, +15 perfect play-through,
+  first sounds 15/part, `NEW_BEST_XP` for a new best); it earns any badges
+  (`earnBadges()`, `BADGE_XP` each) and awards it all at once
+  (`awardXp()`). `levelForXp()`: 100 XP to level 2, then 50 more per level;
+  `LEVEL_TITLES`; `showLevelUp()` card (`#level-up`). Avatars (`AVATARS`)
+  unlock by level. Pops (`showProgressPop()`, `#progress-pops`) queue one
+  after another.
+- **Practice time / goal / streak:** `practiceTick()` (every second) adds a
+  second to today while practicing (`practicing()`: an activity open, not a
+  menu, or the mic on) and there was a sound (`markPracticeActive()`, called
+  from the mic loop in notetrainer.js) or a tap in the practice view in the
+  last `ACTIVE_WINDOW_MS`. Reaching the daily goal (`DAILY_GOAL_OPTIONS`,
+  chosen on the profile) → `reachDailyGoal()`: streak +1, `GOAL_XP`, a
+  streak freeze every 7 days (max `MAX_FREEZES`). `settleStreak()` spends
+  freezes on missed days or resets the streak.
+- **Badges:** `BADGES` (`test(progressSnapshot())`; `available()` hides
+  first sounds for instruments without it). They're tested against the
+  current instrument's progress; `onPracticeLoaded()` (end of
+  `loadPracticeInstrument()`) quietly awards ones already earned.
+- **Learning path:** `learningPath()` orders the activities (first sounds,
+  each first-five note, quiz, both drills, 3 beginner songs, B♭ scale,
+  scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
+  marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or the More
+  button), and the profile lists the path; tapping a step opens it.
+- **Screens:** the player bar (`#player-bar`, menu only: avatar, level, XP
+  bar, streak, today's goal ring; `updatePlayerBar()`, run by
+  `onPracticeMenuShown()`) opens the profile (`showProfile()`, mode
+  `profile`, depth 2 in history): level and XP, avatar picker, streak /
+  today / total, this week's bars and the goal picker, the path, badges,
+  Switch student. Both render into `#practice-hub`.
+- **PWA:** `manifest.webmanifest` + `sw.js` (registered at the end of
+  progress.js over http(s)). Bump `CACHE` in sw.js only to drop old caches;
+  it's network first, so updates arrive without it. Add new app files to
+  `APP_FILES`.
+
+### Fingerings (`js/fingerings.js`)
+
 - `trumpetFingerings` (3-valve map, shared via `threeValveOffset` with euphonium/tuba)
 - `fluteFingerings` (key diagrams)
 - `clarinetFingerings` — written E3–G6 (incl. lower altissimo), drawn as SVG
@@ -468,7 +530,9 @@ confidence threshold (0.85) in `autoCorrelate()` / `updateListenPitch()`.
 1. Monophonic detection only (MPM); no chords.
 2. Touch note placement has no drag preview — tap, then nudge with ▲▼.
 3. No dark mode yet (CSS custom properties are in place for it).
-4. Screen-reader support is partial: no `aria-live` announcements of detected
+4. Student progress lives only on the device it was earned on (no sync or
+   transfer), and anyone can type any student ID.
+5. Screen-reader support is partial: no `aria-live` announcements of detected
    notes; staff placement is pointer-only.
 
 ## Git Workflow

@@ -122,7 +122,7 @@ function practiceNoteName(writtenMidi) {
 // Best stars per note of a lesson set (count notes) for an instrument
 function loadPracticeStars(instrument, key, count) {
 	try {
-		var all = JSON.parse(localStorage.getItem(key) || "{}");
+		var all = JSON.parse(localStorage.getItem(studentKey(key)) || "{}");
 		var stars = all[instrument];
 		if (Array.isArray(stars) && stars.length === count) return stars;
 	} catch (e) {}
@@ -131,9 +131,9 @@ function loadPracticeStars(instrument, key, count) {
 
 function savePracticeStars(instrument, stars, key) {
 	try {
-		var all = JSON.parse(localStorage.getItem(key) || "{}");
+		var all = JSON.parse(localStorage.getItem(studentKey(key)) || "{}");
 		all[instrument] = stars;
-		localStorage.setItem(key, JSON.stringify(all));
+		localStorage.setItem(studentKey(key), JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -141,7 +141,7 @@ function savePracticeStars(instrument, stars, key) {
 // null. key: the quiz's or the scale run's storage.
 function loadChallengeBest(instrument, key) {
 	try {
-		var best = JSON.parse(localStorage.getItem(key || CHALLENGE_STORAGE_KEY) || "{}")[instrument];
+		var best = JSON.parse(localStorage.getItem(studentKey(key || CHALLENGE_STORAGE_KEY)) || "{}")[instrument];
 		if (typeof best === "number") return best;
 	} catch (e) {}
 	return null;
@@ -149,9 +149,9 @@ function loadChallengeBest(instrument, key) {
 
 function saveChallengeBest(instrument, score, key) {
 	try {
-		var all = JSON.parse(localStorage.getItem(key || CHALLENGE_STORAGE_KEY) || "{}");
+		var all = JSON.parse(localStorage.getItem(studentKey(key || CHALLENGE_STORAGE_KEY)) || "{}");
 		all[instrument] = score;
-		localStorage.setItem(key || CHALLENGE_STORAGE_KEY, JSON.stringify(all));
+		localStorage.setItem(studentKey(key || CHALLENGE_STORAGE_KEY), JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -164,7 +164,7 @@ function challengeStars(score, total) {
 // Best drill scores for an instrument: { names: n, fingerings: n }
 function loadDrillBest(instrument) {
 	try {
-		var best = JSON.parse(localStorage.getItem(DRILL_STORAGE_KEY) || "{}")[instrument];
+		var best = JSON.parse(localStorage.getItem(studentKey(DRILL_STORAGE_KEY)) || "{}")[instrument];
 		if (best && typeof best === "object") return best;
 	} catch (e) {}
 	return {};
@@ -172,9 +172,9 @@ function loadDrillBest(instrument) {
 
 function saveDrillBest(instrument, best) {
 	try {
-		var all = JSON.parse(localStorage.getItem(DRILL_STORAGE_KEY) || "{}");
+		var all = JSON.parse(localStorage.getItem(studentKey(DRILL_STORAGE_KEY)) || "{}");
 		all[instrument] = best;
-		localStorage.setItem(DRILL_STORAGE_KEY, JSON.stringify(all));
+		localStorage.setItem(studentKey(DRILL_STORAGE_KEY), JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -219,6 +219,11 @@ function openPractice() {
 	document.querySelector(".container").inert = true;
 
 	loadPracticeInstrument();
+	// Nobody has signed in on this device yet: who's practicing?
+	if (currentStudent === null) {
+		showSignIn("open");
+		return;
+	}
 	showPracticeMenu();
 	document.getElementById("practice-close").focus();
 	if (pendingSongImport) openSongImport();
@@ -253,6 +258,7 @@ function loadPracticeInstrument() {
 		step: -1
 	};
 	document.getElementById("practice-instrument").value = practice.instrument;
+	onPracticeLoaded();
 }
 
 // The view's data-mode drives which parts show (menu vs. activity card, and
@@ -384,6 +390,7 @@ function showPracticeMenu(page) {
 		b.onclick = function() { startPracticeActivity(a.id); };
 		menu.appendChild(b);
 	});
+	onPracticeMenuShown(menu, page);
 }
 
 function startPracticeActivity(id) {
@@ -397,6 +404,10 @@ function startPracticeActivity(id) {
 		startFirstSounds();
 	} else if (id === "songs") {
 		showSongList();
+	} else if (id === "profile") {
+		showProfile();
+	} else if (id === "signin") {
+		showSignIn(practice.signinFrom);
 	} else {
 		startDrill(id);
 	}
@@ -405,6 +416,12 @@ function startPracticeActivity(id) {
 // The back arrow (and Escape): an activity returns to its menu page, the
 // More page to the main menu, and the main menu leaves practice
 function practiceBack() {
+	if (practice && practice.mode === "signin") {
+		if (currentStudent === null) closePractice();
+		else if (practice.signinFrom === "profile") showProfile();
+		else showPracticeMenu("main");
+		return;
+	}
 	if (practice && (practice.mode === "song" || practice.mode === "editor" || practice.mode === "import")) {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
@@ -422,6 +439,7 @@ function currentPracticeActivity() {
 	if (practice.mode === "challenge") return practice.challenge.kind === "scale" ? "scalerun" : "quiz";
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
+	if (practice.mode === "profile" || practice.mode === "signin") return practice.mode;
 	if (practice.mode === "songs" || practice.mode === "song" || practice.mode === "editor" || practice.mode === "import") return "songs";
 	return "menu";
 }
@@ -912,6 +930,7 @@ function finishPracticeNote(inTune) {
 	renderPracticeMap();
 	goToPracticeStep(4);
 	launchFireworks(document.getElementById("practice-stage"));
+	recordProgress(10 + 5 * count + (practice.newBest ? NEW_BEST_XP : 0));
 }
 
 function renderPracticeResult() {
@@ -1247,6 +1266,7 @@ function finishChallenge() {
 		score === CHALLENGE_LENGTH ? "Perfect! You know all five notes!" : "Quiz complete!",
 		"You played " + score + " of " + CHALLENGE_LENGTH + " on your own",
 		startChallenge);
+	recordProgress(10 + 3 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
 }
 
 function finishScaleRun() {
@@ -1261,6 +1281,7 @@ function finishScaleRun() {
 		score === c.seq.length ? "Perfect! You played the whole B\u266d scale!" : "Scale complete!",
 		"You played " + score + " of " + c.seq.length + " on your own",
 		startScaleRun, c.seq.length);
+	recordProgress(10 + 3 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
 }
 
 // End of a quiz, scale run, drill round or song: trophy, stars, score line,
@@ -1649,6 +1670,7 @@ function finishDrill() {
 		line,
 		function() { startDrill(kind); }, DRILL_STAR_GOAL);
 	if (score > 0) launchBalloons();
+	recordProgress(5 + 2 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
 }
 
 // ---------------------------------------------------------------------------
@@ -1790,7 +1812,7 @@ function findSong(id) {
 // instrument keeps its own): [{ id, title, custom, time, key, notes }]
 function loadCustomSongs(instrument) {
 	try {
-		var songs = JSON.parse(localStorage.getItem(MY_SONGS_STORAGE_KEY) || "{}")[instrument];
+		var songs = JSON.parse(localStorage.getItem(studentKey(MY_SONGS_STORAGE_KEY)) || "{}")[instrument];
 		if (Array.isArray(songs)) {
 			return songs.filter(function(s) { return s && s.id && Array.isArray(s.notes); })
 				.map(function(s) { s.custom = true; return s; });
@@ -1801,16 +1823,16 @@ function loadCustomSongs(instrument) {
 
 function saveCustomSongs(instrument, songs) {
 	try {
-		var all = JSON.parse(localStorage.getItem(MY_SONGS_STORAGE_KEY) || "{}");
+		var all = JSON.parse(localStorage.getItem(studentKey(MY_SONGS_STORAGE_KEY)) || "{}");
 		all[instrument] = songs;
-		localStorage.setItem(MY_SONGS_STORAGE_KEY, JSON.stringify(all));
+		localStorage.setItem(studentKey(MY_SONGS_STORAGE_KEY), JSON.stringify(all));
 	} catch (e) {}
 }
 
 // Best scores (notes played without help) per song for an instrument
 function loadSongBest(instrument) {
 	try {
-		var best = JSON.parse(localStorage.getItem(SONGS_STORAGE_KEY) || "{}")[instrument];
+		var best = JSON.parse(localStorage.getItem(studentKey(SONGS_STORAGE_KEY)) || "{}")[instrument];
 		if (best && typeof best === "object") return best;
 	} catch (e) {}
 	return {};
@@ -1818,9 +1840,9 @@ function loadSongBest(instrument) {
 
 function saveSongBest(instrument, best) {
 	try {
-		var all = JSON.parse(localStorage.getItem(SONGS_STORAGE_KEY) || "{}");
+		var all = JSON.parse(localStorage.getItem(studentKey(SONGS_STORAGE_KEY)) || "{}");
 		all[instrument] = best;
-		localStorage.setItem(SONGS_STORAGE_KEY, JSON.stringify(all));
+		localStorage.setItem(studentKey(SONGS_STORAGE_KEY), JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -2177,7 +2199,8 @@ function finishFollow() {
 	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
 	var stars = challengeStars(right, total);
 	var prev = practice.songBest[s.id];
-	if (s.follow.heard.length && (typeof prev !== "number" || right > prev)) {
+	var newBest = s.follow.heard.length > 0 && (typeof prev !== "number" || right > prev);
+	if (newBest) {
 		practice.songBest[s.id] = right;
 		saveSongBest(practice.instrument, practice.songBest);
 	}
@@ -2207,6 +2230,9 @@ function finishFollow() {
 		actions.appendChild(practiceButton("Next song \u2192", "primary", function() { playThroughSong(next.id); }));
 	}
 	if (right === total) launchFireworks(document.getElementById("practice-stage"));
+	if (s.follow.heard.length) {
+		recordProgress(10 + 2 * right + (right === total ? 15 : 0) + (newBest && right > 0 ? NEW_BEST_XP : 0));
+	}
 }
 
 // The first note on the line holding note pos, so practice starts from the
@@ -2367,6 +2393,7 @@ function finishSong() {
 		var acts = document.querySelector("#practice-body .practice-actions");
 		acts.lastChild.className = "practice-btn secondary";
 		acts.appendChild(practiceButton("Play it through \u2192", "primary", function() { playThroughSong(s.id); }));
+		recordProgress(own);
 		return;
 	}
 	var score = s.results.filter(Boolean).length;
@@ -2385,6 +2412,7 @@ function finishSong() {
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.lastChild.className = "practice-btn secondary";
 	actions.appendChild(practiceButton("Play it through \u2192", "primary", function() { playThroughSong(s.id); }));
+	recordProgress(10 + 2 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
 }
 
 // One dot per line of the song: green = played on your own, yellow = with
@@ -3141,6 +3169,7 @@ function saveEditorSong(notesChanged) {
 		list.push(stored);
 	}
 	saveCustomSongs(practice.instrument, list);
+	checkBadges();
 	if (notesChanged && song.id in practice.songBest) {
 		delete practice.songBest[song.id];
 		saveSongBest(practice.instrument, practice.songBest);
@@ -3835,7 +3864,7 @@ window.addEventListener("hashchange", checkSongLink);
 
 function loadFirstSoundsBest(instrument) {
 	try {
-		var best = JSON.parse(localStorage.getItem(FIRST_SOUNDS_STORAGE_KEY) || "{}")[instrument];
+		var best = JSON.parse(localStorage.getItem(studentKey(FIRST_SOUNDS_STORAGE_KEY)) || "{}")[instrument];
 		if (typeof best === "number") return best;
 	} catch (e) {}
 	return 0;
@@ -3843,9 +3872,9 @@ function loadFirstSoundsBest(instrument) {
 
 function saveFirstSoundsBest(instrument, stars) {
 	try {
-		var all = JSON.parse(localStorage.getItem(FIRST_SOUNDS_STORAGE_KEY) || "{}");
+		var all = JSON.parse(localStorage.getItem(studentKey(FIRST_SOUNDS_STORAGE_KEY)) || "{}");
 		all[instrument] = stars;
-		localStorage.setItem(FIRST_SOUNDS_STORAGE_KEY, JSON.stringify(all));
+		localStorage.setItem(studentKey(FIRST_SOUNDS_STORAGE_KEY), JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -4176,6 +4205,11 @@ function renderFirstSoundsResult() {
 	if (stars > practice.firstSoundsBest) {
 		practice.firstSoundsBest = stars;
 		saveFirstSoundsBest(practice.instrument, stars);
+	}
+	// Revisiting the result from the step chips doesn't pay out again
+	if (!fs.awarded) {
+		fs.awarded = true;
+		recordProgress(15 * fs.done.filter(Boolean).length);
 	}
 	document.getElementById("practice-prompt").textContent = cfg.doneTitle;
 	var body = document.getElementById("practice-body");
@@ -4640,6 +4674,8 @@ function practiceHistoryState() {
 	if (activity === "menu") {
 		return { practice: "menu", page: practice.menuPage, depth: practice.menuPage === "more" ? 2 : 1 };
 	}
+	// Sign-in on opening stands in for the menu; from the profile it's a level deeper
+	if (activity === "signin") return { practice: "signin", depth: practice.signinFrom === "profile" ? 3 : 1 };
 	var depth = isMoreActivity(activity) ? 3 : 2;
 	if (practice.mode === "song") return { practice: "song", song: practice.song.id, free: !!practice.song.free, depth: depth + 1 };
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
@@ -4695,6 +4731,8 @@ window.addEventListener("popstate", function(event) {
 		if (!practiceOpen) return;
 	}
 	if (state.practice === "menu") showPracticeMenu(state.page);
+	else if (state.practice === "signin" && currentStudent === null) showSignIn("open");
+	else if (state.practice === "signin") showPracticeMenu("main");
 	else if (state.practice === "songs") showSongList();
 	else if (state.practice === "song" && findSong(state.song)) {
 		if (state.free) playThroughSong(state.song); else startSong(state.song);

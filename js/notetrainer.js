@@ -2053,6 +2053,9 @@ function updateListenPitch() {
 		}
 	}
 
+	// A pitch counts as practicing (daily practice time, progress.js)
+	if (result.frequency > 0 && result.confidence > FIRST_SOUNDS_MIN_CONFIDENCE) markPracticeActive();
+
 	if (practiceOpen) {
 		// Practice may accept less certain pitches than the main display
 		// (breathy first sounds), so it gets its own confidence gate
