@@ -4476,6 +4476,70 @@
 				margin-top: 10px;
 			}
 
+			/* Tuning tip: a student whose notes all lean flat or sharp */
+			.tuning-tip-card {
+				width: 340px;
+				align-items: stretch;
+			}
+
+			.tuning-tip-card .level-up-heading,
+			.tuning-tip-title,
+			.tuning-tip-teacher {
+				text-align: center;
+			}
+
+			.tuning-tip-meter {
+				position: relative;
+				align-self: center;
+				width: 120px;
+				height: 60px;
+				border-radius: 60px 60px 0 0;
+				background: conic-gradient(from -90deg at 50% 100%, var(--danger) 0 60deg, var(--success) 60deg 120deg, var(--danger) 120deg 180deg, transparent 180deg);
+				opacity: 0.85;
+			}
+
+			.tuning-tip-needle {
+				position: absolute;
+				left: calc(50% - 2px);
+				bottom: 0;
+				width: 4px;
+				height: 54px;
+				border-radius: 2px;
+				background: var(--text);
+				transform-origin: 50% 100%;
+				transform: rotate(-50deg);
+			}
+
+			.tuning-tip[data-dir="high"] .tuning-tip-needle {
+				transform: rotate(50deg);
+			}
+
+			.tuning-tip-title {
+				font-size: 1.3rem;
+				font-weight: 700;
+			}
+
+			.tuning-tip-list {
+				margin: 4px 0 0;
+				padding-left: 1.3em;
+				text-align: left;
+				line-height: 1.35;
+			}
+
+			.tuning-tip-list li + li {
+				margin-top: 6px;
+			}
+
+			.tuning-tip-teacher {
+				margin-top: 6px;
+				color: var(--text-muted);
+				font-size: 0.95rem;
+			}
+
+			.tuning-tip-card .practice-btn {
+				align-self: center;
+			}
+
 			@keyframes level-up-in {
 				from { opacity: 0; transform: scale(0.8); }
 				to { opacity: 1; transform: scale(1); }
@@ -5296,6 +5360,18 @@
 				</div>
 			</div>
 			<div id="progress-pops" class="progress-pops" aria-live="polite"></div>
+			<div id="tuning-tip" class="level-up tuning-tip" role="alertdialog" aria-labelledby="tuning-tip-heading" aria-describedby="tuning-tip-body" hidden>
+				<div class="level-up-card tuning-tip-card">
+					<div class="tuning-tip-meter" aria-hidden="true"><span class="tuning-tip-needle"></span></div>
+					<div id="tuning-tip-heading" class="level-up-heading">Tuning tip</div>
+					<div class="tuning-tip-title"></div>
+					<div id="tuning-tip-body">
+						<ul class="tuning-tip-list"></ul>
+						<div class="tuning-tip-teacher">Not sure how? Ask your teacher to help.</div>
+					</div>
+					<button class="practice-btn primary" onclick="closeTuningTip()">I&rsquo;ll try it!</button>
+				</div>
+			</div>
 			<div id="level-up" class="level-up" role="alertdialog" aria-labelledby="level-up-heading" hidden>
 				<div class="level-up-card">
 					<div class="level-up-burst" aria-hidden="true"></div>

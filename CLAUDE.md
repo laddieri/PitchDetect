@@ -118,6 +118,18 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   lesson Play step, quiz, scale run and songs; not for an out-of-tune right
   note or anything over an octave off). It clears in tune, after
   `PRACTICE_GHOST_CLEAR_MS` of silence, or on the next note.
+- **Tuning tips:** a student who plays every note a bit flat or sharp
+  can't fix it note by note, so `trackTuning(cents, dt)` (lesson Play, quiz,
+  scale run, note-by-note songs; frames within 50¢ of the target) keeps each
+  note's average offset, and `endTuningNote()` (from `resetPracticeHold()`)
+  keeps the last `TUNING_SAMPLES`. All leaning one way by
+  `TUNING_BIAS_CENTS` on average, or one note held right but outside the
+  pass zone for `TUNING_STUCK_MS`, brings up `showTuningTip(sharp)`: the
+  `#tuning-tip` card (styled like the level-up card) with
+  `tuningTip(instrument, sharp)`'s advice: head joint (flute), mouthpiece on
+  the cork (saxes), corners/barrel (clarinets), reed (oboe, bassoon), main
+  tuning slide (brass), plus embouchure. None for bells. The mic is ignored
+  while it's up; at most one per `TUNING_TIP_COOLDOWN_MS`.
 - Whenever the mic is on, the practice header shows a red mic badge
   (`#practice-mic` in the header's right spacer, `updatePracticeMicBadge()`,
   called by `startListening()` / `stopListening()`), its ring swelling with
