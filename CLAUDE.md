@@ -59,7 +59,10 @@ mic failures go through `micErrorMessage()`, which says what to do next). |
 A full-screen practice view (`#practice-view`, opened by the toolbar's
 **Practice** button → `openPractice()`; the app behind it is made `inert`).
 It opens on a **menu** (`showPracticeMenu()`, `PRACTICE_ACTIVITIES`) of
-activities, each card showing its best result: **Learn the first 5 notes**
+activities, each card showing its best result: **Learn the first 3 notes**
+(an easier start: concert D C B♭, `FIRST3_STEPS`, best stars in
+`pitchdetect-first-three`; a wide card, laid flat with the icon left on
+desktop, offering the first 5 notes once learned), **Learn the first 5 notes**
 (lessons), **First 5 note quiz** (the challenge round), **Practice note
 names** and **Practice fingerings** (drills; "slide positions" on trombone,
 "the keyboard" without charts). `#practice-view[data-mode]` (`setPracticeMode()`:
@@ -125,8 +128,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `practice.menuPage` / `#practice-view[data-menu-page]`, and the back
   arrow returns an activity to its page and More to the main menu): **Learn the
   B♭ scale** runs the same lessons over `SCALE_STEPS` (concert B♭ up the
-  octave, 8 notes) — lesson sets live in `LESSON_SETS` /
-  `practice.lessons`, `practice.lesson` picks one, `currentLesson()` gives
+  octave, 8 notes) — lesson sets (`first3`, `first5`, `scale`) live in
+  `LESSON_SETS` / `practice.lessons` (menu ids map to them via
+  `LESSON_ACTIVITIES`), `practice.lesson` picks one, `currentLesson()` gives
   its notes and stars (best per note in `pitchdetect-bb-scale`); the Read
   step offers each name once. **Play the B♭ scale** (`startScaleRun()`) is a
   challenge round (`practice.challenge.kind === "scale"`) in order up and
@@ -377,7 +381,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
   current instrument's progress; `onPracticeLoaded()` (end of
   `loadPracticeInstrument()`) quietly awards ones already earned.
 - **Learning path:** `learningPath()` orders the activities (first sounds,
-  each first-five note, quiz, both drills, 3 beginner songs, B♭ scale,
+  the first 3 notes, each first-five note, quiz, both drills, 3 beginner songs, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or the More
   button), and the profile lists the path; tapping a step opens it.
