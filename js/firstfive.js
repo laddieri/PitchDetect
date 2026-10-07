@@ -385,7 +385,8 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "five", wide: true },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?", page: "five" },
 	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?", page: "five" },
-	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "five", wide: true },
+	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "five" },
+	{ id: "write5", icon: "pencil", title: "Write a 5-note song", sub: "Make up your own tune with your first 5 notes", page: "five" },
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "scale" },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "scale" },
 	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "When the Saints, Twinkle, or make your own", page: "scale", wide: true }
@@ -468,8 +469,8 @@ function showPracticeMenu(page) {
 			var list = listSongs({ songs: "all", songs3: "three", songs5: "five" }[a.id]);
 			var songTotal = list.reduce(function(t, song) { return t + songStars(song); }, 0);
 			score = songTotal + " / " + list.length * 3 + " \u2605";
-		} else if (a.id === "write3") {
-			var mine = threeNoteCustomSongs().length;
+		} else if (a.id === "write3" || a.id === "write5") {
+			var mine = (a.id === "write3" ? threeNoteCustomSongs() : fiveNoteCustomSongs()).length;
 			score = mine ? mine + (mine === 1 ? " song" : " songs") : "New";
 		} else if (a.id === "scalerun") {
 			var run = practice.scaleRunBest;
@@ -570,7 +571,12 @@ function startPracticeActivity(id) {
 		syncPracticeHistory();
 		showSongList("three");
 		syncPracticeHistory();
-		openSongEditor(null, true);
+		openSongEditor(null, practice.threeSet);
+	} else if (id === "write5") {
+		syncPracticeHistory();
+		showSongList("five");
+		syncPracticeHistory();
+		openSongEditor(null, "first5");
 	} else if (id === "profile") {
 		showProfile();
 	} else if (id === "signin") {
@@ -2105,6 +2111,16 @@ function threeNoteCustomSongs() {
 	return practice.customSongs.filter(function(song) { return song.three === practice.threeSet; });
 }
 
+// The student's own songs written with their first 5 notes
+function fiveNoteCustomSongs() {
+	return practice.customSongs.filter(function(song) { return song.three === "first5"; });
+}
+
+// The student's own songs on song list list (see listSongs())
+function listCustomSongs(list) {
+	return list === "three" ? threeNoteCustomSongs() : list === "five" ? fiveNoteCustomSongs() : practice.customSongs;
+}
+
 // Where a song's best is kept: by id, and for 3-note songs on B A G apart
 // from the same song on D C B♭
 function songBestKey(song) {
@@ -2186,8 +2202,8 @@ function songListLabel() {
 // The song list: one button per song with its stars, then the student's
 // own songs (each with an edit button) and Make a song. list "three" (from
 // the First 3 notes page) shows just the 3-note songs and the student's
-// songs with their first 3 notes; "five" (First 5 notes page) just the
-// beginner songs; "all" (Play songs) the other levels and the student's
+// songs with their first 3 notes; "five" (First 5 notes page) the beginner
+// songs and the student's songs with their first 5 notes; "all" (Play songs) the other levels and the student's
 // songs. Without one, the list shown last.
 function showSongList(list) {
 	if (list) practice.songList = list;
@@ -2255,17 +2271,11 @@ function showSongList(list) {
 		list.appendChild(panel);
 	});
 
-	if (five) {
-		body.appendChild(list);
-		if (practiceStartedMic && listenActive) stopListening();
-		practiceStartedMic = false;
-		return;
-	}
 	var heading = document.createElement("div");
 	heading.className = "song-list-heading";
-	heading.textContent = three ? "My 3-note songs" : "My songs";
+	heading.textContent = three ? "My 3-note songs" : five ? "My 5-note songs" : "My songs";
 	list.appendChild(heading);
-	(three ? threeNoteCustomSongs() : practice.customSongs).forEach(function(song) {
+	listCustomSongs(practice.songList).forEach(function(song) {
 		var item = document.createElement("div");
 		item.className = "song-item";
 		var play = songButton(song);
@@ -2284,8 +2294,8 @@ function showSongList(list) {
 	var make = document.createElement("button");
 	make.className = "song-choice song-new";
 	make.innerHTML = '<span class="song-new-plus" aria-hidden="true">+</span><span class="song-choice-title"></span>';
-	make.lastChild.textContent = three ? "Make a 3-note song" : "Make a song";
-	make.onclick = function() { openSongEditor(null, three); };
+	make.lastChild.textContent = three ? "Make a 3-note song" : five ? "Make a 5-note song" : "Make a song";
+	make.onclick = function() { openSongEditor(null, three ? practice.threeSet : five ? "first5" : null); };
 	list.appendChild(make);
 
 	body.appendChild(list);
@@ -2574,7 +2584,7 @@ function finishFollow() {
 	actions.appendChild(practiceButton("Play again", right === total ? "secondary" : "primary", resetFollow));
 	// Played it all right: the next song waits beside Play again
 	var songs = s.song.custom
-		? (practice.songList === "three" ? threeNoteCustomSongs() : practice.customSongs)
+		? listCustomSongs(practice.songList)
 		: listSongs(practice.songList || "all");
 	songs = songs.filter(function(song) { return songNotes(song).length; });
 	var next = songs[songs.indexOf(s.song) + 1];
@@ -3351,9 +3361,10 @@ function chevronIcon(points) {
 }
 
 // Open the editor on one of the student's songs, or a new one (id null)
-// three: a new song written with only the student's first 3 notes (the
-// song keeps the set as song.three, and the editor stays on those notes)
-function openSongEditor(id, three) {
+// set: a new song written with only one lesson set's notes, the student's
+// first 3 (practice.threeSet) or "first5" (the song keeps the set as
+// song.three, and the editor stays on those notes)
+function openSongEditor(id, set) {
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
@@ -3363,7 +3374,7 @@ function openSongEditor(id, three) {
 		title: "My song " + (practice.customSongs.length + 1),
 		time: "4/4", key: "C", notes: []
 	};
-	if (!existing && three) song.three = practice.threeSet;
+	if (!existing && set) song.three = set;
 	song.custom = true;
 	setPracticeMode("editor");
 	practice.step = -1;
@@ -3416,7 +3427,7 @@ function openSongEditor(id, three) {
 	key.onchange = function() { changeEditorKey(key.value); };
 	meta.appendChild(title);
 	meta.appendChild(time);
-	// A 3-note song needs no key signature: its flat (if any) is written in
+	// A 3- or 5-note song needs no key signature: its flat (if any) is written in
 	if (!practice.editor.three) meta.appendChild(key);
 	var share = editorTool(SHARE_SVG, "Share this song with a friend", shareEditorSong);
 	share.id = "editor-share";

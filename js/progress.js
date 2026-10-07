@@ -446,6 +446,8 @@ function learningPath() {
 		activity: "fingerings", done: drillDone("fingerings") });
 	nodes.push({ title: "Play 3 beginner songs", activity: "songs5",
 		done: songsStarredAt("beginner") >= 3 });
+	nodes.push({ title: "Write a song with your first 5 notes", activity: "write5",
+		done: fiveNoteCustomSongs().some(function(song) { return songNotes(song).length >= 5; }) });
 	nodes.push({ title: "Learn the B\u266D scale", activity: "scale",
 		done: practice.lessons.scale.stars.every(function(n) { return n > 0; }) });
 	nodes.push({ title: "Play the B\u266D scale", activity: "scalerun",
