@@ -88,6 +88,14 @@ var PRACTICE_TUNE_CENTS = 12;      // average offset for the in-tune star
 var PRACTICE_GAP_MS = 250;         // dropouts shorter than this keep the hold
 var PRACTICE_HINT_FRAMES = 4;      // frames a wrong note must last to be named
 var PRACTICE_GHOST_CLEAR_MS = 600; // silence before the wrong-note ghost goes
+// Tuning tips: a student who plays every note a bit flat (or sharp) needs
+// their instrument tuned or their embouchure firmed, not "push it up" note
+// after note
+var TUNING_NOTE_MIN_MS = 400;      // time near the target for a note to count
+var TUNING_SAMPLES = 3;            // notes in a row leaning the same way...
+var TUNING_BIAS_CENTS = 15;        // ...by at least this much on average
+var TUNING_STUCK_MS = 2500;        // or one note held right but too low/high
+var TUNING_TIP_COOLDOWN_MS = 45000; // between tips
 
 var CHALLENGE_STORAGE_KEY = "pitchdetect-first-five-challenge";
 var CHALLENGE_LENGTH = 10;
@@ -288,6 +296,7 @@ function loadPracticeInstrument() {
 		songBest: loadSongBest(select.value),
 		customSongs: loadCustomSongs(select.value),
 		firstSoundsBest: loadFirstSoundsBest(select.value),
+		tuning: { notes: [], sum: 0, ms: 0, lowMs: 0, highMs: 0, tipAt: -Infinity },
 		index: 0,
 		step: -1
 	};
@@ -304,6 +313,7 @@ function loadPracticeInstrument() {
 // still playing from the last result.
 function setPracticeMode(mode) {
 	stopSongPlayback();
+	closeTuningTip();
 	clearInterval(drillClockTimer);
 	practice.mode = mode;
 	if (fireworksAnimID) {
@@ -605,6 +615,7 @@ function closePractice() {
 	if (!practiceOpen) return;
 	practiceOpen = false;
 	stopSongPlayback();
+	closeTuningTip();
 	clearTimeout(practiceAdvanceTimer);
 	clearInterval(drillClockTimer);
 	stopNote();
@@ -908,6 +919,7 @@ function playPracticeExample() {
 
 function resetPracticeHold() {
 	if (!practice) return;
+	endTuningNote();
 	practice.holdMs = 0;
 	practice.centsTotal = 0;
 	practice.lastFrame = null;
@@ -955,6 +967,7 @@ function updatePracticeListen(now, freq, level) {
 	if (!practice || practice.step !== 3) return;
 	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
 	practice.lastFrame = now;
+	if (tuningTipOpen()) return;
 	// The scale run is reading from the staff, so its feedback never names
 	// the target (naming what the student actually played is fine); the
 	// quiz has the student name it before playing
@@ -974,6 +987,7 @@ function updatePracticeListen(now, freq, level) {
 		var written = 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition();
 		var diff = written - practice.target;  // semitones, fractional
 		var cents = diff * 100;
+		trackTuning(cents, dt);
 		if (Math.abs(cents) <= PRACTICE_PASS_CENTS) {
 			inZone = true;
 			practice.holdMs += dt;
@@ -1040,6 +1054,115 @@ function practiceWrongNoteHint(diff, hideTarget) {
 		var check = practice.instrument === "trombone" ? ". Check your slide."
 			: hasFingeringData(practice.instrument) ? ". Check your fingering." : ". Try again.";
 		setPracticeFeedback("Not quite!", "That sounded like " + practiceNoteName(practice.target + r) + check, "off");
+	}
+}
+
+// ---------------------------------------------------------------------------
+// Tuning tips
+// ---------------------------------------------------------------------------
+
+// Each frame of the right note (within half a semitone of the target) adds
+// to the note's average offset; a note held right but outside the pass zone
+// for TUNING_STUCK_MS brings up the tip straight away, since the student
+// can't pass until it's fixed.
+function trackTuning(cents, dt) {
+	var t = practice.tuning;
+	if (Math.abs(cents) >= 50 || !tuningTip(practice.instrument, false)) return;
+	t.sum += cents * dt;
+	t.ms += dt;
+	if (cents < -PRACTICE_PASS_CENTS) t.lowMs += dt;
+	if (cents > PRACTICE_PASS_CENTS) t.highMs += dt;
+	if (t.lowMs >= TUNING_STUCK_MS || t.highMs >= TUNING_STUCK_MS) {
+		var sharp = t.highMs >= TUNING_STUCK_MS;
+		// Only if earlier notes don't lean the other way
+		var against = t.notes.slice(-TUNING_SAMPLES).filter(function(c) {
+			return sharp ? c < -TUNING_BIAS_CENTS : c > TUNING_BIAS_CENTS;
+		}).length;
+		t.lowMs = t.highMs = 0;
+		if (!against) showTuningTip(sharp);
+	}
+}
+
+// A note is over (resetPracticeHold): keep its average offset, and when the
+// last few all lean the same way, show the tip
+function endTuningNote() {
+	var t = practice.tuning;
+	if (!t) return;
+	if (t.ms >= TUNING_NOTE_MIN_MS) {
+		t.notes.push(t.sum / t.ms);
+		if (t.notes.length > TUNING_SAMPLES) t.notes.shift();
+	}
+	t.sum = t.ms = t.lowMs = t.highMs = 0;
+	if (t.notes.length < TUNING_SAMPLES) return;
+	var mean = t.notes.reduce(function(a, c) { return a + c; }, 0) / t.notes.length;
+	var sameWay = t.notes.every(function(c) { return mean < 0 ? c < 0 : c > 0; });
+	if (sameWay && Math.abs(mean) >= TUNING_BIAS_CENTS) showTuningTip(mean > 0);
+}
+
+// What to try, per instrument: first the instrument's tuning, then the
+// embouchure. null for instruments that can't be tuned (bells).
+function tuningTip(instrument, sharp) {
+	if (instrument === "flute") return sharp
+		? ["Pull your head joint out a tiny bit.", "Aim your air a little lower, and don’t roll the flute out."]
+		: ["Push your head joint in a tiny bit.", "Aim your air across the hole, and don’t roll the flute in toward you."];
+	if (/sax$/.test(instrument)) return sharp
+		? ["Pull your mouthpiece out a tiny bit on the cork. Twist it gently as you move it.", "Don’t bite the reed: relax your jaw a little."]
+		: ["Push your mouthpiece a little farther onto the cork. Twist it gently as you move it.", "Keep the corners of your mouth firm, and don’t let your jaw drop."];
+	if (/clarinet$/.test(instrument)) return sharp
+		? ["Don’t bite the reed: relax your jaw a little.", "Still high? Pull your barrel out a tiny bit."]
+		: ["Firm up the corners of your mouth and keep your chin flat.", "Blow fast, steady air. If your barrel is pulled out, push it back in."];
+	if (instrument === "oboe" || instrument === "bassoon") return sharp
+		? ["Don’t bite the reed: relax your lips a little.", "Try a little less reed in your mouth."]
+		: ["Firm up the corners of your lips around the reed.", "Try a little more reed in your mouth, and use fast air."];
+	if (instrument === "trombone") return sharp
+		? ["Pull your tuning slide (on the bell section, behind your head) out a tiny bit.", "Relax your lips, and don’t press the mouthpiece too hard."]
+		: ["Push your tuning slide (on the bell section, behind your head) in a tiny bit.", "Firm up the corners of your mouth and use fast air."];
+	if (/^(trumpet|horn|euphonium|tuba)$/.test(instrument)) return sharp
+		? ["Pull your main tuning slide out a tiny bit.", "Relax your lips, and don’t press the mouthpiece too hard."]
+		: ["Push your main tuning slide in a tiny bit.", "Firm up the corners of your mouth and use fast air."];
+	return null;
+}
+
+function tuningTipOpen() {
+	var card = document.getElementById("tuning-tip");
+	return !!card && !card.hidden;
+}
+
+// The tip card: the mic is ignored while it's up (the student is busy
+// adjusting), and closing it starts the note's hold over
+function showTuningTip(sharp) {
+	var t = practice.tuning;
+	var now = performance.now();
+	var lines = tuningTip(practice.instrument, sharp);
+	var card = document.getElementById("tuning-tip");
+	var levelUp = document.getElementById("level-up");
+	if (!lines || !card || !practiceOpen || now - t.tipAt < TUNING_TIP_COOLDOWN_MS
+		|| (levelUp && !levelUp.hidden)) return;
+	t.tipAt = now;
+	t.notes = [];
+	card.querySelector(".tuning-tip-title").textContent = sharp
+		? "Your notes are a little high" : "Your notes are a little low";
+	var list = card.querySelector(".tuning-tip-list");
+	list.innerHTML = "";
+	lines.forEach(function(line) {
+		var li = document.createElement("li");
+		li.textContent = line;
+		list.appendChild(li);
+	});
+	card.setAttribute("data-dir", sharp ? "high" : "low");
+	card.hidden = false;
+	card.querySelector("button").focus();
+}
+
+function closeTuningTip() {
+	var card = document.getElementById("tuning-tip");
+	if (!card || card.hidden) return;
+	card.hidden = true;
+	if (practice) {
+		practice.tuning.sum = practice.tuning.ms = practice.tuning.lowMs = practice.tuning.highMs = 0;
+		practice.holdMs = 0;
+		practice.centsTotal = 0;
+		practice.lastFrame = null;
 	}
 }
 
@@ -2513,6 +2636,7 @@ function updateSongListen(now, freq, level) {
 	if (practice.step !== 3) return;
 	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
 	practice.lastFrame = now;
+	if (tuningTipOpen()) return;
 	if (freq) practice.songLevel = practice.songLevel ? practice.songLevel * 0.7 + level * 0.3 : level;
 
 	if (now < (practice.ignoreUntil || 0)) {
@@ -2536,6 +2660,7 @@ function updateSongListen(now, freq, level) {
 		var written = 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition();
 		var diff = written - practice.target;
 		var cents = diff * 100;
+		if (!practice.needRetongue) trackTuning(cents, dt);
 		if (Math.abs(cents) <= PRACTICE_PASS_CENTS && practice.needRetongue) {
 			setPracticeFeedback("Again!", "Tongue it: “too”", "good");
 		} else if (Math.abs(cents) <= PRACTICE_PASS_CENTS) {
@@ -4934,7 +5059,8 @@ function drawPracticeGhost(context, stave, clef, midi, target) {
 
 document.addEventListener("keydown", function(event) {
 	if (!practiceOpen) return;
-	if (event.key === "Escape") practiceBack();
+	if (event.key === "Escape" && tuningTipOpen()) closeTuningTip();
+	else if (event.key === "Escape") practiceBack();
 	else if (practice && practice.mode === "editor") editorKeyDown(event);
 });
 
