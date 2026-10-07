@@ -82,7 +82,9 @@ lesson for the set. Activities with `instruments` show only for those
 (`practiceActivityAvailable()`). **First 5 notes** (`five`, row cards):
 **Learn the first 5 notes** (lessons), **First 5 note quiz** (the
 challenge round), **Practice note names** and **Practice fingerings**
-(drills; "slide positions" on trombone, "the keyboard" without charts).
+(drills; "slide positions" on trombone, "the keyboard" without charts) and
+**Play 5-note songs** (`songs5`: `showSongList("five")`, the Beginner songs
+only; `listSongs(list)` gives each list's built-in songs).
 **Scale & songs**: the B♭ scale cards and songs. `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
@@ -179,7 +181,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   page's list (`showSongList("three")`, `practice.songList`, kept for back
   and Next song) shows only these and the student's 3-note songs.
   **Beginner** (first five
-  notes, plain rhythms: Au Clair de la Lune, Mary Had a
+  notes, plain rhythms, on the First 5 notes page's list
+  (`showSongList("five")`) and left out of Play songs: Au Clair de la Lune, Mary Had a
   Little Lamb, Lightly Row, Ode to Joy, Go Tell Aunt Rhody, Jingle Bells),
   **Intermediate** (rests, dotted notes or notes past the fifth: Goin' Home,
   When the Saints, Twinkle, All My Little Ducklings), **Advanced** (eighth

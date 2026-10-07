@@ -364,7 +364,7 @@ function threeNotesText() {
 
 // The menu's pages, one tab each: the first 3 notes (a path: learn them,
 // name and finger them, play and write songs with them), the first 5 notes
-// (lessons, quiz and drills), then the B♭ scale and songs
+// (lessons, quiz, drills and songs), then the B♭ scale and songs
 var PRACTICE_PAGES = [
 	{ id: "three", label: "First 3 notes" },
 	{ id: "five", label: "First 5 notes" },
@@ -385,9 +385,10 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "five", wide: true },
 	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?", page: "five" },
 	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?", page: "five" },
+	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "five", wide: true },
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "scale" },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "scale" },
-	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "Hot Cross Buns, Jingle Bells, or make your own", page: "scale", wide: true }
+	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "When the Saints, Twinkle, or make your own", page: "scale", wide: true }
 ];
 
 // The menu page an activity is on (null for screens off the menu)
@@ -463,8 +464,8 @@ function showPracticeMenu(page) {
 			score = total + " / " + stars.length * 3 + " \u2605";
 		} else if (a.firstSounds) {
 			score = starText(practice.firstSoundsBest);
-		} else if (a.id === "songs" || a.id === "songs3") {
-			var list = a.id === "songs" ? SONGS : threeNoteSongs();
+		} else if (a.id === "songs" || a.id === "songs3" || a.id === "songs5") {
+			var list = listSongs({ songs: "all", songs3: "three", songs5: "five" }[a.id]);
 			var songTotal = list.reduce(function(t, song) { return t + songStars(song); }, 0);
 			score = songTotal + " / " + list.length * 3 + " \u2605";
 		} else if (a.id === "write3") {
@@ -562,6 +563,8 @@ function startPracticeActivity(id) {
 		showSongList("all");
 	} else if (id === "songs3") {
 		showSongList("three");
+	} else if (id === "songs5") {
+		showSongList("five");
 	} else if (id === "write3") {
 		// The 3-note song list goes in history first, so back steps out to it
 		syncPracticeHistory();
@@ -606,7 +609,8 @@ function currentPracticeActivity() {
 	if (practice.mode === "firstsounds") return "firstsounds";
 	if (practice.mode === "profile" || practice.mode === "signin") return practice.mode;
 	if (practice.mode === "songs" || practice.mode === "song" || practice.mode === "editor" || practice.mode === "import") {
-		return practice.songList === "three" && practice.mode !== "import" ? "songs3" : "songs";
+		if (practice.mode === "import") return "songs";
+		return practice.songList === "three" ? "songs3" : practice.songList === "five" ? "songs5" : "songs";
 	}
 	return "menu";
 }
@@ -2088,6 +2092,14 @@ function threeNoteSongs() {
 	return SONGS.filter(function(song) { return song.level === "three"; });
 }
 
+// The built-in songs on song list list: "three" (First 3 notes page),
+// "five" (the beginner songs, on the First 5 notes page) or "all" (Play
+// songs: every level but the beginner songs)
+function listSongs(list) {
+	if (list === "three") return threeNoteSongs();
+	return SONGS.filter(function(song) { return (song.level === "beginner") === (list === "five"); });
+}
+
 // The student's own songs written with their first 3 notes
 function threeNoteCustomSongs() {
 	return practice.customSongs.filter(function(song) { return song.three === practice.threeSet; });
@@ -2168,17 +2180,19 @@ function songStars(song) {
 
 // The button back to the song list from a song's result
 function songListLabel() {
-	return practice.songList === "three" ? "3-note songs" : "All songs";
+	return practice.songList === "three" ? "3-note songs" : practice.songList === "five" ? "5-note songs" : "All songs";
 }
 
 // The song list: one button per song with its stars, then the student's
 // own songs (each with an edit button) and Make a song. list "three" (from
 // the First 3 notes page) shows just the 3-note songs and the student's
-// songs with their first 3 notes; "all" (Play songs) everything. Without
-// one, the list shown last.
+// songs with their first 3 notes; "five" (First 5 notes page) just the
+// beginner songs; "all" (Play songs) the other levels and the student's
+// songs. Without one, the list shown last.
 function showSongList(list) {
 	if (list) practice.songList = list;
 	var three = practice.songList === "three";
+	var five = practice.songList === "five";
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
@@ -2186,7 +2200,8 @@ function showSongList(list) {
 	practice.step = -1;
 	document.getElementById("practice-view").setAttribute("data-step", "song-list");
 	document.getElementById("practice-steps").innerHTML = "";
-	document.getElementById("practice-prompt").textContent = three ? "Songs with " + threeNotesText() : "Pick a song!";
+	document.getElementById("practice-prompt").textContent = three ? "Songs with " + threeNotesText()
+		: five ? "Songs with your first 5 notes" : "Pick a song!";
 	var body = document.getElementById("practice-body");
 	body.innerHTML = "";
 	var list = document.createElement("div");
@@ -2205,10 +2220,10 @@ function showSongList(list) {
 	// Each level is a button that shows or hides its songs in place; what's
 	// open stays open (and the level of the song just played opens)
 	if (practice.song && practice.song.song.level) songLevelsOpen[practice.song.song.level] = true;
-	if (three) {
-		threeNoteSongs().forEach(function(song) { list.appendChild(songButton(song)); });
+	if (three || five) {
+		listSongs(practice.songList).forEach(function(song) { list.appendChild(songButton(song)); });
 	}
-	SONG_LEVELS.filter(function() { return !three; }).forEach(function(level) {
+	SONG_LEVELS.filter(function(level) { return !three && !five && level.id !== "beginner"; }).forEach(function(level) {
 		var songs = SONGS.filter(function(song) { return song.level === level.id; });
 		var earned = songs.reduce(function(t, song) { return t + songStars(song); }, 0);
 		var toggle = document.createElement("button");
@@ -2240,6 +2255,12 @@ function showSongList(list) {
 		list.appendChild(panel);
 	});
 
+	if (five) {
+		body.appendChild(list);
+		if (practiceStartedMic && listenActive) stopListening();
+		practiceStartedMic = false;
+		return;
+	}
 	var heading = document.createElement("div");
 	heading.className = "song-list-heading";
 	heading.textContent = three ? "My 3-note songs" : "My songs";
@@ -2552,9 +2573,9 @@ function finishFollow() {
 	}
 	actions.appendChild(practiceButton("Play again", right === total ? "secondary" : "primary", resetFollow));
 	// Played it all right: the next song waits beside Play again
-	var songs = practice.songList === "three"
-		? (s.song.custom ? threeNoteCustomSongs() : threeNoteSongs())
-		: s.song.custom ? practice.customSongs : SONGS;
+	var songs = s.song.custom
+		? (practice.songList === "three" ? threeNoteCustomSongs() : practice.customSongs)
+		: listSongs(practice.songList || "all");
 	songs = songs.filter(function(song) { return songNotes(song).length; });
 	var next = songs[songs.indexOf(s.song) + 1];
 	if (right === total && next) {

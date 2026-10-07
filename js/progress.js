@@ -444,7 +444,7 @@ function learningPath() {
 	nodes.push({ title: practice.instrument === "trombone" ? "Practice slide positions"
 		: hasFingeringData(practice.instrument) ? "Practice fingerings" : "Practice the keyboard",
 		activity: "fingerings", done: drillDone("fingerings") });
-	nodes.push({ title: "Play 3 beginner songs", activity: "songs", level: "beginner",
+	nodes.push({ title: "Play 3 beginner songs", activity: "songs5",
 		done: songsStarredAt("beginner") >= 3 });
 	nodes.push({ title: "Learn the B\u266D scale", activity: "scale",
 		done: practice.lessons.scale.stars.every(function(n) { return n > 0; }) });
