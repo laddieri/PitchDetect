@@ -1,6 +1,6 @@
 {
 	"name": "What Note Is This?",
-	"short_name": "Note Practice",
+	"short_name": "What Note Is This?",
 	"description": "Play a note and see what it is, then practice your first notes, scales and songs.",
 	"start_url": "./",
 	"scope": "./",
