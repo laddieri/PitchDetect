@@ -88,7 +88,7 @@ and the student's 5-note songs; `listSongs(list)` gives each list's built-in
 songs, `listCustomSongs(list)` its own songs) and **Write a 5-note song**
 (`write5`: the editor on the first 5 notes, `song.three = "first5"`,
 `fiveNoteCustomSongs()`).
-**Scale & songs** (row cards like the other pages): **Learn notes 6 to 9**
+**Scale & songs** (row cards like the other pages): **Learn notes 6 and beyond**
 (`learn4`, lesson set `next4`: `NEXT4_STEPS`, concert G, A♭, the low A♭, the
 low A, the band-method notes after the first five, named on the card by
 `nextFourText()`; best stars in `pitchdetect-next-four`; its result leads
@@ -195,13 +195,18 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   notes, plain rhythms, on the First 5 notes page's list
   (`showSongList("five")`) and left out of Play songs: Mary Had a
   Little Lamb, Lightly Row, Ode to Joy, Go Tell Aunt Rhody, Jingle Bells),
+  **Notes 6 and beyond** (`beyond`: Hot Cross Buns in E♭ and in A♭, Mary
+  Had a Little Lamb in A♭, Old MacDonald, Yankee Doodle, Deck the Halls; a
+  song with `steps`, `BEYOND_AB_STEPS` / `BEYOND_A_STEPS`, numbers its notes
+  1–8 from those concert steps instead of the B♭ scale, and `tonic` makes
+  `songTitle()` add " in <key>" at the student's written pitch),
   **Intermediate** (rests, dotted notes or notes past the fifth: Goin' Home,
   When the Saints, Twinkle, All My Little Ducklings), **Advanced** (eighth
   notes on the whole scale: London Bridge, Michael Row the Boat, Row Row Row
   Your Boat). Keep `SONGS` in level order (Next song follows it). Each measure is a
   string of scale degree + duration (`"3q 2q 1h"`, `"5q. 68"` dotted,
   `"rq"` a rest; degrees 1–8 index the B♭ scale, spelled up the letters from
-  the first note so alto sax gets F♯); a song may set `time` (e.g. `"6/8"`),
+  the first note by `spellScale()` so alto sax gets F♯); a song may set `time` (e.g. `"6/8"`),
   which is then shown. `drawSongLine()`
   draws one line of `SONG_MEASURES_PER_LINE` measures with real rhythms
   (played notes green, the current one in the accent color with a bobbing
@@ -447,7 +452,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
 - **Learning path:** `learningPath()` orders the activities (first sounds,
   the first 3 notes (the student's set), naming and fingering them, 2
   3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
-  writing a 5-note song, notes 6 to 9, B♭ scale,
+  writing a 5-note song, notes 6 and beyond, 2 of its songs, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
   the tab of the page it's on), and the profile lists the path; tapping a step opens it.
