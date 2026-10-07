@@ -457,10 +457,9 @@ function startPathNode(node) {
 	startPracticeActivity(node.activity);
 }
 
-// Mark the menu card (or the More button) for the next step on the path
+// Mark the menu card (or the tab of the page it's on) for the next step on
+// the path
 function markNextUp(menu, page) {
-	var more = document.getElementById("practice-more");
-	more.classList.remove("next-up");
 	if (currentStudent === null) return;
 	var next = nextPathNode();
 	if (!next) return;
@@ -471,8 +470,9 @@ function markNextUp(menu, page) {
 		tag.className = "next-up-tag";
 		tag.textContent = "Next";
 		card.appendChild(tag);
-	} else if (page === "main" && isMoreActivity(next.activity)) {
-		more.classList.add("next-up");
+	} else {
+		var tab = document.querySelector('.practice-tab[data-page="' + activityPage(next.activity) + '"]');
+		if (tab) tab.classList.add("next-up");
 	}
 }
 
@@ -624,7 +624,7 @@ function signInStudent(id) {
 
 // Signed in (and named): on to the menu, with a hello
 function finishSignIn() {
-	showPracticeMenu("main");
+	showPracticeMenu();
 	if (currentStudent) showProgressPop("Hi, " + studentLabel() + "!", "goal");
 	if (pendingSongImport) openSongImport();
 }

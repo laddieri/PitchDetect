@@ -58,27 +58,31 @@ mic failures go through `micErrorMessage()`, which says what to do next). |
 
 A full-screen practice view (`#practice-view`, opened by the toolbar's
 **Practice** button → `openPractice()`; the app behind it is made `inert`).
-It opens on a **menu** (`showPracticeMenu()`, `PRACTICE_ACTIVITIES`) of
-activities, each card showing its best result: **Learn the first 3 notes**
-(an easier start: concert D C B♭, `FIRST3_STEPS`, best stars in
-`pitchdetect-first-three`; a wide card, laid flat with the icon left on
-desktop, offering the first 5 notes once learned; flute and oboe also get
-**Learn B, A and G**, `FIRST3_BAG_STEPS` / `FIRST3_BAG_INSTRUMENTS`, in
-`pitchdetect-first-three-bag`, where their classes start: the two cards share
-a row, and with seven main cards every desktop card lies flat; activities
-with `instruments` show only for those, `practiceActivityAvailable()`,
-and `firstThreeActivity()` picks the one first sounds and the path lead to),
-**Learn the first 5 notes**
-(lessons), **First 5 note quiz** (the challenge round), **Practice note
-names** and **Practice fingerings** (drills; "slide positions" on trombone,
-"the keyboard" without charts). `#practice-view[data-mode]` (`setPracticeMode()`:
+It opens on a **menu** (`showPracticeMenu(page)`, `PRACTICE_ACTIVITIES`) of
+activities, each card showing its best result, on three pages picked by
+tabs (`PRACTICE_PAGES`, `#practice-tabs`, `renderPracticeTabs()`; each
+activity's `page`, `activityPage()`; `practice.menuPage` /
+`#practice-view[data-menu-page]`). Leaving an activity returns to its page;
+opening Practice shows the page with the next path step.
+**Learn notes** (one flat row per card, top to bottom, like a path): first
+sounds, **Learn the first 3 notes** (an easier start: concert D C B♭,
+`FIRST3_STEPS`, best stars in `pitchdetect-first-three`, offering the first
+5 notes once learned; flute and oboe also get **Learn B, A and G**,
+`FIRST3_BAG_STEPS` / `FIRST3_BAG_INSTRUMENTS`, in
+`pitchdetect-first-three-bag`, where their classes start; activities with
+`instruments` show only for those, `practiceActivityAvailable()`, and
+`firstThreeActivity()` picks the one first sounds and the path lead to),
+**Learn the first 5 notes** (lessons). **Note games**: **First 5 note quiz**
+(the challenge round), **Practice note names** and **Practice fingerings**
+(drills; "slide positions" on trombone, "the keyboard" without charts).
+**Scale & songs**: the B♭ scale cards and songs. `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
 to the menu and the menu to the app; the menu also stops the mic. Browser
 history mirrors these screens (`syncPracticeHistory()`, run after every
 `setPracticeMode()` and in `closePractice()`), so Android's back button and
 iOS's swipe-back step back like the arrow: each screen has a depth (menu 1,
-More 2, activity 2 or 3, song 4); deeper pushes, sideways replaces, shallower
+any page, so tabs replace; activity 2, song 3); deeper pushes, sideways replaces, shallower
 `history.go()`s back, and `popstate` shows the entry's screen. Keep new
 screens inside `practiceHistoryState()`. The lessons
 teach the band-method first five notes, concert B♭ C D E♭ F, at each
@@ -128,11 +132,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   the sound, but only unhelped notes score; `challengeStars()` turns the
   score into 0–3 trophy stars, best score per instrument in
   `pitchdetect-first-five-challenge`.
-- **B♭ scale** (two cards on the menu's **More** page: activities marked
-  `more` in `PRACTICE_ACTIVITIES` show only after the `#practice-more`
-  arrow under the main cards → `showPracticeMenu("more")`;
-  `practice.menuPage` / `#practice-view[data-menu-page]`, and the back
-  arrow returns an activity to its page and More to the main menu): **Learn the
+- **B♭ scale** (two cards on the menu's **Scale & songs** page): **Learn the
   B♭ scale** runs the same lessons over `SCALE_STEPS` (concert B♭ up the
   octave, 8 notes) — lesson sets (`first3`, `first3bag`, `first5`, `scale`) live in
   `LESSON_SETS` / `practice.lessons` (menu ids map to them via
@@ -145,7 +145,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
   10/8/5 thresholds. The quiz and drills stay on the first five notes.
 - **Songs** (`showSongList()` → `playThroughSong(id)`, a wide card on the
-  menu's **More** page, under the B♭ scale cards): `SONGS` holds public
+  menu's **Scale & songs** page, under the B♭ scale cards): `SONGS` holds public
   domain tunes, each with a `level` the song list groups them by
   (`SONG_LEVELS`): each level is a colored button (hint, stars earned) that
   opens its songs in place below it, closed by default; `songLevelsOpen`
@@ -177,7 +177,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   along and the mic ignoring it; `setPracticeMode()` and `closePractice()`
   stop it. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
-  from a song returns to the song list, and from the list to More.
+  from a song returns to the song list, and from the list to the Scale & songs page.
   A song opens in **Play it through** (`playThroughSong()`; the song list,
   the editor's Play it, Next song); note by note (`startSong()`) is the
   practice path, behind **Note by note** and **Practice the red notes**, and
@@ -251,7 +251,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`encodeSongShare()` / `decodeSongShare()`, which validates everything) —
   and hands it to `navigator.share`, else copies it. Opening a link
   (`checkSongLink()` on load and `hashchange`) strips the hash, picks the
-  sharer's instrument if none is chosen, and walks menu → More → song list →
+  sharer's instrument if none is chosen, and walks menu (Scale & songs) → song list →
   the import screen (mode `import`, `showSongImport()`) so back steps out
   normally; a pending import survives until Practice opens
   (`pendingSongImport`). A friend on another instrument gets
@@ -389,8 +389,8 @@ Loaded after firstfive.js; no server, everything stays on the device.
 - **Learning path:** `learningPath()` orders the activities (first sounds,
   the first 3 notes, each first-five note, quiz, both drills, 3 beginner songs, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
-  marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or the More
-  button), and the profile lists the path; tapping a step opens it.
+  marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
+  the tab of the page it's on), and the profile lists the path; tapping a step opens it.
 - **Screens:** the player bar (`#player-bar`, menu only: avatar, level, XP
   bar, streak, today's goal ring; `updatePlayerBar()`, run by
   `onPracticeMenuShown()`) opens the profile (`showProfile()`, mode
