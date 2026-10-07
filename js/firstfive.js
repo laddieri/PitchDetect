@@ -4346,17 +4346,20 @@ function firstSoundsSVG(drawing) {
 				'<rect x="' + (x0 + 172) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>';
 	} else if (drawing === "mouthpiece-small" || drawing === "mouthpiece-large") {
 		// rim and cup on the left (where the lips go), then the stem narrowing
-		// to the throat and widening a little to the shank
+		// to a waist, swelling over the backbore and tapering to the shank tip.
+		// About 3 rim widths long (trumpet), a little stubbier for low brass
 		var big = drawing === "mouthpiece-large";
-		var r = big ? 30 : 22, c0 = 40, cupEnd = c0 + (big ? 50 : 40), end = 236;
-		var t = big ? 7 : 5, sh = big ? 11 : 8;
+		var r = big ? 30 : 22, len = big ? 160 : 150, c0 = Math.round((250 - len) / 2) + 6;
+		var cupEnd = c0 + (big ? 44 : 36), end = c0 + len, mid = cupEnd + Math.round((end - cupEnd) * 0.45);
+		var t = big ? 8 : 6, sh = big ? 12 : 9, tip = big ? 9 : 6.5;
 		s += airArrowSVG(c0 - 6, 42 - r + 6) +
 			'<path d="M' + c0 + ' ' + (42 - r) + ' Q' + (cupEnd - 6) + ' ' + (42 - r) + ' ' + cupEnd + ' ' + (42 - t) +
-				' L' + (end - 70) + ' ' + (42 - t) + ' L' + end + ' ' + (42 - sh) + ' L' + end + ' ' + (42 + sh) +
-				' L' + (end - 70) + ' ' + (42 + t) + ' L' + cupEnd + ' ' + (42 + t) +
-				' Q' + (cupEnd - 6) + ' ' + (42 + r) + ' ' + c0 + ' ' + (42 + r) + ' Z" fill="#e9c46a" stroke="#a37b1e" stroke-width="2"/>' +
-			'<rect x="' + (c0 - 6) + '" y="' + (42 - r - 3) + '" width="10" height="' + (2 * r + 6) + '" rx="5" fill="#f1d58a" stroke="#a37b1e" stroke-width="2"/>' +
-			'<path d="M' + (end - 70) + ' ' + (42 - t) + ' L' + (end - 70) + ' ' + (42 + t) + '" stroke="#a37b1e" stroke-width="1.5"/>';
+				' C' + (cupEnd + 16) + ' ' + (42 - t) + ' ' + (mid - 24) + ' ' + (42 - sh) + ' ' + mid + ' ' + (42 - sh) +
+				' Q' + (mid + 24) + ' ' + (42 - sh) + ' ' + end + ' ' + (42 - tip) +
+				' L' + end + ' ' + (42 + tip) + ' Q' + (mid + 24) + ' ' + (42 + sh) + ' ' + mid + ' ' + (42 + sh) +
+				' C' + (mid - 24) + ' ' + (42 + sh) + ' ' + (cupEnd + 16) + ' ' + (42 + t) + ' ' + cupEnd + ' ' + (42 + t) +
+				' Q' + (cupEnd - 6) + ' ' + (42 + r) + ' ' + c0 + ' ' + (42 + r) + ' Z" fill="#e9c46a" stroke="#a37b1e" stroke-width="2" stroke-linejoin="round"/>' +
+			'<rect x="' + (c0 - 6) + '" y="' + (42 - r - 3) + '" width="10" height="' + (2 * r + 6) + '" rx="5" fill="#f1d58a" stroke="#a37b1e" stroke-width="2"/>';
 	} else if (drawing === "oboe-reed") {
 		// two cane blades meeting at a thin tip, thread wrapping, cork and staple
 		s += airArrowSVG(30, 38) +
