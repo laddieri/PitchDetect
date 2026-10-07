@@ -109,10 +109,14 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   flats only.
 - **Quiz / challenge round** (`startChallenge()`): from the menu, and offered
   on the lesson result when the fifth note is first learned. `CHALLENGE_LENGTH` notes from `makeChallengeSequence()`
-  (each note at least once, no back-to-back repeats), staff only, held for
-  `CHALLENGE_HOLD_MS`; progress dots replace the step chips. Feedback never
-  names the target. **Help** (`showChallengeHelp()`) reveals name, fingering
-  and sound, but only unhelped notes score; `challengeStars()` turns the
+  (each note at least once, no back-to-back repeats), staff only. Each note
+  asks its name first (`showChallengeName()`, answer buttons, no mic
+  scoring; a wrong name must be fixed and the note no longer scores), then
+  to play it (`showChallengePlay()`), held for `CHALLENGE_HOLD_MS`; progress
+  dots replace the step chips. **Help** (`showChallengeHelp()`, in either
+  step) reveals the name in big letters (`.challenge-help-name`), a bigger
+  fingering chart (`data-step="challenge-help"` scales `--fingering-h`) and
+  the sound, but only unhelped notes score; `challengeStars()` turns the
   score into 0–3 trophy stars, best score per instrument in
   `pitchdetect-first-five-challenge`.
 - **B♭ scale** (two cards on the menu's **More** page: activities marked
@@ -126,7 +130,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   its notes and stars (best per note in `pitchdetect-bb-scale`); the Read
   step offers each name once. **Play the B♭ scale** (`startScaleRun()`) is a
   challenge round (`practice.challenge.kind === "scale"`) in order up and
-  back down (`scaleRunSequence()`, 15 notes), best in
+  back down (`scaleRunSequence()`, 15 notes; no name step, and feedback
+  never names the target), best in
   `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
   10/8/5 thresholds. The quiz and drills stay on the first five notes.
 - **Songs** (`showSongList()` → `playThroughSong(id)`, a wide card on the
@@ -281,19 +286,27 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 - **First sounds** (`FIRST_SOUNDS`, one config per instrument; the menu card
   appears only for instruments in it and leads the menu, full-width on
   desktop): flute "Learn the head joint", clarinet "Learn the mouthpiece &
-  barrel", alto sax "Learn the mouthpiece & neck". `startFirstSounds()` →
+  barrel", alto sax "Learn the mouthpiece & neck", oboe "Learn the reed"
+  (a crow), and trumpet, horn, trombone, euphonium, tuba "Learn to buzz"
+  (`brassBuzzConfig()`). `startFirstSounds()` →
   `goToFirstSoundsStep()`: Set up (tips + `firstSoundsSVG()` drawing) → one
   step per sound in the config → final (`firstSoundsFinalStep()`;
   `"switch"`: alternate both sounds, flute; `"long"`: hold the last sound for
   `FIRST_SOUNDS_LONG_TONE_MS`) → result. Flute: Set up / Open / Covered /
   Switch; clarinet and sax skip the mouthpiece alone (not how beginners are
-  started): Set up / Barrel or Neck / Hold. Stars = parts completed scaled to
+  started): Set up / Barrel or Neck / Hold; oboe Set up / Crow / Hold; brass
+  Set up / Buzz / Hold. Stars = parts completed scaled to
   3, best per instrument in `pitchdetect-first-five-headjoint` (key predates
   clarinet/sax). Concert pitches with accepted cents bands: flute open ≈ A5
   (accepts G5–B5), covered ≈ A4 (accepts G4–B♭4; can overblow to E6) — wide
   because real head joints vary; clarinet
   mouthpiece + barrel ≈ F♯5; alto sax mouthpiece + neck ≈ A♭4 (usually a bit
-  above). The staff shows the written pitch (`sharp` spells F♯/G♯).
+  above); oboe reed crow ≈ C5/C6 (accepts B♭4–D6); brass mouthpiece buzz has
+  no pitch of its own, so each band is ~2½ octaves around a typical buzz
+  (trumpet G3–C6, horn F3–C6, trombone/euphonium F2–B♭4, tuba B♭1–C♯4).
+  The staff shows the written pitch (`sharp` spells F♯/G♯); wide-band sounds
+  (`follow`) redraw it to the note being played, and skip the example tone
+  (`noExample`).
   First sounds are breathy, so this mode uses a looser confidence gate
   (`practiceConfidenceGate()` → `FIRST_SOUNDS_MIN_CONFIDENCE` 0.7; the mic
   loop passes practice its own gated frequency, the main display keeps 0.85)
