@@ -328,7 +328,7 @@ function progressSnapshot() {
 		totalSeconds: totalSeconds()
 	};
 	SONGS.concat(practice.customSongs).forEach(function(song) {
-		var best = practice.songBest[song.id];
+		var best = practice.songBest[songBestKey(song)];
 		if (typeof best !== "number") return;
 		var count = songNotes(song).length;
 		s.songsFinished++;
@@ -419,16 +419,25 @@ function learningPath() {
 	var nodes = [];
 	var fs = FIRST_SOUNDS[practice.instrument];
 	if (fs) nodes.push({ title: fs.title, activity: "firstsounds", done: practice.firstSoundsBest >= 3 });
-	// Flute and oboe start on B A G; everyone else on D C B♭
+	// Flute and oboe start on B A G (unless they switched to D C B♭);
+	// everyone else on D C B♭. Then name, finger, play and write with them.
 	var first3Id = firstThreeActivity();
 	var first3 = practice.lessons[LESSON_ACTIVITIES[first3Id]];
-	nodes.push({ title: first3Id === "learn3bag" ? "Learn B, A and G" : "Learn the first 3 notes", activity: first3Id,
+	var drillDone = function(kind) { return challengeStars(practice.drillBest[drillBestKey(kind)] || 0, DRILL_STAR_GOAL) > 0; };
+	var three = threeNotesText();
+	nodes.push({ title: "Learn " + three, activity: first3Id,
 		done: first3.stars.every(function(n) { return n > 0; }) });
+	nodes.push({ title: "Name " + three, activity: "names3", done: drillDone("names3") });
+	nodes.push({ title: (practice.instrument === "trombone" ? "Slide positions for " : hasFingeringData(practice.instrument)
+		? "Finger " : "Find on the keyboard: ") + three, activity: "fingerings3", done: drillDone("fingerings3") });
+	nodes.push({ title: "Play 2 songs with 3 notes", activity: "songs3",
+		done: threeNoteSongs().filter(function(song) { return songStars(song) > 0; }).length >= 2 });
+	nodes.push({ title: "Write a song with " + three, activity: "write3",
+		done: threeNoteCustomSongs().some(function(song) { return songNotes(song).length >= 3; }) });
 	var first5 = practice.lessons.first5;
 	first5.notes.forEach(function(midi, i) {
 		nodes.push({ title: "Learn " + practiceNoteName(midi), activity: "learn", done: first5.stars[i] > 0 });
 	});
-	var drillDone = function(kind) { return challengeStars(practice.drillBest[kind] || 0, DRILL_STAR_GOAL) > 0; };
 	nodes.push({ title: "Take the first 5 note quiz", activity: "quiz",
 		done: challengeStars(practice.challengeBest || 0) > 0 });
 	nodes.push({ title: "Practice note names", activity: "names", done: drillDone("names") });

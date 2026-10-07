@@ -2352,13 +2352,14 @@
 			.practice-view[data-mode="menu"] .practice-card,
 			.practice-view:not([data-mode="menu"]) .practice-menu,
 			.practice-view:not([data-mode="menu"]) .practice-tabs,
+			.practice-view:not([data-mode="menu"]) .practice-set-switch,
 			.practice-view[data-step="overview"] .practice-map,
 			.practice-view:not([data-mode="lesson"]) .practice-map {
 				display: none;
 			}
 
-			/* Menu: one big button per activity, on three pages (tabs): learn
-			   notes, note games, and the B♭ scale and songs */
+			/* Menu: one big button per activity, on three pages (tabs): the
+			   first 3 notes, the first 5 notes, and the B♭ scale and songs */
 			.practice-menu {
 				flex: 1;
 				min-height: 0;
@@ -2412,7 +2413,8 @@
 				white-space: nowrap;
 			}
 
-			.practice-choice[data-activity="names"] .practice-choice-icon {
+			.practice-choice[data-activity="names"] .practice-choice-icon,
+			.practice-choice[data-activity="names3"] .practice-choice-icon {
 				font-size: 1.15rem;
 			}
 
@@ -2440,38 +2442,69 @@
 				grid-column: 1 / -1;
 			}
 
-			/* The learn page reads as a path: one flat row per lesson, top to
-			   bottom, icon left */
-			.practice-view[data-menu-page="learn"] .practice-menu {
-				grid-template-columns: minmax(0, 1fr);
-			}
-
-			.practice-view[data-menu-page="learn"] .practice-menu[data-count="1"] {
-				max-height: 120px;
-			}
-
-			.practice-view[data-menu-page="learn"] .practice-menu[data-count="2"] {
-				max-height: 230px;
-			}
-
-			.practice-view[data-menu-page="learn"] .practice-menu[data-count="3"] {
-				max-height: 340px;
-			}
-
-			.practice-view[data-menu-page="learn"] .practice-menu[data-count="4"] {
-				max-height: 450px;
-			}
-
-			.practice-view[data-menu-page="learn"] .practice-choice {
+			/* The first 3 and first 5 notes pages read as a path: flat rows,
+			   icon left, top to bottom */
+			.practice-view[data-menu-page="three"] .practice-choice,
+			.practice-view[data-menu-page="five"] .practice-choice {
 				flex-direction: row;
 				gap: 16px;
-				padding: 10px 24px;
+				padding: 10px 20px;
 				text-align: left;
 			}
 
-			.practice-view[data-menu-page="learn"] .practice-choice-text {
+			.practice-view[data-menu-page="three"] .practice-choice-text,
+			.practice-view[data-menu-page="five"] .practice-choice-text {
 				flex: 1;
 				min-width: 0;
+			}
+
+			.practice-view[data-menu-page="five"] .practice-menu {
+				max-height: 340px;
+			}
+
+			/* Flute and oboe: which three notes they start on */
+			.practice-set-switch {
+				flex-shrink: 0;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				gap: 6px;
+			}
+
+			.practice-set-switch[hidden] {
+				display: none;
+			}
+
+			.practice-set-label {
+				color: var(--text-muted);
+				font-weight: 700;
+			}
+
+			.practice-set-option {
+				padding: 6px 16px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-pill);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1rem;
+				font-weight: 700;
+				cursor: pointer;
+			}
+
+			.practice-set-option:hover {
+				border-color: var(--accent);
+			}
+
+			.practice-set-option:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.practice-set-option[aria-checked="true"] {
+				background: var(--accent);
+				border-color: var(--accent);
+				color: #fff;
 			}
 
 			/* The page tabs above the menu */
@@ -3279,6 +3312,15 @@
 			.editor-tool:focus-visible {
 				outline: none;
 				box-shadow: var(--ring);
+			}
+
+			/* A 3-note song's note buttons */
+			.editor-tool.editor-note {
+				width: auto;
+				min-width: 46px;
+				padding: 0 8px;
+				font-size: 1.15rem;
+				font-weight: 700;
 			}
 
 			.editor-tool.editor-step {
@@ -4524,8 +4566,12 @@
 			body.kid-mode .practice-choice[data-activity="learn3bag"] .practice-choice-icon { background: #d8f5a2; }
 			body.kid-mode .practice-choice[data-activity="learn"] .practice-choice-icon { background: #ffd23f; }
 			body.kid-mode .practice-choice[data-activity="quiz"] .practice-choice-icon { background: #ff9f1c; }
-			body.kid-mode .practice-choice[data-activity="names"] .practice-choice-icon { background: #7ee081; }
-			body.kid-mode .practice-choice[data-activity="fingerings"] .practice-choice-icon { background: #8fd3ff; }
+			body.kid-mode .practice-choice[data-activity="names"] .practice-choice-icon,
+			body.kid-mode .practice-choice[data-activity="names3"] .practice-choice-icon { background: #7ee081; }
+			body.kid-mode .practice-choice[data-activity="fingerings"] .practice-choice-icon,
+			body.kid-mode .practice-choice[data-activity="fingerings3"] .practice-choice-icon { background: #8fd3ff; }
+			body.kid-mode .practice-choice[data-activity="songs3"] .practice-choice-icon { background: #7fe0d0; }
+			body.kid-mode .practice-choice[data-activity="write3"] .practice-choice-icon { background: #ffb3c6; }
 			body.kid-mode .practice-choice[data-activity="firstsounds"] .practice-choice-icon { background: #ffb3c6; }
 			body.kid-mode .practice-choice[data-activity="scale"] .practice-choice-icon { background: #c9b6ff; }
 			body.kid-mode .practice-choice[data-activity="scalerun"] .practice-choice-icon { background: #ffcf8f; }
@@ -4771,9 +4817,19 @@
 					gap: 10px;
 				}
 
-				.practice-view[data-menu-page="learn"] .practice-choice {
-					padding: 10px 14px;
+				.practice-view[data-menu-page="three"] .practice-choice,
+				.practice-view[data-menu-page="five"] .practice-choice {
+					padding: 8px 14px;
 					gap: 14px;
+				}
+
+				.practice-set-label {
+					font-size: 0.9rem;
+				}
+
+				.practice-set-option {
+					padding: 5px 12px;
+					font-size: 0.95rem;
 				}
 
 				.practice-tab {
@@ -5219,6 +5275,7 @@
 					</span>
 				</button>
 				<div id="practice-tabs" class="practice-tabs" role="tablist" aria-label="Practice"></div>
+				<div id="practice-set-switch" class="practice-set-switch" role="radiogroup" aria-labelledby="practice-set-label" hidden></div>
 				<div id="practice-menu" class="practice-menu"></div>
 				<div id="practice-hub" class="practice-hub"></div>
 				<div id="practice-map" class="practice-map"></div>

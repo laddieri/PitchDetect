@@ -64,16 +64,24 @@ tabs (`PRACTICE_PAGES`, `#practice-tabs`, `renderPracticeTabs()`; each
 activity's `page`, `activityPage()`; `practice.menuPage` /
 `#practice-view[data-menu-page]`). Leaving an activity returns to its page;
 opening Practice shows the page with the next path step.
-**Learn notes** (one flat row per card, top to bottom, like a path): first
-sounds, **Learn the first 3 notes** (an easier start: concert D C B♭,
-`FIRST3_STEPS`, best stars in `pitchdetect-first-three`, offering the first
-5 notes once learned; flute and oboe also get **Learn B, A and G**,
-`FIRST3_BAG_STEPS` / `FIRST3_BAG_INSTRUMENTS`, in
-`pitchdetect-first-three-bag`, where their classes start; activities with
-`instruments` show only for those, `practiceActivityAvailable()`, and
-`firstThreeActivity()` picks the one first sounds and the path lead to),
-**Learn the first 5 notes** (lessons). **Note games**: **First 5 note quiz**
-(the challenge round), **Practice note names** and **Practice fingerings**
+**First 3 notes** (`three`; row cards, read top to bottom like a path):
+first sounds, **Learn the first 3 notes** (an easier start: concert D C B♭,
+`FIRST3_STEPS`, best stars in `pitchdetect-first-three`; its result leads
+to the name drill), **Name the 3 notes** / **Finger the 3 notes** (drills
+`names3` / `fingerings3`), **Play 3-note songs** (`songs3`:
+`showSongList("three")`) and **Write a 3-note song** (`write3`: the editor
+in 3-note mode). Flute and oboe also have **Learn B, A and G**
+(`FIRST3_BAG_STEPS` / `FIRST3_BAG_INSTRUMENTS`, in
+`pitchdetect-first-three-bag`, where their classes start): a switch above
+the cards (`#practice-set-switch`, `renderThreeSetSwitch()`) picks
+`practice.threeSet` (`"first3bag"`, the default, or `"first3"`; saved per
+instrument in `pitchdetect-first-three-set`), and the page shows that
+set's lesson card and runs its drills, songs and song writing on it
+(`threeNotes()`, `threeNotesText()`); `firstThreeActivity()` gives the
+lesson for the set. Activities with `instruments` show only for those
+(`practiceActivityAvailable()`). **First 5 notes** (`five`, row cards):
+**Learn the first 5 notes** (lessons), **First 5 note quiz** (the
+challenge round), **Practice note names** and **Practice fingerings**
 (drills; "slide positions" on trombone, "the keyboard" without charts).
 **Scale & songs**: the B♭ scale cards and songs. `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
@@ -151,8 +159,15 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   opens its songs in place below it, closed by default; `songLevelsOpen`
   keeps what's open for the session, and the level of the song just played
   opens on the way back. The list sits at the top of the card (not centered)
-  so opening a level doesn't move the others. **Beginner** (first five
-  notes, plain rhythms: Hot Cross Buns, Au Clair de la Lune, Mary Had a
+  so opening a level doesn't move the others. **First 3 notes** (degrees
+  1–3 only, which are the student's first 3 notes from the bottom,
+  `threeNoteScale()`: B♭ C D, or G A B on a flute or oboe on B A G; Hot
+  Cross Buns, Merrily We Roll Along, Stepping Stones, Up and Down; bests on
+  B A G are kept apart under `id@bag`, `songBestKey()`). The First 3 notes
+  page's list (`showSongList("three")`, `practice.songList`, kept for back
+  and Next song) shows only these and the student's 3-note songs.
+  **Beginner** (first five
+  notes, plain rhythms: Au Clair de la Lune, Mary Had a
   Little Lamb, Lightly Row, Ode to Joy, Go Tell Aunt Rhody, Jingle Bells),
   **Intermediate** (rests, dotted notes or notes past the fifth: Goin' Home,
   When the Saints, Twinkle, All My Little Ducklings), **Advanced** (eighth
@@ -208,7 +223,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   a tune from their own printed part. Stored per instrument, in written pitch,
   in `pitchdetect-my-songs` as `{ id, title, time, key, notes }`, a note being
   `{ s: diatonic step (octave × 7 + letter), a: −1/0/1, d: w|h|q|8, dot }` or
-  a rest `{ r: 1, d, dot }`; `customSongEvents()` fills measures from the time
+  a rest `{ r: 1, d, dot }`; a 3-note song (`openSongEditor(null, true)`)
+  also stores `three` (its note set): the editor then has no key picker,
+  one button per note in place of ♭♮♯ (`setEditorThreeNote()`: adds at
+  the end, or changes the selected note), and taps, ▲▼ and letters snap to
+  the three notes (`editorThreeNear()`); `customSongEvents()` fills measures from the time
   signature (`SONG_TIMES`; no ties or pickups). Key signatures (`SONG_KEYS`,
   labeled by counting flats/sharps) and accidentals lasting the measure
   follow print rules; changing the key moves notes that followed the old one.
@@ -258,7 +277,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `transposeSharedSong()`: same sounding tune, in their octave (the two
   instruments' first band notes line up), key moved round the circle of
   fifths, notes respelled. **Add to My songs** skips an identical copy.
-- **Drills** (`startDrill("names" | "fingerings")`, no mic): races against
+- **Drills** (`startDrill("names" | "fingerings" | "names3" | "fingerings3")`,
+  no mic; the 3-note kinds drill `threeNotes()`, held in `practice.drillNotes`,
+  and keep bests per set, `drillBestKey()`): races against
   the clock: name as many notes as you can in `DRILL_SECONDS` (30), trying
   to beat your best. Random notes (`nextDrillNote()`, no back-to-back
   repeats); a note scores if named on the first try (a wrong one must still
@@ -387,7 +408,8 @@ Loaded after firstfive.js; no server, everything stays on the device.
   current instrument's progress; `onPracticeLoaded()` (end of
   `loadPracticeInstrument()`) quietly awards ones already earned.
 - **Learning path:** `learningPath()` orders the activities (first sounds,
-  the first 3 notes, each first-five note, quiz, both drills, 3 beginner songs, B♭ scale,
+  the first 3 notes (the student's set), naming and fingering them, 2
+  3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
   the tab of the page it's on), and the profile lists the path; tapping a step opens it.
