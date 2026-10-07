@@ -1096,7 +1096,13 @@ function renderPracticeResult() {
 	var first3 = practice.lesson.indexOf("first3") === 0;
 	var prompt = document.getElementById("practice-prompt");
 	var body = document.getElementById("practice-body");
-	prompt.textContent = !practice.allLearned ? "You played " + name + "!"
+	// The last note ends the lesson: once every note is learned it leads on
+	// (even on a replay, so the lesson never just loops), otherwise back to
+	// the first note still to learn
+	var lesson = currentLesson();
+	var last = practice.index === lesson.notes.length - 1;
+	var finished = practice.allLearned || (last && allNotesLearned());
+	prompt.textContent = !finished ? "You played " + name + "!"
 		: scale ? "You learned the whole B\u266d scale!"
 		: first3 ? "You learned your first 3 notes!"
 		: "You learned all five notes!";
@@ -1121,11 +1127,13 @@ function renderPracticeResult() {
 	actions.appendChild(practiceButton("Try " + name + " again", "secondary", function() {
 		startPracticeNote(practice.index);
 	}));
-	var nextIndex = (practice.index + 1) % currentLesson().notes.length;
-	actions.appendChild(practiceButton("Next note \u2192", practice.allLearned ? "secondary" : "primary", function() {
-		startPracticeNote(nextIndex);
-	}));
-	if (practice.allLearned) {
+	var nextIndex = last ? lesson.stars.indexOf(0) : practice.index + 1;
+	if (nextIndex >= 0 && !(last && finished)) {
+		actions.appendChild(practiceButton("Next note \u2192", finished ? "secondary" : "primary", function() {
+			startPracticeNote(nextIndex);
+		}));
+	}
+	if (finished) {
 		actions.appendChild(scale ? practiceButton("Play the whole scale \u2192", "primary", startScaleRun)
 			: first3 ? practiceButton("Name the notes \u2192", "primary", function() { startDrill("names3"); })
 			: practiceButton("Take the quiz \u2192", "primary", startChallenge));
