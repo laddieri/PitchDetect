@@ -88,7 +88,11 @@ and the student's 5-note songs; `listSongs(list)` gives each list's built-in
 songs, `listCustomSongs(list)` its own songs) and **Write a 5-note song**
 (`write5`: the editor on the first 5 notes, `song.three = "first5"`,
 `fiveNoteCustomSongs()`).
-**Scale & songs**: the B♭ scale cards and songs. `#practice-view[data-mode]` (`setPracticeMode()`:
+**Scale & songs** (row cards like the other pages): **Learn notes 6 to 9**
+(`learn4`, lesson set `next4`: `NEXT4_STEPS`, concert G, A♭, the low A♭, the
+low A, the band-method notes after the first five, named on the card by
+`nextFourText()`; best stars in `pitchdetect-next-four`; its result leads
+to the B♭ scale lesson), the B♭ scale cards and songs. `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
 to the menu and the menu to the app; the menu also stops the mic. Browser
@@ -140,6 +144,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   called by `startListening()` / `stopListening()`), its ring swelling with
   the level (`--mic-level`). Audio never leaves the device: it only feeds an
   `AnalyserNode`; nothing is recorded or sent.
+- Lesson notes are spelled by `practiceSpelling()` (via `practiceNoteName()`
+  and the practice staves): flats, except F♯ (alto/bari sax read concert A
+  as F♯).
 - `practice.ignoreUntil` mutes the check while the example tone sounds, so
   the app can't pass the student's turn for them.
 - Note names in the map stay hidden (numbers) until learned, so the map never
@@ -159,7 +166,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `pitchdetect-first-five-challenge`.
 - **B♭ scale** (two cards on the menu's **Scale & songs** page): **Learn the
   B♭ scale** runs the same lessons over `SCALE_STEPS` (concert B♭ up the
-  octave, 8 notes) — lesson sets (`first3`, `first3bag`, `first5`, `scale`) live in
+  octave, 8 notes) — lesson sets (`first3`, `first3bag`, `first5`, `next4`, `scale`) live in
   `LESSON_SETS` / `practice.lessons` (menu ids map to them via
   `LESSON_ACTIVITIES`), `practice.lesson` picks one, `currentLesson()` gives
   its notes and stars (best per note in `pitchdetect-bb-scale`); the Read
@@ -440,7 +447,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
 - **Learning path:** `learningPath()` orders the activities (first sounds,
   the first 3 notes (the student's set), naming and fingering them, 2
   3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
-  writing a 5-note song, B♭ scale,
+  writing a 5-note song, notes 6 to 9, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
   the tab of the page it's on), and the profile lists the path; tapping a step opens it.

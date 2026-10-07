@@ -54,11 +54,13 @@ var LEVEL_TITLES = ["New Musician", "Note Finder", "Practice Pal", "Rhythm Rooki
 // current instrument can't earn (unless it's already earned)
 var BADGES = [
 	{ id: "first-note", icon: "\uD83C\uDFB5", name: "First Note", how: "Earn a star on any note",
-		test: function(s) { return s.first3.concat(s.first3bag, s.first5, s.scale).some(function(n) { return n > 0; }); } },
+		test: function(s) { return s.first3.concat(s.first3bag, s.first5, s.next4, s.scale).some(function(n) { return n > 0; }); } },
 	{ id: "five-alive", icon: "\u270B", name: "Five Alive", how: "Learn all of the first 5 notes",
 		test: function(s) { return s.first5.every(function(n) { return n > 0; }); } },
 	{ id: "gold-stars", icon: "\u2B50", name: "Gold Stars", how: "Get 3 stars on each of the first 5 notes",
 		test: function(s) { return s.first5.every(function(n) { return n === 3; }); } },
+	{ id: "nine-notes", icon: "\uD83C\uDFBC", name: "Nine Notes", how: "Learn notes 6 to 9",
+		test: function(s) { return s.next4.every(function(n) { return n > 0; }); } },
 	{ id: "quiz-whiz", icon: "\uD83C\uDFC6", name: "Quiz Whiz", how: "Play every note of the quiz on your own",
 		test: function(s) { return s.quizBest >= CHALLENGE_LENGTH; } },
 	{ id: "scale-climber", icon: "\uD83D\uDCC8", name: "Scale Climber", how: "Learn all 8 notes of the B\u266D scale",
@@ -313,6 +315,7 @@ function progressSnapshot() {
 		first3: practice.lessons.first3.stars,
 		first3bag: practice.lessons.first3bag.stars,
 		first5: practice.lessons.first5.stars,
+		next4: practice.lessons.next4.stars,
 		scale: practice.lessons.scale.stars,
 		quizBest: practice.challengeBest || 0,
 		scaleRunBest: practice.scaleRunBest || 0,
@@ -448,6 +451,8 @@ function learningPath() {
 		done: songsStarredAt("beginner") >= 3 });
 	nodes.push({ title: "Write a song with your first 5 notes", activity: "write5",
 		done: fiveNoteCustomSongs().some(function(song) { return songNotes(song).length >= 5; }) });
+	nodes.push({ title: "Learn " + nextFourText(), activity: "learn4",
+		done: practice.lessons.next4.stars.every(function(n) { return n > 0; }) });
 	nodes.push({ title: "Learn the B\u266D scale", activity: "scale",
 		done: practice.lessons.scale.stars.every(function(n) { return n > 0; }) });
 	nodes.push({ title: "Play the B\u266D scale", activity: "scalerun",

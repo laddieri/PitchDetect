@@ -80,6 +80,9 @@ var SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];  // B♭ C D E♭ F G A B♭
 var FIRST3_STEPS = [4, 2, 0];  // D C B♭, stepping down to the first B♭
 var FIRST3_BAG_STEPS = [1, -1, -3];  // B A G, the flute and oboe start
 var FIRST3_BAG_INSTRUMENTS = ["flute", "oboe"];
+// Notes 6 to 9 in most band methods, in the order they're usually taught:
+// concert G, A♭, the A♭ an octave lower, then the low A
+var NEXT4_STEPS = [9, 10, -2, -1];
 
 var PRACTICE_STORAGE_KEY = "pitchdetect-first-five";
 var PRACTICE_HOLD_MS = 1200;       // how long the note must be held to pass
@@ -112,14 +115,16 @@ var SCALE_STORAGE_KEY = "pitchdetect-bb-scale";
 var SCALE_RUN_STORAGE_KEY = "pitchdetect-bb-scale-run";
 var FIRST3_STORAGE_KEY = "pitchdetect-first-three";
 var FIRST3_BAG_STORAGE_KEY = "pitchdetect-first-three-bag";
+var NEXT4_STORAGE_KEY = "pitchdetect-next-four";
 var FIRST3_SET_STORAGE_KEY = "pitchdetect-first-three-set";  // flute/oboe's choice
 
 // The note sets taught as lessons: the first three notes (D C B♭, or B A G
-// on flute and oboe), the first five notes and the B♭ scale
+// on flute and oboe), the first five notes, notes 6 to 9 and the B♭ scale
 var LESSON_SETS = {
 	first3: { steps: FIRST3_STEPS, storage: FIRST3_STORAGE_KEY },
 	first3bag: { steps: FIRST3_BAG_STEPS, storage: FIRST3_BAG_STORAGE_KEY },
 	first5: { steps: PRACTICE_STEPS, storage: PRACTICE_STORAGE_KEY },
+	next4: { steps: NEXT4_STEPS, storage: NEXT4_STORAGE_KEY },
 	scale: { steps: SCALE_STEPS, storage: SCALE_STORAGE_KEY }
 };
 
@@ -139,9 +144,16 @@ function practiceNotes(steps) {
 	return (steps || PRACTICE_STEPS).map(function(step) { return start + step + t; });
 }
 
-// Note letter for a written MIDI note (the B♭ scale never needs sharps)
+// Spelling of a written MIDI note in the lessons: flats, as band parts read,
+// except F♯ (alto and bari sax read concert A as F♯, never G♭)
+function practiceSpelling(writtenMidi) {
+	var pc = ((writtenMidi % 12) + 12) % 12;
+	return pc === 6 ? "F#" : flatNoteSpellings[pc];
+}
+
+// Note letter for a written MIDI note
 function practiceNoteName(writtenMidi) {
-	return keyDisplayName(flatNoteSpellings[((writtenMidi % 12) + 12) % 12]);
+	return keyDisplayName(practiceSpelling(writtenMidi));
 }
 
 // Best stars per note of a lesson set (count notes) for an instrument
@@ -336,7 +348,7 @@ function setPracticeMode(mode) {
 }
 
 // Lesson set for each lesson activity id
-var LESSON_ACTIVITIES = { learn3bag: "first3bag", learn3: "first3", learn: "first5", scale: "scale" };
+var LESSON_ACTIVITIES = { learn3bag: "first3bag", learn3: "first3", learn: "first5", learn4: "next4", scale: "scale" };
 
 // Whether an activity is offered on the current instrument
 function practiceActivityAvailable(id) {
@@ -356,6 +368,12 @@ function threeNotes() {
 	return practice.lessons[practice.threeSet].notes;
 }
 
+// "G, A♭ (high and low) and A"-style names of notes 6 to 9
+function nextFourText() {
+	var names = practice.lessons.next4.notes.map(practiceNoteName);
+	return names[0] + ", " + names[1] + " (high and low) and " + names[3];
+}
+
 // "B, A and G"-style names of the first 3 notes
 function threeNotesText() {
 	var names = threeNotes().map(practiceNoteName);
@@ -364,7 +382,7 @@ function threeNotesText() {
 
 // The menu's pages, one tab each: the first 3 notes (a path: learn them,
 // name and finger them, play and write songs with them), the first 5 notes
-// (lessons, quiz, drills and songs), then the B♭ scale and songs
+// (lessons, quiz, drills and songs), then notes 6 to 9, the B♭ scale and songs
 var PRACTICE_PAGES = [
 	{ id: "three", label: "First 3 notes" },
 	{ id: "five", label: "First 5 notes" },
@@ -387,6 +405,7 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?", page: "five" },
 	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "five" },
 	{ id: "write5", icon: "pencil", title: "Write a 5-note song", sub: "Make up your own tune with your first 5 notes", page: "five" },
+	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 to 9", sub: "", page: "scale", wide: true },  // sub: nextFourText()
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "scale" },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "scale" },
 	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "When the Saints, Twinkle, or make your own", page: "scale", wide: true }
@@ -456,6 +475,8 @@ function showPracticeMenu(page) {
 			title = "Find the 3 notes on the keyboard";
 		} else if (a.id === "write3") {
 			sub = "Make up your own tune with " + threeNotesText();
+		} else if (a.id === "learn4") {
+			sub = nextFourText();
 		}
 
 		var score;
@@ -638,7 +659,7 @@ function closePractice() {
 	if (button && button.offsetParent !== null) button.focus();
 }
 
-// Open a lesson set ("first3", "first5" or "scale"): an overview of its notes and
+// Open a lesson set ("first3", "first5", "next4" or "scale"): an overview of its notes and
 // their names first, so the Read step never asks a name before it's taught
 function startLesson(id) {
 	practice.lesson = id;
@@ -656,8 +677,9 @@ function showLessonOverview() {
 	document.getElementById("practice-view").setAttribute("data-step", "overview");
 	document.getElementById("practice-steps").innerHTML = "";
 	var notes = currentLesson().notes;
-	document.getElementById("practice-prompt").textContent = practice.lesson === "scale"
-		? "Meet the B\u266d scale!" : practice.lesson.indexOf("first3") === 0 ? "Meet your first 3 notes!" : "Meet your first 5 notes!";
+	document.getElementById("practice-prompt").textContent = practice.lesson === "scale" ? "Meet the B\u266d scale!"
+		: practice.lesson === "next4" ? "Meet your next 4 notes!"
+		: practice.lesson.indexOf("first3") === 0 ? "Meet your first 3 notes!" : "Meet your first 5 notes!";
 	drawLessonOverview(-1);
 
 	var body = document.getElementById("practice-body");
@@ -705,7 +727,7 @@ function drawLessonOverview(hl) {
 	var tickables = [];
 	try {
 		tickables = notes.map(function(midi, i) {
-			var spelled = flatNoteSpellings[((midi % 12) + 12) % 12];
+			var spelled = practiceSpelling(midi);
 			var note = new VF.StaveNote({ clef: clef, keys: [spelled.toLowerCase() + "/" + (Math.floor(midi / 12) - 1)], duration: "w" });
 			if (spelled.length > 1) note.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
 			if (i === hl) note.setStyle({ fillStyle: accent, strokeStyle: accent });
@@ -1195,12 +1217,14 @@ function finishPracticeNote(inTune) {
 function renderPracticeResult() {
 	var name = practiceNoteName(practice.target);
 	var scale = practice.lesson === "scale";
+	var next4 = practice.lesson === "next4";
 	var first3 = practice.lesson.indexOf("first3") === 0;
 	var prompt = document.getElementById("practice-prompt");
 	var body = document.getElementById("practice-body");
 	prompt.textContent = !practice.allLearned ? "You played " + name + "!"
 		: scale ? "You learned the whole B\u266d scale!"
 		: first3 ? "You learned your first 3 notes!"
+		: next4 ? "You learned notes 6 to 9!"
 		: "You learned all five notes!";
 
 	var labels = ["Named it first try", "Played it", "Right in tune"];
@@ -1230,6 +1254,7 @@ function renderPracticeResult() {
 	if (practice.allLearned) {
 		actions.appendChild(scale ? practiceButton("Play the whole scale \u2192", "primary", startScaleRun)
 			: first3 ? practiceButton("Name the notes \u2192", "primary", function() { startDrill("names3"); })
+			: next4 ? practiceButton("Learn the B\u266d scale \u2192", "primary", function() { startLesson("scale"); })
 			: practiceButton("Take the quiz \u2192", "primary", startChallenge));
 	}
 	body.appendChild(actions);
@@ -5038,7 +5063,7 @@ function drawPracticeStaff(writtenMidi, sharp, ghost) {
 	stave.addClef(clef);
 	stave.setContext(context).draw();
 
-	var spelled = (sharp ? sharpNoteSpellings : flatNoteSpellings)[((writtenMidi % 12) + 12) % 12];
+	var spelled = sharp ? sharpNoteSpellings[((writtenMidi % 12) + 12) % 12] : practiceSpelling(writtenMidi);
 	var octave = Math.floor(writtenMidi / 12) - 1;
 	try {
 		var note = new VF.StaveNote({ clef: clef, keys: [spelled.toLowerCase() + "/" + octave], duration: "w" });
@@ -5075,7 +5100,7 @@ function setPracticeGhost(midi) {
 // formatted StaveNote), so the two read side by side: here vs. there
 function drawPracticeGhost(context, stave, clef, midi, target) {
 	var VF = Vex.Flow;
-	var spelled = flatNoteSpellings[((midi % 12) + 12) % 12];
+	var spelled = practiceSpelling(midi);
 	var g = new VF.StaveNote({ clef: clef, keys: [spelled.toLowerCase() + "/" + (Math.floor(midi / 12) - 1)], duration: "w" });
 	if (spelled.length > 1) g.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
 	var color = "rgba(100, 116, 139, 0.55)";
