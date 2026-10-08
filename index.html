@@ -2328,8 +2328,8 @@
 				display: none;
 			}
 
-			/* Menu: one big button per activity, on three pages (tabs): the
-			   first 3 notes, the first 5 notes, and notes 6 and beyond, the B♭ scale and songs */
+			/* Menu: one big button per activity, on three pages (tabs):
+			   lessons, practice drills and songs */
 			.practice-menu {
 				flex: 1;
 				min-height: 0;
@@ -2414,18 +2414,14 @@
 
 			/* The menu pages read as a path: flat rows, icon left, top to
 			   bottom */
-			.practice-view[data-menu-page="three"] .practice-choice,
-			.practice-view[data-menu-page="five"] .practice-choice,
-			.practice-view[data-menu-page="scale"] .practice-choice {
+			.practice-view[data-menu-page] .practice-choice {
 				flex-direction: row;
 				gap: 16px;
 				padding: 10px 20px;
 				text-align: left;
 			}
 
-			.practice-view[data-menu-page="three"] .practice-choice-text,
-			.practice-view[data-menu-page="five"] .practice-choice-text,
-			.practice-view[data-menu-page="scale"] .practice-choice-text {
+			.practice-view[data-menu-page] .practice-choice-text {
 				flex: 1;
 				min-width: 0;
 			}
@@ -4999,9 +4995,7 @@
 					gap: 10px;
 				}
 
-				.practice-view[data-menu-page="three"] .practice-choice,
-				.practice-view[data-menu-page="five"] .practice-choice,
-				.practice-view[data-menu-page="scale"] .practice-choice {
+				.practice-view[data-menu-page] .practice-choice {
 					padding: 8px 14px;
 					gap: 14px;
 				}

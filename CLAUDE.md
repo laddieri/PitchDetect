@@ -62,41 +62,43 @@ It opens on a **menu** (`showPracticeMenu(page)`, `PRACTICE_ACTIVITIES`) of
 activities, each card showing its best result, on three pages picked by
 tabs (`PRACTICE_PAGES`, `#practice-tabs`, `renderPracticeTabs()`; each
 activity's `page`, `activityPage()`; `practice.menuPage` /
-`#practice-view[data-menu-page]`). Leaving an activity returns to its page;
-opening Practice shows the page with the next path step.
-**First 3 notes** (`three`; row cards, read top to bottom like a path):
-first sounds, **Learn the first 3 notes** (an easier start: concert D C B♭,
-`FIRST3_STEPS`, best stars in `pitchdetect-first-three`; its result leads
-to the name drill), **Name the 3 notes** / **Finger the 3 notes** (drills
-`names3` / `fingerings3`), **Play 3-note songs** (`songs3`:
-`showSongList("three")`) and **Write a 3-note song** (`write3`: the editor
-in 3-note mode). Flute and oboe also have **Learn B, A and G**
+`#practice-view[data-menu-page]`), all row cards read top to bottom,
+easiest first. Leaving an activity returns to its page; opening Practice
+shows the page with the next path step.
+**Lessons** (`lessons`): first sounds, **Learn the first 3 notes** (an
+easier start: concert D C B♭, `FIRST3_STEPS`, best stars in
+`pitchdetect-first-three`; its result leads to the name drill), **Learn the
+first 5 notes**, **Learn notes 6 and beyond** (`learn4`, lesson set `next4`:
+`NEXT4_STEPS`, concert G, A♭, the low A♭, the low A, the band-method notes
+after the first five, named on the card by `nextFourText()`; best stars in
+`pitchdetect-next-four`; its result leads to the 9 note quiz) and **Learn the
+B♭ scale**. Flute and oboe also have **Learn B, A and G**
 (`FIRST3_BAG_STEPS` / `FIRST3_BAG_INSTRUMENTS`, in
 `pitchdetect-first-three-bag`, where their classes start): a switch above
-the cards (`#practice-set-switch`, `renderThreeSetSwitch()`) picks
+the Lessons cards (`#practice-set-switch`, `renderThreeSetSwitch()`) picks
 `practice.threeSet` (`"first3bag"`, the default, or `"first3"`; saved per
 instrument in `pitchdetect-first-three-set`), and the page shows that
-set's lesson card and runs its drills, songs and song writing on it
-(`threeNotes()`, `threeNotesText()`); `firstThreeActivity()` gives the
+set's lesson card, while the 3-note drills, songs and song writing run on
+it (`threeNotes()`, `threeNotesText()`); `firstThreeActivity()` gives the
 lesson for the set. Activities with `instruments` show only for those
-(`practiceActivityAvailable()`). **First 5 notes** (`five`, row cards):
-**Learn the first 5 notes** (lessons), **First 5 note quiz** (the
-challenge round), **Practice note names** and **Practice fingerings**
-(drills; "slide positions" on trombone, "the keyboard" without charts) and
-**Play 5-note songs** (`songs5`: `showSongList("five")`, the Beginner songs
-and the student's 5-note songs; `listSongs(list)` gives each list's built-in
-songs, `listCustomSongs(list)` its own songs) and **Write a 5-note song**
-(`write5`: the editor on the first 5 notes, `song.three = "first5"`,
-`fiveNoteCustomSongs()`).
-**Scale & songs** (row cards like the other pages): **Learn notes 6 and beyond**
-(`learn4`, lesson set `next4`: `NEXT4_STEPS`, concert G, A♭, the low A♭, the
-low A, the band-method notes after the first five, named on the card by
-`nextFourText()`; best stars in `pitchdetect-next-four`; its result leads
-to the 9 note quiz), **9 note quiz** (`quiz9`, `startNineQuiz()`: the quiz
-over the first five notes plus notes 6 and beyond, `QUIZ9_LENGTH` (12)
-notes, one answer button per name low to high so the two A♭s share one;
-best in `pitchdetect-nine-note-quiz`, on the path after notes 6 and
-beyond), the B♭ scale cards and songs. `#practice-view[data-mode]` (`setPracticeMode()`:
+(`practiceActivityAvailable()`).
+**Practice drills** (`drills`): **Name the 3 notes** / **Finger the 3
+notes** (drills `names3` / `fingerings3`), **Practice note names** and
+**Practice fingerings** ("slide positions" on trombone, "the keyboard"
+without charts), **First 5 note quiz** (the challenge round), **9 note
+quiz** (`quiz9`, `startNineQuiz()`: the quiz over the first five notes plus
+notes 6 and beyond, `QUIZ9_LENGTH` (12) notes, one answer button per name
+low to high so the two A♭s share one; best in `pitchdetect-nine-note-quiz`,
+on the path after notes 6 and beyond) and **Play the B♭ scale**.
+**Songs** (`songs`): **Play 3-note songs** (`songs3`:
+`showSongList("three")`), **Write a 3-note song** (`write3`: the editor in
+3-note mode), **Play 5-note songs** (`songs5`: `showSongList("five")`, the
+Beginner songs and the student's 5-note songs; `listSongs(list)` gives each
+list's built-in songs, `listCustomSongs(list)` its own songs), **Write a
+5-note song** (`write5`: the editor on the first 5 notes, `song.three =
+"first5"`, `fiveNoteCustomSongs()`) and **More songs** (`songs`:
+`showSongList("all")`, every level but Beginner, and all the student's songs).
+`#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
 to the menu and the menu to the app; the menu also stops the mic. Browser
@@ -168,7 +170,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   the sound, but only unhelped notes score; `challengeStars()` turns the
   score into 0–3 trophy stars, best score per instrument in
   `pitchdetect-first-five-challenge`.
-- **B♭ scale** (two cards on the menu's **Scale & songs** page): **Learn the
+- **B♭ scale** (**Learn the B♭ scale** on the Lessons page,
+  **Play the B♭ scale** on Practice drills): **Learn the
   B♭ scale** runs the same lessons over `SCALE_STEPS` (concert B♭ up the
   octave, 8 notes) — lesson sets (`first3`, `first3bag`, `first5`, `next4`, `scale`) live in
   `LESSON_SETS` / `practice.lessons` (menu ids map to them via
@@ -180,8 +183,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   never names the target), best in
   `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
   10/8/5 thresholds. The quiz and drills stay on the first five notes.
-- **Songs** (`showSongList()` → `playThroughSong(id)`, a wide card on the
-  menu's **Scale & songs** page, under the B♭ scale cards): `SONGS` holds public
+- **Songs** (`showSongList()` → `playThroughSong(id)`, the cards on the
+  menu's **Songs** page): `SONGS` holds public
   domain tunes, each with a `level` the song list groups them by
   (`SONG_LEVELS`): each level is a colored button (hint, stars earned) that
   opens its songs in place below it, closed by default; `songLevelsOpen`
@@ -192,12 +195,12 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `threeNoteScale()`: B♭ C D, or G A B on a flute or oboe on B A G; Hot
   Cross Buns, Merrily We Roll Along, Stepping Stones, Up and Down, Au Clair
   de la Lune; bests on
-  B A G are kept apart under `id@bag`, `songBestKey()`). The First 3 notes
-  page's list (`showSongList("three")`, `practice.songList`, kept for back
+  B A G are kept apart under `id@bag`, `songBestKey()`). The Play 3-note songs
+  list (`showSongList("three")`, `practice.songList`, kept for back
   and Next song) shows only these and the student's 3-note songs.
   **Beginner** (first five
-  notes, plain rhythms, on the First 5 notes page's list
-  (`showSongList("five")`) and left out of Play songs: Mary Had a
+  notes, plain rhythms, on the Play 5-note songs list
+  (`showSongList("five")`) and left out of More songs: Mary Had a
   Little Lamb, Lightly Row, Ode to Joy, Go Tell Aunt Rhody, Jingle Bells),
   **Notes 6 and beyond** (`beyond`: Hot Cross Buns in E♭ and in A♭, Mary
   Had a Little Lamb in A♭, Old MacDonald, Yankee Doodle, Deck the Halls; a
@@ -227,7 +230,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   along and the mic ignoring it; `setPracticeMode()` and `closePractice()`
   stop it. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
-  from a song returns to the song list, and from the list to the Scale & songs page.
+  from a song returns to the song list, and from the list to the Songs page.
   A song opens in **Play it through** (`playThroughSong()`; the song list,
   the editor's Play it, Next song); note by note (`startSong()`) is the
   practice path, behind **Note by note** and **Practice the red notes**, and
@@ -318,7 +321,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`encodeSongShare()` / `decodeSongShare()`, which validates everything) —
   and hands it to `navigator.share`, else copies it. Opening a link
   (`checkSongLink()` on load and `hashchange`) strips the hash, picks the
-  sharer's instrument if none is chosen, and walks menu (Scale & songs) → song list →
+  sharer's instrument if none is chosen, and walks menu (Songs) → song list →
   the import screen (mode `import`, `showSongImport()`) so back steps out
   normally; a pending import survives until Practice opens
   (`pendingSongImport`). A friend on another instrument gets
