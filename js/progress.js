@@ -453,6 +453,8 @@ function learningPath() {
 		done: fiveNoteCustomSongs().some(function(song) { return songNotes(song).length >= 5; }) });
 	nodes.push({ title: "Learn " + nextFourText(), activity: "learn4",
 		done: practice.lessons.next4.stars.every(function(n) { return n > 0; }) });
+	nodes.push({ title: "Take the 9 note quiz", activity: "quiz9",
+		done: challengeStars(practice.quiz9Best || 0, QUIZ9_LENGTH) > 0 });
 	nodes.push({ title: "Play 2 songs with your new notes", activity: "songs", level: "beyond",
 		done: songsStarredAt("beyond") >= 2 });
 	nodes.push({ title: "Learn the B\u266D scale", activity: "scale",

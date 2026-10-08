@@ -34,6 +34,8 @@
  * B♭ C D E♭ F G A B♭ (SCALE_STEPS) from the same starting B♭, eight lessons
  * with their own stars. Play the B♭ scale is a challenge round in order, up
  * the octave and back down (scaleRunSequence()), with Help like the quiz.
+ * The 9 note quiz (startNineQuiz()) is the quiz over the first five notes
+ * and notes 6 and beyond.
  *
  * Play songs (SONGS) is a list of tunes made of the first 3 notes (Hot Cross
  * Buns and more), the first five notes (Mary Had a Little Lamb, Jingle Bells
@@ -103,6 +105,9 @@ var TUNING_TIP_COOLDOWN_MS = 45000; // between tips
 var CHALLENGE_STORAGE_KEY = "pitchdetect-first-five-challenge";
 var CHALLENGE_LENGTH = 10;
 var CHALLENGE_HOLD_MS = 800;       // shorter hold keeps the round moving
+// The 9 note quiz: the first five notes and notes 6 and beyond
+var QUIZ9_STORAGE_KEY = "pitchdetect-nine-note-quiz";
+var QUIZ9_LENGTH = 12;
 // Timed drill bests (the key changed when drills went from 10 questions to
 // a race against the clock, so old scores out of 10 don't count as bests)
 var DRILL_STORAGE_KEY = "pitchdetect-first-five-drills-timed";
@@ -304,6 +309,7 @@ function loadPracticeInstrument() {
 		fingeringKeys: {},
 		challengeBest: loadChallengeBest(select.value),
 		scaleRunBest: loadChallengeBest(select.value, SCALE_RUN_STORAGE_KEY),
+		quiz9Best: loadChallengeBest(select.value, QUIZ9_STORAGE_KEY),
 		drillBest: loadDrillBest(select.value),
 		songBest: loadSongBest(select.value),
 		customSongs: loadCustomSongs(select.value),
@@ -406,6 +412,7 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "five" },
 	{ id: "write5", icon: "pencil", title: "Write a 5-note song", sub: "Make up your own tune with your first 5 notes", page: "five" },
 	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "scale", wide: true },  // sub: nextFourText()
+	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "Your first 5 notes and your new notes", page: "scale", wide: true },
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "scale" },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "scale" },
 	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "When the Saints, Twinkle, or make your own", page: "scale", wide: true }
@@ -499,6 +506,9 @@ function showPracticeMenu(page) {
 		} else if (a.id === "quiz") {
 			var best = practice.challengeBest;
 			score = typeof best === "number" ? starText(challengeStars(best)) : "\u2606\u2606\u2606";
+		} else if (a.id === "quiz9") {
+			var best9 = practice.quiz9Best;
+			score = typeof best9 === "number" ? starText(challengeStars(best9, QUIZ9_LENGTH)) : "\u2606\u2606\u2606";
 		} else {
 			var drillBest = practice.drillBest[drillBestKey(a.id)];
 			score = typeof drillBest === "number" ? "Best: " + drillBest : DRILL_SECONDS + " sec";
@@ -577,6 +587,8 @@ function startPracticeActivity(id) {
 		startLesson(LESSON_ACTIVITIES[id]);
 	} else if (id === "quiz") {
 		startChallenge();
+	} else if (id === "quiz9") {
+		startNineQuiz();
 	} else if (id === "scalerun") {
 		startScaleRun();
 	} else if (id === "firstsounds") {
@@ -631,7 +643,9 @@ function currentPracticeActivity() {
 	if (practice.mode === "lesson") {
 		return Object.keys(LESSON_ACTIVITIES).filter(function(id) { return LESSON_ACTIVITIES[id] === practice.lesson; })[0];
 	}
-	if (practice.mode === "challenge") return practice.challenge.kind === "scale" ? "scalerun" : "quiz";
+	if (practice.mode === "challenge") {
+		return { scale: "scalerun", quiz9: "quiz9" }[practice.challenge.kind] || "quiz";
+	}
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
 	if (practice.mode === "profile" || practice.mode === "signin") return practice.mode;
@@ -1254,7 +1268,7 @@ function renderPracticeResult() {
 	if (practice.allLearned) {
 		actions.appendChild(scale ? practiceButton("Play the whole scale \u2192", "primary", startScaleRun)
 			: first3 ? practiceButton("Name the notes \u2192", "primary", function() { startDrill("names3"); })
-			: next4 ? practiceButton("Learn the B\u266d scale \u2192", "primary", function() { startLesson("scale"); })
+			: next4 ? practiceButton("Take the 9 note quiz \u2192", "primary", startNineQuiz)
 			: practiceButton("Take the quiz \u2192", "primary", startChallenge));
 	}
 	body.appendChild(actions);
@@ -1342,11 +1356,15 @@ function renderPracticeSteps() {
 // Challenge round
 // ---------------------------------------------------------------------------
 
-// Every note at least once (two shuffled passes), never the same note twice
-// in a row
-function makeChallengeSequence() {
+// Indexes of count notes (default the first five), length long (default
+// CHALLENGE_LENGTH): every note at least once (shuffled passes), never the
+// same note twice in a row
+function makeChallengeSequence(count, length) {
+	count = count || 5;
+	length = length || CHALLENGE_LENGTH;
 	function shuffled() {
-		var a = [0, 1, 2, 3, 4];
+		var a = [];
+		for (var n = 0; n < count; n++) a.push(n);
 		for (var i = a.length - 1; i > 0; i--) {
 			var j = Math.floor(Math.random() * (i + 1));
 			var t = a[i]; a[i] = a[j]; a[j] = t;
@@ -1354,14 +1372,14 @@ function makeChallengeSequence() {
 		return a;
 	}
 	var seq = [];
-	while (seq.length < CHALLENGE_LENGTH) {
+	while (seq.length < length) {
 		var pass = shuffled();
 		if (seq.length && pass[0] === seq[seq.length - 1]) {
 			pass.push(pass.shift());
 		}
 		seq = seq.concat(pass);
 	}
-	return seq.slice(0, CHALLENGE_LENGTH);
+	return seq.slice(0, length);
 }
 
 function startChallenge() {
@@ -1369,6 +1387,16 @@ function startChallenge() {
 	setPracticeMode("challenge");
 	practice.index = -1;
 	practice.challenge = { kind: "quiz", notes: practice.notes, seq: makeChallengeSequence(), pos: 0, results: [] };
+	showChallengeNote();
+}
+
+// The 9 note quiz: the quiz over the first five notes and notes 6 and beyond
+function startNineQuiz() {
+	clearTimeout(practiceAdvanceTimer);
+	setPracticeMode("challenge");
+	practice.index = -1;
+	var notes = practice.notes.concat(practice.lessons.next4.notes);
+	practice.challenge = { kind: "quiz9", notes: notes, seq: makeChallengeSequence(notes.length, QUIZ9_LENGTH), pos: 0, results: [] };
 	showChallengeNote();
 }
 
@@ -1422,8 +1450,17 @@ function showChallengeName() {
 	body.innerHTML = "";
 	var answers = document.createElement("div");
 	answers.className = "practice-answers";
-	answers.setAttribute("data-count", c.notes.length);
-	c.notes.forEach(function(midi) {
+	// One button per name, low to high (the high and low A♭ share one)
+	var names = {};
+	var choices = c.notes.slice().sort(function(a, b) { return a - b; }).filter(function(midi) {
+		var name = practiceNoteName(midi);
+		if (names[name]) return false;
+		names[name] = true;
+		return true;
+	});
+	if (c.kind === "quiz") choices = c.notes;
+	answers.setAttribute("data-count", choices.length);
+	choices.forEach(function(midi) {
 		var b = document.createElement("button");
 		b.className = "practice-answer";
 		b.textContent = practiceNoteName(midi);
@@ -1543,6 +1580,10 @@ function finishChallenge() {
 		finishScaleRun();
 		return;
 	}
+	if (practice.challenge.kind === "quiz9") {
+		finishNineQuiz();
+		return;
+	}
 	var score = practice.challenge.results.filter(Boolean).length;
 	var newBest = practice.challengeBest === null || score > practice.challengeBest;
 	if (newBest) {
@@ -1553,6 +1594,20 @@ function finishChallenge() {
 		score === CHALLENGE_LENGTH ? "Perfect! You know all five notes!" : "Quiz complete!",
 		"You played " + score + " of " + CHALLENGE_LENGTH + " on your own",
 		startChallenge);
+	recordProgress(10 + 3 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
+}
+
+function finishNineQuiz() {
+	var score = practice.challenge.results.filter(Boolean).length;
+	var newBest = practice.quiz9Best === null || score > practice.quiz9Best;
+	if (newBest) {
+		practice.quiz9Best = score;
+		saveChallengeBest(practice.instrument, score, QUIZ9_STORAGE_KEY);
+	}
+	showRoundResult(score, newBest,
+		score === QUIZ9_LENGTH ? "Perfect! You know all nine notes!" : "Quiz complete!",
+		"You played " + score + " of " + QUIZ9_LENGTH + " on your own",
+		startNineQuiz, QUIZ9_LENGTH);
 	recordProgress(10 + 3 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
 }
 
