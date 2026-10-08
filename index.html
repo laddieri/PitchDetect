@@ -3447,17 +3447,19 @@
 				width: 100%;
 			}
 
-			/* The scale's seven names: one row, or rows centered on a phone */
+			/* The scale's seven names (eight in the 9 note quiz): one row, or rows centered on a phone */
 			.practice-answers[data-count="3"] {
 				grid-template-columns: repeat(3, minmax(0, 80px));
 			}
 
-			.practice-answers[data-count="7"] {
+			.practice-answers[data-count="7"],
+			.practice-answers[data-count="8"] {
 				display: flex;
 				flex-wrap: wrap;
 			}
 
-			.practice-answers[data-count="7"] .practice-answer {
+			.practice-answers[data-count="7"] .practice-answer,
+			.practice-answers[data-count="8"] .practice-answer {
 				width: 72px;
 			}
 

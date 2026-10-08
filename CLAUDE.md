@@ -92,7 +92,11 @@ songs, `listCustomSongs(list)` its own songs) and **Write a 5-note song**
 (`learn4`, lesson set `next4`: `NEXT4_STEPS`, concert G, A♭, the low A♭, the
 low A, the band-method notes after the first five, named on the card by
 `nextFourText()`; best stars in `pitchdetect-next-four`; its result leads
-to the B♭ scale lesson), the B♭ scale cards and songs. `#practice-view[data-mode]` (`setPracticeMode()`:
+to the 9 note quiz), **9 note quiz** (`quiz9`, `startNineQuiz()`: the quiz
+over the first five notes plus notes 6 and beyond, `QUIZ9_LENGTH` (12)
+notes, one answer button per name low to high so the two A♭s share one;
+best in `pitchdetect-nine-note-quiz`, on the path after notes 6 and
+beyond), the B♭ scale cards and songs. `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
 to the menu and the menu to the app; the menu also stops the mic. Browser
