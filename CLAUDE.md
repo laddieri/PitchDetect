@@ -84,12 +84,17 @@ lesson for the set. Activities with `instruments` show only for those
 (`practiceActivityAvailable()`).
 **Practice drills** (`drills`), its cards grouped under headings (each
 activity's `group`, `practiceGroupTitle()`; `.practice-menu[data-grouped]`
-holds a `.practice-group` per heading, and scrolls if it must):
-**Practice note names** (drills `names3` / `names`: **Name the 3 notes**,
-**Name the first 5 notes**), **Practice fingerings** ("slide positions" on
-trombone, "the keyboard" without charts; `fingerings3` / `fingerings`) — the
-drill cards' subtitles list their notes (`notesText()`) — and **Practice
-playing notes**: **First 5 note quiz** (the challenge round), **9 note
+holds a `.practice-group` per heading, from `practiceGroupSection()`, and
+scrolls if it must). Each heading is a button that folds its cards away
+(`.practice-group.closed`; folded groups kept device-wide in
+`pitchdetect-drill-groups-closed`, `practiceGroupsClosed()`; a folded group
+holding the next path step shows a dot): **Practice note names** (drills
+`names3` / `names` / `names9` / `namesscale`: **Name the 3 notes**, **Name
+the first 5 notes**, **Name 9 notes**, **Name the B♭ scale notes**),
+**Practice fingerings** ("slide positions" on trombone, "the keyboard"
+without charts; `fingerings3` / `fingerings` / `fingerings9` /
+`fingeringsscale`) — the 3- and 5-note cards' subtitles list their notes
+(`notesText()`) — and **Practice playing notes**: **First 5 note quiz** (the challenge round), **9 note
 quiz** (`quiz9`, `startNineQuiz()`: the quiz over the first five notes plus
 notes 6 and beyond, `QUIZ9_LENGTH` (12) notes, one answer button per name
 low to high so the two A♭s share one; best in `pitchdetect-nine-note-quiz`,
@@ -186,7 +191,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   back down (`scaleRunSequence()`, 15 notes; no name step, and feedback
   never names the target), best in
   `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
-  10/8/5 thresholds. The quiz and drills stay on the first five notes.
+  10/8/5 thresholds. The first 5 note quiz stays on the first five notes; the `namesscale` /
+  `fingeringsscale` drills cover the scale.
 - **Songs** (`showSongList()` → `playThroughSong(id)`, the cards on the
   menu's **Songs** page): `SONGS` holds public
   domain tunes, each with a `level` the song list groups them by
@@ -332,9 +338,13 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `transposeSharedSong()`: same sounding tune, in their octave (the two
   instruments' first band notes line up), key moved round the circle of
   fifths, notes respelled. **Add to My songs** skips an identical copy.
-- **Drills** (`startDrill("names" | "fingerings" | "names3" | "fingerings3")`,
-  no mic; the 3-note kinds drill `threeNotes()`, held in `practice.drillNotes`,
-  and keep bests per set, `drillBestKey()`): races against
+- **Drills** (`startDrill(kind)`: `names` / `fingerings` and their `3`,
+  `9` and `scale` kinds, no mic; `drillNotes(kind)`, held in
+  `practice.drillNotes`: the first 5, `threeNotes()`, those plus notes 6 and
+  beyond, or the B♭ scale; the 3-note kinds keep bests per set,
+  `drillBestKey()`. Past five notes the answers are one button per name,
+  low to high (`drillChoices()`; the two A♭s, the two B♭s share one), and
+  any octave counts, `sameNoteName()`): races against
   the clock: name as many notes as you can in `DRILL_SECONDS` (30), trying
   to beat your best. Random notes (`nextDrillNote()`, no back-to-back
   repeats); a note scores if named on the first try (a wrong one must still

@@ -2383,8 +2383,7 @@
 				white-space: nowrap;
 			}
 
-			.practice-choice[data-activity="names"] .practice-choice-icon,
-			.practice-choice[data-activity="names3"] .practice-choice-icon {
+			.practice-choice[data-activity^="names"] .practice-choice-icon {
 				font-size: 1.15rem;
 			}
 
@@ -2433,10 +2432,66 @@
 
 			.practice-group-title {
 				margin: 0;
-				padding-left: 4px;
-				color: var(--text-muted);
 				font-size: 1rem;
 				font-weight: 700;
+			}
+
+			/* The heading folds its cards away */
+			.practice-group-toggle {
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				width: 100%;
+				min-height: 32px;
+				padding: 2px 4px;
+				border: none;
+				border-radius: var(--radius-sm);
+				background: none;
+				color: var(--text-muted);
+				font: inherit;
+				text-align: left;
+				cursor: pointer;
+			}
+
+			.practice-group-toggle:hover {
+				color: var(--text);
+			}
+
+			.practice-group-toggle:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.practice-group-chevron {
+				width: 8px;
+				height: 8px;
+				margin-top: -3px;
+				border-right: 2.5px solid currentColor;
+				border-bottom: 2.5px solid currentColor;
+				transform: rotate(45deg);
+				transition: transform 0.15s;
+			}
+
+			.practice-group.closed .practice-group-chevron {
+				margin-top: 2px;
+				transform: rotate(-45deg);
+			}
+
+			.practice-group-cards[hidden] {
+				display: none;
+			}
+
+			/* The next step on the path is in a folded group */
+			.practice-group.closed:has(.next-up) .practice-group-name::after {
+				content: "";
+				display: inline-block;
+				width: 9px;
+				height: 9px;
+				margin-left: 8px;
+				border-radius: 50%;
+				background: var(--accent);
+				vertical-align: middle;
+				animation: next-up-bob 1.6s ease-in-out infinite;
 			}
 
 			.practice-group-cards {
@@ -4685,6 +4740,7 @@
 			@media (prefers-reduced-motion: reduce) {
 				.next-up-tag,
 				.practice-tab.next-up::after,
+				.practice-group-name::after,
 				.level-up-burst,
 				.level-up-card {
 					animation: none;
@@ -4767,10 +4823,8 @@
 			body.kid-mode .practice-choice[data-activity="learn3bag"] .practice-choice-icon { background: #d8f5a2; }
 			body.kid-mode .practice-choice[data-activity="learn"] .practice-choice-icon { background: #ffd23f; }
 			body.kid-mode .practice-choice[data-activity="quiz"] .practice-choice-icon { background: #ff9f1c; }
-			body.kid-mode .practice-choice[data-activity="names"] .practice-choice-icon,
-			body.kid-mode .practice-choice[data-activity="names3"] .practice-choice-icon { background: #7ee081; }
-			body.kid-mode .practice-choice[data-activity="fingerings"] .practice-choice-icon,
-			body.kid-mode .practice-choice[data-activity="fingerings3"] .practice-choice-icon { background: #8fd3ff; }
+			body.kid-mode .practice-choice[data-activity^="names"] .practice-choice-icon { background: #7ee081; }
+			body.kid-mode .practice-choice[data-activity^="fingerings"] .practice-choice-icon { background: #8fd3ff; }
 			body.kid-mode .practice-choice[data-activity="songs3"] .practice-choice-icon { background: #7fe0d0; }
 			body.kid-mode .practice-choice[data-activity="songs5"] .practice-choice-icon { background: #7fe0d0; }
 			body.kid-mode .practice-choice[data-activity="write3"] .practice-choice-icon,
