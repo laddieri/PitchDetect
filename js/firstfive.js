@@ -940,15 +940,16 @@ function goToPracticeStep(s) {
 }
 
 // The target's (or midi's) fingering chart (or its piano key, for
-// instruments without charts) in a box for the step body
-function practiceFingeringBox(hideName, midi) {
+// instruments without charts) in a box for the step body. noCenter: leave a
+// trombone chart for the caller to center (see centerChartsTogether()).
+function practiceFingeringBox(hideName, midi, noCenter) {
 	if (midi === undefined) midi = practice.target;
 	var box = document.createElement("div");
 	box.className = "practice-fingering";
 	if (hasFingeringData(practice.instrument)) {
 		box.style.setProperty("--fingering-h", fingeringBoxHeight(practice.instrument));
 		displayFingering(box, practice.instrument, midi, false);
-		if (practice.instrument === "trombone") centerChartDrawing(box);
+		if (practice.instrument === "trombone" && !noCenter) centerChartDrawing(box);
 	} else {
 		box.style.setProperty("--fingering-h", "134px");  // the keyboard at 300px wide
 		var concertPc = (((midi - getTransposition()) % 12) + 12) % 12;
@@ -963,38 +964,65 @@ function practiceFingeringBox(hideName, midi) {
 // box clips the blank part pushed past its edge). Skipped if the pixels
 // can't be read.
 function centerChartDrawing(box) {
-	var img = box.querySelector("img.fingering-image");
-	if (!img) return;
-	function center() {
-		try {
-			var w = img.naturalWidth, h = img.naturalHeight;
-			var canvas = document.createElement("canvas");
-			canvas.width = w;
-			canvas.height = h;
-			var ctx = canvas.getContext("2d");
-			ctx.drawImage(img, 0, 0);
-			var d = ctx.getImageData(0, 0, w, h).data;
-			var minX = w, maxX = -1;
-			for (var y = 0; y < h; y++) {
-				for (var x = 0; x < w; x++) {
-					var k = (y * w + x) * 4;
-					if (d[k + 3] > 20 && (d[k] < 240 || d[k + 1] < 240 || d[k + 2] < 240)) {
-						if (x < minX) minX = x;
-						if (x > maxX) maxX = x;
-					}
+	centerChartsTogether([box]);
+}
+
+// The same for several charts shown in turn (Hear the song): one shift for
+// all, centering the span they draw together, so the bell stays put from
+// chart to chart and only the slide moves. Waits for every image to load.
+function centerChartsTogether(boxes) {
+	var imgs = [];
+	boxes.forEach(function(box) {
+		var img = box.querySelector("img.fingering-image");
+		if (img) imgs.push(img);
+	});
+	if (!imgs.length) return;
+	var waiting = imgs.length;
+	function loaded() {
+		if (--waiting > 0) return;
+		var minX = Infinity, maxX = -1, width = 0;
+		for (var i = 0; i < imgs.length; i++) {
+			var span = chartDrawnSpan(imgs[i]);
+			if (!span) return;
+			minX = Math.min(minX, span[0]);
+			maxX = Math.max(maxX, span[1]);
+			width = span[2];
+		}
+		if (maxX < 0) return;
+		var shift = "translateX(" + ((width - (minX + maxX + 1)) / 2 / width * 100) + "%)";
+		imgs.forEach(function(img) { img.style.transform = shift; });
+	}
+	imgs.forEach(function(img) {
+		if (img.complete && img.naturalWidth) loaded();
+		else img.addEventListener("load", loaded, { once: true });
+	});
+}
+
+// The columns of an image that hold drawing: [first, last, width] (last is
+// -1 if blank), or null if the pixels can't be read
+function chartDrawnSpan(img) {
+	try {
+		var w = img.naturalWidth, h = img.naturalHeight;
+		var canvas = document.createElement("canvas");
+		canvas.width = w;
+		canvas.height = h;
+		var ctx = canvas.getContext("2d");
+		ctx.drawImage(img, 0, 0);
+		var d = ctx.getImageData(0, 0, w, h).data;
+		var minX = w, maxX = -1;
+		for (var y = 0; y < h; y++) {
+			for (var x = 0; x < w; x++) {
+				var k = (y * w + x) * 4;
+				if (d[k + 3] > 20 && (d[k] < 240 || d[k + 1] < 240 || d[k + 2] < 240)) {
+					if (x < minX) minX = x;
+					if (x > maxX) maxX = x;
 				}
 			}
-			if (maxX < 0) return;
-			var shift = (w - (minX + maxX + 1)) / 2 / w * 100;
-			img.style.transform = "translateX(" + shift + "%)";
-		} catch (e) {
-			// Cross-origin or decode failure: leave the chart as drawn
 		}
-	}
-	if (img.complete && img.naturalWidth) {
-		center();
-	} else {
-		img.addEventListener("load", center, { once: true });
+		return [minX, maxX, w];
+	} catch (e) {
+		// Cross-origin or decode failure: leave the chart as drawn
+		return null;
 	}
 }
 
@@ -3615,12 +3643,15 @@ function showSongFingerings(events) {
 	var boxes = {};
 	events.forEach(function(e) {
 		if (e.midi === null || boxes[e.midi]) return;
-		var box = practiceFingeringBox(true, e.midi);
+		var box = practiceFingeringBox(true, e.midi, true);
 		box.hidden = true;
 		boxes[e.midi] = box;
 		wrap.appendChild(box);
 	});
 	if (!wrap.firstChild) return function() {};
+	if (practice.instrument === "trombone") {
+		centerChartsTogether(Object.keys(boxes).map(function(m) { return boxes[m]; }));
+	}
 	var help = body.querySelector(":scope > .practice-fingering");
 	if (help) help.hidden = true;
 	body.insertBefore(wrap, body.firstChild);

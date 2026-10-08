@@ -422,6 +422,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   Help. Trombone charts share a wide canvas (bell fixed, room for the slide at
   7th position), so `centerChartDrawing()` measures the drawn pixels and
   shifts the image to center them; `.practice-fingering` clips the blank part.
+  Hear the song's charts are shown in turn, so they share one shift
+  (`centerChartsTogether()`, the span they draw together): the bell stays put
+  and only the slide moves.
   The main app's fingering panel leaves charts as drawn.
 - The header's big instrument pill (`#practice-instrument`) is only a label
   (set by `loadPracticeInstrument()`); the instrument is changed on the
