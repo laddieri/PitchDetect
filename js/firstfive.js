@@ -37,7 +37,7 @@
  * The 9 note quiz (startNineQuiz()) is the quiz over the first five notes
  * and notes 6 and beyond.
  *
- * The songs (SONGS) is a list of tunes made of the first 3 notes (Hot Cross
+ * SONGS is a list of tunes made of the first 3 notes (Hot Cross
  * Buns and more), the first five notes (Mary Had a Little Lamb, Jingle Bells
  * and more), then tunes on
  * the whole B♭ scale (Twinkle, Twinkle, London Bridge...). The staff shows
