@@ -2322,7 +2322,6 @@
 			.practice-view[data-mode="menu"] .practice-card,
 			.practice-view:not([data-mode="menu"]) .practice-menu,
 			.practice-view:not([data-mode="menu"]) .practice-tabs,
-			.practice-view:not([data-mode="menu"]) .practice-set-switch,
 			.practice-view[data-step="overview"] .practice-map,
 			.practice-view:not([data-mode="lesson"]) .practice-map {
 				display: none;
@@ -2513,51 +2512,6 @@
 			.practice-view[data-menu-page] .practice-choice-text {
 				flex: 1;
 				min-width: 0;
-			}
-
-			/* Flute and oboe: which three notes they start on */
-			.practice-set-switch {
-				flex-shrink: 0;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				gap: 6px;
-			}
-
-			.practice-set-switch[hidden] {
-				display: none;
-			}
-
-			.practice-set-label {
-				color: var(--text-muted);
-				font-weight: 700;
-			}
-
-			.practice-set-option {
-				padding: 6px 16px;
-				border: 2px solid var(--border-strong);
-				border-radius: var(--radius-pill);
-				background: var(--surface);
-				color: var(--text);
-				font-family: var(--font);
-				font-size: 1rem;
-				font-weight: 700;
-				cursor: pointer;
-			}
-
-			.practice-set-option:hover {
-				border-color: var(--accent);
-			}
-
-			.practice-set-option:focus-visible {
-				outline: none;
-				box-shadow: var(--ring);
-			}
-
-			.practice-set-option[aria-checked="true"] {
-				background: var(--accent);
-				border-color: var(--accent);
-				color: #fff;
 			}
 
 			/* The page tabs above the menu */
@@ -5108,15 +5062,6 @@
 					font-size: 0.9rem;
 				}
 
-				.practice-set-label {
-					font-size: 0.9rem;
-				}
-
-				.practice-set-option {
-					padding: 5px 12px;
-					font-size: 0.95rem;
-				}
-
 				.practice-tab {
 					padding: 9px 4px;
 					font-size: 0.95rem;
@@ -5559,7 +5504,6 @@
 					</span>
 				</button>
 				<div id="practice-tabs" class="practice-tabs" role="tablist" aria-label="Practice"></div>
-				<div id="practice-set-switch" class="practice-set-switch" role="radiogroup" aria-labelledby="practice-set-label" hidden></div>
 				<div id="practice-menu" class="practice-menu"></div>
 				<div id="practice-hub" class="practice-hub"></div>
 				<div id="practice-map" class="practice-map"></div>
