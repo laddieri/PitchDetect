@@ -382,8 +382,13 @@ function nextFourText() {
 
 // "B, A and G"-style names of the first 3 notes
 function threeNotesText() {
-	var names = threeNotes().map(practiceNoteName);
-	return names[0] + ", " + names[1] + " and " + names[2];
+	return notesText(threeNotes());
+}
+
+// "B\u266d, C, D, E\u266d and F"-style names of written notes
+function notesText(notes) {
+	var names = notes.map(practiceNoteName);
+	return names.slice(0, -1).join(", ") + " and " + names[names.length - 1];
 }
 
 // The menu's pages, one tab each: the lessons that teach each set of notes,
@@ -404,19 +409,30 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "lessons", wide: true },
 	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "lessons", wide: true },  // sub: nextFourText()
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "lessons", wide: true },
-	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "How many can you name in 30 seconds?", page: "drills" },
-	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "How many can you name in 30 seconds?", page: "drills" },
-	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?", page: "drills" },
-	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?", page: "drills" },
-	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills" },
-	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "Your first 5 notes and your new notes", page: "drills" },
-	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", wide: true },
+	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
+	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
+	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
+	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
+	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills", group: "playing" },
+	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "drills", group: "playing" },
+	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing", wide: true },
 	{ id: "songs3", icon: "\u266b", title: "Play 3-note songs", sub: "Hot Cross Buns and more", page: "songs" },
 	{ id: "write3", icon: "pencil", title: "Write a 3-note song", sub: "Make up your own tune", page: "songs" },
 	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "songs" },
 	{ id: "write5", icon: "pencil", title: "Write a 5-note song", sub: "Make up your own tune with your first 5 notes", page: "songs" },
 	{ id: "songs", icon: "\u266b", title: "More songs", sub: "When the Saints, Twinkle, or make your own", page: "songs", wide: true }
 ];
+
+// The headings the Practice drills page groups its cards under (an
+// activity's group)
+function practiceGroupTitle(group) {
+	if (group === "names") return "Practice note names";
+	if (group === "fingerings") {
+		return practice.instrument === "trombone" ? "Practice slide positions"
+			: hasFingeringData(practice.instrument) ? "Practice fingerings" : "Practice the keyboard";
+	}
+	return "Practice playing notes";
+}
 
 // The menu page an activity is on (null for screens off the menu)
 function activityPage(id) {
@@ -461,6 +477,9 @@ function showPracticeMenu(page) {
 	var bag = practiceActivityAvailable("learn3bag");
 	renderThreeSetSwitch(page === "lessons" && bag);
 	menu.setAttribute("data-count", activities.length);
+	var grouped = activities.some(function(a) { return a.group; });
+	menu.toggleAttribute("data-grouped", grouped);
+	var groupCards = null, lastGroup = null;
 	activities.forEach(function(a) {
 		var title = a.firstSounds ? fsCfg.title : a.title;
 		var sub = a.firstSounds ? fsCfg.sub : a.sub;
@@ -471,17 +490,19 @@ function showPracticeMenu(page) {
 			sub = "Where most band classes start";
 		}
 		if (a.id === "fingerings" && slide) {
-			title = "Practice slide positions";
-			sub = "How many slide positions can you name in 30 seconds?";
+			title = "Slide positions for the first 5 notes";
 		} else if (a.id === "fingerings" && !chart) {
-			title = "Practice the keyboard";
-			sub = "How many keys can you name in 30 seconds?";
+			title = "Find the first 5 notes on the keyboard";
 		} else if (a.id === "fingerings3" && slide) {
 			title = "Slide positions for 3 notes";
 		} else if (a.id === "fingerings3" && !chart) {
 			title = "Find the 3 notes on the keyboard";
 		} else if (a.id === "write3") {
 			sub = "Make up your own tune with " + threeNotesText();
+		} else if (a.id === "names3" || a.id === "fingerings3") {
+			sub = threeNotesText();
+		} else if (a.id === "names" || a.id === "fingerings") {
+			sub = notesText(practice.lessons.first5.notes);
 		} else if (a.id === "learn4") {
 			sub = nextFourText();
 		}
@@ -533,7 +554,20 @@ function showPracticeMenu(page) {
 		b.querySelector(".practice-choice-sub").textContent = sub;
 		b.querySelector(".practice-choice-score").textContent = score;
 		b.onclick = function() { startPracticeActivity(a.id); };
-		menu.appendChild(b);
+		if (grouped && a.group !== lastGroup) {
+			lastGroup = a.group;
+			var section = document.createElement("section");
+			section.className = "practice-group";
+			var heading = document.createElement("h3");
+			heading.className = "practice-group-title";
+			heading.textContent = practiceGroupTitle(a.group);
+			groupCards = document.createElement("div");
+			groupCards.className = "practice-group-cards";
+			section.appendChild(heading);
+			section.appendChild(groupCards);
+			menu.appendChild(section);
+		}
+		(grouped ? groupCards : menu).appendChild(b);
 	});
 	onPracticeMenuShown(menu, page);
 }
