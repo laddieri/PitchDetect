@@ -3648,6 +3648,25 @@
 				max-height: none;
 			}
 
+			/* Hear the song: the fingering of each note as it sounds, one
+			   chart per pitch with only the current one shown (ids, so the
+			   phone and Help chart sizes don't apply) */
+			#practice-body .song-fingering {
+				display: flex;
+				justify-content: center;
+				width: 100%;
+				flex: 0 0 auto;
+			}
+
+			#practice-body .song-fingering > .practice-fingering {
+				flex: 0 1 auto;
+				height: min(var(--fingering-h, 180px), 22vh);
+			}
+
+			#practice-body .practice-fingering[hidden] {
+				display: none;
+			}
+
 			/* Play: feedback words and the hold bar */
 			.practice-feedback {
 				font-size: 1.6rem;

@@ -242,7 +242,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   sounding the previous note isn't a mistake (no hint, then a "Next note!"
   nudge). **Hear the song** (`playSong()` / `stopSongPlayback()`,
   `songPlayTimer`) plays the tune at `SONG_TEMPO`, with the staff following
-  along and the mic ignoring it; `setPracticeMode()` and `closePractice()`
+  along and the mic ignoring it, and the fingering chart changing with each
+  note (`showSongFingerings()`: one `practiceFingeringBox(true, midi)` per
+  pitch built up front in `#song-fingering`, only the sounding one shown,
+  rests keep the last; a Help chart is hidden meanwhile;
+  `removeSongFingerings()` from `stopSongPlayback()`); `setPracticeMode()` and `closePractice()`
   stop it. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
   from a song returns to the song list, and from the list to the Songs page.

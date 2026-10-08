@@ -939,19 +939,20 @@ function goToPracticeStep(s) {
 	}
 }
 
-// The target's fingering chart (or its piano key, for instruments without
-// charts) in a box for the step body
-function practiceFingeringBox(hideName) {
+// The target's (or midi's) fingering chart (or its piano key, for
+// instruments without charts) in a box for the step body
+function practiceFingeringBox(hideName, midi) {
+	if (midi === undefined) midi = practice.target;
 	var box = document.createElement("div");
 	box.className = "practice-fingering";
 	if (hasFingeringData(practice.instrument)) {
 		box.style.setProperty("--fingering-h", fingeringBoxHeight(practice.instrument));
-		displayFingering(box, practice.instrument, practice.target, false);
+		displayFingering(box, practice.instrument, midi, false);
 		if (practice.instrument === "trombone") centerChartDrawing(box);
 	} else {
 		box.style.setProperty("--fingering-h", "134px");  // the keyboard at 300px wide
-		var concertPc = (((practice.target - getTransposition()) % 12) + 12) % 12;
-		drawPianoKeyboard(concertPc, hideName ? "" : practiceNoteName(practice.target), box);
+		var concertPc = (((midi - getTransposition()) % 12) + 12) % 12;
+		drawPianoKeyboard(concertPc, hideName ? "" : practiceNoteName(midi), box);
 	}
 	return box;
 }
@@ -3041,7 +3042,7 @@ function showSongNote() {
 
 	var view = document.getElementById("practice-view");
 	view.setAttribute("data-step", "song");
-	var box = document.querySelector("#practice-body .practice-fingering");
+	var box = document.querySelector("#practice-body > .practice-fingering");
 	if (box) box.remove();
 	var help = document.getElementById("song-help");
 	if (help) {
@@ -3577,22 +3578,71 @@ function playSongEvents(events, show) {
 	next();
 }
 
-// Hear the song: play the whole tune, the staff following along
+// Hear the song: play the whole tune, the staff and the fingering chart
+// following along
 function playSong() {
 	if (practice.song.free && practice.song.pos > 0) resetFollow();
 	var hear = document.getElementById("song-hear");
 	if (hear) hear.textContent = "\u25a0 Stop";
 	// A part plays just its measures
 	var part = songPart(practice.song);
+	var start = 0, events = practice.song.events;
 	if (part) {
 		var range = songPartEvents(practice.song, part);
-		playSongEvents(practice.song.events.slice(range.start, range.end), function(i) {
-			if (practice.song.pick) drawSongPicker(range.start + i);
-			else drawSongEvent(range.start + i);
-		});
-		return;
+		start = range.start;
+		events = events.slice(range.start, range.end);
 	}
-	playSongEvents(practice.song.events, practice.song.pick ? drawSongPicker : drawSongEvent);
+	var showFingering = showSongFingerings(events);
+	playSongEvents(events, function(i) {
+		if (practice.song.pick) drawSongPicker(start + i);
+		else drawSongEvent(start + i);
+		showFingering(i);
+	});
+}
+
+// While Hear the song plays, the fingering for each note as it sounds. One
+// chart per pitch is built up front (so images are loaded before their note
+// comes) and only shown in turn; a rest keeps the last note's fingering, and
+// the first note's shows from the start so the student sees where to begin.
+// Any Help chart steps aside meanwhile. Returns show(i) for event i.
+function showSongFingerings(events) {
+	removeSongFingerings();
+	var body = document.getElementById("practice-body");
+	var wrap = document.createElement("div");
+	wrap.className = "song-fingering";
+	wrap.id = "song-fingering";
+	wrap.setAttribute("aria-hidden", "true");
+	var boxes = {};
+	events.forEach(function(e) {
+		if (e.midi === null || boxes[e.midi]) return;
+		var box = practiceFingeringBox(true, e.midi);
+		box.hidden = true;
+		boxes[e.midi] = box;
+		wrap.appendChild(box);
+	});
+	if (!wrap.firstChild) return function() {};
+	var help = body.querySelector(":scope > .practice-fingering");
+	if (help) help.hidden = true;
+	body.insertBefore(wrap, body.firstChild);
+	var shown = null;
+	function show(midi) {
+		if (shown) shown.hidden = true;
+		shown = boxes[midi];
+		shown.hidden = false;
+	}
+	show(events.find(function(e) { return e.midi !== null; }).midi);
+	return function(i) {
+		if (events[i].midi !== null) show(events[i].midi);
+	};
+}
+
+// Put away the play-along fingering and bring back any Help chart
+function removeSongFingerings() {
+	var wrap = document.getElementById("song-fingering");
+	if (!wrap) return;
+	var help = wrap.parentNode.querySelector(":scope > .practice-fingering");
+	if (help) help.hidden = false;
+	wrap.remove();
 }
 
 // Stop Hear the song (if playing) and return the staff to the student's note
@@ -3601,6 +3651,7 @@ function stopSongPlayback() {
 	clearTimeout(songPlayTimer);
 	songPlayTimer = null;
 	stopNote();
+	removeSongFingerings();
 	if (practice && practice.mode === "editor") {
 		var editorHear = document.getElementById("editor-hear");
 		if (editorHear) editorHear.textContent = "\u25b6 Hear it";
