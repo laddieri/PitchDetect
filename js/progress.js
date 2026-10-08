@@ -59,7 +59,7 @@ var BADGES = [
 		test: function(s) { return s.first5.every(function(n) { return n > 0; }); } },
 	{ id: "gold-stars", icon: "\u2B50", name: "Gold Stars", how: "Get 3 stars on each of the first 5 notes",
 		test: function(s) { return s.first5.every(function(n) { return n === 3; }); } },
-	{ id: "nine-notes", icon: "\uD83C\uDFBC", name: "Nine Notes", how: "Learn notes 6 to 9",
+	{ id: "nine-notes", icon: "\uD83C\uDFBC", name: "Beyond Five", how: "Learn notes 6 and beyond",
 		test: function(s) { return s.next4.every(function(n) { return n > 0; }); } },
 	{ id: "quiz-whiz", icon: "\uD83C\uDFC6", name: "Quiz Whiz", how: "Play every note of the quiz on your own",
 		test: function(s) { return s.quizBest >= CHALLENGE_LENGTH; } },
@@ -453,6 +453,8 @@ function learningPath() {
 		done: fiveNoteCustomSongs().some(function(song) { return songNotes(song).length >= 5; }) });
 	nodes.push({ title: "Learn " + nextFourText(), activity: "learn4",
 		done: practice.lessons.next4.stars.every(function(n) { return n > 0; }) });
+	nodes.push({ title: "Play 2 songs with your new notes", activity: "songs", level: "beyond",
+		done: songsStarredAt("beyond") >= 2 });
 	nodes.push({ title: "Learn the B\u266D scale", activity: "scale",
 		done: practice.lessons.scale.stars.every(function(n) { return n > 0; }) });
 	nodes.push({ title: "Play the B\u266D scale", activity: "scalerun",

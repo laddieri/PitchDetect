@@ -80,8 +80,8 @@ var SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];  // B♭ C D E♭ F G A B♭
 var FIRST3_STEPS = [4, 2, 0];  // D C B♭, stepping down to the first B♭
 var FIRST3_BAG_STEPS = [1, -1, -3];  // B A G, the flute and oboe start
 var FIRST3_BAG_INSTRUMENTS = ["flute", "oboe"];
-// Notes 6 to 9 in most band methods, in the order they're usually taught:
-// concert G, A♭, the A♭ an octave lower, then the low A
+// Notes 6 and beyond: notes 6 to 9 in most band methods, in the order
+// they're usually taught: concert G, A♭, the A♭ an octave lower, the low A
 var NEXT4_STEPS = [9, 10, -2, -1];
 
 var PRACTICE_STORAGE_KEY = "pitchdetect-first-five";
@@ -119,7 +119,7 @@ var NEXT4_STORAGE_KEY = "pitchdetect-next-four";
 var FIRST3_SET_STORAGE_KEY = "pitchdetect-first-three-set";  // flute/oboe's choice
 
 // The note sets taught as lessons: the first three notes (D C B♭, or B A G
-// on flute and oboe), the first five notes, notes 6 to 9 and the B♭ scale
+// on flute and oboe), the first five notes, notes 6 and beyond and the B♭ scale
 var LESSON_SETS = {
 	first3: { steps: FIRST3_STEPS, storage: FIRST3_STORAGE_KEY },
 	first3bag: { steps: FIRST3_BAG_STEPS, storage: FIRST3_BAG_STORAGE_KEY },
@@ -368,7 +368,7 @@ function threeNotes() {
 	return practice.lessons[practice.threeSet].notes;
 }
 
-// "G, A♭ (high and low) and A"-style names of notes 6 to 9
+// "G, A♭ (high and low) and A"-style names of notes 6 and beyond
 function nextFourText() {
 	var names = practice.lessons.next4.notes.map(practiceNoteName);
 	return names[0] + ", " + names[1] + " (high and low) and " + names[3];
@@ -382,7 +382,7 @@ function threeNotesText() {
 
 // The menu's pages, one tab each: the first 3 notes (a path: learn them,
 // name and finger them, play and write songs with them), the first 5 notes
-// (lessons, quiz, drills and songs), then notes 6 to 9, the B♭ scale and songs
+// (lessons, quiz, drills and songs), then notes 6 and beyond, the B♭ scale and songs
 var PRACTICE_PAGES = [
 	{ id: "three", label: "First 3 notes" },
 	{ id: "five", label: "First 5 notes" },
@@ -405,7 +405,7 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?", page: "five" },
 	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "five" },
 	{ id: "write5", icon: "pencil", title: "Write a 5-note song", sub: "Make up your own tune with your first 5 notes", page: "five" },
-	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 to 9", sub: "", page: "scale", wide: true },  // sub: nextFourText()
+	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "scale", wide: true },  // sub: nextFourText()
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "scale" },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "scale" },
 	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "When the Saints, Twinkle, or make your own", page: "scale", wide: true }
@@ -678,7 +678,7 @@ function showLessonOverview() {
 	document.getElementById("practice-steps").innerHTML = "";
 	var notes = currentLesson().notes;
 	document.getElementById("practice-prompt").textContent = practice.lesson === "scale" ? "Meet the B\u266d scale!"
-		: practice.lesson === "next4" ? "Meet your next 4 notes!"
+		: practice.lesson === "next4" ? "Meet notes 6 and beyond!"
 		: practice.lesson.indexOf("first3") === 0 ? "Meet your first 3 notes!" : "Meet your first 5 notes!";
 	drawLessonOverview(-1);
 
@@ -1224,7 +1224,7 @@ function renderPracticeResult() {
 	prompt.textContent = !practice.allLearned ? "You played " + name + "!"
 		: scale ? "You learned the whole B\u266d scale!"
 		: first3 ? "You learned your first 3 notes!"
-		: next4 ? "You learned notes 6 to 9!"
+		: next4 ? "You learned notes 6 and beyond!"
 		: "You learned all five notes!";
 
 	var labels = ["Named it first try", "Played it", "Right in tune"];
@@ -2007,6 +2007,12 @@ var MY_SONGS_STORAGE_KEY = "pitchdetect-my-songs";
 // beginner songs stay on the first five notes in plain rhythms;
 // intermediate adds rests, dotted notes or notes past the fifth; advanced,
 // eighth notes on the whole scale.
+// A song with steps (concert semitones from the first B♭, one letter apart,
+// so spellScale() spells them) numbers its notes 1–8 from those instead:
+// the "beyond" songs, on the notes 6 and beyond. tonic (an index into
+// steps) adds " in <key>" to the title, named at the student's written pitch.
+var BEYOND_AB_STEPS = [-2, 0, 2, 4, 5, 7, 9, 10];  // low A♭ B♭ C D E♭ F G A♭
+var BEYOND_A_STEPS = [-1, 0, 2, 4, 5, 7, 9, 10];   // low A B♭ C D E♭ F G A♭
 var SONGS = [
 	{ id: "hotcrossbuns", level: "three", title: "Hot Cross Buns",
 		measures: ["3h 2h", "1w", "3h 2h", "1w", "1q 1q 1q 1q", "2q 2q 2q 2q", "3h 2h", "1w"] },
@@ -2037,6 +2043,22 @@ var SONGS = [
 	{ id: "jinglebells", level: "beginner", title: "Jingle Bells",
 		measures: ["3q 3q 3h", "3q 3q 3h", "3q 5q 1q 2q", "3w",
 			"4q 4q 4q 4q", "4q 3q 3q 3q", "3q 2q 2q 3q", "2h 5h"] },
+	{ id: "hotcrossbunseb", level: "beyond", title: "Hot Cross Buns", steps: BEYOND_AB_STEPS, tonic: 5,
+		measures: ["7h 6h", "5w", "7h 6h", "5w", "5q 5q 5q 5q", "6q 6q 6q 6q", "7h 6h", "5w"] },
+	{ id: "hotcrossbunsab", level: "beyond", title: "Hot Cross Buns", steps: BEYOND_AB_STEPS, tonic: 1,
+		measures: ["3h 2h", "1w", "3h 2h", "1w", "1q 1q 1q 1q", "2q 2q 2q 2q", "3h 2h", "1w"] },
+	{ id: "maryab", level: "beyond", title: "Mary Had a Little Lamb", steps: BEYOND_AB_STEPS, tonic: 1,
+		measures: ["3q 2q 1q 2q", "3q 3q 3h", "2q 2q 2h", "3q 5q 5h",
+			"3q 2q 1q 2q", "3q 3q 3q 3q", "2q 2q 3q 2q", "1w"] },
+	{ id: "oldmacdonald", level: "beyond", title: "Old MacDonald", steps: BEYOND_AB_STEPS, tonic: 5,
+		measures: ["5q 5q 5q 2q", "3q 3q 2h", "7q 7q 6q 6q", "5h. 2q",
+			"5q 5q 5q 2q", "3q 3q 2h", "7q 7q 6q 6q", "5w"] },
+	{ id: "yankeedoodle", level: "beyond", title: "Yankee Doodle", steps: BEYOND_AB_STEPS, tonic: 5,
+		measures: ["5q 5q 6q 7q", "5q 7q 6q 2q", "5q 5q 6q 7q", "5h 4h",
+			"5q 5q 6q 7q", "8q 7q 6q 5q", "4q 2q 3q 4q", "5h 5h"] },
+	{ id: "deckthehalls", level: "beyond", title: "Deck the Halls", steps: BEYOND_A_STEPS,
+		measures: ["6q. 58 4q 3q", "2q 3q 4q 2q", "38 48 58 38 4q. 38", "2q 1q 2h",
+			"6q. 58 4q 3q", "2q 3q 4q 2q", "38 48 58 38 4q. 38", "2q 1q 2h"] },
 	{ id: "goinghome", level: "intermediate", title: "Goin\u2019 Home",  // Dvořák, the Largo of the New World Symphony
 		measures: ["3q. 58 5h", "3q. 28 1h", "2q 3q 5q 3q", "2w",
 			"3q. 58 5h", "3q. 28 1h", "2q 3q 2q. 18", "1w"] },
@@ -2067,6 +2089,7 @@ var SONGS = [
 var SONG_LEVELS = [
 	{ id: "three", title: "First 3 notes", sub: "Just three notes" },
 	{ id: "beginner", title: "Beginner", sub: "First 5 notes" },
+	{ id: "beyond", title: "Notes 6 and beyond", sub: "Songs with your new notes" },
 	{ id: "intermediate", title: "Intermediate", sub: "Rests, dots, more notes" },
 	{ id: "advanced", title: "Advanced", sub: "Eighth notes, whole scale" }
 ];
@@ -2079,7 +2102,7 @@ var songLevelsOpen = {};   // song list levels shown open, by level id
 function songEvents(song) {
 	if (song.custom) return customSongEvents(song);
 	var events = [];
-	var spelled = spellScale(song.level === "three" ? threeNoteScale() : practiceNotes(SCALE_STEPS));
+	var spelled = spellScale(song.level === "three" ? threeNoteScale() : practiceNotes(song.steps || SCALE_STEPS));
 	song.measures.forEach(function(m, measure) {
 		m.split(" ").forEach(function(token) {
 			var e = { midi: null, dur: token.charAt(1), dots: token.charAt(2) === "." ? 1 : 0, measure: measure };
@@ -2100,9 +2123,9 @@ function songEvents(song) {
 // first note's, so a written scale with a sharp (alto sax: G A B C D E F♯)
 // reads right: [{ midi, letter, octave, alter, s (diatonic step) }]
 function spellScale(scale) {
-	var first = flatNoteSpellings[((scale[0] % 12) + 12) % 12];
+	var first = practiceSpelling(scale[0]);
 	var firstLetter = "CDEFGAB".indexOf(first.charAt(0));
-	var firstOctave = Math.floor((scale[0] - (first.length > 1 ? -1 : 0)) / 12) - 1;
+	var firstOctave = Math.floor((scale[0] - (first.length > 1 ? (first.charAt(1) === "#" ? 1 : -1) : 0)) / 12) - 1;
 	return scale.map(function(midi, step) {
 		var place = firstLetter + step;
 		var n = { midi: midi, letter: place % 7, octave: firstOctave + Math.floor(place / 7) };
@@ -2110,6 +2133,13 @@ function spellScale(scale) {
 		n.s = n.octave * 7 + n.letter;
 		return n;
 	});
+}
+
+// A song's title; a song in a key ("Hot Cross Buns in E♭") names the key
+// at the student's written pitch
+function songTitle(song) {
+	if (!song.tonic) return song.title;
+	return song.title + " in " + practiceNoteName(practiceNotes(song.steps)[song.tonic - 1]);
 }
 
 // The student's first 3 notes from the bottom: 3-note songs' degrees 1–3.
@@ -2252,9 +2282,9 @@ function showSongList(list) {
 		var b = document.createElement("button");
 		b.className = "song-choice";
 		b.innerHTML = '<span class="song-choice-title"></span><span class="song-choice-stars" aria-hidden="true"></span>';
-		b.firstChild.textContent = song.title;
+		b.firstChild.textContent = songTitle(song);
 		b.lastChild.textContent = starText(stars);
-		b.setAttribute("aria-label", song.title + ", " + stars + " of 3 stars");
+		b.setAttribute("aria-label", songTitle(song) + ", " + stars + " of 3 stars");
 		b.onclick = function() { playThroughSong(song.id); };
 		return b;
 	}
@@ -2349,7 +2379,7 @@ function startSong(id, from) {
 		for (var i = 0; i < from; i++) practice.song.results.push(true);
 	}
 	document.getElementById("practice-view").setAttribute("data-step", "song");
-	document.getElementById("practice-prompt").textContent = song.title;
+	document.getElementById("practice-prompt").textContent = songTitle(song);
 
 	var body = document.getElementById("practice-body");
 	body.innerHTML =
@@ -2395,7 +2425,7 @@ function playThroughSong(id) {
 		pos: 0, results: [], streak: 0, free: true
 	};
 	document.getElementById("practice-view").setAttribute("data-step", "song-free");
-	document.getElementById("practice-prompt").textContent = song.title;
+	document.getElementById("practice-prompt").textContent = songTitle(song);
 	document.getElementById("practice-steps").innerHTML = "";
 	document.getElementById("practice-staff-output").scrollTop = 0;
 	resetFollow();
@@ -2654,7 +2684,7 @@ function showSongNote() {
 		help.textContent = "Help";
 		help.onclick = showSongHelp;
 	}
-	document.getElementById("practice-prompt").textContent = s.song.title;
+	document.getElementById("practice-prompt").textContent = songTitle(s.song);
 	drawSongLine(s.pos);
 	renderSongProgress();
 	if (s.pos === 0) {
@@ -2793,7 +2823,7 @@ function finishSong() {
 		saveSongBest(practice.instrument, practice.songBest);
 	}
 	showRoundResult(score, newBest,
-		"You played " + s.song.title + "!",
+		"You played " + songTitle(s.song) + "!",
 		"You played " + score + " of " + total + " notes on your own",
 		function() { startSong(s.id); }, total,
 		{ label: songListLabel(), onclick: function() { showSongList(); } });
