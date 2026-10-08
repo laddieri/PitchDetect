@@ -3103,7 +3103,8 @@
 			.practice-view[data-whole="1"][data-step="song-editor"] .practice-staff,
 			.practice-view[data-whole="1"][data-step="song-import"] .practice-staff,
 			.practice-view[data-editor-stack="1"][data-step="song-editor"] .practice-staff,
-			.practice-view[data-step="song-free"] .practice-staff {
+			.practice-view[data-step="song-free"] .practice-staff,
+			.practice-view[data-step="song-pick"] .practice-staff {
 				flex: 1 1 0;
 				height: auto;
 				min-height: 120px;
@@ -3111,7 +3112,8 @@
 
 			.practice-view[data-whole="1"] #practice-staff-output,
 			.practice-view[data-editor-stack="1"][data-step="song-editor"] #practice-staff-output,
-			.practice-view[data-step="song-free"] #practice-staff-output {
+			.practice-view[data-step="song-free"] #practice-staff-output,
+			.practice-view[data-step="song-pick"] #practice-staff-output {
 				position: relative;
 				overflow-y: auto;
 				overscroll-behavior: contain;
@@ -3142,8 +3144,14 @@
 				width: 100%;
 			}
 
-			.practice-view[data-step="song-free"] .practice-steps {
+			.practice-view[data-step="song-free"] .practice-steps,
+			.practice-view[data-step="song-pick"] .practice-steps {
 				display: none;
+			}
+
+			/* Pick a part: tap the measures to practice */
+			.practice-view[data-step="song-pick"] #practice-staff-output {
+				cursor: pointer;
 			}
 
 			.song-line + .song-line {

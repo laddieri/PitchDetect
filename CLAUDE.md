@@ -244,6 +244,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   of the first red note's line (`startSong(id, from)`: earlier notes count
   done, no best saved, the result offers Play it through again). Hear the
   song restarts the run; **Note by note** returns to `startSong()`.
+  **Pick a part** (on Play it through, its result and note by note):
+  `showSongPicker(id, back, pick)` (mode `song`, `data-step="song-pick"`,
+  `practice.song.pick` `{ a, b }` measures, mic off) shows the whole song;
+  a tap (`songPickerTap()`) picks a measure, a second tap the part's last
+  measure, a third starts over (the result's preselects the first red
+  note's measure). **Practice it** runs `startSong(id, from, to)` over just
+  those notes (`songPartNotes()`; `songEnd()` stops there, one progress dot
+  per measure, the rest of the song grayed out, Hear plays only the part,
+  `songPart()` / `partLabel()`); no best saved, the result offers Play
+  again, Pick another part and Play it through.
   Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
   dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
   playable ones, each with its `event` index. `renderSongLine()` draws a
