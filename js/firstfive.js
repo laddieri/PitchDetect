@@ -2359,8 +2359,9 @@ function showSongList(list) {
 	practiceStartedMic = false;
 }
 
-// from: start partway (Practice the red notes), notes before it counted done
-function startSong(id, from) {
+// from: start partway (Practice the red notes), notes before it counted done;
+// to: stop before note to (Pick a part: just the measures picked)
+function startSong(id, from, to) {
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
@@ -2378,6 +2379,7 @@ function startSong(id, from) {
 		practice.song.pos = from;
 		for (var i = 0; i < from; i++) practice.song.results.push(true);
 	}
+	if (to !== undefined) practice.song.to = to;
 	document.getElementById("practice-view").setAttribute("data-step", "song");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
 
@@ -2387,7 +2389,7 @@ function startSong(id, from) {
 		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>';
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
-	var hear = practiceButton("▶ Hear the song", "secondary", function() {
+	var hear = practiceButton(songHearLabel(), "secondary", function() {
 		if (songPlayTimer !== null) stopSongPlayback(); else playSong();
 	});
 	hear.id = "song-hear";
@@ -2395,6 +2397,9 @@ function startSong(id, from) {
 	help.id = "song-help";
 	actions.appendChild(hear);
 	actions.appendChild(help);
+	actions.appendChild(practiceButton("Pick a part", "secondary", function() {
+		showSongPicker(id, function() { startSong(id); }, songPart(practice.song));
+	}));
 	actions.appendChild(practiceButton("Play it through", "secondary", function() { playThroughSong(id); }));
 	body.appendChild(actions);
 
@@ -2454,6 +2459,9 @@ function resetFollow() {
 	hear.id = "song-hear";
 	actions.appendChild(hear);
 	actions.appendChild(practiceButton("Note by note", "secondary", function() { startSong(s.id); }));
+	actions.appendChild(practiceButton("Pick a part", "secondary", function() {
+		showSongPicker(s.id, function() { playThroughSong(s.id); });
+	}));
 	var done = practiceButton("\u25a0 Stop and score", "secondary", finishFollow);
 	done.id = "follow-done";
 	actions.appendChild(done);
@@ -2636,6 +2644,10 @@ function finishFollow() {
 			startSong(s.id, songLineStart(firstMiss));
 		}));
 	}
+	actions.appendChild(practiceButton("Pick a part", "secondary", function() {
+		var m = firstMiss >= 0 ? s.notes[firstMiss].measure : null;
+		showSongPicker(s.id, function() { playThroughSong(s.id); }, m === null ? null : { a: m, b: m });
+	}));
 	actions.appendChild(practiceButton("Play again", right === total ? "secondary" : "primary", resetFollow));
 	// Played it all right: the next song waits beside Play again
 	var songs = s.song.custom
@@ -2660,11 +2672,212 @@ function songLineStart(pos) {
 	return pos;
 }
 
+// Pick a part: a student stuck on one spot picks the measures to work on
+// and plays just those note by note. The whole song shows; a tap picks a
+// measure, a second tap the last measure of the part (and the ones between),
+// a tap after that starts over. back: where Cancel goes; pick: { a, b }
+// measures to start with.
+function showSongPicker(id, back, pick) {
+	stopSongPlayback();
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	var song = findSong(id);
+	setPracticeMode("song");
+	practice.index = -1;
+	practice.step = -1;
+	practice.target = null;
+	practice.ghost = null;
+	var events = songEvents(song);
+	practice.song = {
+		id: id, song: song, events: events, notes: songNotes(song, events),
+		measures: events.length ? events[events.length - 1].measure + 1 : 0,
+		pos: 0, results: [], streak: 0,
+		pick: { a: pick ? pick.a : null, b: pick ? pick.b : null }, back: back
+	};
+	document.getElementById("practice-view").setAttribute("data-step", "song-pick");
+	document.getElementById("practice-prompt").textContent = songTitle(song);
+	document.getElementById("practice-steps").innerHTML = "";
+	document.getElementById("practice-staff-output").scrollTop = 0;
+
+	var body = document.getElementById("practice-body");
+	body.innerHTML =
+		'<div class="practice-feedback" id="practice-feedback" aria-live="polite"></div>' +
+		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>';
+	var actions = document.createElement("div");
+	actions.className = "practice-actions";
+	var hear = practiceButton(songHearLabel(), "secondary", function() {
+		if (songPlayTimer !== null) stopSongPlayback(); else playSong();
+	});
+	hear.id = "song-hear";
+	actions.appendChild(hear);
+	actions.appendChild(practiceButton("Cancel", "secondary", back));
+	var go = practiceButton("Practice it", "primary", function() {
+		var range = songPartNotes(practice.song);
+		if (range) startSong(id, range.from, range.to);
+	});
+	go.id = "song-pick-go";
+	actions.appendChild(go);
+	body.appendChild(actions);
+	// Nothing listens while picking
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
+	updateSongPicker();
+}
+
+// The prompt, buttons and staff for the measures picked so far
+function updateSongPicker() {
+	var s = practice.song;
+	var part = songPart(s);
+	var range = songPartNotes(s);
+	if (!part) {
+		setPracticeFeedback("Tap a measure to practice", "Tap another to practice a few in a row");
+	} else if (!range) {
+		setPracticeFeedback("There are only rests there", "Tap a measure with notes in it", "close");
+	} else {
+		var count = range.to - range.from;
+		setPracticeFeedback(partLabel(part, true),
+			count + (count === 1 ? " note" : " notes") + (part.a === part.b ? " \u00b7 tap another measure to add more" : ""),
+			"good");
+	}
+	var go = document.getElementById("song-pick-go");
+	if (go) go.disabled = !range;
+	var hear = document.getElementById("song-hear");
+	if (hear && songPlayTimer === null) hear.textContent = songHearLabel();
+	drawSongPicker(-1);
+}
+
+// Draw the whole song for picking: the measures picked shaded, their notes
+// in the accent color; playing: the event being heard, in green
+function drawSongPicker(playing) {
+	var s = practice.song;
+	var styles = getComputedStyle(document.body);
+	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
+	var done = styles.getPropertyValue("--success").trim() || "#16a34a";
+	var part = songPart(s);
+	var out = document.getElementById("practice-staff-output");
+	var line = playing >= 0 ? Math.floor(s.events[playing].measure / SONG_MEASURES_PER_LINE)
+		: part ? Math.floor(part.a / SONG_MEASURES_PER_LINE) : -1;
+	var layouts = renderSongView(out, s.song, s.events, line, s.measures, { end: true, whole: true }, function(i) {
+		if (i === playing) return done;
+		var m = s.events[i].measure;
+		return part && m >= part.a && m <= part.b ? accent : null;
+	});
+	s.pickLayouts = layouts;
+	if (!part) return;
+	var ns = "http://www.w3.org/2000/svg";
+	Object.keys(layouts).forEach(function(l) {
+		var r = layouts[l];
+		if (!r.svg || !r.stave) return;
+		Object.keys(r.measureX).forEach(function(k) {
+			var m = parseInt(k, 10);
+			if (m < part.a || m > part.b) return;
+			var top = r.stave.getYForLine(0) - LINE_SPACING * 2;
+			var rect = document.createElementNS(ns, "rect");
+			rect.setAttribute("class", "song-pick-shade");
+			rect.setAttribute("x", r.measureX[m][0] - 8);
+			rect.setAttribute("y", top);
+			rect.setAttribute("width", r.measureX[m][1] - r.measureX[m][0] + 12);
+			rect.setAttribute("height", r.stave.getYForLine(4) - top + LINE_SPACING * 2);
+			rect.setAttribute("rx", 6);
+			rect.setAttribute("fill", accent);
+			rect.setAttribute("fill-opacity", "0.13");
+			r.svg.insertBefore(rect, r.svg.firstChild);
+		});
+	});
+}
+
+// A tap on the staff while picking: the measure under it
+function songPickerTap(event) {
+	if (!practiceOpen || !practice || practice.mode !== "song" || !practice.song || !practice.song.pick) return;
+	var s = practice.song;
+	if (songPlayTimer !== null) stopSongPlayback();
+	var lineEl = event.target.closest ? event.target.closest(".song-line") : null;
+	var r = lineEl && s.pickLayouts ? s.pickLayouts[lineEl.getAttribute("data-line")] : null;
+	if (!r || !r.svg) return;
+	var pt = r.svg.createSVGPoint();
+	pt.x = event.clientX;
+	pt.y = event.clientY;
+	var x = pt.matrixTransform(r.svg.getScreenCTM().inverse()).x;
+	// The measure tapped, or the nearest one
+	var measure = null, best = Infinity;
+	Object.keys(r.measureX).forEach(function(k) {
+		var span = r.measureX[k];
+		var d = x < span[0] ? span[0] - x : x > span[1] ? x - span[1] : 0;
+		if (d < best) {
+			best = d;
+			measure = parseInt(k, 10);
+		}
+	});
+	if (measure === null) return;
+	var pick = s.pick;
+	if (pick.a === null || pick.a !== pick.b) {
+		pick.a = pick.b = measure;
+	} else if (measure === pick.a) {
+		pick.a = pick.b = null;
+	} else {
+		pick.b = Math.max(pick.a, measure);
+		pick.a = Math.min(pick.a, measure);
+	}
+	updateSongPicker();
+}
+
+// The measures of the part being practiced or picked ({ a, b }), or null
+// for the whole song
+function songPart(s) {
+	if (s.pick) return s.pick.a === null ? null : { a: s.pick.a, b: s.pick.b };
+	if (s.to === undefined) return null;
+	return { a: s.notes[s.from || 0].measure, b: s.notes[s.to - 1].measure };
+}
+
+// The notes of the measures picked: { from, to } (to past the last), or null
+// if there are none
+function songPartNotes(s) {
+	var part = songPart(s);
+	if (!part) return null;
+	var from = -1, to = -1;
+	s.notes.forEach(function(n, i) {
+		if (n.measure < part.a || n.measure > part.b) return;
+		if (from < 0) from = i;
+		to = i + 1;
+	});
+	return from < 0 ? null : { from: from, to: to };
+}
+
+// The events (notes and rests) of a part's measures: { start, end }
+function songPartEvents(s, part) {
+	var start = s.events.length, end = s.events.length;
+	for (var i = 0; i < s.events.length; i++) {
+		if (s.events[i].measure >= part.a && start === s.events.length) start = i;
+		if (s.events[i].measure > part.b) {
+			end = i;
+			break;
+		}
+	}
+	return { start: start, end: end };
+}
+
+// Where note by note stops: the end of the part, or of the song
+function songEnd(s) {
+	return s.to !== undefined ? s.to : s.notes.length;
+}
+
+// "measure 3" or "measures 3–5" (capitalized to start a sentence)
+function partLabel(part, capital) {
+	var label = part.a === part.b ? "measure " + (part.a + 1)
+		: "measures " + (part.a + 1) + "\u2013" + (part.b + 1);
+	return capital ? label.charAt(0).toUpperCase() + label.slice(1) : label;
+}
+
+function songHearLabel() {
+	return songPart(practice.song) ? "\u25b6 Hear this part" : "\u25b6 Hear the song";
+}
+
 // Point the round at the current note: highlight it, reset the hold, and put
 // away any help from the last note
 function showSongNote() {
 	var s = practice.song;
-	var prev = s.pos > 0 ? s.notes[s.pos - 1].midi : null;
+	// The first note of a part has nothing played before it
+	var prev = s.pos > (s.from || 0) ? s.notes[s.pos - 1].midi : null;
 	practice.target = s.notes[s.pos].midi;
 	practice.prevTarget = prev;
 	practice.noteShownAt = performance.now();
@@ -2687,8 +2900,9 @@ function showSongNote() {
 	document.getElementById("practice-prompt").textContent = songTitle(s.song);
 	drawSongLine(s.pos);
 	renderSongProgress();
-	if (s.pos === 0) {
-		setPracticeFeedback("Play the glowing note", " ");
+	if (s.pos === (s.from || 0)) {
+		var part = songPart(s);
+		setPracticeFeedback("Play the glowing note", part ? partLabel(part, true) : " ");
 	} else if (practice.needRetongue) {
 		setPracticeFeedback("Again!", "Tongue it: “too”", "good");
 	}
@@ -2786,7 +3000,7 @@ function passSongNote() {
 	s.results.push(!s.helped);
 	s.streak = s.helped ? 0 : s.streak + 1;
 	s.pos++;
-	if (s.pos < s.notes.length) {
+	if (s.pos < songEnd(s)) {
 		showSongNote();
 		if (!practice.needRetongue) setPracticeFeedback("That’s it!", " ", "good");
 		return;
@@ -2800,6 +3014,24 @@ function passSongNote() {
 function finishSong() {
 	var s = practice.song;
 	var total = s.notes.length;
+	// Practiced a part: again until it's all on their own, then the whole song
+	var picked = songPart(s);
+	if (picked) {
+		var notes = s.results.slice(s.from || 0, s.to);
+		var mine = notes.filter(Boolean).length;
+		showRoundResult(mine, false, "You practiced " + partLabel(picked) + "!",
+			"You played " + mine + " of " + notes.length + " notes on your own",
+			function() { startSong(s.id, s.from, s.to); }, notes.length,
+			{ label: "Pick another part", onclick: function() {
+				showSongPicker(s.id, function() { playThroughSong(s.id); }, picked);
+			} });
+		var buttons = document.querySelector("#practice-body .practice-actions");
+		if (mine === notes.length) buttons.lastChild.className = "practice-btn secondary";
+		buttons.appendChild(practiceButton("Play it through \u2192", mine === notes.length ? "primary" : "secondary",
+			function() { playThroughSong(s.id); }));
+		recordProgress(mine);
+		return;
+	}
 	// Practiced from the red notes on: no best score, straight back to
 	// playing it through
 	if (s.from) {
@@ -2844,16 +3076,20 @@ function renderSongProgress() {
 	var row = document.createElement("div");
 	row.className = "challenge-progress";
 	row.setAttribute("role", "img");
-	var lines = Math.ceil(s.measures / SONG_MEASURES_PER_LINE);
-	var current = s.pos < s.notes.length ? songLineOf(s.pos) : lines;
-	row.setAttribute("aria-label", "Line " + Math.min(current + 1, lines) + " of " + lines);
+	// A part: one dot per measure picked
+	var part = songPart(s);
+	var unitOf = part ? function(i) { return s.notes[i].measure; } : songLineOf;
+	var first = part ? part.a : 0;
+	var last = part ? part.b : Math.ceil(s.measures / SONG_MEASURES_PER_LINE) - 1;
+	var current = s.pos < songEnd(s) ? unitOf(s.pos) : last + 1;
+	row.setAttribute("aria-label", (part ? "Measure " : "Line ") + (Math.min(current, last) - first + 1) + " of " + (last - first + 1));
 	list.appendChild(songViewButton());
-	for (var line = 0; line < lines; line++) {
+	for (var u = first; u <= last; u++) {
 		var dot = document.createElement("span");
-		var helped = s.results.some(function(own, i) { return !own && songLineOf(i) === line; });
+		var helped = s.results.some(function(own, i) { return !own && unitOf(i) === u; });
 		dot.className = "challenge-dot" +
-			(line < current ? (helped ? " helped" : " own")
-				: line === current ? " current" + (helped || s.helped ? " helping" : "") : "");
+			(u < current ? (helped ? " helped" : " own")
+				: u === current ? " current" + (helped || s.helped ? " helping" : "") : "");
 		row.appendChild(dot);
 	}
 	list.appendChild(row);
@@ -2867,6 +3103,10 @@ function songLineOf(pos) {
 // done): played notes green, note pos glowing in the accent color
 function drawSongLine(pos) {
 	var s = practice.song;
+	if (s.pick) {
+		drawSongPicker(-1);
+		return;
+	}
 	if (s.free) {
 		// Right notes green as they're played; mistakes show only at the end
 		var styles = getComputedStyle(document.body);
@@ -2886,7 +3126,7 @@ function drawSongLine(pos) {
 	var hl = pos < s.notes.length ? s.notes[pos].event : s.events.length;
 	// An arrow over the note the mic is waiting for, and beside it the
 	// wrong note being played, if any
-	drawSongEvent(hl, pos < s.notes.length ? hl : null, practice.ghost);
+	drawSongEvent(hl, pos < songEnd(s) ? hl : null, practice.ghost);
 }
 
 // Draw the line holding event hl (a note or rest; past the end = the last
@@ -2897,10 +3137,18 @@ function drawSongEvent(hl, arrow, ghost) {
 	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
 	var done = styles.getPropertyValue("--success").trim() || "#16a34a";
 	var e = s.events[Math.min(hl, s.events.length - 1)];
+	// A part: the rest of the song grayed out
+	var part = songPart(s);
+	var muted = "rgba(100, 116, 139, 0.4)";
+	var inPart = part ? songPartEvents(s, part) : null;
+	if (part && hl >= inPart.end) e = s.events[inPart.end - 1];
 	renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
 		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null, whole: !!s.free },
-		function(i) { return i === hl ? accent : i < hl ? done : null; });
+		function(i) {
+			if (inPart && (i < inPart.start || i >= inPart.end)) return muted;
+			return i === hl ? accent : i < hl ? done : null;
+		});
 }
 
 // Key signatures offered for the student's own songs, counted the way they
@@ -3183,7 +3431,17 @@ function playSong() {
 	if (practice.song.free && practice.song.pos > 0) resetFollow();
 	var hear = document.getElementById("song-hear");
 	if (hear) hear.textContent = "\u25a0 Stop";
-	playSongEvents(practice.song.events, drawSongEvent);
+	// A part plays just its measures
+	var part = songPart(practice.song);
+	if (part) {
+		var range = songPartEvents(practice.song, part);
+		playSongEvents(practice.song.events.slice(range.start, range.end), function(i) {
+			if (practice.song.pick) drawSongPicker(range.start + i);
+			else drawSongEvent(range.start + i);
+		});
+		return;
+	}
+	playSongEvents(practice.song.events, practice.song.pick ? drawSongPicker : drawSongEvent);
 }
 
 // Stop Hear the song (if playing) and return the staff to the student's note
@@ -3214,7 +3472,7 @@ function stopSongPlayback() {
 	practice.ignoreUntil = performance.now() + 400;
 	resetPracticeHold();
 	var hear = document.getElementById("song-hear");
-	if (hear) hear.textContent = "▶ Hear the song";
+	if (hear) hear.textContent = songHearLabel();
 	drawSongLine(practice.song.pos);
 }
 
@@ -4097,6 +4355,7 @@ function editorKeyDown(event) {
 }
 
 document.getElementById("practice-staff-output").addEventListener("click", editorStaffTap);
+document.getElementById("practice-staff-output").addEventListener("click", songPickerTap);
 
 // ---------------------------------------------------------------------------
 // Sharing songs: the whole song rides in a link (#song=…), so there's no
