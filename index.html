@@ -3102,6 +3102,7 @@
 			.practice-view[data-whole="1"][data-step="song"] .practice-staff,
 			.practice-view[data-whole="1"][data-step="song-editor"] .practice-staff,
 			.practice-view[data-whole="1"][data-step="song-import"] .practice-staff,
+			.practice-view[data-editor-stack="1"][data-step="song-editor"] .practice-staff,
 			.practice-view[data-step="song-free"] .practice-staff {
 				flex: 1 1 0;
 				height: auto;
@@ -3109,10 +3110,32 @@
 			}
 
 			.practice-view[data-whole="1"] #practice-staff-output,
+			.practice-view[data-editor-stack="1"][data-step="song-editor"] #practice-staff-output,
 			.practice-view[data-step="song-free"] #practice-staff-output {
 				position: relative;
 				overflow-y: auto;
 				overscroll-behavior: contain;
+			}
+
+			/* A phone's editor: the measures written so far stack above the
+			   one being written, which stays put at the bottom */
+			.practice-view[data-editor-stack="1"][data-step="song-editor"] #practice-staff-output {
+				display: flex;
+				flex-direction: column;
+			}
+
+			.practice-view[data-editor-stack="1"][data-step="song-editor"] .song-line {
+				flex-shrink: 0;
+			}
+
+			.practice-view[data-editor-stack="1"][data-step="song-editor"] .song-line:first-child {
+				margin-top: auto;
+			}
+
+			.practice-view[data-editor-stack="1"] .editor-staff-arrows {
+				top: auto;
+				bottom: calc(var(--editor-line-h, 100px) / 2);
+				transform: translateY(50%);
 			}
 
 			.song-line {

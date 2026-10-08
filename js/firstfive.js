@@ -3080,10 +3080,11 @@ var songWholeView = false;
 try { songWholeView = localStorage.getItem(SONG_WHOLE_STORAGE_KEY) === "1"; } catch (e) {}
 
 // Draw a song into out: line alone, or with the whole song showing, every
-// line stacked with line scrolled into view. Returns the layouts by line.
+// line stacked with line scrolled into view (opts.through: only the lines
+// up to line, so what came before stays in view). Returns the layouts by line.
 function renderSongView(out, song, events, line, measures, opts, color) {
 	var layouts = {};
-	if (!songWholeView && !opts.whole) {
+	if (!songWholeView && !opts.whole && !opts.through) {
 		layouts[line] = renderSongLine(out, song, events, line, measures, opts, color);
 		return layouts;
 	}
@@ -3093,7 +3094,8 @@ function renderSongView(out, song, events, line, measures, opts, color) {
 	var lineOpts = {};
 	Object.keys(opts).forEach(function(k) { lineOpts[k] = opts[k]; });
 	lineOpts.height = SONG_WHOLE_LINE_HEIGHT;
-	for (var l = 0; l < Math.ceil(measures / perLine); l++) {
+	var lines = opts.through ? line + 1 : Math.ceil(measures / perLine);
+	for (var l = 0; l < lines; l++) {
 		var div = document.createElement("div");
 		div.className = "song-line" + (l === line ? " current" : "");
 		div.setAttribute("data-line", l);
@@ -3643,16 +3645,24 @@ function drawEditor(playing) {
 	// A phone gets one measure per line, big enough to tap a line or space
 	ed.perLine = window.matchMedia("(max-width: 700px)").matches ? 1 : SONG_MEASURES_PER_LINE;
 	ed.line = Math.floor(focusMeasure / ed.perLine);
+	// That's one measure in view, so the measures before it stack above it
+	// (scrolling), and a full measure doesn't vanish from sight
+	var through = !songWholeView && ed.perLine === 1;
+	ed.stacked = songWholeView || through;
+	document.getElementById("practice-view").setAttribute("data-editor-stack", through ? "1" : "0");
 
 	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
 	var out = document.getElementById("practice-staff-output");
-	ed.layouts = renderSongView(out, song, events, ed.line, ed.measures, { left: true, perLine: ed.perLine },
+	ed.layouts = renderSongView(out, song, events, ed.line, ed.measures, { left: true, perLine: ed.perLine, through: through },
 		function(i) { return i === focus || i === target ? accent : null; });
 	ed.layout = ed.layouts[ed.line];
+	// ▲▼ stay beside that measure, at the bottom
+	var current = out.querySelector(".song-line.current");
+	if (through && current) out.parentNode.style.setProperty("--editor-line-h", current.offsetHeight + "px");
 
-	// A blinking caret where the next note goes (with the whole song showing,
-	// on the end's own line)
-	var r = songWholeView ? ed.layouts[Math.floor(ed.endMeasure / ed.perLine)] : ed.layout;
+	// A blinking caret where the next note goes (with the lines stacked, on
+	// the end's own line when it's showing)
+	var r = ed.stacked ? ed.layouts[Math.floor(ed.endMeasure / ed.perLine)] || ed.layout : ed.layout;
 	if (!isPlaying && ed.sel === n && r.svg && (r.measureX[ed.endMeasure] || r.xs[n - 1] !== undefined)) {
 		var x;
 		if (r.measureX[ed.endMeasure]) {
@@ -4015,9 +4025,9 @@ function editorStaffTap(event) {
 		stopSongPlayback();
 		return;
 	}
-	// With the whole song showing, the line tapped
+	// With the lines stacked, the line tapped
 	var r = ed.layout;
-	if (songWholeView) {
+	if (ed.stacked) {
 		var lineEl = event.target.closest ? event.target.closest(".song-line") : null;
 		r = lineEl ? ed.layouts[lineEl.getAttribute("data-line")] : null;
 	}
