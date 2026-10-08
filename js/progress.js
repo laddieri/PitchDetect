@@ -25,6 +25,13 @@
  *   - The learning path (learningPath()) orders the practice activities;
  *     the menu marks the next one, and the profile lists them all. Nothing
  *     is locked: the path is a guide, so a teacher can send students anywhere.
+ *
+ * Teacher mode: typing TEACHER_CODE as the student ID opens every activity
+ * for a teacher to demonstrate on any instrument (a drop-down in the
+ * practice header). Stars, bests and XP are kept in memory only
+ * (teacherStore), so nothing a teacher plays persists; songs written in
+ * teacher mode are saved, under the teacher's own key. It lasts for the
+ * browser session (sessionStorage), until Leave teacher mode.
  */
 
 var STUDENT_STORAGE_KEY = "pitchdetect-student";
@@ -37,6 +44,10 @@ var GOAL_XP = 30;
 var BADGE_XP = 20;
 var NEW_BEST_XP = 10;
 var PROFILE_KEEP_DAYS = 400;   // daily practice times older than this are dropped
+var TEACHER_STORAGE_KEY = "pitchdetect-teacher";
+// Typed as the student ID, opens teacher mode. Not a password (anyone can
+// read the page's code), just enough to keep students from wandering in.
+var TEACHER_CODE = "BANDTEACHER";
 
 // Avatars, each unlocked at a level
 var AVATARS = [
@@ -103,10 +114,43 @@ try { currentStudent = localStorage.getItem(STUDENT_STORAGE_KEY); } catch (e) {}
 var profile = null;
 var lastPracticeActivity = 0;
 var profileUnsavedSeconds = 0;
+var teacherMode = false;
+try { teacherMode = sessionStorage.getItem(TEACHER_STORAGE_KEY) === "1"; } catch (e) {}
+var teacherStore = {};  // teacher mode's stars, bests and profile: this visit only
 
-// A practice storage key for the student signed in
+// A practice storage key for the student signed in ("@teacher" can't
+// clash with a student ID, which is upper case)
 function studentKey(key) {
+	if (teacherMode) return key + "@teacher";
 	return currentStudent ? key + "@" + currentStudent : key;
+}
+
+// Practice progress storage (stars, bests, songs, the profile). In teacher
+// mode only songs are written to the device; the rest stays in memory.
+function progressGet(key) {
+	if (teacherMode && key !== MY_SONGS_STORAGE_KEY) {
+		return teacherStore.hasOwnProperty(key) ? teacherStore[key] : null;
+	}
+	return localStorage.getItem(studentKey(key));
+}
+
+function progressSet(key, value) {
+	if (teacherMode && key !== MY_SONGS_STORAGE_KEY) {
+		teacherStore[key] = value;
+		return;
+	}
+	localStorage.setItem(studentKey(key), value);
+}
+
+// Someone is on practice: a student, a guest or the teacher
+function practiceSignedIn() {
+	return teacherMode || currentStudent !== null;
+}
+
+// Whether practice earns XP, badges, streak time and the path: a student
+// or guest, not the teacher
+function progressCounts() {
+	return !teacherMode && currentStudent !== null;
 }
 
 // A typed student ID, tidied (spaces and dashes dropped, letters upper
@@ -131,7 +175,7 @@ function nonNegative(n) {
 
 function loadProfile() {
 	var p = null;
-	try { p = JSON.parse(localStorage.getItem(studentKey(PROFILE_STORAGE_KEY)) || "null"); } catch (e) {}
+	try { p = JSON.parse(progressGet(PROFILE_STORAGE_KEY) || "null"); } catch (e) {}
 	if (!p || typeof p !== "object") p = {};
 	var days = {};
 	if (p.days && typeof p.days === "object") {
@@ -161,7 +205,7 @@ function saveProfile() {
 	Object.keys(profile.days).forEach(function(d) {
 		if (d < cutoff) delete profile.days[d];
 	});
-	try { localStorage.setItem(studentKey(PROFILE_STORAGE_KEY), JSON.stringify(profile)); } catch (e) {}
+	try { progressSet(PROFILE_STORAGE_KEY, JSON.stringify(profile)); } catch (e) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -238,7 +282,7 @@ function practicing() {
 }
 
 function practiceTick() {
-	if (!profile || currentStudent === null || document.hidden) return;
+	if (!profile || !progressCounts() || document.hidden) return;
 	if (Date.now() - lastPracticeActivity > ACTIVE_WINDOW_MS || !practicing()) return;
 	var today = dayKey(new Date());
 	var before = profile.days[today] || 0;
@@ -304,7 +348,7 @@ function awardXp(amount, quiet) {
 // Called by the activities when they finish: any badges it earned, then
 // one XP award for what was done and the badges
 function recordProgress(xp) {
-	if (currentStudent === null) return;
+	if (!progressCounts()) return;
 	awardXp(xp + BADGE_XP * earnBadges());
 }
 
@@ -344,7 +388,7 @@ function progressSnapshot() {
 // Mark any badges now due as earned (with a pop unless quiet); returns how
 // many, for the caller to award their XP
 function earnBadges(quiet) {
-	if (!practice || !profile || currentStudent === null) return 0;
+	if (!practice || !profile || !progressCounts()) return 0;
 	var s = progressSnapshot();
 	var earned = BADGES.filter(function(b) {
 		return !profile.badges[b.id] && b.test(s);
@@ -480,7 +524,7 @@ function startPathNode(node) {
 // Mark the menu card (or the tab of the page it's on) for the next step on
 // the path
 function markNextUp(menu, page) {
-	if (currentStudent === null) return;
+	if (!progressCounts()) return;
 	var next = nextPathNode();
 	if (!next) return;
 	var card = menu.querySelector('[data-activity="' + next.activity + '"]');
@@ -535,13 +579,15 @@ function updatePlayerBar() {
 // Called by showPracticeMenu() once the cards are built
 function onPracticeMenuShown(menu, page) {
 	updatePlayerBar();
+	updateTeacherHeader();
 	markNextUp(menu, page);
 }
 
 // Called by loadPracticeInstrument(): award badges already earned before
 // badges existed
 function onPracticeLoaded() {
-	if (!profile || currentStudent === null || !practice.instrument) return;
+	updateTeacherHeader();
+	if (!profile || !progressCounts() || !practice.instrument) return;
 	checkBadges(true);
 }
 
@@ -549,7 +595,7 @@ function onPracticeLoaded() {
 // on the profile), if the current mode offers it
 function applyStudentInstrument() {
 	var select = document.getElementById("instrument");
-	var saved = profile && currentStudent !== null ? profile.instrument : null;
+	var saved = profile && progressCounts() ? profile.instrument : null;
 	if (!saved || saved === select.value) return;
 	var previous = select.value;
 	select.value = saved;
@@ -637,6 +683,10 @@ function showSignIn(from) {
 	form.onsubmit = function(event) {
 		event.preventDefault();
 		var id = normalizeStudentId(input.value);
+		if (id === TEACHER_CODE) {
+			enterTeacherMode();
+			return;
+		}
 		if (!id) {
 			showToast("A student ID is 3 to 12 letters and numbers.");
 			input.focus();
@@ -653,10 +703,82 @@ function showSignIn(from) {
 	input.focus();
 }
 
+// ---------------------------------------------------------------------------
+// Teacher mode
+// ---------------------------------------------------------------------------
+
+function setTeacherMode(on) {
+	saveProfile();
+	teacherMode = on;
+	teacherStore = {};
+	try {
+		if (on) sessionStorage.setItem(TEACHER_STORAGE_KEY, "1");
+		else sessionStorage.removeItem(TEACHER_STORAGE_KEY);
+	} catch (e) {}
+	profile = loadProfile();
+	updateTeacherHeader();
+}
+
+// The teacher code was typed: every activity, any instrument, nothing kept
+function enterTeacherMode() {
+	setTeacherMode(true);
+	loadPracticeInstrument();
+	if (!practice.instrument) {
+		showInstrumentStep("open");
+		return;
+	}
+	showPracticeMenu("lessons");
+	showProgressPop("Teacher mode", "goal");
+	if (pendingSongImport) openSongImport();
+}
+
+// Back to the students: who's practicing next?
+function leaveTeacherMode() {
+	stopNote();
+	setTeacherMode(false);
+	applyStudentInstrument();
+	loadPracticeInstrument();
+	showSignIn("open");
+}
+
+// The header's instrument becomes a drop-down in teacher mode, and the
+// teacher bar stands in for the player bar
+function updateTeacherHeader() {
+	var view = document.getElementById("practice-view");
+	view.classList.toggle("teacher", teacherMode);
+	var pick = document.getElementById("practice-instrument-select");
+	if (!teacherMode || !pick) return;
+	pick.innerHTML = "";
+	if (!practice || !practice.instrument) pick.appendChild(new Option("Choose an instrument", ""));
+	Array.prototype.forEach.call(document.getElementById("instrument").options, function(opt) {
+		if (opt.value) pick.appendChild(new Option(opt.textContent, opt.value));
+	});
+	pick.value = practice ? practice.instrument : "";
+}
+
+// The teacher picks an instrument from the header: the app follows, and
+// practice reloads on the menu page the teacher was on (an activity in
+// progress was for the old instrument)
+function teacherPickInstrument(value) {
+	if (!teacherMode || !value || (practice && value === practice.instrument)) return;
+	var page = practice && practice.mode === "menu" ? practice.menuPage
+		: practice && activityPage(currentPracticeActivity()) || (practice && practice.menuPage);
+	clearTimeout(practiceAdvanceTimer);
+	stopNote();
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
+	var select = document.getElementById("instrument");
+	select.value = value;
+	select.dispatchEvent(new Event("change"));
+	loadPracticeInstrument();
+	showPracticeMenu(page || "lessons");
+}
+
 // Switch to a student ("" = guest): their progress, and their instrument
 // if this device has one saved for them
 function signInStudent(id) {
 	var from = practice.signinFrom;  // loadPracticeInstrument() starts practice afresh
+	if (teacherMode) setTeacherMode(false);
 	saveProfile();
 	currentStudent = id;
 	try { localStorage.setItem(STUDENT_STORAGE_KEY, id); } catch (e) {}
@@ -684,7 +806,7 @@ function continueSignIn(from) {
 // Signed in (and named): on to the menu, with a hello
 function finishSignIn() {
 	showPracticeMenu();
-	if (currentStudent) showProgressPop("Hi, " + studentLabel() + "!", "goal");
+	if (currentStudent && !teacherMode) showProgressPop("Hi, " + studentLabel() + "!", "goal");
 	if (pendingSongImport) openSongImport();
 }
 
@@ -760,7 +882,8 @@ function showInstrumentStep(from) {
 		setStudentInstrument(value);
 		finishSignIn();
 	}));
-	box.appendChild(el("p", "signin-note", "You can change it later on your profile."));
+	box.appendChild(el("p", "signin-note", teacherMode ? "Switch any time from the top of the practice menu."
+		: "You can change it later on your profile."));
 	hub.appendChild(box);
 	var first = box.querySelector(".instrument-choice");
 	if (first) first.focus();
