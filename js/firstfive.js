@@ -25,10 +25,9 @@
  *
  * Learn the first 3 notes is an easier start: concert D C B♭ (FIRST3_STEPS),
  * the first three notes many band methods begin with, taught the same way.
- * Flute and oboe can learn B, A and G instead (FIRST3_BAG_STEPS), where their
- * classes usually start: a switch on the menu's Lessons page picks the
- * set (practice.threeSet), and the 3-note drills, songs and song writing
- * all use it.
+ * Flute and oboe also get B, A and G (FIRST3_BAG_STEPS), where their classes
+ * usually start: each set has its own lesson, drills, songs and song writing
+ * cards (THREE_SET_ACTIVITIES); the one opened sets practice.threeSet.
  *
  * Learn the B♭ scale extends the lessons to the first octave: concert
  * B♭ C D E♭ F G A B♭ (SCALE_STEPS) from the same starting B♭, eight lessons
@@ -121,7 +120,6 @@ var SCALE_RUN_STORAGE_KEY = "pitchdetect-bb-scale-run";
 var FIRST3_STORAGE_KEY = "pitchdetect-first-three";
 var FIRST3_BAG_STORAGE_KEY = "pitchdetect-first-three-bag";
 var NEXT4_STORAGE_KEY = "pitchdetect-next-four";
-var FIRST3_SET_STORAGE_KEY = "pitchdetect-first-three-set";  // flute/oboe's choice
 
 // The note sets taught as lessons: the first three notes (D C B♭, or B A G
 // on flute and oboe), the first five notes, notes 6 and beyond and the B♭ scale
@@ -203,23 +201,11 @@ function challengeStars(score, total) {
 	return score >= total ? 3 : score >= total * 0.8 ? 2 : score >= total * 0.5 ? 1 : 0;
 }
 
-// The three notes flute and oboe start on ("first3bag", the default, or
-// "first3"); everyone else starts on D C B♭
-function loadThreeSet(instrument) {
-	if (FIRST3_BAG_INSTRUMENTS.indexOf(instrument) < 0) return "first3";
-	try {
-		var set = JSON.parse(localStorage.getItem(studentKey(FIRST3_SET_STORAGE_KEY)) || "{}")[instrument];
-		if (set === "first3") return set;
-	} catch (e) {}
-	return "first3bag";
-}
-
-function saveThreeSet(instrument, set) {
-	try {
-		var all = JSON.parse(localStorage.getItem(studentKey(FIRST3_SET_STORAGE_KEY)) || "{}");
-		all[instrument] = set;
-		localStorage.setItem(studentKey(FIRST3_SET_STORAGE_KEY), JSON.stringify(all));
-	} catch (e) {}
+// The three notes an instrument starts on: B A G ("first3bag") on flute and
+// oboe, D C B♭ ("first3") for everyone else. Flute and oboe have both sets'
+// cards; this one is on their learning path.
+function defaultThreeSet(instrument) {
+	return FIRST3_BAG_INSTRUMENTS.indexOf(instrument) < 0 ? "first3" : "first3bag";
 }
 
 // Best drill scores for an instrument: { names: n, fingerings: n, names3: n,
@@ -305,7 +291,7 @@ function loadPracticeInstrument() {
 		lessons: lessons,
 		lesson: "first5",
 		notes: lessons.first5.notes,  // the quiz and drills use the first five
-		threeSet: loadThreeSet(select.value),  // ...and the 3-note page this set
+		threeSet: defaultThreeSet(select.value),  // ...and the 3-note ones the set last opened
 		fingeringKeys: {},
 		challengeBest: loadChallengeBest(select.value),
 		scaleRunBest: loadChallengeBest(select.value, SCALE_RUN_STORAGE_KEY),
@@ -363,15 +349,30 @@ function practiceActivityAvailable(id) {
 	return !a || !a.instruments || a.instruments.indexOf(practice.instrument) >= 0;
 }
 
-// The first 3 notes lesson the student is on: D C B♭, or on flute and oboe
-// the set the Lessons page's switch picks (B A G unless changed)
-function firstThreeActivity() {
-	return practice.threeSet === "first3bag" ? "learn3bag" : "learn3";
+// The 3-note activities and the note set each works on. Flute and oboe get
+// a card for each set ("...bag" on B A G); opening one sets practice.threeSet,
+// which the drills, songs and song writing then follow.
+var THREE_SET_ACTIVITIES = {
+	learn3: "first3", names3: "first3", fingerings3: "first3", songs3: "first3", write3: "first3",
+	learn3bag: "first3bag", names3bag: "first3bag", fingerings3bag: "first3bag", songs3bag: "first3bag", write3bag: "first3bag"
+};
+
+// A 3-note activity id for set set: threeSetActivity("names3", "first3bag")
+// is "names3bag"
+function threeSetActivity(id, set) {
+	return id + (set === "first3bag" ? "bag" : "");
 }
 
-// The written notes of the student's first 3 notes, as taught (top down)
-function threeNotes() {
-	return practice.lessons[practice.threeSet].notes;
+// The first 3 notes lesson on the student's path: B A G on flute and oboe,
+// D C B♭ for everyone else
+function firstThreeActivity() {
+	return threeSetActivity("learn3", defaultThreeSet(practice.instrument));
+}
+
+// The written notes of a set of first 3 notes, as taught (top down)
+// (default: the set last opened)
+function threeNotes(set) {
+	return practice.lessons[set || practice.threeSet].notes;
 }
 
 // "G, A♭ (high and low) and A"-style names of notes 6 and beyond
@@ -380,9 +381,9 @@ function nextFourText() {
 	return names[0] + ", " + names[1] + " (high and low) and " + names[3];
 }
 
-// "B, A and G"-style names of the first 3 notes
-function threeNotesText() {
-	return notesText(threeNotes());
+// "B, A and G"-style names of a set of first 3 notes
+function threeNotesText(set) {
+	return notesText(threeNotes(set));
 }
 
 // "B\u266d, C, D, E\u266d and F"-style names of written notes
@@ -409,10 +410,12 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "lessons", wide: true },
 	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "lessons", wide: true },  // sub: nextFourText()
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "lessons", wide: true },
+	{ id: "names3bag", icon: "A\u00a0B", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "names" },  // title: the notes
 	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
 	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
 	{ id: "names9", icon: "A\u00a0B", title: "Name 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "names" },
 	{ id: "namesscale", icon: "A\u00a0B", title: "Name the B\u266d scale notes", sub: "", page: "drills", group: "names" },  // sub: its range
+	{ id: "fingerings3bag", icon: "fingering", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "fingerings" },  // title: the notes
 	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
 	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
 	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "fingerings" },
@@ -420,6 +423,8 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills", group: "playing" },
 	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "drills", group: "playing" },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing", wide: true },
+	{ id: "songs3bag", icon: "\u266b", title: "", sub: "Hot Cross Buns and more", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
+	{ id: "write3bag", icon: "pencil", title: "", sub: "Make up your own tune", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "songs3", icon: "\u266b", title: "Play 3-note songs", sub: "Hot Cross Buns and more", page: "songs" },
 	{ id: "write3", icon: "pencil", title: "Write a 3-note song", sub: "Make up your own tune", page: "songs" },
 	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "songs" },
@@ -473,13 +478,12 @@ function showPracticeMenu(page) {
 	var menu = document.getElementById("practice-menu");
 	menu.innerHTML = "";
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
-	// Only the first 3 notes lesson the page's switch picks shows
 	var activities = PRACTICE_ACTIVITIES.filter(function(a) {
-		return practiceActivityAvailable(a.id) && a.page === page &&
-			!((a.id === "learn3" || a.id === "learn3bag") && a.id !== firstThreeActivity());
+		return practiceActivityAvailable(a.id) && a.page === page;
 	});
+	// Flute and oboe have two sets of first 3 notes, so their 3-note cards
+	// name the notes they're on
 	var bag = practiceActivityAvailable("learn3bag");
-	renderThreeSetSwitch(page === "lessons" && bag);
 	menu.setAttribute("data-count", activities.length);
 	var grouped = activities.some(function(a) { return a.group; });
 	menu.toggleAttribute("data-grouped", grouped);
@@ -487,10 +491,11 @@ function showPracticeMenu(page) {
 	activities.forEach(function(a) {
 		var title = a.firstSounds ? fsCfg.title : a.title;
 		var sub = a.firstSounds ? fsCfg.sub : a.sub;
+		var set = THREE_SET_ACTIVITIES[a.id];
 		if (a.id === "learn3bag") {
 			sub = "Where most " + (practice.instrument === "oboe" ? "oboe" : "flute") + " classes start";
 		} else if (a.id === "learn3" && bag) {
-			title = "Learn D, C and B\u266d";
+			title = "Learn " + threeNotesText(set);
 			sub = "Where most band classes start";
 		}
 		if (a.id === "fingerings" && slide) {
@@ -509,11 +514,15 @@ function showPracticeMenu(page) {
 			title = "Slide positions for the B\u266d scale";
 		} else if (a.id === "fingeringsscale" && !chart) {
 			title = "Find the B\u266d scale on the keyboard";
-		} else if (a.id === "write3") {
-			sub = "Make up your own tune with " + threeNotesText();
+		} else if (a.id === "write3" && !bag) {
+			sub = "Make up your own tune with " + threeNotesText(set);
 		}
-		if (a.id === "names3" || a.id === "fingerings3") {
-			sub = threeNotesText();
+		if (set && bag && a.id.indexOf("learn3") !== 0) {
+			title = { names3: "Name ", fingerings3: "Finger ", songs3: "Play songs with ",
+				write3: "Write a song with " }[a.id.replace(/bag$/, "")] + threeNotesText(set);
+			if (/^(names|fingerings)3/.test(a.id)) sub = "3 notes, against the clock";
+		} else if (a.id === "names3" || a.id === "fingerings3") {
+			sub = threeNotesText(set);
 		} else if (a.id === "names" || a.id === "fingerings") {
 			sub = notesText(practice.lessons.first5.notes);
 		} else if (a.id === "namesscale" || a.id === "fingeringsscale") {
@@ -530,12 +539,12 @@ function showPracticeMenu(page) {
 			score = total + " / " + stars.length * 3 + " \u2605";
 		} else if (a.firstSounds) {
 			score = starText(practice.firstSoundsBest);
-		} else if (a.id === "songs" || a.id === "songs3" || a.id === "songs5") {
-			var list = listSongs({ songs: "all", songs3: "three", songs5: "five" }[a.id]);
-			var songTotal = list.reduce(function(t, song) { return t + songStars(song); }, 0);
+		} else if (a.id === "songs" || a.id === "songs3" || a.id === "songs3bag" || a.id === "songs5") {
+			var list = listSongs({ songs: "all", songs3: "three", songs3bag: "three", songs5: "five" }[a.id]);
+			var songTotal = list.reduce(function(t, song) { return t + songStars(song, set); }, 0);
 			score = songTotal + " / " + list.length * 3 + " \u2605";
-		} else if (a.id === "write3" || a.id === "write5") {
-			var mine = (a.id === "write3" ? threeNoteCustomSongs() : fiveNoteCustomSongs()).length;
+		} else if (a.id === "write3" || a.id === "write3bag" || a.id === "write5") {
+			var mine = (set ? threeNoteCustomSongs(set) : fiveNoteCustomSongs()).length;
 			score = mine ? mine + (mine === 1 ? " song" : " songs") : "New";
 		} else if (a.id === "scalerun") {
 			var run = practice.scaleRunBest;
@@ -547,7 +556,7 @@ function showPracticeMenu(page) {
 			var best9 = practice.quiz9Best;
 			score = typeof best9 === "number" ? starText(challengeStars(best9, QUIZ9_LENGTH)) : "\u2606\u2606\u2606";
 		} else {
-			var drillBest = practice.drillBest[drillBestKey(a.id)];
+			var drillBest = practice.drillBest[a.id];
 			score = typeof drillBest === "number" ? "Best: " + drillBest : DRILL_SECONDS + " sec";
 		}
 
@@ -626,34 +635,6 @@ function practiceGroupsClosed() {
 	return {};
 }
 
-// Flute and oboe pick which three notes they start on (B A G or D C B♭);
-// all the 3-note drills, songs and song writing follow it
-function renderThreeSetSwitch(show) {
-	var bar = document.getElementById("practice-set-switch");
-	bar.hidden = !show;
-	bar.innerHTML = "";
-	if (!show) return;
-	var label = document.createElement("span");
-	label.className = "practice-set-label";
-	label.id = "practice-set-label";
-	label.textContent = "My first notes:";
-	bar.appendChild(label);
-	["first3bag", "first3"].forEach(function(set) {
-		var b = document.createElement("button");
-		b.className = "practice-set-option";
-		b.setAttribute("role", "radio");
-		b.setAttribute("aria-checked", set === practice.threeSet ? "true" : "false");
-		b.textContent = practice.lessons[set].notes.map(practiceNoteName).join(" ");
-		b.onclick = function() {
-			if (practice.threeSet === set) return;
-			practice.threeSet = set;
-			saveThreeSet(practice.instrument, set);
-			showPracticeMenu("lessons");
-		};
-		bar.appendChild(b);
-	});
-}
-
 // The page tabs above the menu
 function renderPracticeTabs(page) {
 	var tabs = document.getElementById("practice-tabs");
@@ -671,6 +652,8 @@ function renderPracticeTabs(page) {
 }
 
 function startPracticeActivity(id) {
+	if (THREE_SET_ACTIVITIES[id]) practice.threeSet = THREE_SET_ACTIVITIES[id];
+	id = id.replace(/^(songs3|write3)bag$/, "$1");
 	if (LESSON_ACTIVITIES[id]) {
 		startLesson(LESSON_ACTIVITIES[id]);
 	} else if (id === "quiz") {
@@ -739,7 +722,8 @@ function currentPracticeActivity() {
 	if (practice.mode === "profile" || practice.mode === "signin") return practice.mode;
 	if (practice.mode === "songs" || practice.mode === "song" || practice.mode === "editor" || practice.mode === "import") {
 		if (practice.mode === "import") return "songs";
-		return practice.songList === "three" ? "songs3" : practice.songList === "five" ? "songs5" : "songs";
+		return practice.songList === "three" ? threeSetActivity("songs3", practice.threeSet)
+			: practice.songList === "five" ? "songs5" : "songs";
 	}
 	return "menu";
 }
@@ -765,6 +749,7 @@ function closePractice() {
 // their names first, so the Read step never asks a name before it's taught
 function startLesson(id) {
 	practice.lesson = id;
+	if (id.indexOf("first3") === 0) practice.threeSet = id;
 	showLessonOverview();
 }
 
@@ -1355,7 +1340,7 @@ function renderPracticeResult() {
 	}));
 	if (practice.allLearned) {
 		actions.appendChild(scale ? practiceButton("Play the whole scale \u2192", "primary", startScaleRun)
-			: first3 ? practiceButton("Name the notes \u2192", "primary", function() { startDrill("names3"); })
+			: first3 ? practiceButton("Name the notes \u2192", "primary", function() { startDrill(threeSetActivity("names3", practice.lesson)); })
 			: next4 ? practiceButton("Take the 9 note quiz \u2192", "primary", startNineQuiz)
 			: practiceButton("Take the quiz \u2192", "primary", startChallenge));
 	}
@@ -1780,7 +1765,7 @@ function renderChallengeProgress() {
 // A race against the clock: name as many notes as you can in DRILL_SECONDS.
 // kind "names" shows the note on the staff; "fingerings" shows only its chart
 // (or unlabeled piano key). "names3" and "fingerings3" do the same on the
-// first 3 notes (practice.threeSet), "names9" / "fingerings9" on the first 5
+// first 3 notes (D C B♭; "names3bag" / "fingerings3bag" on B A G), "names9" / "fingerings9" on the first 5
 // and notes 6 and beyond, "namesscale" / "fingeringsscale" on the B♭ scale. Either way the student picks its name; a note
 // scores if named on the first try (a wrong answer still has to be fixed
 // before moving on). The clock starts once the first answers can be tapped.
@@ -1790,6 +1775,7 @@ function startDrill(kind) {
 	stopNote();
 	setPracticeMode("drill");
 	practice.drillKind = kind;
+	if (isThreeDrill(kind)) practice.threeSet = /bag$/.test(kind) ? "first3bag" : "first3";
 	practice.drillNotes = drillNotes(kind);
 	practice.index = -1;
 	practice.challenge = { kind: "drill", notes: practice.drillNotes, seq: [], pos: 0, results: [], score: 0, endsAt: 0,
@@ -1803,21 +1789,16 @@ function startDrill(kind) {
 // The notes a drill kind asks: the first 3, the first 5, those plus notes 6
 // and beyond ("9"), or the B♭ scale ("scale")
 function drillNotes(kind) {
-	if (isThreeDrill(kind)) return threeNotes();
+	if (isThreeDrill(kind)) return threeNotes(/bag$/.test(kind) ? "first3bag" : "first3");
 	if (/9$/.test(kind)) return practice.notes.concat(practice.lessons.next4.notes);
 	if (/scale$/.test(kind)) return practice.lessons.scale.notes;
 	return practice.notes;
 }
 
 function isThreeDrill(kind) {
-	return kind === "names3" || kind === "fingerings3";
+	return /^(names|fingerings)3(bag)?$/.test(kind);
 }
 
-// Where a drill's best is kept: by kind, and for the 3-note drills by note
-// set too (flute and oboe can drill B A G and D C B♭ separately)
-function drillBestKey(kind) {
-	return kind + (isThreeDrill(kind) && practice.threeSet === "first3bag" ? "bag" : "");
-}
 
 // A random note index for the next question, never the same twice in a row
 function nextDrillNote(seq) {
@@ -1849,7 +1830,7 @@ function startDrillClock(c) {
 // Right answers needed to pop the balloon: DRILL_BALLOON_GOAL, and once the
 // student has popped it, one more than their best
 function drillBalloonGoal(kind) {
-	var best = practice.drillBest[drillBestKey(kind)];
+	var best = practice.drillBest[kind];
 	return typeof best === "number" && best >= DRILL_BALLOON_GOAL ? best + 1 : DRILL_BALLOON_GOAL;
 }
 
@@ -1885,7 +1866,7 @@ function renderDrillProgress() {
 	time.setAttribute("aria-label", secs + " seconds left");
 	row.querySelector(".drill-clock-fill").style.width = (left / (DRILL_SECONDS * 1000) * 100) + "%";
 	row.classList.toggle("hurry", !!c.endsAt && secs <= 5);
-	var best = practice.drillBest[drillBestKey(practice.drillKind)];
+	var best = practice.drillBest[practice.drillKind];
 	var score = row.querySelector(".drill-score");
 	score.textContent = "\u2713 " + c.score;
 	score.setAttribute("aria-label", c.score + " right" + (typeof best === "number" ? ", best " + best : ""));
@@ -2129,10 +2110,10 @@ function finishDrill() {
 	clearTimeout(practiceAdvanceTimer);
 	var kind = practice.drillKind;
 	var score = practice.challenge.score;
-	var prev = practice.drillBest[drillBestKey(kind)];
+	var prev = practice.drillBest[kind];
 	var newBest = typeof prev !== "number" || score > prev;
 	if (newBest) {
-		practice.drillBest[drillBestKey(kind)] = score;
+		practice.drillBest[kind] = score;
 		saveDrillBest(practice.instrument, practice.drillBest);
 	}
 	var line = "You named " + score + " note" + (score === 1 ? "" : "s") + " in " + DRILL_SECONDS + " seconds";
@@ -2328,9 +2309,11 @@ function listSongs(list) {
 	return SONGS.filter(function(song) { return (song.level === "beginner") === (list === "five"); });
 }
 
-// The student's own songs written with their first 3 notes
-function threeNoteCustomSongs() {
-	return practice.customSongs.filter(function(song) { return song.three === practice.threeSet; });
+// The student's own songs written with a set of first 3 notes (default:
+// the set last opened)
+function threeNoteCustomSongs(set) {
+	set = set || practice.threeSet;
+	return practice.customSongs.filter(function(song) { return song.three === set; });
 }
 
 // The student's own songs written with their first 5 notes
@@ -2344,9 +2327,9 @@ function listCustomSongs(list) {
 }
 
 // Where a song's best is kept: by id, and for 3-note songs on B A G apart
-// from the same song on D C B♭
-function songBestKey(song) {
-	return song.level === "three" && practice.threeSet === "first3bag" ? song.id + "@bag" : song.id;
+// from the same song on D C B♭ (set: the 3 notes, default the set last opened)
+function songBestKey(song, set) {
+	return song.level === "three" && (set || practice.threeSet) === "first3bag" ? song.id + "@bag" : song.id;
 }
 
 // The notes to play (rests left out), each knowing its place in the events:
@@ -2411,8 +2394,9 @@ function saveSongBest(instrument, best) {
 }
 
 // Trophy stars earned on a song so far (0 if never finished)
-function songStars(song) {
-	var best = practice.songBest[songBestKey(song)];
+// (set: for 3-note songs, which 3 notes; see songBestKey())
+function songStars(song, set) {
+	var best = practice.songBest[songBestKey(song, set)];
 	return typeof best === "number" ? challengeStars(best, songNotes(song).length) : 0;
 }
 

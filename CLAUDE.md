@@ -74,13 +74,18 @@ after the first five, named on the card by `nextFourText()`; best stars in
 `pitchdetect-next-four`; its result leads to the 9 note quiz) and **Learn the
 B♭ scale**. Flute and oboe also have **Learn B, A and G**
 (`FIRST3_BAG_STEPS` / `FIRST3_BAG_INSTRUMENTS`, in
-`pitchdetect-first-three-bag`, where their classes start): a switch above
-the Lessons cards (`#practice-set-switch`, `renderThreeSetSwitch()`) picks
-`practice.threeSet` (`"first3bag"`, the default, or `"first3"`; saved per
-instrument in `pitchdetect-first-three-set`), and the page shows that
-set's lesson card, while the 3-note drills, songs and song writing run on
-it (`threeNotes()`, `threeNotesText()`); `firstThreeActivity()` gives the
-lesson for the set. Activities with `instruments` show only for those
+`pitchdetect-first-three-bag`, where their classes start), and get both
+sets' cards side by side: lesson, name and fingering drills, songs and song
+writing, each set's titled with its notes ("Name B, A and G", "Name D, C
+and B♭"); the B A G cards are the `...bag` ids (`names3bag`,
+`fingerings3bag`, `songs3bag`, `write3bag`). `THREE_SET_ACTIVITIES` maps
+each 3-note activity to its set; opening one (or `startLesson()` /
+`startDrill()` on one) sets `practice.threeSet`, which the song list, song
+writing and `threeNotes(set)` / `threeNotesText(set)` /
+`threeNoteCustomSongs(set)` / `songStars(song, set)` default to.
+`defaultThreeSet()` (B A G on flute and oboe) is the set on the learning
+path; `firstThreeActivity()` its lesson, `threeSetActivity(id, set)` adds
+`bag`. Activities with `instruments` show only for those
 (`practiceActivityAvailable()`).
 **Practice drills** (`drills`), its cards grouped under headings (each
 activity's `group`, `practiceGroupTitle()`; `.practice-menu[data-grouped]`
@@ -339,10 +344,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   instruments' first band notes line up), key moved round the circle of
   fifths, notes respelled. **Add to My songs** skips an identical copy.
 - **Drills** (`startDrill(kind)`: `names` / `fingerings` and their `3`,
-  `9` and `scale` kinds, no mic; `drillNotes(kind)`, held in
-  `practice.drillNotes`: the first 5, `threeNotes()`, those plus notes 6 and
-  beyond, or the B♭ scale; the 3-note kinds keep bests per set,
-  `drillBestKey()`. Past five notes the answers are one button per name,
+  `9`, `3bag` and `scale` kinds, no mic; `drillNotes(kind)`, held in
+  `practice.drillNotes`: the first 5, the 3 notes of the kind's set, those
+  plus notes 6 and beyond, or the B♭ scale; bests are kept by kind. Past five notes the answers are one button per name,
   low to high (`drillChoices()`; the two A♭s, the two B♭s share one), and
   any octave counts, `sameNoteName()`): races against
   the clock: name as many notes as you can in `DRILL_SECONDS` (30), trying
