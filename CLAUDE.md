@@ -271,7 +271,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   placed (shown in the accent color). Length, dot, rest and delete buttons
   sit below; on desktop letters A–G, R, 1/2/4/8, `.`, arrows and Backspace
   (`editorKeyDown()`). Phones get one measure per line so lines and spaces
-  are tappable. **Measures never overflow** (`overflowingNotes()`,
+  are tappable; there the measures before it stack above the current one
+  (`renderSongView()`'s `opts.through`, `data-editor-stack`, scrolling, the
+  current line pinned to the bottom with ▲▼ beside it via `--editor-line-h`),
+  so a full measure stays in sight. **Measures never overflow** (`overflowingNotes()`,
   `editorNotesFit()`): every measure but the last stays exactly full and
   edits before the last measure never move a bar line. At the end, lengths
   that don't fit the room left (`editorRoomAtEnd()`) are disabled and the
