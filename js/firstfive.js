@@ -26,8 +26,8 @@
  * Learn the first 3 notes is an easier start: concert D C B♭ (FIRST3_STEPS),
  * the first three notes many band methods begin with, taught the same way.
  * Flute and oboe can learn B, A and G instead (FIRST3_BAG_STEPS), where their
- * classes usually start: a switch on the menu's First 3 notes page picks the
- * set (practice.threeSet), and the page's drills, songs and song writing
+ * classes usually start: a switch on the menu's Lessons page picks the
+ * set (practice.threeSet), and the 3-note drills, songs and song writing
  * all use it.
  *
  * Learn the B♭ scale extends the lessons to the first octave: concert
@@ -37,7 +37,7 @@
  * The 9 note quiz (startNineQuiz()) is the quiz over the first five notes
  * and notes 6 and beyond.
  *
- * Play songs (SONGS) is a list of tunes made of the first 3 notes (Hot Cross
+ * The songs (SONGS) is a list of tunes made of the first 3 notes (Hot Cross
  * Buns and more), the first five notes (Mary Had a Little Lamb, Jingle Bells
  * and more), then tunes on
  * the whole B♭ scale (Twinkle, Twinkle, London Bridge...). The staff shows
@@ -364,7 +364,7 @@ function practiceActivityAvailable(id) {
 }
 
 // The first 3 notes lesson the student is on: D C B♭, or on flute and oboe
-// the set the First 3 notes page's switch picks (B A G unless changed)
+// the set the Lessons page's switch picks (B A G unless changed)
 function firstThreeActivity() {
 	return practice.threeSet === "first3bag" ? "learn3bag" : "learn3";
 }
@@ -386,36 +386,36 @@ function threeNotesText() {
 	return names[0] + ", " + names[1] + " and " + names[2];
 }
 
-// The menu's pages, one tab each: the first 3 notes (a path: learn them,
-// name and finger them, play and write songs with them), the first 5 notes
-// (lessons, quiz, drills and songs), then notes 6 and beyond, the B♭ scale and songs
+// The menu's pages, one tab each: the lessons that teach each set of notes,
+// the practice drills and quizzes on them, and the songs and song writing
 var PRACTICE_PAGES = [
-	{ id: "three", label: "First 3 notes" },
-	{ id: "five", label: "First 5 notes" },
-	{ id: "scale", label: "Scale & songs" }
+	{ id: "lessons", label: "Lessons" },
+	{ id: "drills", label: "Practice drills" },
+	{ id: "songs", label: "Songs" }
 ];
 
 // The activities, each with its best result for this instrument, in menu
-// order on their page. The first two pages read top to bottom, like a path.
+// order on their page, easiest first, so each page reads top to bottom like
+// a path. Half-width cards pair up on desktop.
 var PRACTICE_ACTIVITIES = [
-	{ id: "firstsounds", firstSounds: true, page: "three", wide: true },  // title, sub and icon from FIRST_SOUNDS
-	{ id: "learn3bag", icon: "\u266a", title: "Learn B, A and G", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "three", wide: true },
-	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", page: "three", wide: true },
-	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "How many can you name in 30 seconds?", page: "three" },
-	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "How many can you name in 30 seconds?", page: "three" },
-	{ id: "songs3", icon: "\u266b", title: "Play 3-note songs", sub: "Hot Cross Buns and more", page: "three" },
-	{ id: "write3", icon: "pencil", title: "Write a 3-note song", sub: "Make up your own tune", page: "three" },
-	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "five", wide: true },
-	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "five", wide: true },
-	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?", page: "five" },
-	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?", page: "five" },
-	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "five" },
-	{ id: "write5", icon: "pencil", title: "Write a 5-note song", sub: "Make up your own tune with your first 5 notes", page: "five" },
-	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "scale", wide: true },  // sub: nextFourText()
-	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "Your first 5 notes and your new notes", page: "scale", wide: true },
-	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "scale" },
-	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "scale" },
-	{ id: "songs", icon: "\u266b", title: "Play songs", sub: "When the Saints, Twinkle, or make your own", page: "scale", wide: true }
+	{ id: "firstsounds", firstSounds: true, page: "lessons", wide: true },  // title, sub and icon from FIRST_SOUNDS
+	{ id: "learn3bag", icon: "\u266a", title: "Learn B, A and G", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "lessons", wide: true },
+	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", page: "lessons", wide: true },
+	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "lessons", wide: true },
+	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "lessons", wide: true },  // sub: nextFourText()
+	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "lessons", wide: true },
+	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "How many can you name in 30 seconds?", page: "drills" },
+	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "How many can you name in 30 seconds?", page: "drills" },
+	{ id: "names", icon: "A\u00a0B", title: "Practice note names", sub: "How many notes can you name in 30 seconds?", page: "drills" },
+	{ id: "fingerings", icon: "fingering", title: "Practice fingerings", sub: "How many fingerings can you name in 30 seconds?", page: "drills" },
+	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills" },
+	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "Your first 5 notes and your new notes", page: "drills" },
+	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", wide: true },
+	{ id: "songs3", icon: "\u266b", title: "Play 3-note songs", sub: "Hot Cross Buns and more", page: "songs" },
+	{ id: "write3", icon: "pencil", title: "Write a 3-note song", sub: "Make up your own tune", page: "songs" },
+	{ id: "songs5", icon: "\u266b", title: "Play 5-note songs", sub: "Mary Had a Little Lamb, Jingle Bells and more", page: "songs" },
+	{ id: "write5", icon: "pencil", title: "Write a 5-note song", sub: "Make up your own tune with your first 5 notes", page: "songs" },
+	{ id: "songs", icon: "\u266b", title: "More songs", sub: "When the Saints, Twinkle, or make your own", page: "songs", wide: true }
 ];
 
 // The menu page an activity is on (null for screens off the menu)
@@ -432,7 +432,7 @@ function showPracticeMenu(page) {
 		var next = typeof nextPathNode === "function" ? nextPathNode() : null;
 		page = practice.mode === "menu" ? practice.menuPage
 			: activityPage(currentPracticeActivity()) || practice.menuPage;
-		page = page || (next && activityPage(next.activity)) || "three";
+		page = page || (next && activityPage(next.activity)) || "lessons";
 	}
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
@@ -459,7 +459,7 @@ function showPracticeMenu(page) {
 			!((a.id === "learn3" || a.id === "learn3bag") && a.id !== firstThreeActivity());
 	});
 	var bag = practiceActivityAvailable("learn3bag");
-	renderThreeSetSwitch(page === "three" && bag);
+	renderThreeSetSwitch(page === "lessons" && bag);
 	menu.setAttribute("data-count", activities.length);
 	activities.forEach(function(a) {
 		var title = a.firstSounds ? fsCfg.title : a.title;
@@ -539,7 +539,7 @@ function showPracticeMenu(page) {
 }
 
 // Flute and oboe pick which three notes they start on (B A G or D C B♭);
-// everything on the First 3 notes page follows it
+// all the 3-note drills, songs and song writing follow it
 function renderThreeSetSwitch(show) {
 	var bar = document.getElementById("practice-set-switch");
 	bar.hidden = !show;
@@ -560,7 +560,7 @@ function renderThreeSetSwitch(show) {
 			if (practice.threeSet === set) return;
 			practice.threeSet = set;
 			saveThreeSet(practice.instrument, set);
-			showPracticeMenu("three");
+			showPracticeMenu("lessons");
 		};
 		bar.appendChild(b);
 	});
@@ -2208,8 +2208,8 @@ function threeNoteSongs() {
 	return SONGS.filter(function(song) { return song.level === "three"; });
 }
 
-// The built-in songs on song list list: "three" (First 3 notes page),
-// "five" (the beginner songs, on the First 5 notes page) or "all" (Play
+// The built-in songs on song list list: "three" (Play 3-note songs),
+// "five" (the beginner songs, Play 5-note songs) or "all" (More
 // songs: every level but the beginner songs)
 function listSongs(list) {
 	if (list === "three") return threeNoteSongs();
@@ -2310,10 +2310,10 @@ function songListLabel() {
 }
 
 // The song list: one button per song with its stars, then the student's
-// own songs (each with an edit button) and Make a song. list "three" (from
-// the First 3 notes page) shows just the 3-note songs and the student's
-// songs with their first 3 notes; "five" (First 5 notes page) the beginner
-// songs and the student's songs with their first 5 notes; "all" (Play songs) the other levels and the student's
+// own songs (each with an edit button) and Make a song. list "three" (Play
+// 3-note songs) shows just the 3-note songs and the student's
+// songs with their first 3 notes; "five" (Play 5-note songs) the beginner
+// songs and the student's songs with their first 5 notes; "all" (More songs) the other levels and the student's
 // songs. Without one, the list shown last.
 function showSongList(list) {
 	if (list) practice.songList = list;
@@ -4637,7 +4637,7 @@ function openSongImport() {
 		return;
 	}
 	syncPracticeHistory();
-	showPracticeMenu("scale");
+	showPracticeMenu("songs");
 	syncPracticeHistory();
 	showSongList();
 	syncPracticeHistory();
