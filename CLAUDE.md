@@ -447,7 +447,8 @@ Loaded after firstfive.js; no server, everything stays on the device.
   ID, `""` for a guest, absent = not chosen) stays signed in until **Switch
   student** on the profile. `studentKey(key)` appends `@<ID>` to every
   practice progress key (stars, bests, my songs, first sounds, the profile)
-  — firstfive.js's load/save helpers all go through it — so students sharing
+  — firstfive.js's load/save helpers all go through it (via
+  `progressGet()` / `progressSet()`) — so students sharing
   a device each keep their own; the guest uses the bare keys, so progress
   from before sign-in stays with the guest. `pitchdetect-song-whole` stays
   device-wide. `signInStudent()` reloads practice and restores the
@@ -470,6 +471,20 @@ Loaded after firstfive.js; no server, everything stays on the device.
   need an instrument chosen in the app (the toolbar button is always
   enabled): `openPractice()` goes to sign-in, or to the instrument step when
   `practice.instrument` is empty, and back from there closes Practice.
+- **Teacher mode:** typing `TEACHER_CODE` ("BANDTEACHER"; spaces and
+  dashes dropped like any ID) on **Who's practicing?** calls
+  `enterTeacherMode()`. Every activity, any instrument: the header's pill
+  becomes a drop-down (`#practice-instrument-select`,
+  `updateTeacherHeader()`, `teacherPickInstrument()`: reloads practice and
+  returns to the menu page), and a teacher bar (`#teacher-bar`, menu only,
+  `.practice-view.teacher`) replaces the player bar, with **Leave**
+  (`leaveTeacherMode()` → sign-in). Practice storage goes through
+  `progressGet()` / `progressSet()`: in teacher mode stars, bests and the
+  profile live in `teacherStore` (memory, gone on reload); only My songs are
+  written, under `@teacher`. `progressCounts()` is false, so no XP, badges,
+  practice time or path marks; `practiceSignedIn()` counts the teacher as
+  signed in. It lasts the browser session (`sessionStorage`
+  `pitchdetect-teacher`); signing a student in ends it.
 - **Profile** (`pitchdetect-profile[@ID]`, `loadProfile()` / `saveProfile()`):
   `{ name, xp, avatar, goal, days: { "YYYY-MM-DD": seconds }, streak, bestStreak,
   lastGoalDay, freezes, badges: { id: day }, instrument }`.

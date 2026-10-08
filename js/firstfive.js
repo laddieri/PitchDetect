@@ -162,7 +162,7 @@ function practiceNoteName(writtenMidi) {
 // Best stars per note of a lesson set (count notes) for an instrument
 function loadPracticeStars(instrument, key, count) {
 	try {
-		var all = JSON.parse(localStorage.getItem(studentKey(key)) || "{}");
+		var all = JSON.parse(progressGet(key) || "{}");
 		var stars = all[instrument];
 		if (Array.isArray(stars) && stars.length === count) return stars;
 	} catch (e) {}
@@ -171,9 +171,9 @@ function loadPracticeStars(instrument, key, count) {
 
 function savePracticeStars(instrument, stars, key) {
 	try {
-		var all = JSON.parse(localStorage.getItem(studentKey(key)) || "{}");
+		var all = JSON.parse(progressGet(key) || "{}");
 		all[instrument] = stars;
-		localStorage.setItem(studentKey(key), JSON.stringify(all));
+		progressSet(key, JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -181,7 +181,7 @@ function savePracticeStars(instrument, stars, key) {
 // null. key: the quiz's or the scale run's storage.
 function loadChallengeBest(instrument, key) {
 	try {
-		var best = JSON.parse(localStorage.getItem(studentKey(key || CHALLENGE_STORAGE_KEY)) || "{}")[instrument];
+		var best = JSON.parse(progressGet(key || CHALLENGE_STORAGE_KEY) || "{}")[instrument];
 		if (typeof best === "number") return best;
 	} catch (e) {}
 	return null;
@@ -189,9 +189,9 @@ function loadChallengeBest(instrument, key) {
 
 function saveChallengeBest(instrument, score, key) {
 	try {
-		var all = JSON.parse(localStorage.getItem(studentKey(key || CHALLENGE_STORAGE_KEY)) || "{}");
+		var all = JSON.parse(progressGet(key || CHALLENGE_STORAGE_KEY) || "{}");
 		all[instrument] = score;
-		localStorage.setItem(studentKey(key || CHALLENGE_STORAGE_KEY), JSON.stringify(all));
+		progressSet(key || CHALLENGE_STORAGE_KEY, JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -212,7 +212,7 @@ function defaultThreeSet(instrument) {
 // names3bag: n, ... } (3-note drills keep a best per note set)
 function loadDrillBest(instrument) {
 	try {
-		var best = JSON.parse(localStorage.getItem(studentKey(DRILL_STORAGE_KEY)) || "{}")[instrument];
+		var best = JSON.parse(progressGet(DRILL_STORAGE_KEY) || "{}")[instrument];
 		if (best && typeof best === "object") return best;
 	} catch (e) {}
 	return {};
@@ -220,9 +220,9 @@ function loadDrillBest(instrument) {
 
 function saveDrillBest(instrument, best) {
 	try {
-		var all = JSON.parse(localStorage.getItem(studentKey(DRILL_STORAGE_KEY)) || "{}");
+		var all = JSON.parse(progressGet(DRILL_STORAGE_KEY) || "{}");
 		all[instrument] = best;
-		localStorage.setItem(studentKey(DRILL_STORAGE_KEY), JSON.stringify(all));
+		progressSet(DRILL_STORAGE_KEY, JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -259,7 +259,7 @@ function openPractice() {
 
 	loadPracticeInstrument();
 	// Nobody has signed in on this device yet: who's practicing?
-	if (currentStudent === null) {
+	if (!practiceSignedIn()) {
 		showSignIn("open");
 		return;
 	}
@@ -304,11 +304,12 @@ function loadPracticeInstrument() {
 		index: 0,
 		step: -1
 	};
-	// The header names the instrument; the profile changes it
+	// The header names the instrument; the profile changes it (in teacher
+	// mode it's a drop-down, updateTeacherHeader())
 	var option = select.options[select.selectedIndex];
 	var label = document.getElementById("practice-instrument");
 	label.textContent = select.value && option ? option.textContent : "";
-	label.parentNode.style.visibility = select.value ? "" : "hidden";
+	label.parentNode.style.visibility = select.value || teacherMode ? "" : "hidden";
 	onPracticeLoaded();
 }
 
@@ -454,7 +455,7 @@ function activityPage(id) {
 // step on the learning path opens.
 function showPracticeMenu(page) {
 	if (!PRACTICE_PAGES.some(function(p) { return p.id === page; })) {
-		var next = typeof nextPathNode === "function" ? nextPathNode() : null;
+		var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
 		page = practice.mode === "menu" ? practice.menuPage
 			: activityPage(currentPracticeActivity()) || practice.menuPage;
 		page = page || (next && activityPage(next.activity)) || "lessons";
@@ -695,7 +696,7 @@ function startPracticeActivity(id) {
 function practiceBack() {
 	if (practice && practice.mode === "signin") {
 		// Practice needs someone signed in on an instrument
-		if (currentStudent === null || !practice.instrument) closePractice();
+		if (!practiceSignedIn() || !practice.instrument) closePractice();
 		else if (practice.signinFrom === "profile") showProfile();
 		else showPracticeMenu();
 		return;
@@ -2388,7 +2389,7 @@ function findSong(id) {
 // instrument keeps its own): [{ id, title, custom, time, key, notes }]
 function loadCustomSongs(instrument) {
 	try {
-		var songs = JSON.parse(localStorage.getItem(studentKey(MY_SONGS_STORAGE_KEY)) || "{}")[instrument];
+		var songs = JSON.parse(progressGet(MY_SONGS_STORAGE_KEY) || "{}")[instrument];
 		if (Array.isArray(songs)) {
 			return songs.filter(function(s) { return s && s.id && Array.isArray(s.notes); })
 				.map(function(s) { s.custom = true; return s; });
@@ -2399,16 +2400,16 @@ function loadCustomSongs(instrument) {
 
 function saveCustomSongs(instrument, songs) {
 	try {
-		var all = JSON.parse(localStorage.getItem(studentKey(MY_SONGS_STORAGE_KEY)) || "{}");
+		var all = JSON.parse(progressGet(MY_SONGS_STORAGE_KEY) || "{}");
 		all[instrument] = songs;
-		localStorage.setItem(studentKey(MY_SONGS_STORAGE_KEY), JSON.stringify(all));
+		progressSet(MY_SONGS_STORAGE_KEY, JSON.stringify(all));
 	} catch (e) {}
 }
 
 // Best scores (notes played without help) per song for an instrument
 function loadSongBest(instrument) {
 	try {
-		var best = JSON.parse(localStorage.getItem(studentKey(SONGS_STORAGE_KEY)) || "{}")[instrument];
+		var best = JSON.parse(progressGet(SONGS_STORAGE_KEY) || "{}")[instrument];
 		if (best && typeof best === "object") return best;
 	} catch (e) {}
 	return {};
@@ -2416,9 +2417,9 @@ function loadSongBest(instrument) {
 
 function saveSongBest(instrument, best) {
 	try {
-		var all = JSON.parse(localStorage.getItem(studentKey(SONGS_STORAGE_KEY)) || "{}");
+		var all = JSON.parse(progressGet(SONGS_STORAGE_KEY) || "{}");
 		all[instrument] = best;
-		localStorage.setItem(studentKey(SONGS_STORAGE_KEY), JSON.stringify(all));
+		progressSet(SONGS_STORAGE_KEY, JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -4854,7 +4855,7 @@ window.addEventListener("hashchange", checkSongLink);
 
 function loadFirstSoundsBest(instrument) {
 	try {
-		var best = JSON.parse(localStorage.getItem(studentKey(FIRST_SOUNDS_STORAGE_KEY)) || "{}")[instrument];
+		var best = JSON.parse(progressGet(FIRST_SOUNDS_STORAGE_KEY) || "{}")[instrument];
 		if (typeof best === "number") return best;
 	} catch (e) {}
 	return 0;
@@ -4862,9 +4863,9 @@ function loadFirstSoundsBest(instrument) {
 
 function saveFirstSoundsBest(instrument, stars) {
 	try {
-		var all = JSON.parse(localStorage.getItem(studentKey(FIRST_SOUNDS_STORAGE_KEY)) || "{}");
+		var all = JSON.parse(progressGet(FIRST_SOUNDS_STORAGE_KEY) || "{}");
 		all[instrument] = stars;
-		localStorage.setItem(studentKey(FIRST_SOUNDS_STORAGE_KEY), JSON.stringify(all));
+		progressSet(FIRST_SOUNDS_STORAGE_KEY, JSON.stringify(all));
 	} catch (e) {}
 }
 
@@ -5725,7 +5726,7 @@ window.addEventListener("popstate", function(event) {
 		if (!practiceOpen) return;
 	}
 	if (state.practice === "menu") showPracticeMenu(state.page);
-	else if (state.practice === "signin" && currentStudent === null) showSignIn("open");
+	else if (state.practice === "signin" && !practiceSignedIn()) showSignIn("open");
 	else if (state.practice === "signin" && !practice.instrument) showInstrumentStep("open");
 	else if (state.practice === "signin") showPracticeMenu();
 	else if (state.practice === "songs") showSongList();
