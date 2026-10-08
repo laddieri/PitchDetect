@@ -82,10 +82,14 @@ set's lesson card, while the 3-note drills, songs and song writing run on
 it (`threeNotes()`, `threeNotesText()`); `firstThreeActivity()` gives the
 lesson for the set. Activities with `instruments` show only for those
 (`practiceActivityAvailable()`).
-**Practice drills** (`drills`): **Name the 3 notes** / **Finger the 3
-notes** (drills `names3` / `fingerings3`), **Practice note names** and
-**Practice fingerings** ("slide positions" on trombone, "the keyboard"
-without charts), **First 5 note quiz** (the challenge round), **9 note
+**Practice drills** (`drills`), its cards grouped under headings (each
+activity's `group`, `practiceGroupTitle()`; `.practice-menu[data-grouped]`
+holds a `.practice-group` per heading, and scrolls if it must):
+**Practice note names** (drills `names3` / `names`: **Name the 3 notes**,
+**Name the first 5 notes**), **Practice fingerings** ("slide positions" on
+trombone, "the keyboard" without charts; `fingerings3` / `fingerings`) — the
+drill cards' subtitles list their notes (`notesText()`) — and **Practice
+playing notes**: **First 5 note quiz** (the challenge round), **9 note
 quiz** (`quiz9`, `startNineQuiz()`: the quiz over the first five notes plus
 notes 6 and beyond, `QUIZ9_LENGTH` (12) notes, one answer button per name
 low to high so the two A♭s share one; best in `pitchdetect-nine-note-quiz`,

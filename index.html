@@ -2412,6 +2412,40 @@
 				grid-column: 1 / -1;
 			}
 
+			/* Practice drills: the cards grouped under headings (note names,
+			   fingerings, playing notes); the page scrolls if it must */
+			.practice-menu[data-grouped] {
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				max-height: none;
+				overflow-y: auto;
+				/* room for the cards' shadows inside the scroller */
+				padding: 0 8px 8px 0;
+				margin-right: -8px;
+			}
+
+			.practice-group {
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+			}
+
+			.practice-group-title {
+				margin: 0;
+				padding-left: 4px;
+				color: var(--text-muted);
+				font-size: 1rem;
+				font-weight: 700;
+			}
+
+			.practice-group-cards {
+				display: grid;
+				grid-template-columns: repeat(2, minmax(0, 1fr));
+				grid-auto-rows: 1fr;
+				gap: 14px;
+			}
+
 			/* The menu pages read as a path: flat rows, icon left, top to
 			   bottom */
 			.practice-view[data-menu-page] .practice-choice {
@@ -4998,6 +5032,26 @@
 				.practice-view[data-menu-page] .practice-choice {
 					padding: 8px 14px;
 					gap: 14px;
+				}
+
+				.practice-group-cards {
+					grid-template-columns: minmax(0, 1fr);
+					gap: 8px;
+				}
+
+				.practice-menu[data-grouped] {
+					gap: 8px;
+					padding-bottom: 5px;
+				}
+
+				.practice-menu[data-grouped] .practice-choice-icon {
+					width: 46px;
+					height: 46px;
+					font-size: 1.35rem;
+				}
+
+				.practice-group-title {
+					font-size: 0.9rem;
 				}
 
 				.practice-set-label {
