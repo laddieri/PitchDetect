@@ -411,8 +411,12 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "lessons", wide: true },
 	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
 	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
+	{ id: "names9", icon: "A\u00a0B", title: "Name 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "names" },
+	{ id: "namesscale", icon: "A\u00a0B", title: "Name the B\u266d scale notes", sub: "", page: "drills", group: "names" },  // sub: its range
 	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
 	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
+	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "fingerings" },
+	{ id: "fingeringsscale", icon: "fingering", title: "Finger the B\u266d scale", sub: "", page: "drills", group: "fingerings" },  // sub: its range
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills", group: "playing" },
 	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "drills", group: "playing" },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing", wide: true },
@@ -497,12 +501,24 @@ function showPracticeMenu(page) {
 			title = "Slide positions for 3 notes";
 		} else if (a.id === "fingerings3" && !chart) {
 			title = "Find the 3 notes on the keyboard";
+		} else if (a.id === "fingerings9" && slide) {
+			title = "Slide positions for 9 notes";
+		} else if (a.id === "fingerings9" && !chart) {
+			title = "Find 9 notes on the keyboard";
+		} else if (a.id === "fingeringsscale" && slide) {
+			title = "Slide positions for the B\u266d scale";
+		} else if (a.id === "fingeringsscale" && !chart) {
+			title = "Find the B\u266d scale on the keyboard";
 		} else if (a.id === "write3") {
 			sub = "Make up your own tune with " + threeNotesText();
-		} else if (a.id === "names3" || a.id === "fingerings3") {
+		}
+		if (a.id === "names3" || a.id === "fingerings3") {
 			sub = threeNotesText();
 		} else if (a.id === "names" || a.id === "fingerings") {
 			sub = notesText(practice.lessons.first5.notes);
+		} else if (a.id === "namesscale" || a.id === "fingeringsscale") {
+			var scaleNotes = practice.lessons.scale.notes;
+			sub = practiceNoteName(scaleNotes[0]) + " up to " + practiceNoteName(scaleNotes[scaleNotes.length - 1]);
 		} else if (a.id === "learn4") {
 			sub = nextFourText();
 		}
@@ -556,20 +572,58 @@ function showPracticeMenu(page) {
 		b.onclick = function() { startPracticeActivity(a.id); };
 		if (grouped && a.group !== lastGroup) {
 			lastGroup = a.group;
-			var section = document.createElement("section");
-			section.className = "practice-group";
-			var heading = document.createElement("h3");
-			heading.className = "practice-group-title";
-			heading.textContent = practiceGroupTitle(a.group);
-			groupCards = document.createElement("div");
-			groupCards.className = "practice-group-cards";
-			section.appendChild(heading);
-			section.appendChild(groupCards);
-			menu.appendChild(section);
+			menu.appendChild(practiceGroupSection(a.group));
+			groupCards = menu.lastChild.querySelector(".practice-group-cards");
 		}
 		(grouped ? groupCards : menu).appendChild(b);
 	});
 	onPracticeMenuShown(menu, page);
+}
+
+// A heading and its cards on the Practice drills page. The heading is a
+// button that folds the cards away (remembered on this device).
+function practiceGroupSection(group) {
+	var section = document.createElement("section");
+	section.className = "practice-group";
+	section.setAttribute("data-group", group);
+	var heading = document.createElement("h3");
+	heading.className = "practice-group-title";
+	var toggle = document.createElement("button");
+	toggle.className = "practice-group-toggle";
+	toggle.id = "practice-group-" + group;
+	toggle.innerHTML = '<span class="practice-group-name"></span><span class="practice-group-chevron" aria-hidden="true"></span>';
+	toggle.firstChild.textContent = practiceGroupTitle(group);
+	heading.appendChild(toggle);
+	var cards = document.createElement("div");
+	cards.className = "practice-group-cards";
+	cards.id = "practice-group-cards-" + group;
+	toggle.setAttribute("aria-controls", cards.id);
+	var setOpen = function(open) {
+		section.classList.toggle("closed", !open);
+		toggle.setAttribute("aria-expanded", open ? "true" : "false");
+		cards.hidden = !open;
+	};
+	setOpen(!practiceGroupsClosed()[group]);
+	toggle.onclick = function() {
+		var closed = practiceGroupsClosed();
+		closed[group] = !closed[group];
+		if (!closed[group]) delete closed[group];
+		try { localStorage.setItem(PRACTICE_GROUPS_STORAGE_KEY, JSON.stringify(closed)); } catch (e) {}
+		setOpen(!closed[group]);
+	};
+	section.appendChild(heading);
+	section.appendChild(cards);
+	return section;
+}
+
+// The Practice drills groups folded away: { names: true, ... }
+var PRACTICE_GROUPS_STORAGE_KEY = "pitchdetect-drill-groups-closed";
+function practiceGroupsClosed() {
+	try {
+		var closed = JSON.parse(localStorage.getItem(PRACTICE_GROUPS_STORAGE_KEY) || "{}");
+		if (closed && typeof closed === "object") return closed;
+	} catch (e) {}
+	return {};
 }
 
 // Flute and oboe pick which three notes they start on (B A G or D C B♭);
@@ -1726,7 +1780,8 @@ function renderChallengeProgress() {
 // A race against the clock: name as many notes as you can in DRILL_SECONDS.
 // kind "names" shows the note on the staff; "fingerings" shows only its chart
 // (or unlabeled piano key). "names3" and "fingerings3" do the same on the
-// first 3 notes (practice.threeSet). Either way the student picks its name; a note
+// first 3 notes (practice.threeSet), "names9" / "fingerings9" on the first 5
+// and notes 6 and beyond, "namesscale" / "fingeringsscale" on the B♭ scale. Either way the student picks its name; a note
 // scores if named on the first try (a wrong answer still has to be fixed
 // before moving on). The clock starts once the first answers can be tapped.
 // Shares the challenge's result screen.
@@ -1735,7 +1790,7 @@ function startDrill(kind) {
 	stopNote();
 	setPracticeMode("drill");
 	practice.drillKind = kind;
-	practice.drillNotes = isThreeDrill(kind) ? threeNotes() : practice.notes;
+	practice.drillNotes = drillNotes(kind);
 	practice.index = -1;
 	practice.challenge = { kind: "drill", notes: practice.drillNotes, seq: [], pos: 0, results: [], score: 0, endsAt: 0,
 		balloonGoal: drillBalloonGoal(kind) };
@@ -1743,6 +1798,15 @@ function startDrill(kind) {
 	var balloon = document.getElementById("drill-balloon");
 	if (balloon) balloon.remove();
 	showDrillQuestion();
+}
+
+// The notes a drill kind asks: the first 3, the first 5, those plus notes 6
+// and beyond ("9"), or the B♭ scale ("scale")
+function drillNotes(kind) {
+	if (isThreeDrill(kind)) return threeNotes();
+	if (/9$/.test(kind)) return practice.notes.concat(practice.lessons.next4.notes);
+	if (/scale$/.test(kind)) return practice.lessons.scale.notes;
+	return practice.notes;
 }
 
 function isThreeDrill(kind) {
@@ -1928,21 +1992,34 @@ function loadFingeringKeys(callback) {
 	})).then(callback);
 }
 
-// The answer choices for the current question: all the drill's notes, except
-// in the fingerings drills, where notes sharing the target's fingering are
-// left out so only one answer is right
+// The answer choices for the current question: one per note name, low to
+// high (an octave's two notes share one), except in the fingerings drills,
+// where other notes sharing the target's fingering are left out so only one
+// answer is right. The first 3 and 5 notes keep their teaching order.
 function drillChoices() {
 	var notes = practice.drillNotes;
 	var keys = practice.fingeringKeys[notes.join(",")];
-	if (isDrillNames() || !keys) return notes;
-	var targetKey = keys[notes.indexOf(practice.target)];
-	return notes.filter(function(midi, i) {
-		return midi === practice.target || keys[i] !== targetKey;
+	var targetKey = keys && keys[notes.indexOf(practice.target)];
+	var choices = notes.filter(function(midi, i) {
+		return isDrillNames() || !keys || sameNoteName(midi, practice.target) || keys[i] !== targetKey;
+	});
+	if (notes.length <= 5) return choices;
+	var seen = {};
+	return choices.slice().sort(function(a, b) { return a - b; }).filter(function(midi) {
+		var name = practiceNoteName(midi);
+		if (seen[name]) return false;
+		seen[name] = true;
+		return true;
 	});
 }
 
+// Whether two notes are the same note name (an octave apart or not)
+function sameNoteName(a, b) {
+	return (((a - b) % 12) + 12) % 12 === 0;
+}
+
 function isDrillNames() {
-	return practice.drillKind === "names" || practice.drillKind === "names3";
+	return /^names/.test(practice.drillKind);
 }
 
 function showDrillQuestion() {
@@ -1999,7 +2076,8 @@ function drillAnswers() {
 	var answers = document.createElement("div");
 	answers.className = "practice-answers";
 	var choices = drillChoices();
-	answers.style.gridTemplateColumns = "repeat(" + choices.length + ", minmax(0, 80px))";
+	answers.setAttribute("data-count", choices.length);
+	if (choices.length <= 5) answers.style.gridTemplateColumns = "repeat(" + choices.length + ", minmax(0, 80px))";
 	choices.forEach(function(midi) {
 		var b = document.createElement("button");
 		b.className = "practice-answer";
@@ -2014,7 +2092,7 @@ function answerDrill(button, midi) {
 	var c = practice.challenge;
 	if (c.answered || !c.endsAt || Date.now() >= c.endsAt) return;
 	var prompt = document.getElementById("practice-prompt");
-	if (midi !== practice.target) {
+	if (!sameNoteName(midi, practice.target)) {
 		c.helped = true;
 		button.classList.remove("wrong");
 		void button.offsetWidth;  // restart the shake
