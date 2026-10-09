@@ -90,7 +90,9 @@ path; `firstThreeActivity()` its lesson, `threeSetActivity(id, set)` adds
 **Practice drills** (`drills`), its cards grouped under headings (each
 activity's `group`, `practiceGroupTitle()`; `.practice-menu[data-grouped]`
 holds a `.practice-group` per heading, from `practiceGroupSection()`, and
-scrolls if it must). Each heading is a button that folds its cards away
+scrolls if it must; Practice playing notes comes first). Each heading is a
+big card like the activities' (`.practice-choice.practice-group-toggle`:
+icon, title, `practiceGroupSub()`, chevron) that folds its cards away
 (`.practice-group.closed`; folded groups kept device-wide in
 `pitchdetect-drill-groups-closed`, `practiceGroupsClosed()`; a folded group
 holding the next path step shows a dot): **Practice note names** (drills

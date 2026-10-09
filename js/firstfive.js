@@ -421,6 +421,11 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "lessons", wide: true },
 	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "lessons", wide: true },  // sub: nextFourText()
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "lessons", wide: true },
+	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "playing" },  // title: the notes
+	{ id: "quiz3", icon: "trophy", title: "3 note quiz", sub: "", page: "drills", group: "playing" },  // sub: the notes
+	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills", group: "playing" },
+	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "drills", group: "playing" },
+	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing", wide: true },
 	{ id: "names3bag", icon: "A\u00a0B", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "names" },  // title: the notes
 	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
 	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
@@ -431,11 +436,6 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
 	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "fingerings" },
 	{ id: "fingeringsscale", icon: "fingering", title: "Finger the B\u266d scale", sub: "", page: "drills", group: "fingerings" },  // sub: its range
-	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "playing" },  // title: the notes
-	{ id: "quiz3", icon: "trophy", title: "3 note quiz", sub: "", page: "drills", group: "playing" },  // sub: the notes
-	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills", group: "playing" },
-	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "drills", group: "playing" },
-	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing", wide: true },
 	{ id: "songs3bag", icon: "\u266b", title: "", sub: "Hot Cross Buns and more", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "write3bag", icon: "pencil", title: "", sub: "Make up your own tune", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "songs3", icon: "\u266b", title: "Play 3-note songs", sub: "Hot Cross Buns and more", page: "songs" },
@@ -454,6 +454,16 @@ function practiceGroupTitle(group) {
 			: hasFingeringData(practice.instrument) ? "Practice fingerings" : "Practice the keyboard";
 	}
 	return "Practice playing notes";
+}
+
+// What each group's heading card says under its title
+function practiceGroupSub(group) {
+	if (group === "names") return "Read notes on the staff";
+	if (group === "fingerings") {
+		return practice.instrument === "trombone" ? "Match slide positions to notes"
+			: hasFingeringData(practice.instrument) ? "Match fingerings to notes" : "Find notes on the keyboard";
+	}
+	return "Play notes on your instrument";
 }
 
 // The menu page an activity is on (null for screens off the menu)
@@ -615,10 +625,18 @@ function practiceGroupSection(group) {
 	var heading = document.createElement("h3");
 	heading.className = "practice-group-title";
 	var toggle = document.createElement("button");
-	toggle.className = "practice-group-toggle";
+	toggle.className = "practice-choice practice-group-toggle";
+	toggle.setAttribute("data-group", group);
 	toggle.id = "practice-group-" + group;
-	toggle.innerHTML = '<span class="practice-group-name"></span><span class="practice-group-chevron" aria-hidden="true"></span>';
-	toggle.firstChild.textContent = practiceGroupTitle(group);
+	toggle.innerHTML = '<span class="practice-choice-icon" aria-hidden="true"></span>' +
+		'<span class="practice-choice-text"><span class="practice-choice-title practice-group-name"></span>' +
+		'<span class="practice-choice-sub"></span></span>' +
+		'<span class="practice-group-chevron" aria-hidden="true"></span>';
+	var icon = toggle.firstChild;
+	if (group === "names") icon.textContent = "A\u00a0B";
+	else icon.innerHTML = group === "fingerings" ? FINGERING_SVG : TROPHY_SVG;
+	toggle.querySelector(".practice-group-name").textContent = practiceGroupTitle(group);
+	toggle.querySelector(".practice-choice-sub").textContent = practiceGroupSub(group);
 	heading.appendChild(toggle);
 	var cards = document.createElement("div");
 	cards.className = "practice-group-cards";

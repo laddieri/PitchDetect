@@ -2506,7 +2506,7 @@
 			.practice-group {
 				display: flex;
 				flex-direction: column;
-				gap: 6px;
+				gap: 10px;
 			}
 
 			.practice-group-title {
@@ -2515,44 +2515,30 @@
 				font-weight: 700;
 			}
 
-			/* The heading folds its cards away */
+			/* The heading is a big card (like the activities) that folds its
+			   cards away */
 			.practice-group-toggle {
-				display: flex;
-				align-items: center;
-				gap: 8px;
 				width: 100%;
-				min-height: 32px;
-				padding: 2px 4px;
-				border: none;
-				border-radius: var(--radius-sm);
-				background: none;
-				color: var(--text-muted);
-				font: inherit;
-				text-align: left;
-				cursor: pointer;
+				background: var(--accent-soft);
 			}
 
-			.practice-group-toggle:hover {
-				color: var(--text);
-			}
-
-			.practice-group-toggle:focus-visible {
-				outline: none;
-				box-shadow: var(--ring);
+			.practice-group-toggle[data-group="names"] .practice-choice-icon {
+				font-size: 1.15rem;
 			}
 
 			.practice-group-chevron {
-				width: 8px;
-				height: 8px;
-				margin-top: -3px;
-				border-right: 2.5px solid currentColor;
-				border-bottom: 2.5px solid currentColor;
+				flex-shrink: 0;
+				width: 12px;
+				height: 12px;
+				margin: -6px 6px 0;
+				border-right: 3px solid currentColor;
+				border-bottom: 3px solid currentColor;
 				transform: rotate(45deg);
 				transition: transform 0.15s;
 			}
 
 			.practice-group.closed .practice-group-chevron {
-				margin-top: 2px;
+				margin-top: 0;
 				transform: rotate(-45deg);
 			}
 
@@ -4893,6 +4879,10 @@
 			body.kid-mode .practice-choice[data-activity="scale"] .practice-choice-icon { background: #c9b6ff; }
 			body.kid-mode .practice-choice[data-activity="scalerun"] .practice-choice-icon { background: #ffcf8f; }
 			body.kid-mode .practice-choice[data-activity="songs"] .practice-choice-icon { background: #7fe0d0; }
+			body.kid-mode .practice-group-toggle[data-group="names"] .practice-choice-icon { background: #7ee081; }
+			body.kid-mode .practice-group-toggle[data-group="fingerings"] .practice-choice-icon { background: #8fd3ff; }
+			body.kid-mode .practice-group-toggle[data-group="playing"] .practice-choice-icon { background: #ff9f1c; }
+			body.kid-mode .practice-group-toggle { background: #fff3c4; }
 
 			body.kid-mode .player-bar,
 			body.kid-mode .profile-top,
