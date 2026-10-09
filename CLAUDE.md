@@ -483,8 +483,8 @@ Loaded after firstfive.js; no server, everything stays on the device.
   need an instrument chosen in the app (the toolbar button is always
   enabled): `openPractice()` goes to sign-in, or to the instrument step when
   `practice.instrument` is empty, and back from there closes Practice.
-- **Teacher mode:** typing `TEACHER_CODE` ("BANDTEACHER"; spaces and
-  dashes dropped like any ID) on **Who's practicing?** calls
+- **Teacher mode:** typing `TEACHER_CODE` ("900900900", numbers so
+  it fits the ID box's number pad; spaces and dashes dropped like any ID) on **Who's practicing?** calls
   `enterTeacherMode()`. Every activity, any instrument: the header's pill
   becomes a drop-down (`#practice-instrument-select`,
   `updateTeacherHeader()`, `teacherPickInstrument()`: reloads practice and
