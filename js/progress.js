@@ -196,7 +196,8 @@ function loadProfile() {
 		freezes: Math.min(MAX_FREEZES, nonNegative(p.freezes)),
 		badges: p.badges && typeof p.badges === "object" ? p.badges : {},
 		instrument: typeof p.instrument === "string" ? p.instrument : null,
-		name: cleanStudentName(p.name)
+		name: cleanStudentName(p.name),
+		menuAll: typeof p.menuAll === "boolean" ? p.menuAll : null  // practice menu: every activity, not a unit
 	};
 }
 
@@ -463,7 +464,9 @@ function songsStarredAt(level) {
 	return SONGS.filter(function(song) { return song.level === level && songStars(song) > 0; }).length;
 }
 
-// The path for the current instrument: [{ title, activity, done, level? }]
+// The path for the current instrument: [{ title, activity, done, unit,
+// level? }]. Each step's unit (PRACTICE_UNITS) is the first with its
+// activity, except songs past notes 6 and beyond, in the B♭ scale unit.
 function learningPath() {
 	var nodes = [];
 	var fs = FIRST_SOUNDS[practice.instrument];
@@ -509,10 +512,13 @@ function learningPath() {
 		done: practice.lessons.scale.stars.every(function(n) { return n > 0; }) });
 	nodes.push({ title: "Play the B\u266D scale", activity: "scalerun",
 		done: challengeStars(practice.scaleRunBest || 0, scaleRunSequence().length) > 0 });
-	nodes.push({ title: "Play 3 intermediate songs", activity: "songs", level: "intermediate",
+	nodes.push({ title: "Play 3 intermediate songs", activity: "songs", level: "intermediate", unit: "unit4",
 		done: songsStarredAt("intermediate") >= 3 });
-	nodes.push({ title: "Play 3 advanced songs", activity: "songs", level: "advanced",
+	nodes.push({ title: "Play 3 advanced songs", activity: "songs", level: "advanced", unit: "unit4",
 		done: songsStarredAt("advanced") >= 3 });
+	nodes.forEach(function(node) {
+		node.unit = node.unit || firstUnitWith(node.activity) || PRACTICE_UNITS[0].id;
+	});
 	return nodes;
 }
 
@@ -522,6 +528,8 @@ function nextPathNode(nodes) {
 
 function startPathNode(node) {
 	if (node.level) songLevelsOpen[node.level] = true;
+	// Back from it lands on its unit
+	if (!practice.menuAll) practice.menuPage = node.unit;
 	startPracticeActivity(node.activity);
 }
 
@@ -531,8 +539,17 @@ function markNextUp(menu, page) {
 	if (!progressCounts()) return;
 	var next = nextPathNode();
 	if (!next) return;
-	var card = menu.querySelector('[data-activity="' + next.activity + '"]');
-	if (card) {
+	// On a unit, only a card for the step's own unit; else the arrow (and the
+	// card at the end) that leads toward it
+	var unit = practiceUnit(page);
+	var card = !unit || unit.id === next.unit ? menu.querySelector('[data-activity="' + next.activity + '"]') : null;
+	if (unit && !card) {
+		var ahead = PRACTICE_UNITS.indexOf(practiceUnit(next.unit)) > PRACTICE_UNITS.indexOf(unit);
+		var arrow = document.querySelector("#practice-units .unit-arrow." + (ahead ? "next" : "prev"));
+		if (arrow) arrow.classList.add("next-up");
+		var lead = menu.querySelector(".unit-next");
+		if (ahead && lead && lead.getAttribute("data-page") === next.unit) lead.classList.add("next-up");
+	} else if (card) {
 		card.classList.add("next-up");
 		var tag = document.createElement("span");
 		tag.className = "next-up-tag";
@@ -766,7 +783,7 @@ function updateTeacherHeader() {
 function teacherPickInstrument(value) {
 	if (!teacherMode || !value || (practice && value === practice.instrument)) return;
 	var page = practice && practice.mode === "menu" ? practice.menuPage
-		: practice && activityPage(currentPracticeActivity()) || (practice && practice.menuPage);
+		: practice && menuPageFor(currentPracticeActivity()) || (practice && practice.menuPage);
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
 	if (practiceStartedMic && listenActive) stopListening();
@@ -775,7 +792,7 @@ function teacherPickInstrument(value) {
 	select.value = value;
 	select.dispatchEvent(new Event("change"));
 	loadPracticeInstrument();
-	showPracticeMenu(page || "lessons");
+	showPracticeMenu(page);
 }
 
 // Switch to a student ("" = guest): their progress, and their instrument
@@ -1040,7 +1057,13 @@ function renderProfile() {
 	var done = nodes.filter(function(n) { return n.done; }).length;
 	path.appendChild(el("h3", "profile-heading", "Your path \u00B7 " + done + " of " + nodes.length));
 	var list = el("ol", "path-list");
+	var lastUnit = null;
 	nodes.forEach(function(node) {
+		if (node.unit !== lastUnit) {
+			lastUnit = node.unit;
+			var unit = practiceUnit(node.unit);
+			list.appendChild(el("li", "path-unit", "Unit " + (PRACTICE_UNITS.indexOf(unit) + 1) + ": " + unit.title));
+		}
 		var li = el("li", "path-node" + (node.done ? " done" : "") + (node === next ? " current" : ""));
 		var b = el("button", "path-button");
 		b.appendChild(el("span", "path-dot", node.done ? "\u2713" : ""));

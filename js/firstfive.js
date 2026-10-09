@@ -296,6 +296,9 @@ function loadPracticeInstrument() {
 		lesson: "first5",
 		notes: lessons.first5.notes,  // the quiz and drills use the first five
 		threeSet: defaultThreeSet(select.value),  // ...and the 3-note ones the set last opened
+		// The menu shows a unit at a time, or every activity (teachers start there)
+		menuAll: typeof profile !== "undefined" && profile && typeof profile.menuAll === "boolean"
+			? profile.menuAll : teacherMode,
 		fingeringKeys: {},
 		challengeBest: loadChallengeBest(select.value),
 		scaleRunBest: loadChallengeBest(select.value, SCALE_RUN_STORAGE_KEY),
@@ -445,6 +448,149 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "songs", icon: "\u266b", title: "More songs", sub: "When the Saints, Twinkle, or make your own", page: "songs", wide: true }
 ];
 
+// The units: the menu shows one at a time (its own menu page, "unit1"...),
+// with just that stretch of the path's cards in path order, so a beginner
+// sees a few cards, not everything. The arrows step through them and, past
+// the last, to every activity on the tabbed pages (PRACTICE_PAGES), which
+// teachers start on. An activity may be in more than one unit (More songs).
+// The path's steps say which unit they're in (learningPath()).
+var PRACTICE_UNITS = [
+	{ id: "unit1", title: "Your first notes", activities: ["firstsounds", "learn3bag", "learn3",
+		"names3bag", "names3", "fingerings3bag", "fingerings3", "quiz3bag", "quiz3",
+		"songs3bag", "songs3", "write3bag", "write3"] },
+	{ id: "unit2", title: "The first 5 notes", activities: ["learn", "quiz", "names", "fingerings", "songs5", "write5"] },
+	{ id: "unit3", title: "Notes 6 and beyond", activities: ["learn4", "names9", "fingerings9", "quiz9", "songs"] },
+	{ id: "unit4", title: "The B♭ scale", activities: ["scale", "namesscale", "fingeringsscale", "scalerun", "songs"] }
+];
+
+function practiceUnit(page) {
+	return PRACTICE_UNITS.filter(function(u) { return u.id === page; })[0] || null;
+}
+
+function isPracticeMenuPage(page) {
+	return !!practiceUnit(page) || PRACTICE_PAGES.some(function(p) { return p.id === page; });
+}
+
+// What a unit's notes are, for the card that leads to it
+function practiceUnitSub(unit) {
+	if (unit.id === "unit1") return threeNotesText(defaultThreeSet(practice.instrument));
+	if (unit.id === "unit2") return notesText(practice.lessons.first5.notes);
+	if (unit.id === "unit3") return nextFourText();
+	return "All eight notes, and harder songs";
+}
+
+// The path's steps in a unit, and how many are done (null for the teacher,
+// whose progress isn't kept)
+function practiceUnitProgress(unit) {
+	if (typeof learningPath !== "function" || !progressCounts()) return null;
+	var nodes = learningPath().filter(function(n) { return n.unit === unit.id; });
+	return { done: nodes.filter(function(n) { return n.done; }).length, total: nodes.length };
+}
+
+// The menu page to return to from activity id: its tab when showing every
+// activity, else the unit on show if it has it, else the first unit with it
+function menuPageFor(id) {
+	if (practice.menuAll) return activityPage(id);
+	var current = practiceUnit(practice.menuPage);
+	if (current && current.activities.indexOf(id) >= 0) return current.id;
+	return firstUnitWith(id);
+}
+
+// The first unit with activity id (null if none has it)
+function firstUnitWith(id) {
+	var unit = PRACTICE_UNITS.filter(function(u) { return u.activities.indexOf(id) >= 0; })[0];
+	return unit ? unit.id : null;
+}
+
+// The page the menu opens on: the unit (or tab) with the next step on the
+// path; the first unit, or the Lessons tab, for the teacher
+function defaultMenuPage() {
+	var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
+	if (practice.menuAll) return (next && activityPage(next.activity)) || "lessons";
+	if (next) return next.unit;
+	return progressCounts() ? PRACTICE_UNITS[PRACTICE_UNITS.length - 1].id : PRACTICE_UNITS[0].id;
+}
+
+// The unit bar above the menu: the unit on show, how far along it is, and
+// arrows to the units either side (past the last: every activity)
+function renderPracticeUnits(page) {
+	var bar = document.getElementById("practice-units");
+	bar.innerHTML = "";
+	var unit = practiceUnit(page);
+	var index = unit ? PRACTICE_UNITS.indexOf(unit) : PRACTICE_UNITS.length;
+	var pageAt = function(i) { return i < PRACTICE_UNITS.length ? PRACTICE_UNITS[i].id : "lessons"; };
+	var labelAt = function(i) {
+		return i < PRACTICE_UNITS.length ? "Unit " + (i + 1) + ": " + PRACTICE_UNITS[i].title : "Every activity";
+	};
+	var arrow = function(dir) {
+		var to = index + dir;
+		var b = document.createElement("button");
+		b.className = "unit-arrow " + (dir < 0 ? "prev" : "next");
+		b.type = "button";
+		b.textContent = dir < 0 ? "‹" : "›";
+		if (to < 0 || to > PRACTICE_UNITS.length) {
+			b.disabled = true;
+			b.setAttribute("aria-label", dir < 0 ? "No earlier unit" : "No later unit");
+		} else {
+			b.setAttribute("data-page", pageAt(to));
+			b.setAttribute("aria-label", labelAt(to));
+			b.title = labelAt(to);
+			b.onclick = function() { showPracticeMenu(pageAt(to)); };
+		}
+		return b;
+	};
+	var info = document.createElement("div");
+	info.className = "unit-info";
+	var kicker = document.createElement("span");
+	kicker.className = "unit-kicker";
+	var title = document.createElement("span");
+	title.className = "unit-title";
+	info.appendChild(kicker);
+	info.appendChild(title);
+	if (unit) {
+		title.textContent = unit.title;
+		var progress = practiceUnitProgress(unit);
+		kicker.textContent = "Unit " + (index + 1) + " of " + PRACTICE_UNITS.length +
+			(!progress || !progress.total ? ""
+				: progress.done === progress.total ? " · Done ✓"
+				: " · " + progress.done + " of " + progress.total + " done");
+		if (progress && progress.total) {
+			var meter = document.createElement("span");
+			meter.className = "unit-meter";
+			meter.innerHTML = '<span class="unit-meter-fill"></span>';
+			meter.firstChild.style.width = (progress.done / progress.total * 100).toFixed(1) + "%";
+			info.appendChild(meter);
+		}
+	} else {
+		kicker.textContent = "All " + PRACTICE_UNITS.length + " units";
+		title.textContent = "Every activity";
+	}
+	bar.appendChild(arrow(-1));
+	bar.appendChild(info);
+	bar.appendChild(arrow(1));
+}
+
+// The card at the end of a unit that leads on to the next one (or, after
+// the last, to every activity)
+function practiceUnitNextCard(unit) {
+	var index = PRACTICE_UNITS.indexOf(unit);
+	var next = PRACTICE_UNITS[index + 1];
+	var progress = practiceUnitProgress(unit);
+	var b = document.createElement("button");
+	b.className = "practice-choice wide unit-next";
+	b.innerHTML = '<span class="practice-choice-icon" aria-hidden="true">→</span>' +
+		'<span class="practice-choice-text"><span class="practice-choice-title"></span>' +
+		'<span class="practice-choice-sub"></span></span>';
+	var lead = progress && progress.total && progress.done === progress.total ? "Up next" : "Coming up";
+	b.querySelector(".practice-choice-title").textContent = next
+		? lead + ": Unit " + (index + 2) + ", " + next.title : "Every activity";
+	b.querySelector(".practice-choice-sub").textContent = next
+		? practiceUnitSub(next) : "Everything in one place, for review";
+	b.setAttribute("data-page", next ? next.id : "lessons");
+	b.onclick = function() { showPracticeMenu(next ? next.id : "lessons"); };
+	return b;
+}
+
 // The headings the Practice drills page groups its cards under (an
 // activity's group)
 function practiceGroupTitle(group) {
@@ -472,15 +618,23 @@ function activityPage(id) {
 	return a ? a.page : null;
 }
 
-// Show menu page page. Without one, the menu stays on its page, leaving an
-// activity returns to the page it's on, and otherwise the page with the next
-// step on the learning path opens.
+// Show menu page page: a unit, or a tab of every activity. Without one, the
+// menu stays on its page, leaving an activity returns to the page it's on,
+// and otherwise the page with the next step on the learning path opens.
 function showPracticeMenu(page) {
-	if (!PRACTICE_PAGES.some(function(p) { return p.id === page; })) {
-		var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
+	if (!isPracticeMenuPage(page)) {
 		page = practice.mode === "menu" ? practice.menuPage
-			: activityPage(currentPracticeActivity()) || practice.menuPage;
-		page = page || (next && activityPage(next.activity)) || "lessons";
+			: menuPageFor(currentPracticeActivity()) || practice.menuPage;
+		page = page || defaultMenuPage();
+	}
+	var unit = practiceUnit(page);
+	// Showing every activity (or a unit) sticks for the student
+	if (practice.menuAll !== !unit) {
+		practice.menuAll = !unit;
+		if (typeof profile !== "undefined" && profile) {
+			profile.menuAll = practice.menuAll;
+			saveProfile();
+		}
 	}
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
@@ -491,7 +645,10 @@ function showPracticeMenu(page) {
 	var back = document.getElementById("practice-close");
 	back.setAttribute("aria-label", "Back to the app");
 	back.title = "Back to the app";
-	renderPracticeTabs(page);
+	renderPracticeUnits(page);
+	if (unit) document.getElementById("practice-tabs").innerHTML = "";
+	else renderPracticeTabs(page);
+	document.getElementById("practice-view").toggleAttribute("data-menu-unit", !!unit);
 	// Nothing on the menu listens; the mic restarts with the next Play step
 	if (practiceStartedMic && listenActive) stopListening();
 	practiceStartedMic = false;
@@ -501,14 +658,27 @@ function showPracticeMenu(page) {
 	var menu = document.getElementById("practice-menu");
 	menu.innerHTML = "";
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
-	var activities = PRACTICE_ACTIVITIES.filter(function(a) {
-		return practiceActivityAvailable(a.id) && a.page === page;
+	var activities = unit
+		? unit.activities.map(function(id) {
+			return PRACTICE_ACTIVITIES.filter(function(a) { return a.id === id; })[0];
+		}).filter(function(a) { return practiceActivityAvailable(a.id); })
+		: PRACTICE_ACTIVITIES.filter(function(a) {
+			return practiceActivityAvailable(a.id) && a.page === page;
+		});
+	// A unit's cards pair up where they can; one left on its own is wide
+	var wide = {}, pairing = [];
+	activities.forEach(function(a) {
+		if (!a.wide) pairing.push(a.id);
+		if (a.wide || a === activities[activities.length - 1]) {
+			if (unit && pairing.length % 2) wide[pairing[pairing.length - 1]] = true;
+			pairing = [];
+		}
 	});
 	// Flute and oboe have two sets of first 3 notes, so their 3-note cards
 	// name the notes they're on
 	var bag = practiceActivityAvailable("learn3bag");
 	menu.setAttribute("data-count", activities.length);
-	var grouped = activities.some(function(a) { return a.group; });
+	var grouped = !unit && activities.some(function(a) { return a.group; });
 	menu.toggleAttribute("data-grouped", grouped);
 	var groupCards = null, lastGroup = null;
 	activities.forEach(function(a) {
@@ -588,7 +758,7 @@ function showPracticeMenu(page) {
 		}
 
 		var b = document.createElement("button");
-		b.className = "practice-choice" + (a.wide ? " wide" : "");
+		b.className = "practice-choice" + (a.wide || wide[a.id] ? " wide" : "");
 		b.setAttribute("data-activity", a.id);
 		b.innerHTML = '<span class="practice-choice-icon" aria-hidden="true"></span>' +
 			'<span class="practice-choice-text"><span class="practice-choice-title"></span>' +
@@ -613,6 +783,8 @@ function showPracticeMenu(page) {
 		}
 		(grouped ? groupCards : menu).appendChild(b);
 	});
+	if (unit) menu.appendChild(practiceUnitNextCard(unit));
+	menu.toggleAttribute("data-unit", !!unit);
 	onPracticeMenuShown(menu, page);
 }
 
