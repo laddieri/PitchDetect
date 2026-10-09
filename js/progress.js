@@ -47,7 +47,9 @@ var PROFILE_KEEP_DAYS = 400;   // daily practice times older than this are dropp
 var TEACHER_STORAGE_KEY = "pitchdetect-teacher";
 // Typed as the student ID, opens teacher mode. Not a password (anyone can
 // read the page's code), just enough to keep students from wandering in.
-var TEACHER_CODE = "BANDTEACHER";
+// Numbers, so it types on the ID box's number pad; long enough not to be
+// a real student's ID.
+var TEACHER_CODE = "900900900";
 
 // Avatars, each unlocked at a level
 var AVATARS = [
@@ -672,7 +674,7 @@ function showSignIn(from) {
 	var input = el("input", "signin-input");
 	input.id = "student-id";
 	input.type = "text";
-	input.inputMode = "numeric";
+	input.inputMode = "numeric";  // student IDs and the teacher code are numbers
 	input.autocomplete = "off";
 	input.spellcheck = false;
 	input.maxLength = 16;
