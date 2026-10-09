@@ -91,13 +91,20 @@
 				margin-bottom: 14px;
 			}
 
-			/* Advanced mode switch: top-right of the header, clear of the
-			   centered title (styled like the Sustain switch) */
-			.mode-switch {
+			/* Practice and the Advanced mode switch: top-right of the header,
+			   clear of the centered title */
+			.header-actions {
 				position: absolute;
 				top: 50%;
 				right: 0;
 				transform: translateY(-50%);
+				display: flex;
+				align-items: center;
+				gap: 16px;
+			}
+
+			/* Styled like the Sustain switch */
+			.mode-switch {
 				display: inline-flex;
 				align-items: center;
 				gap: 9px;
@@ -537,76 +544,6 @@
 				color: var(--text-muted);
 				margin-top: 8px;
 				min-height: 1.2em;
-			}
-
-			/* ---------- Idle state: the note panel is the Listen button ---------- */
-			/* Until there's a note to show (placed, hovered, or heard), the panel
-			   offers the app's main action instead of instructions. */
-			.listen-cta {
-				display: none;
-				flex-direction: column;
-				align-items: center;
-				justify-content: center;
-				gap: 14px;
-				padding: 0;
-				background: none;
-				border: none;
-				font-family: var(--font);
-				color: var(--accent);
-				cursor: pointer;
-			}
-
-			#note-display.idle #note-name,
-			#note-display.idle #frequency-display,
-			#note-display.idle #concert-pitch-display {
-				display: none;
-			}
-
-			#note-display.idle .listen-cta {
-				display: flex;
-			}
-
-			/* One Listen button at a time: while the panel is the Listen button,
-			   the toolbar's copy keeps its footprint but stays out of sight. It
-			   returns as Stop once listening, or as Listen when a note is shown.
-			   Keyed off the panel's own idle class so the two can't disagree. */
-			body:has(#note-display.idle) #listenButton {
-				visibility: hidden;
-			}
-
-			.listen-cta-icon {
-				width: 104px;
-				height: 104px;
-				border-radius: 50%;
-				background-color: var(--accent);
-				color: #fff;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				box-shadow: var(--shadow-md);
-				transition: background-color 0.15s, transform 0.1s, box-shadow 0.15s;
-			}
-
-			.listen-cta-label {
-				font-size: 1.15rem;
-				font-weight: 600;
-			}
-
-			.listen-cta:hover .listen-cta-icon {
-				background-color: var(--accent-hover);
-			}
-
-			.listen-cta:active .listen-cta-icon {
-				background-color: var(--accent-active);
-				transform: scale(0.96);
-			}
-
-			.listen-cta:focus-visible {
-				outline: none;
-			}
-
-			.listen-cta:focus-visible .listen-cta-icon {
-				box-shadow: var(--shadow-md), var(--ring);
 			}
 
 			#concert-pitch-display {
@@ -1264,6 +1201,35 @@
 				max-height: 100%;
 			}
 
+			/* Narrower screens: no room beside a centered title, so the title
+			   moves left with Practice and the switch on its right */
+			@media (max-width: 1100px) {
+				.app-header {
+					display: grid;
+					grid-template-columns: minmax(0, 1fr) auto;
+					align-items: center;
+					column-gap: 16px;
+					text-align: left;
+				}
+
+				h1 {
+					grid-column: 1;
+					grid-row: 1;
+				}
+
+				.app-subtitle {
+					grid-column: 1;
+					grid-row: 2;
+				}
+
+				.header-actions {
+					position: static;
+					transform: none;
+					grid-column: 2;
+					grid-row: 1 / span 2;
+				}
+			}
+
 			/* ---------- Mobile: one-screen layout ---------- */
 			/* Everything fits the viewport without scrolling or hidden drawers:
 			   a compact header, a single-row icon toolbar, a one-line note
@@ -1283,21 +1249,35 @@
 					display: none;
 				}
 
-				/* Title left, Advanced mode switch right, on one row */
+				/* Two rows: title and Practice, then (kid mode's tagline and)
+				   the Advanced switch, each on the right */
 				.app-header {
 					margin-bottom: 10px;
-					display: flex;
-					align-items: center;
-					justify-content: space-between;
-					gap: 10px;
+					column-gap: 10px;
+					row-gap: 6px;
+				}
+
+				.header-actions {
+					display: contents;
+				}
+
+				#practiceButton {
+					grid-column: 2;
+					grid-row: 1;
+					justify-self: end;
 				}
 
 				.mode-switch {
-					position: static;
-					transform: none;
-					flex-shrink: 0;
+					grid-column: 2;
+					grid-row: 2;
+					justify-self: end;
 					font-size: 0.85rem;
 					gap: 7px;
+				}
+
+				/* "Advanced" alone */
+				.mode-word {
+					display: none;
 				}
 
 				/* Single-row toolbar: the select keeps width for long instrument
@@ -1322,7 +1302,6 @@
 				#playButton,
 				#clearButton,
 				#listenButton,
-				#practiceButton,
 				#overflowButton {
 					flex: 0 0 44px;
 					width: 44px;
@@ -1365,35 +1344,6 @@
 					height: 54px;
 					min-height: 0;
 					overflow: hidden;
-				}
-
-				/* Idle strip: the whole strip is the Listen button */
-				#note-display.idle {
-					align-items: center;
-					padding: 5px;
-				}
-
-				.listen-cta {
-					flex-direction: row;
-					gap: 10px;
-					width: 100%;
-					height: 100%;
-					border-radius: var(--radius-sm);
-				}
-
-				.listen-cta-icon {
-					width: 36px;
-					height: 36px;
-					box-shadow: none;
-				}
-
-				.listen-cta-icon svg {
-					width: 18px;
-					height: 18px;
-				}
-
-				.listen-cta-label {
-					font-size: 1rem;
 				}
 
 				#note-name {
@@ -1639,11 +1589,6 @@
 			   instrument select keeps room for its name instead of clipping
 			   to a couple of letters */
 			@media (max-width: 360px) {
-				/* "Advanced" alone, so the switch fits beside the title */
-				.mode-word {
-					display: none;
-				}
-
 				body {
 					padding: 8px;
 				}
@@ -1842,29 +1787,6 @@
 				animation: none;
 			}
 
-			body.kid-mode .listen-cta-icon {
-				border: 4px solid var(--ink);
-				box-shadow: 5px 5px 0 var(--ink);
-				animation: kid-bob 2.2s ease-in-out infinite;
-			}
-
-			body.kid-mode .listen-cta:active .listen-cta-icon {
-				transform: translate(3px, 3px);
-				box-shadow: 2px 2px 0 var(--ink);
-				animation: none;
-			}
-
-			body.kid-mode .listen-cta-label {
-				font-size: 1.4rem;
-				font-weight: 700;
-				color: var(--ink);
-			}
-
-			@keyframes kid-bob {
-				0%, 100% { transform: translateY(0) rotate(-3deg); }
-				50% { transform: translateY(-8px) rotate(3deg); }
-			}
-
 			/* One color per letter, so kids can recognize notes at a glance.
 			   The ink outline keeps the lighter colors (E, yellow) readable. */
 			body.kid-mode #note-name {
@@ -1941,8 +1863,7 @@
 			}
 
 			@media (prefers-reduced-motion: reduce) {
-				body.kid-mode #note-name.kid-pop,
-				body.kid-mode .listen-cta-icon {
+				body.kid-mode #note-name.kid-pop {
 					animation: none;
 				}
 			}
@@ -2037,37 +1958,11 @@
 					--cartoon-shadow: 4px 4px 0 var(--ink);
 				}
 
-				/* The tagline gets its own row under the title and switch */
-				body.kid-mode .app-header {
-					flex-wrap: wrap;
-					row-gap: 2px;
-				}
-
+				/* The tagline sits under the title, beside the switch */
 				body.kid-mode .app-subtitle {
 					display: block;
-					order: 3;
-					flex-basis: 100%;
 					margin: 0;
 					font-size: 0.9rem;
-				}
-
-				body.kid-mode .listen-cta {
-					flex-direction: column;
-					gap: 12px;
-				}
-
-				body.kid-mode .listen-cta-icon {
-					width: 96px;
-					height: 96px;
-				}
-
-				body.kid-mode .listen-cta-icon svg {
-					width: 40px;
-					height: 40px;
-				}
-
-				body.kid-mode .listen-cta-label {
-					font-size: 1.2rem;
 				}
 
 				/* Room to spell out Listen / Stop in the toolbar */
@@ -2084,7 +1979,8 @@
 			}
 
 			/* ---------- First 5 Notes practice ---------- */
-			/* Toolbar entry: an outline button beside Listen */
+			/* Entry: an outline button in the header, beside the Advanced mode
+			   switch */
 			#practiceButton {
 				padding: 11px 22px;
 				font-size: 0.95rem;
@@ -2120,19 +2016,6 @@
 				opacity: 0.45;
 				background-color: var(--surface);
 				border-color: var(--border-strong);
-			}
-
-			/* In the mobile overflow menu: a labeled row above Sustain */
-			.controls .overflow-popover #practiceButton {
-				display: flex;
-				width: 100%;
-				height: auto;
-				padding: 9px 14px;
-				margin-bottom: 12px;
-			}
-
-			.controls .overflow-popover #practiceButton .btn-label {
-				display: inline;
 			}
 
 			/* Full-screen practice view over the app (which is made inert) */
@@ -5180,52 +5063,20 @@
 			}
 
 			@media (max-width: 700px) {
-				/* (Restated: the rules above come after the toolbar's own
-				   mobile sizing) */
-				.controls #practiceButton {
-					padding: 0;
+				/* Header-sized: the star goes, the label stays */
+				#practiceButton,
+				body.kid-mode #practiceButton {
+					padding: 6px 12px;
+					font-size: 0.9rem;
 				}
 
-				/* Kid mode spells out Practice (a bare star read as a mystery
-				   button); the star itself goes to save room */
-				body.kid-mode .controls #practiceButton {
-					flex: 0 0 auto;
-					width: auto;
-					height: 44px;
-					padding: 0 12px;
-					font-size: 1rem;
+				body.kid-mode #practiceButton {
+					border-radius: 12px;
+					box-shadow: 3px 3px 0 var(--ink);
 				}
 
-				body.kid-mode .controls #practiceButton svg {
+				#practiceButton svg {
 					display: none;
-				}
-
-				/* Listen here is mostly an invisible placeholder (the note
-				   panel is the Listen button) that becomes Stop while
-				   listening, so it's a round icon: the mic, or a stop square */
-				body.kid-mode .controls #listenButton {
-					flex: 0 0 44px;
-					width: 44px;
-					height: 44px;
-					padding: 0;
-					border-radius: 50%;
-				}
-
-				body.kid-mode .controls #listenButton .btn-label {
-					display: none;
-				}
-
-				body.kid-mode .controls #listenButton svg {
-					width: 18px;
-					height: 18px;
-				}
-
-				body.kid-mode .controls #listenButton.listening .icon-mic {
-					display: none;
-				}
-
-				body.kid-mode .controls #listenButton.listening .icon-stop {
-					display: block;
 				}
 
 				.practice-view {
@@ -5614,11 +5465,17 @@
 			<header class="app-header">
 				<h1>What Note Is This?</h1>
 				<p class="app-subtitle"><span class="std-only">Play a note and the app names it &mdash; or set a target note to practice</span><span class="kid-only">Play a note and see what it is!</span></p>
-				<label class="mode-switch" title="Advanced mode: target notes, playback, fingerings, piano, and key signatures">
-					<input type="checkbox" id="advancedModeToggle" onchange="setKidMode(!this.checked)">
-					<span class="sustain-slider"></span>
-					<span>Advanced<span class="mode-word"> mode</span></span>
-				</label>
+				<div class="header-actions">
+					<button id="practiceButton" onclick="openPractice()" title="Practice your first five notes" aria-label="Practice your first five notes">
+						<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+						<span class="btn-label">Practice</span>
+					</button>
+					<label class="mode-switch" title="Advanced mode: target notes, playback, fingerings, piano, and key signatures">
+						<input type="checkbox" id="advancedModeToggle" onchange="setKidMode(!this.checked)">
+						<span class="sustain-slider"></span>
+						<span>Advanced<span class="mode-word"> mode</span></span>
+					</label>
+				</div>
 			</header>
 
 			<div class="controls">
@@ -5654,10 +5511,6 @@
 					<svg class="icon-mic" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
 					<span class="btn-label" id="listenLabel">Listen</span>
 				</button>
-				<button id="practiceButton" onclick="openPractice()" title="Practice your first five notes" aria-label="Practice your first five notes">
-					<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-					<span class="btn-label">Practice</span>
-				</button>
 				<div class="controls-divider"></div>
 				<button id="playButton" onclick="handlePlayButton()" title="Play the target note" aria-label="Play the target note">
 					<svg class="icon-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21"/></svg>
@@ -5680,14 +5533,10 @@
 			</div>
 
 			<div class="main-display">
-				<div id="note-display" class="idle">
+				<div id="note-display">
 					<span id="note-name">-</span>
 					<div id="frequency-display"></div>
 					<div id="concert-pitch-display"></div>
-					<button id="listen-cta" class="listen-cta" onclick="handleListenButton()" aria-label="Listen through the microphone and name the notes you play">
-						<span class="listen-cta-icon"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg></span>
-						<span class="listen-cta-label">Listen</span>
-					</button>
 				</div>
 
 				<div class="staff-column">
