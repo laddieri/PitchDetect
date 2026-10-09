@@ -245,7 +245,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   along and the mic ignoring it, and the fingering chart changing with each
   note (`showSongFingerings()`: one `practiceFingeringBox(true, midi)` per
   pitch built up front in `#song-fingering`, only the sounding one shown,
-  rests keep the last; a Help chart is hidden meanwhile;
+  rests keep the last; a Help chart is hidden meanwhile; image charts go on
+  one shared canvas, `lineUpChartImages()`: one scale, each file placed by
+  `fingeringImageOffset()` (fingerings.js, measured offsets, since files
+  are cropped per note), so the tone holes don't move;
   `removeSongFingerings()` from `stopSongPlayback()`); `setPracticeMode()` and `closePractice()`
   stop it. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
@@ -419,7 +422,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   per-instrument hints: the other sound (flute only, `confusable`), squeaks,
   low/high, and no sound after 6 s.
 - `practiceFingeringBox()` builds the chart for the Finger step and challenge
-  Help. Trombone charts share a wide canvas (bell fixed, room for the slide at
+  Help. Flutes on B A G keep the thumb on the B♮ key: in the B A G lesson,
+  its fingering drill and songs on only B, A and G (`fluteBThumbNow()`,
+  `fluteBThumbSong()`) G and A show `img/Fingerings/Flute/67-b-thumb.png` /
+  `69-b-thumb.png` instead of the charts' B♭-lever thumb. Trombone charts share a wide canvas (bell fixed, room for the slide at
   7th position), so `centerChartDrawing()` measures the drawn pixels and
   shifts the image to center them; `.practice-fingering` clips the blank part.
   Hear the song's charts are shown in turn, so they share one shift

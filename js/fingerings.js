@@ -352,6 +352,27 @@ function fingeringImagePath(instrument, writtenMidi) {
 	return "img/Fingerings/" + info.folder + "/" + (writtenMidi - info.transposition) + "." + info.ext;
 }
 
+// The chart images are cropped to each note's keys, so the main column of
+// tone holes sits at different spots in different files (side keys to its
+// left, an octave key above). [x, y] places a file's drawing over the rest
+// of its set, so charts shown in turn (Hear the song) stay lined up; files
+// not listed are at [0, 0]. Measured by matching the tone-hole outlines.
+var fingeringImageOffsets = {
+	"Oboe": { 58: [-67, 0], 59: [-67, 0], 60: [-67, 0], 61: [-67, 0], 63: [-67, 0], 73: [-67, 0], 75: [-67, 0],
+		77: [-39, -60], 78: [-39, -60], 79: [-39, -60], 80: [-39, -60], 81: [0, -60], 82: [0, -60], 83: [0, -60], 84: [0, -60] },
+	"Saxophone": { 58: [29, 8], 63: [36, 0], 64: [36, 0], 65: [36, 0], 66: [36, 0], 67: [36, 0], 68: [36, 0],
+		69: [36, 0], 70: [29, 0], 71: [36, 0], 72: [36, 0], 73: [36, 0] },
+	"Bassoon": { 40: [70, 0], 57: [173, 0], 58: [70, 0], 59: [173, 0], 60: [173, 0], 62: [173, 0], 63: [173, 0],
+		64: [173, 0], 65: [173, 0] },
+	"Flute": { 60: [0, -8], 62: [0, 6], 68: [0, -40], 74: [0, 6], 80: [0, -40], 92: [0, -40], 93: [0, -40] }
+};
+
+function fingeringImageOffset(instrument, writtenMidi) {
+	var info = imageFingeringMap[instrument];
+	var set = fingeringImageOffsets[info.folder];
+	return (set && set[writtenMidi - info.transposition]) || [0, 0];
+}
+
 // Display fingering using an image file from img/Fingerings/
 function displayImageFingering(container, instrument, writtenMidi) {
 	var info = imageFingeringMap[instrument];
