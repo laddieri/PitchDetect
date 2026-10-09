@@ -51,7 +51,7 @@ All state is module-global. The main clusters:
 | **Tuner meter** | `updateTunerMeter()` — cents vs nearest semitone via `centsOffFromPitch()`, EMA-smoothed needle, in-tune/close/off color states. |
 | **Match/fireworks** | `commitDetectedNote()` fires `launchFireworks()` on target match; `reevaluateMatch()` re-checks whenever the *target* changes. |
 | **Synthesis** | `instrumentTimbres` (per-instrument harmonic stacks, vibrato, breath noise), `synthesizeWind()` / `synthesizeStruck()`, `playTone(freq, sustain, onStarted, length)` (shared by Play and practice; `length` gives a sequenced note its own `TONE_RELEASE` so it ends before the next), sustain mode with click-free portamento (`retuneSustainedNote()`), fade-out teardown in `stopNote()`. The first `playTone()` of a visit shows `showSoundHint()` (an info toast: turn up your volume); `setAudioSessionType()` sets iOS's `navigator.audioSession` to `playback` (`play-and-record` while listening) so the silent switch doesn't mute the notes. |
-| **UI state sync** | `updateControlStates()` (enable/disable), `updateIdleState()` (note panel becomes a big Listen button when there's nothing to show), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updatePanePager()` (mobile fingering/piano pages), `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast(message, duration)` (inline errors — never use `alert()`;
+| **UI state sync** | `updateControlStates()` (enable/disable), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updatePanePager()` (mobile fingering/piano pages), `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast(message, duration)` (inline errors — never use `alert()`;
 mic failures go through `micErrorMessage()`, which says what to do next). |
 
 ### `js/firstfive.js` — First 5 Notes practice
@@ -451,12 +451,12 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 - The header's big instrument pill (`#practice-instrument`) is only a label
   (set by `loadPracticeInstrument()`); the instrument is changed on the
   profile (see progress.js).
-- Toolbar placement: beside Listen, always labeled "Practice". In kid mode on
-  phones the star is dropped and the toolbar's Listen (mostly an invisible
-  placeholder there — the note panel is the Listen button) becomes a round
-  44px icon that shows a stop square while listening, so the label and the
-  instrument name both fit. In the full app on mobile Practice moves to the
-  overflow menu (`applyResponsiveControls()`).
+- Placement: in the header (`.header-actions`), beside the Advanced mode
+  switch, always labeled "Practice" (the star is dropped on phones). Up to
+  1100px the header is a grid: title left, Practice and the switch right;
+  on phones `.header-actions` is `display: contents` so Practice sits beside
+  the title and the switch (just "Advanced") under it, beside kid mode's
+  tagline.
 
 ### `js/progress.js` — students and the game layer
 
@@ -586,10 +586,9 @@ Loaded after firstfive.js; no server, everything stays on the device.
   plain row showing both panels. Sustain relocates into an overflow (⋯) popover
   — `applyResponsiveControls()` physically moves the same DOM node between
   homes at the breakpoint.
-- **No instruction text.** The UI explains itself: the empty note panel *is*
-  the Listen button (`.listen-cta`, shown via `#note-display.idle`; meanwhile
-  a `body:has(#note-display.idle)` rule hides the toolbar's `#listenButton` so there's only ever one
-  Listen button — the toolbar one returns as Stop, or when a note is shown), and an
+- **No instruction text.** The UI explains itself: the note panel shows a
+  dash until there's a note (Listen is the toolbar's `#listenButton`, beside
+  the instrument; it turns into Stop while listening), and an
   empty staff shows a faint pulsing note on the middle line
   (`.staff-container.staff-idle`) to signal it's tappable. Empty fingering /
   piano panels show a dash / an unlit keyboard rather than "place a note…"
@@ -639,8 +638,8 @@ traces the overlapping contours inside variable-font glyphs.
    (`fingeringBoxHeight()` → `--fingering-h`); image charts draw in a box sized
    to the set's largest chart (`imageFingeringMap` w/h), and out-of-range notes
    show a message inside that box instead of collapsing it.
-3. **The idle state never flickers:** an active listen session counts as "has
-   a note" so silence doesn't flip the note panel back to the Listen button.
+3. **Silence never flickers:** dropouts under `NOTE_CLEAR_HOLD_MS` keep the
+   last note shown; after that the note panel goes back to a dash.
 
 ## Code Conventions
 

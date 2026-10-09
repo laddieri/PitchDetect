@@ -1114,7 +1114,6 @@ function updateNoteDisplay() {
 
 	updateConcertPitchDisplay(midi);
 	updatePianoDisplay(midi);
-	updateIdleState();
 }
 
 // Shrink the note-name text so longer labels (e.g. "B♭5" in a narrow box)
@@ -1159,18 +1158,6 @@ function updateControlStates() {
 	var sustainToggle = document.getElementById("sustainToggle");
 	sustainSwitch.classList.toggle("is-disabled", !hasNote);
 	sustainToggle.disabled = !hasNote;
-
-	updateIdleState();
-}
-
-// With nothing to show (no placed, hovered, or heard note, and not
-// listening), the note panel becomes a big Listen button. An active listen
-// session counts as "has a note" so silence doesn't flip the panel back.
-function updateIdleState() {
-	var display = document.getElementById("note-display");
-	if (!display) return;
-	var idle = currentNote === null && ghostNote === null && detectedMidi === null && !listenActive;
-	display.classList.toggle("idle", idle);
 }
 
 // Adjust pitch by semitones (for mobile pitch control buttons)
@@ -1913,7 +1900,6 @@ function commitDetectedNote(writtenMidi) {
 	// the single staff (unless a hover ghost is being previewed there)
 	if (currentNote !== null) {
 		drawDetectedStaff(detectedNote, detectedOctave);
-		updateIdleState();
 	} else {
 		redrawStavesForCurrentState();
 		updateNoteDisplay();
@@ -1938,7 +1924,6 @@ function clearDetectedNote() {
 	kidCelebratedMidi = null;
 	if (currentNote !== null) {
 		drawDetectedStaff(null, null);
-		updateIdleState();
 	} else {
 		redrawStavesForCurrentState();
 		updateNoteDisplay();
@@ -2104,10 +2089,6 @@ function startListening() {
 		lastPitchTime = 0;
 		updateListenPitch();
 
-		// Switch the note panel out of its idle Listen button immediately (it
-		// stays in note mode for the whole session; see updateIdleState)
-		updateIdleState();
-
 		// Slide the tuner meter open (idle until a pitch is detected)
 		updateTunerMeter(null);
 		var meter = document.getElementById("tuner-meter");
@@ -2209,8 +2190,6 @@ function stopListening() {
 		document.getElementById("listenLabel").textContent = "Listen";
 		listenButton.classList.remove("listening");
 	}
-
-	updateIdleState();
 }
 
 // Format a key name for display, replacing b/# with ♭/♯
@@ -2557,19 +2536,6 @@ function applyResponsiveControls() {
 			// Desktop home: end of the playback group, just before the
 			// (hidden) overflow button
 			divider.parentNode.insertBefore(sustain, document.getElementById("overflowButton"));
-		}
-	}
-
-	// Practice sits beside Listen, except in the full app on mobile, where the
-	// single-row toolbar is already full — there it joins the overflow menu.
-	// (Kid mode has no overflow menu and room to spare.)
-	var practice = document.getElementById("practiceButton");
-	var listen = document.getElementById("listenButton");
-	if (practice && popover && listen) {
-		if (mobileLayoutMq && mobileLayoutMq.matches && !kidMode) {
-			popover.insertBefore(practice, popover.firstChild);
-		} else {
-			listen.parentNode.insertBefore(practice, listen.nextSibling);
 		}
 	}
 
