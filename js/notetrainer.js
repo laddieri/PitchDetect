@@ -57,6 +57,17 @@ var NOTE_CLEAR_HOLD_MS = 300;
 // Smoothed cents-offset value driving the tuner meter needle
 var smoothedCents = null;
 
+// Kid mode's meter is calmer: it smooths the pitch itself (so a note half a
+// semitone off doesn't average +48 and -48 into "Just right!"), more heavily,
+// starting over on a jump to another note; "Just right!" turns on within
+// KID_IN_TUNE_CENTS and off only past KID_OUT_OF_TUNE_CENTS; and the needle
+// stays put through dropouts under NOTE_CLEAR_HOLD_MS
+var smoothedPitch = null;
+var kidJustRight = false;
+var KID_METER_SMOOTHING = 0.12;
+var KID_IN_TUNE_CENTS = 10;
+var KID_OUT_OF_TUNE_CENTS = 16;
+
 // Success state (detected note matches placed note)
 var isSuccess = false;
 var fireworksAnimID = null;
@@ -1933,14 +1944,16 @@ function clearDetectedNote() {
 // Update the tuner meter with a cents offset (-50..+50 shown), or null when
 // no pitch is detected. Smooths the value so the needle glides, and colors
 // the needle/readout by how close to in-tune the player is.
-function updateTunerMeter(cents) {
+function updateTunerMeter(pitch) {
 	var meter = document.getElementById("tuner-meter");
 	var needle = document.getElementById("tuner-needle");
 	var readout = document.getElementById("tuner-readout");
 	if (!meter || !needle || !readout) return;
 
-	if (cents === null) {
+	if (pitch === null) {
 		smoothedCents = null;
+		smoothedPitch = null;
+		kidJustRight = false;
 		meter.classList.add("idle");
 		meter.classList.remove("in-tune", "close", "off");
 		needle.style.left = "50%";
@@ -1948,21 +1961,34 @@ function updateTunerMeter(cents) {
 		return;
 	}
 
-	// Light exponential smoothing so the needle glides instead of jittering
-	smoothedCents = smoothedCents === null ? cents : smoothedCents * 0.6 + cents * 0.4;
+	if (kidMode) {
+		if (smoothedPitch === null || Math.abs(pitch - smoothedPitch) > 0.75) {
+			smoothedPitch = pitch;
+		} else {
+			smoothedPitch += (pitch - smoothedPitch) * KID_METER_SMOOTHING;
+		}
+		smoothedCents = (smoothedPitch - Math.round(smoothedPitch)) * 100;
+		var absK = Math.abs(smoothedCents);
+		kidJustRight = absK <= KID_IN_TUNE_CENTS || (kidJustRight && absK <= KID_OUT_OF_TUNE_CENTS);
+	} else {
+		// Light exponential smoothing so the needle glides instead of jittering
+		var cents = (pitch - Math.round(pitch)) * 100;
+		smoothedCents = smoothedCents === null ? cents : smoothedCents * 0.6 + cents * 0.4;
+	}
 	var c = Math.max(-50, Math.min(50, smoothedCents));
 	var absC = Math.abs(c);
+	var inTune = kidMode ? kidJustRight : absC <= 10;
 
 	meter.classList.remove("idle");
-	meter.classList.toggle("in-tune", absC <= 10);
-	meter.classList.toggle("close", absC > 10 && absC <= 25);
+	meter.classList.toggle("in-tune", inTune);
+	meter.classList.toggle("close", !inTune && absC <= 25);
 	meter.classList.toggle("off", absC > 25);
 
 	// The track spans ±50¢, so 1¢ = 1% of the width
 	needle.style.left = (50 + c) + "%";
 
 	if (kidMode) {
-		readout.textContent = absC <= 10 ? "Just right! \u2b50" : (c < 0 ? "Too low" : "Too high");
+		readout.textContent = inTune ? "Just right! \u2b50" : (c < 0 ? "Too low" : "Too high");
 		return;
 	}
 
@@ -1973,7 +1999,7 @@ function updateTunerMeter(cents) {
 // Kid mode's reward: fireworks once a note has been held in tune for
 // KID_CELEBRATE_MS (once per note, until it stops or changes)
 function updateKidCelebration(now) {
-	var inTune = detectedMidi !== null && smoothedCents !== null && Math.abs(smoothedCents) <= 10;
+	var inTune = detectedMidi !== null && smoothedCents !== null && kidJustRight;
 	if (!inTune) {
 		kidInTuneSince = null;
 		return;
@@ -2007,8 +2033,9 @@ function updateListenPitch() {
 		// Clamp to reasonable range
 		writtenMidi = Math.max(24, Math.min(96, writtenMidi));
 
-		// Intonation relative to the nearest semitone (standard tuner behavior)
-		updateTunerMeter(centsOffFromPitch(result.frequency, concertMidi));
+		// Intonation relative to the nearest semitone (standard tuner behavior),
+		// passed as the concert pitch in fractional semitones
+		updateTunerMeter(concertMidi + centsOffFromPitch(result.frequency, concertMidi) / 100);
 
 		// Debounce note changes: only switch the displayed note once the same
 		// new note has held for a few consecutive frames, so brief detection
@@ -2028,11 +2055,12 @@ function updateListenPitch() {
 			pendingFrames = 1;
 		}
 	} else {
-		// No clear pitch this frame — idle the meter immediately, but hold the
-		// displayed note briefly so short dropouts don't blank the display.
+		// No clear pitch this frame — idle the meter immediately (in kid mode,
+		// once the dropout outlasts the hold), but hold the displayed note
+		// briefly so short dropouts don't blank the display.
 		pendingMidi = null;
 		pendingFrames = 0;
-		updateTunerMeter(null);
+		if (!kidMode || now - lastPitchTime > NOTE_CLEAR_HOLD_MS) updateTunerMeter(null);
 		if (detectedMidi !== null && now - lastPitchTime > NOTE_CLEAR_HOLD_MS) {
 			clearDetectedNote();
 		}
