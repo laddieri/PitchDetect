@@ -59,8 +59,18 @@ mic failures go through `micErrorMessage()`, which says what to do next). |
 A full-screen practice view (`#practice-view`, opened by the toolbar's
 **Practice** button → `openPractice()`; the app behind it is made `inert`).
 It opens on a **menu** (`showPracticeMenu(page)`, `PRACTICE_ACTIVITIES`) of
-activities, each card showing its best result, on three pages picked by
-tabs (`PRACTICE_PAGES`, `#practice-tabs`, `renderPracticeTabs()`; each
+activities, each card showing its best result. Students see one **unit** at
+a time (`PRACTICE_UNITS`: Your first notes, The first 5 notes, Notes 6 and
+beyond, The B♭ scale; menu pages `unit1`–`unit4`, `practiceUnit()`): the
+unit's cards in path order (a half card left unpaired goes wide), a unit
+bar above (`#practice-units`, `renderPracticeUnits()`: "Unit n of 4", steps
+done, ‹ › arrows, a dot on the arrow toward the next path step) and a
+dashed card at the end leading on (`practiceUnitNextCard()`). Past the last
+unit is **Every activity**: the old tabbed pages below, where teachers
+start. Which of the two a student uses sticks (`practice.menuAll`, saved as
+`profile.menuAll`); `menuPageFor(id)` is the page to return to from an
+activity, `defaultMenuPage()` the unit with the next path step. Every
+activity's three pages are picked by tabs (`PRACTICE_PAGES`, `#practice-tabs`, `renderPracticeTabs()`; each
 activity's `page`, `activityPage()`; `practice.menuPage` /
 `#practice-view[data-menu-page]`), all row cards read top to bottom,
 easiest first. Leaving an activity returns to its page; opening Practice
@@ -521,7 +531,10 @@ Loaded after firstfive.js; no server, everything stays on the device.
   first sounds for instruments without it). They're tested against the
   current instrument's progress; `onPracticeLoaded()` (end of
   `loadPracticeInstrument()`) quietly awards ones already earned.
-- **Learning path:** `learningPath()` orders the activities (first sounds,
+- **Learning path:** `learningPath()` orders the activities (each step
+  has a `unit`: the first unit with its activity, `firstUnitWith()`, except
+  intermediate and advanced songs, in unit 4; the profile lists the path
+  under a heading per unit) (first sounds,
   the first 3 notes (the student's set), naming, fingering and the quiz on them, 2
   3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
   writing a 5-note song, notes 6 and beyond, 2 of its songs, B♭ scale,

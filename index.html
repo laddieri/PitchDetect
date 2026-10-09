@@ -2402,6 +2402,8 @@
 			.practice-view[data-mode="menu"] .practice-card,
 			.practice-view:not([data-mode="menu"]) .practice-menu,
 			.practice-view:not([data-mode="menu"]) .practice-tabs,
+			.practice-view:not([data-mode="menu"]) .practice-units,
+			.practice-view[data-menu-unit] .practice-tabs,
 			.practice-view[data-step="overview"] .practice-map,
 			.practice-view:not([data-mode="lesson"]) .practice-map {
 				display: none;
@@ -2580,6 +2582,131 @@
 			.practice-view[data-menu-page] .practice-choice-text {
 				flex: 1;
 				min-width: 0;
+			}
+
+			/* A unit's cards in path order: they fill the menu, and it scrolls
+			   if there are more than fit */
+			.practice-menu[data-unit] {
+				grid-auto-rows: minmax(min-content, 1fr);
+				max-height: 520px;
+				overflow-y: auto;
+				/* room for the cards' shadows inside the scroller */
+				padding: 0 8px 8px 0;
+				margin-right: -8px;
+			}
+
+			/* The card at the end of a unit, on to the next */
+			.practice-choice.unit-next {
+				border-style: dashed;
+				box-shadow: none;
+				background: transparent;
+			}
+
+			.practice-choice.unit-next .practice-choice-icon {
+				background: var(--surface-2);
+				color: var(--text-muted);
+			}
+
+			/* The unit bar above the menu: the unit on show, with arrows to
+			   the ones either side */
+			.practice-units {
+				flex-shrink: 0;
+				display: flex;
+				align-items: center;
+				gap: 8px;
+				padding: 6px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				background: var(--surface);
+				box-shadow: var(--shadow-md);
+			}
+
+			.unit-arrow {
+				position: relative;
+				flex: 0 0 44px;
+				height: 44px;
+				border: none;
+				border-radius: 50%;
+				background: var(--accent-soft);
+				color: var(--accent);
+				font-family: var(--font);
+				font-size: 1.9rem;
+				font-weight: 700;
+				line-height: 1;
+				padding: 0 0 4px;
+				cursor: pointer;
+			}
+
+			.unit-arrow:hover:not(:disabled) {
+				background: var(--accent);
+				color: #fff;
+			}
+
+			.unit-arrow:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.unit-arrow:disabled {
+				background: transparent;
+				color: var(--border-strong);
+				cursor: default;
+			}
+
+			/* The next step on the path is in that direction */
+			.unit-arrow.next-up::after {
+				content: "";
+				position: absolute;
+				top: -2px;
+				right: -2px;
+				width: 11px;
+				height: 11px;
+				border: 2px solid var(--surface);
+				border-radius: 50%;
+				background: var(--accent);
+				animation: next-up-bob 1.6s ease-in-out infinite;
+			}
+
+			.unit-info {
+				flex: 1;
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 3px;
+				text-align: center;
+			}
+
+			.unit-kicker {
+				color: var(--text-muted);
+				font-size: 0.8rem;
+				font-weight: 700;
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+			}
+
+			.unit-title {
+				max-width: 100%;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				font-size: 1.15rem;
+				font-weight: 700;
+			}
+
+			.unit-meter {
+				width: min(220px, 80%);
+				height: 6px;
+				border-radius: 3px;
+				background: var(--surface-2);
+				overflow: hidden;
+			}
+
+			.unit-meter-fill {
+				display: block;
+				height: 100%;
+				border-radius: 3px;
+				background: var(--success);
 			}
 
 			/* The page tabs above the menu */
@@ -4437,7 +4564,21 @@
 				color: #fff;
 			}
 
-			/* The path: dots joined by a line, green as steps are done */
+			/* The path: dots joined by a line, green as steps are done, under
+			   a heading per unit */
+			.path-unit {
+				margin: 10px 0 4px;
+				color: var(--text-muted);
+				font-size: 0.85rem;
+				font-weight: 700;
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+			}
+
+			.path-unit:first-child {
+				margin-top: 0;
+			}
+
 			.path-list {
 				list-style: none;
 				margin: 0;
@@ -4448,7 +4589,7 @@
 				position: relative;
 			}
 
-			.path-node:not(:last-child)::after {
+			.path-node:has(+ .path-node)::after {
 				content: "";
 				position: absolute;
 				left: 16.5px;
@@ -4458,7 +4599,7 @@
 				background: var(--border-strong);
 			}
 
-			.path-node.done:not(:last-child)::after {
+			.path-node.done:has(+ .path-node)::after {
 				background: var(--success);
 			}
 
@@ -4788,6 +4929,7 @@
 			@media (prefers-reduced-motion: reduce) {
 				.next-up-tag,
 				.practice-tab.next-up::after,
+				.unit-arrow.next-up::after,
 				.practice-group-name::after,
 				.level-up-burst,
 				.level-up-card {
@@ -4828,6 +4970,7 @@
 			body.kid-mode .practice-map-note,
 			body.kid-mode .practice-close,
 			body.kid-mode .practice-tabs,
+			body.kid-mode .practice-units,
 			body.kid-mode .practice-instrument {
 				border: var(--cartoon-border);
 				box-shadow: 4px 4px 0 var(--ink);
@@ -4855,6 +4998,11 @@
 			body.kid-mode .practice-choice {
 				border: var(--cartoon-border);
 				box-shadow: var(--cartoon-shadow);
+			}
+
+			body.kid-mode .practice-choice.unit-next {
+				border-style: dashed;
+				box-shadow: none;
 			}
 
 			body.kid-mode .practice-choice:active {
@@ -5187,6 +5335,29 @@
 				.practice-tab.next-up::after {
 					top: 3px;
 					right: 5px;
+				}
+
+				.practice-units {
+					padding: 4px;
+				}
+
+				.unit-arrow {
+					flex-basis: 40px;
+					height: 40px;
+				}
+
+				.unit-kicker {
+					font-size: 0.72rem;
+				}
+
+				.unit-title {
+					font-size: 1rem;
+				}
+
+				.practice-menu[data-unit] {
+					grid-auto-rows: minmax(58px, auto);
+					max-height: none;
+					padding-bottom: 5px;
 				}
 
 				.practice-menu[data-count="2"] {
@@ -5630,6 +5801,7 @@
 					</span>
 					<button type="button" class="practice-btn secondary teacher-bar-leave" onclick="leaveTeacherMode()">Leave</button>
 				</div>
+				<div id="practice-units" class="practice-units" role="group" aria-label="Units"></div>
 				<div id="practice-tabs" class="practice-tabs" role="tablist" aria-label="Practice"></div>
 				<div id="practice-menu" class="practice-menu"></div>
 				<div id="practice-hub" class="practice-hub"></div>
