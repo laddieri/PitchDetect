@@ -34,7 +34,8 @@
  * with their own stars. Play the B♭ scale is a challenge round in order, up
  * the octave and back down (scaleRunSequence()), with Help like the quiz.
  * The 9 note quiz (startNineQuiz()) is the quiz over the first five notes
- * and notes 6 and beyond.
+ * and notes 6 and beyond; the 3 note quiz (startThreeQuiz(set)) is the quiz
+ * over a set of first 3 notes (one card per set on flute and oboe).
  *
  * SONGS is a list of tunes made of the first 3 notes (Hot Cross
  * Buns and more), the first five notes (Mary Had a Little Lamb, Jingle Bells
@@ -107,6 +108,9 @@ var CHALLENGE_HOLD_MS = 800;       // shorter hold keeps the round moving
 // The 9 note quiz: the first five notes and notes 6 and beyond
 var QUIZ9_STORAGE_KEY = "pitchdetect-nine-note-quiz";
 var QUIZ9_LENGTH = 12;
+// The 3 note quiz, one per set of first 3 notes (best kept per set)
+var QUIZ3_STORAGE_KEYS = { first3: "pitchdetect-three-note-quiz", first3bag: "pitchdetect-three-note-quiz-bag" };
+var QUIZ3_LENGTH = 6;
 // Timed drill bests (the key changed when drills went from 10 questions to
 // a race against the clock, so old scores out of 10 don't count as bests)
 var DRILL_STORAGE_KEY = "pitchdetect-first-five-drills-timed";
@@ -296,6 +300,10 @@ function loadPracticeInstrument() {
 		challengeBest: loadChallengeBest(select.value),
 		scaleRunBest: loadChallengeBest(select.value, SCALE_RUN_STORAGE_KEY),
 		quiz9Best: loadChallengeBest(select.value, QUIZ9_STORAGE_KEY),
+		quiz3Best: {
+			first3: loadChallengeBest(select.value, QUIZ3_STORAGE_KEYS.first3),
+			first3bag: loadChallengeBest(select.value, QUIZ3_STORAGE_KEYS.first3bag)
+		},
 		drillBest: loadDrillBest(select.value),
 		songBest: loadSongBest(select.value),
 		customSongs: loadCustomSongs(select.value),
@@ -355,7 +363,9 @@ function practiceActivityAvailable(id) {
 // which the drills, songs and song writing then follow.
 var THREE_SET_ACTIVITIES = {
 	learn3: "first3", names3: "first3", fingerings3: "first3", songs3: "first3", write3: "first3",
-	learn3bag: "first3bag", names3bag: "first3bag", fingerings3bag: "first3bag", songs3bag: "first3bag", write3bag: "first3bag"
+	quiz3: "first3",
+	learn3bag: "first3bag", names3bag: "first3bag", fingerings3bag: "first3bag", songs3bag: "first3bag", write3bag: "first3bag",
+	quiz3bag: "first3bag"
 };
 
 // A 3-note activity id for set set: threeSetActivity("names3", "first3bag")
@@ -421,6 +431,8 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
 	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "fingerings" },
 	{ id: "fingeringsscale", icon: "fingering", title: "Finger the B\u266d scale", sub: "", page: "drills", group: "fingerings" },  // sub: its range
+	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "playing" },  // title: the notes
+	{ id: "quiz3", icon: "trophy", title: "3 note quiz", sub: "", page: "drills", group: "playing" },  // sub: the notes
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills", group: "playing" },
 	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "drills", group: "playing" },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing", wide: true },
@@ -520,9 +532,10 @@ function showPracticeMenu(page) {
 		}
 		if (set && bag && a.id.indexOf("learn3") !== 0) {
 			title = { names3: "Name ", fingerings3: "Finger ", songs3: "Play songs with ",
-				write3: "Write a song with " }[a.id.replace(/bag$/, "")] + threeNotesText(set);
+				write3: "Write a song with ", quiz3: "Play " }[a.id.replace(/bag$/, "")] + threeNotesText(set);
 			if (/^(names|fingerings)3/.test(a.id)) sub = "3 notes, against the clock";
-		} else if (a.id === "names3" || a.id === "fingerings3") {
+			if (/^quiz3/.test(a.id)) sub = "3 note quiz: play the notes you see";
+		} else if (a.id === "names3" || a.id === "fingerings3" || a.id === "quiz3") {
 			sub = threeNotesText(set);
 		} else if (a.id === "names" || a.id === "fingerings") {
 			sub = notesText(practice.lessons.first5.notes);
@@ -553,6 +566,9 @@ function showPracticeMenu(page) {
 		} else if (a.id === "quiz") {
 			var best = practice.challengeBest;
 			score = typeof best === "number" ? starText(challengeStars(best)) : "\u2606\u2606\u2606";
+		} else if (a.id === "quiz3" || a.id === "quiz3bag") {
+			var best3 = practice.quiz3Best[set];
+			score = typeof best3 === "number" ? starText(challengeStars(best3, QUIZ3_LENGTH)) : "\u2606\u2606\u2606";
 		} else if (a.id === "quiz9") {
 			var best9 = practice.quiz9Best;
 			score = typeof best9 === "number" ? starText(challengeStars(best9, QUIZ9_LENGTH)) : "\u2606\u2606\u2606";
@@ -659,6 +675,8 @@ function startPracticeActivity(id) {
 		startLesson(LESSON_ACTIVITIES[id]);
 	} else if (id === "quiz") {
 		startChallenge();
+	} else if (id === "quiz3" || id === "quiz3bag") {
+		startThreeQuiz(practice.threeSet);
 	} else if (id === "quiz9") {
 		startNineQuiz();
 	} else if (id === "scalerun") {
@@ -716,6 +734,7 @@ function currentPracticeActivity() {
 		return Object.keys(LESSON_ACTIVITIES).filter(function(id) { return LESSON_ACTIVITIES[id] === practice.lesson; })[0];
 	}
 	if (practice.mode === "challenge") {
+		if (practice.challenge.kind === "quiz3") return threeSetActivity("quiz3", practice.challenge.set);
 		return { scale: "scalerun", quiz9: "quiz9" }[practice.challenge.kind] || "quiz";
 	}
 	if (practice.mode === "drill") return practice.drillKind;
@@ -1068,6 +1087,7 @@ function fluteBThumbNow() {
 	if (practice.instrument !== "flute") return false;
 	if (practice.mode === "lesson") return practice.lesson === "first3bag";
 	if (practice.mode === "drill") return /bag$/.test(practice.drillKind);
+	if (practice.mode === "challenge") return practice.challenge.set === "first3bag";
 	if (practice.mode === "song" && practice.song) return fluteBThumbSong(practice.song.events);
 	return false;
 }
@@ -1582,6 +1602,19 @@ function startNineQuiz() {
 	showChallengeNote();
 }
 
+// The 3 note quiz: the quiz over a set of first 3 notes (D C B\u266d, or
+// B A G on flute and oboe)
+function startThreeQuiz(set) {
+	set = set || practice.threeSet;
+	practice.threeSet = set;
+	clearTimeout(practiceAdvanceTimer);
+	setPracticeMode("challenge");
+	practice.index = -1;
+	var notes = threeNotes(set);
+	practice.challenge = { kind: "quiz3", set: set, notes: notes, seq: makeChallengeSequence(notes.length, QUIZ3_LENGTH), pos: 0, results: [] };
+	showChallengeNote();
+}
+
 // The scale run's order: note indexes up the octave and back down
 function scaleRunSequence() {
 	var up = SCALE_STEPS.map(function(s, i) { return i; });
@@ -1640,7 +1673,7 @@ function showChallengeName() {
 		names[name] = true;
 		return true;
 	});
-	if (c.kind === "quiz") choices = c.notes;
+	if (c.kind === "quiz" || c.kind === "quiz3") choices = c.notes;
 	answers.setAttribute("data-count", choices.length);
 	choices.forEach(function(midi) {
 		var b = document.createElement("button");
@@ -1766,6 +1799,10 @@ function finishChallenge() {
 		finishNineQuiz();
 		return;
 	}
+	if (practice.challenge.kind === "quiz3") {
+		finishThreeQuiz();
+		return;
+	}
 	var score = practice.challenge.results.filter(Boolean).length;
 	var newBest = practice.challengeBest === null || score > practice.challengeBest;
 	if (newBest) {
@@ -1790,6 +1827,22 @@ function finishNineQuiz() {
 		score === QUIZ9_LENGTH ? "Perfect! You know all nine notes!" : "Quiz complete!",
 		"You played " + score + " of " + QUIZ9_LENGTH + " on your own",
 		startNineQuiz, QUIZ9_LENGTH);
+	recordProgress(10 + 3 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
+}
+
+function finishThreeQuiz() {
+	var set = practice.challenge.set;
+	var score = practice.challenge.results.filter(Boolean).length;
+	var best = practice.quiz3Best[set];
+	var newBest = best === null || score > best;
+	if (newBest) {
+		practice.quiz3Best[set] = score;
+		saveChallengeBest(practice.instrument, score, QUIZ3_STORAGE_KEYS[set]);
+	}
+	showRoundResult(score, newBest,
+		score === QUIZ3_LENGTH ? "Perfect! You know " + threeNotesText(set) + "!" : "Quiz complete!",
+		"You played " + score + " of " + QUIZ3_LENGTH + " on your own",
+		function() { startThreeQuiz(set); }, QUIZ3_LENGTH);
 	recordProgress(10 + 3 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
 }
 

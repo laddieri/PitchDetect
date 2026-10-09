@@ -477,6 +477,8 @@ function learningPath() {
 	nodes.push({ title: "Name " + three, activity: id("names3"), done: drillDone(id("names3")) });
 	nodes.push({ title: (practice.instrument === "trombone" ? "Slide positions for " : hasFingeringData(practice.instrument)
 		? "Finger " : "Find on the keyboard: ") + three, activity: id("fingerings3"), done: drillDone(id("fingerings3")) });
+	nodes.push({ title: "Take the 3 note quiz", activity: id("quiz3"),
+		done: challengeStars(practice.quiz3Best[set] || 0, QUIZ3_LENGTH) > 0 });
 	nodes.push({ title: "Play 2 songs with 3 notes", activity: id("songs3"),
 		done: threeNoteSongs().filter(function(song) { return songStars(song, set) > 0; }).length >= 2 });
 	nodes.push({ title: "Write a song with " + three, activity: id("write3"),
