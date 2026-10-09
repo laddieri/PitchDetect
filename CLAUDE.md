@@ -78,7 +78,7 @@ B♭ scale**. Flute and oboe also have **Learn B, A and G**
 sets' cards side by side: lesson, name and fingering drills, songs and song
 writing, each set's titled with its notes ("Name B, A and G", "Name D, C
 and B♭"); the B A G cards are the `...bag` ids (`names3bag`,
-`fingerings3bag`, `songs3bag`, `write3bag`). `THREE_SET_ACTIVITIES` maps
+`fingerings3bag`, `quiz3bag`, `songs3bag`, `write3bag`). `THREE_SET_ACTIVITIES` maps
 each 3-note activity to its set; opening one (or `startLesson()` /
 `startDrill()` on one) sets `practice.threeSet`, which the song list, song
 writing and `threeNotes(set)` / `threeNotesText(set)` /
@@ -90,7 +90,9 @@ path; `firstThreeActivity()` its lesson, `threeSetActivity(id, set)` adds
 **Practice drills** (`drills`), its cards grouped under headings (each
 activity's `group`, `practiceGroupTitle()`; `.practice-menu[data-grouped]`
 holds a `.practice-group` per heading, from `practiceGroupSection()`, and
-scrolls if it must). Each heading is a button that folds its cards away
+scrolls if it must; Practice playing notes comes first). Each heading is a
+big card like the activities' (`.practice-choice.practice-group-toggle`:
+icon, title, `practiceGroupSub()`, chevron) that folds its cards away
 (`.practice-group.closed`; folded groups kept device-wide in
 `pitchdetect-drill-groups-closed`, `practiceGroupsClosed()`; a folded group
 holding the next path step shows a dot): **Practice note names** (drills
@@ -99,7 +101,11 @@ the first 5 notes**, **Name 9 notes**, **Name the B♭ scale notes**),
 **Practice fingerings** ("slide positions" on trombone, "the keyboard"
 without charts; `fingerings3` / `fingerings` / `fingerings9` /
 `fingeringsscale`) — the 3- and 5-note cards' subtitles list their notes
-(`notesText()`) — and **Practice playing notes**: **First 5 note quiz** (the challenge round), **9 note
+(`notesText()`) — and **Practice playing notes**: **3 note quiz** (`quiz3`, and `quiz3bag` "Play
+B, A and G" on flute and oboe; `startThreeQuiz(set)`, kind `quiz3` with
+`challenge.set`: the quiz over that set, `QUIZ3_LENGTH` (6) notes, best per
+set in `QUIZ3_STORAGE_KEYS`, `practice.quiz3Best[set]`; on the path after
+the 3-note fingering drill), **First 5 note quiz** (the challenge round), **9 note
 quiz** (`quiz9`, `startNineQuiz()`: the quiz over the first five notes plus
 notes 6 and beyond, `QUIZ9_LENGTH` (12) notes, one answer button per name
 low to high so the two A♭s share one; best in `pitchdetect-nine-note-quiz`,
@@ -516,7 +522,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
   current instrument's progress; `onPracticeLoaded()` (end of
   `loadPracticeInstrument()`) quietly awards ones already earned.
 - **Learning path:** `learningPath()` orders the activities (first sounds,
-  the first 3 notes (the student's set), naming and fingering them, 2
+  the first 3 notes (the student's set), naming, fingering and the quiz on them, 2
   3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
   writing a 5-note song, notes 6 and beyond, 2 of its songs, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
