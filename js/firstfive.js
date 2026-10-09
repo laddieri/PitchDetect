@@ -950,6 +950,9 @@ function practiceFingeringBox(hideName, midi, noCenter) {
 	if (hasFingeringData(practice.instrument)) {
 		box.style.setProperty("--fingering-h", fingeringBoxHeight(practice.instrument));
 		displayFingering(box, practice.instrument, midi, false);
+		if (FLUTE_B_THUMB_CHARTS.indexOf(midi) >= 0 && fluteBThumbNow()) {
+			box.querySelector("img.fingering-image").src = "img/Fingerings/Flute/" + midi + "-b-thumb.png";
+		}
 		if (practice.instrument === "trombone" && !noCenter) centerChartDrawing(box);
 	} else {
 		box.style.setProperty("--fingering-h", "134px");  // the keyboard at 300px wide
@@ -1054,10 +1057,20 @@ function lineUpChartImages(boxes) {
 	});
 }
 
-// Flute songs on just B, A and G: beginners keep the thumb on the B-natural
-// key the whole time (G and A play either way), so those songs show G and A
-// with the thumb there too, not on the B-flat lever as the charts do.
+// Flutes starting on B, A and G keep the thumb on the B-natural key the
+// whole time (G and A play either way), so the B A G lesson, its fingering
+// drill and songs on just those notes show G and A with the thumb there
+// too, not on the B-flat lever as the charts do.
 var FLUTE_B_THUMB_NOTES = [67, 69, 71];  // written G4, A4, B4
+var FLUTE_B_THUMB_CHARTS = [67, 69];     // the charts with a -b-thumb copy
+
+function fluteBThumbNow() {
+	if (practice.instrument !== "flute") return false;
+	if (practice.mode === "lesson") return practice.lesson === "first3bag";
+	if (practice.mode === "drill") return /bag$/.test(practice.drillKind);
+	if (practice.mode === "song" && practice.song) return fluteBThumbSong(practice.song.events);
+	return false;
+}
 
 function fluteBThumbSong(events) {
 	return practice.instrument === "flute" && events.every(function(e) {
@@ -3716,12 +3729,6 @@ function showSongFingerings(events) {
 		wrap.appendChild(box);
 	});
 	if (!wrap.firstChild) return function() {};
-	if (fluteBThumbSong(events)) {
-		[67, 69].forEach(function(midi) {
-			var img = boxes[midi] && boxes[midi].querySelector("img.fingering-image");
-			if (img) img.src = "img/Fingerings/Flute/" + midi + "-b-thumb.png";
-		});
-	}
 	if (practice.instrument === "trombone") {
 		centerChartsTogether(Object.keys(boxes).map(function(m) { return boxes[m]; }));
 	} else if (imageFingeringMap[practice.instrument]) {
