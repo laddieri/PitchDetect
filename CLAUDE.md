@@ -489,7 +489,12 @@ Loaded after firstfive.js; no server, everything stays on the device.
   (`.instrument-confirm`; Cancel or Escape puts the menu back) before
   `setStudentInstrument()`: `openPractice()` and `signInStudent()` put the
   app back on it (`applyStudentInstrument()`), so changing the instrument
-  in the app outside Practice doesn't move the student. Practice doesn't
+  in the app outside Practice doesn't move the student. A new student
+  (no XP and no path step done; anyone else is quietly set to unit 1) then
+  gets **Where are you starting?** (`showPlacementStep()`,
+  `PLACEMENT_CHOICES`: brand new, a few notes, my first 5 notes, a year or
+  more → units 1–4), saved as `profile.startUnit`; the profile's path
+  section changes it (**Starting at**, `profileStartMenu()`). Practice doesn't
   need an instrument chosen in the app (the toolbar button is always
   enabled): `openPractice()` goes to sign-in, or to the instrument step when
   `practice.instrument` is empty, and back from there closes Practice.
@@ -509,7 +514,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
   `pitchdetect-teacher`); signing a student in ends it.
 - **Profile** (`pitchdetect-profile[@ID]`, `loadProfile()` / `saveProfile()`):
   `{ name, xp, avatar, goal, days: { "YYYY-MM-DD": seconds }, streak, bestStreak,
-  lastGoalDay, freezes, badges: { id: day }, instrument }`.
+  lastGoalDay, freezes, badges: { id: day }, instrument, menuAll, startUnit }`.
 - **XP / levels:** the result handlers in firstfive.js call
   `recordProgress(xp)` (lesson note 10 + 5/star, quiz and scale run 10 +
   3/note, drill 5 + 2/note, songs 10 + 2/note, +15 perfect play-through,
@@ -538,7 +543,11 @@ Loaded after firstfive.js; no server, everything stays on the device.
   the first 3 notes (the student's set), naming, fingering and the quiz on them, 2
   3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
   writing a 5-note song, notes 6 and beyond, 2 of its songs, B♭ scale,
-  scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
+  scale run, 3 intermediate, 3 advanced songs). Steps in units before the
+  student's `startUnit` are skipped (`pathNodeSkipped()`, `startUnitIndex()`):
+  `nextPathNode()` passes over them, so the menu opens on the starting unit,
+  and the profile shows them dashed under "· skipped"; their stars aren't
+  touched. Nothing is locked: the menu
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
   the tab of the page it's on), and the profile lists the path; tapping a step opens it.
 - **Screens:** the player bar (`#player-bar`, menu only: avatar, level, XP

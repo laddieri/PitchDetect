@@ -197,7 +197,9 @@ function loadProfile() {
 		badges: p.badges && typeof p.badges === "object" ? p.badges : {},
 		instrument: typeof p.instrument === "string" ? p.instrument : null,
 		name: cleanStudentName(p.name),
-		menuAll: typeof p.menuAll === "boolean" ? p.menuAll : null  // practice menu: every activity, not a unit
+		menuAll: typeof p.menuAll === "boolean" ? p.menuAll : null,  // practice menu: every activity, not a unit
+		// The unit the student said they're starting at (placement step), or null if not asked yet
+		startUnit: PRACTICE_UNITS.some(function(u) { return u.id === p.startUnit; }) ? p.startUnit : null
 	};
 }
 
@@ -522,8 +524,21 @@ function learningPath() {
 	return nodes;
 }
 
+// The first step not done, from the unit the student started at (steps in
+// units before it are skipped, not done: their stars stay as they are)
 function nextPathNode(nodes) {
-	return (nodes || learningPath()).filter(function(n) { return !n.done; })[0] || null;
+	return (nodes || learningPath()).filter(function(n) { return !n.done && !pathNodeSkipped(n); })[0] || null;
+}
+
+function pathNodeSkipped(node) {
+	return !node.done && PRACTICE_UNITS.indexOf(practiceUnit(node.unit)) < startUnitIndex();
+}
+
+// Where the student said they're starting (placement step): an index into
+// PRACTICE_UNITS
+function startUnitIndex() {
+	if (!profile || !progressCounts() || !profile.startUnit) return 0;
+	return Math.max(0, PRACTICE_UNITS.indexOf(practiceUnit(profile.startUnit)));
 }
 
 function startPathNode(node) {
@@ -821,6 +836,17 @@ function continueSignIn(from) {
 		showInstrumentStep(from);
 		return;
 	}
+	if (!profile.startUnit && !teacherMode) {
+		// Someone who has practiced already started at the beginning; only a
+		// new student is asked where they're starting
+		if (profile.xp > 0 || learningPath().some(function(n) { return n.done; })) {
+			profile.startUnit = PRACTICE_UNITS[0].id;
+			saveProfile();
+		} else {
+			showPlacementStep(from);
+			return;
+		}
+	}
 	finishSignIn();
 }
 
@@ -901,13 +927,85 @@ function showInstrumentStep(from) {
 	box.appendChild(el("h3", "signin-title", "What do you play?"));
 	box.appendChild(instrumentPicker(profile.instrument, function(value) {
 		setStudentInstrument(value);
-		finishSignIn();
+		continueSignIn(from);
 	}));
 	box.appendChild(el("p", "signin-note", teacherMode ? "Switch any time from the top of the practice menu."
 		: "You can change it later on your profile."));
 	hub.appendChild(box);
 	var first = box.querySelector(".instrument-choice");
 	if (first) first.focus();
+}
+
+// Where are you starting? Once, for a new student after the instrument, so
+// an older student who already plays doesn't begin with the first 3 notes.
+// Each answer is a unit; the path's next step (and the menu) start there.
+// The profile changes it after.
+var PLACEMENT_CHOICES = [
+	{ unit: "unit1", title: "I\u2019m brand new" },
+	{ unit: "unit2", title: "I know a few notes" },
+	{ unit: "unit3", title: "I know my first 5 notes" },
+	{ unit: "unit4", title: "I\u2019ve played a year or more" }
+];
+
+function showPlacementStep(from) {
+	practice.step = -1;
+	practice.signinFrom = from === "open" ? "open" : "profile";
+	setPracticeMode("signin");
+	var back = document.getElementById("practice-close");
+	var label = practice.signinFrom === "profile" ? "Back to your profile" : "Back to the practice menu";
+	back.setAttribute("aria-label", label);
+	back.title = label;
+
+	var hub = hubElement();
+	var box = el("div", "signin");
+	box.appendChild(el("div", "signin-icon", "\uD83C\uDFAF"));
+	box.appendChild(el("h3", "signin-title", "Where are you starting?"));
+	var list = el("div", "placement-picker");
+	PLACEMENT_CHOICES.forEach(function(choice) {
+		var index = PRACTICE_UNITS.indexOf(practiceUnit(choice.unit));
+		var b = el("button", "instrument-choice placement-choice");
+		b.type = "button";
+		b.setAttribute("data-unit", choice.unit);
+		b.appendChild(el("span", "placement-title", choice.title));
+		b.appendChild(el("span", "placement-sub", "Start at Unit " + (index + 1) + ": " + PRACTICE_UNITS[index].title));
+		b.onclick = function() {
+			profile.startUnit = choice.unit;
+			saveProfile();
+			finishSignIn();
+		};
+		list.appendChild(b);
+	});
+	box.appendChild(list);
+	box.appendChild(el("p", "signin-note", "You can change it later on your profile."));
+	hub.appendChild(box);
+	list.firstChild.focus();
+}
+
+// The profile's "Starting at" drop-down: the placement answer, changed
+function profileStartMenu() {
+	var box = el("div", "profile-instrument profile-start");
+	box.appendChild(el("label", "profile-start-label", "Starting at"));
+	var wrap = el("span", "profile-instrument-select");
+	var pick = el("select");
+	pick.id = "profile-start";
+	box.firstChild.htmlFor = pick.id;
+	PRACTICE_UNITS.forEach(function(unit, i) {
+		pick.appendChild(new Option("Unit " + (i + 1) + ": " + unit.title, unit.id));
+	});
+	pick.value = PRACTICE_UNITS[startUnitIndex()].id;
+	pick.onchange = function() {
+		profile.startUnit = pick.value;
+		saveProfile();
+		renderProfile();
+		var again = document.getElementById("profile-start");
+		if (again) again.focus();
+	};
+	wrap.appendChild(pick);
+	wrap.insertAdjacentHTML("beforeend", '<svg class="profile-instrument-chevron" width="18" height="18" viewBox="0 0 24 24" ' +
+		'fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" ' +
+		'aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>');
+	box.appendChild(wrap);
+	return box;
 }
 
 function showProfile() {
@@ -1056,15 +1154,19 @@ function renderProfile() {
 	var path = el("div", "profile-section");
 	var done = nodes.filter(function(n) { return n.done; }).length;
 	path.appendChild(el("h3", "profile-heading", "Your path \u00B7 " + done + " of " + nodes.length));
+	if (progressCounts()) path.appendChild(profileStartMenu());
 	var list = el("ol", "path-list");
 	var lastUnit = null;
 	nodes.forEach(function(node) {
 		if (node.unit !== lastUnit) {
 			lastUnit = node.unit;
 			var unit = practiceUnit(node.unit);
-			list.appendChild(el("li", "path-unit", "Unit " + (PRACTICE_UNITS.indexOf(unit) + 1) + ": " + unit.title));
+			var skipped = PRACTICE_UNITS.indexOf(unit) < startUnitIndex();
+			list.appendChild(el("li", "path-unit", "Unit " + (PRACTICE_UNITS.indexOf(unit) + 1) + ": " + unit.title +
+				(skipped ? " \u00B7 skipped" : "")));
 		}
-		var li = el("li", "path-node" + (node.done ? " done" : "") + (node === next ? " current" : ""));
+		var li = el("li", "path-node" + (node.done ? " done" : "") + (pathNodeSkipped(node) ? " skipped" : "") +
+			(node === next ? " current" : ""));
 		var b = el("button", "path-button");
 		b.appendChild(el("span", "path-dot", node.done ? "\u2713" : ""));
 		b.appendChild(el("span", "path-title", node.title));

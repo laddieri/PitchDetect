@@ -6049,7 +6049,11 @@ window.addEventListener("popstate", function(event) {
 		openPractice();
 		if (!practiceOpen) return;
 	}
-	if (state.practice === "menu") showPracticeMenu(state.page);
+	// Already on the menu (history stepping back after sign-in lands on an
+	// entry from before it): keep the page on show, it's the one for whoever
+	// is signed in now
+	if (state.practice === "menu" && practice.mode === "menu") syncPracticeHistory();
+	else if (state.practice === "menu") showPracticeMenu(state.page);
 	else if (state.practice === "signin" && !practiceSignedIn()) showSignIn("open");
 	else if (state.practice === "signin" && !practice.instrument) showInstrumentStep("open");
 	else if (state.practice === "signin") showPracticeMenu();
