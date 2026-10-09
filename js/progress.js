@@ -672,7 +672,10 @@ function showSignIn(from) {
 	var input = el("input", "signin-input");
 	input.id = "student-id";
 	input.type = "text";
-	input.inputMode = "numeric";
+	// The full keyboard: IDs (and the teacher code) can have letters. IDs
+	// are upper case, so letters start capitalized and aren't autocorrected.
+	input.autocapitalize = "characters";
+	input.setAttribute("autocorrect", "off");
 	input.autocomplete = "off";
 	input.spellcheck = false;
 	input.maxLength = 16;
