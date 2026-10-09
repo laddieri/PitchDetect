@@ -977,10 +977,7 @@ function centerChartsTogether(boxes) {
 		var img = box.querySelector("img.fingering-image");
 		if (img) imgs.push(img);
 	});
-	if (!imgs.length) return;
-	var waiting = imgs.length;
-	function loaded() {
-		if (--waiting > 0) return;
+	whenImagesLoaded(imgs, function() {
 		var minX = Infinity, maxX = -1, width = 0;
 		for (var i = 0; i < imgs.length; i++) {
 			var span = chartDrawnSpan(imgs[i]);
@@ -992,10 +989,79 @@ function centerChartsTogether(boxes) {
 		if (maxX < 0) return;
 		var shift = "translateX(" + ((width - (minX + maxX + 1)) / 2 / width * 100) + "%)";
 		imgs.forEach(function(img) { img.style.transform = shift; });
+	});
+}
+
+// Call fn once every image has loaded (or failed: a chart missing for a note
+// shouldn't hold up the rest). Nothing is called if there are no images.
+function whenImagesLoaded(imgs, fn) {
+	var waiting = imgs.length;
+	function done() {
+		if (--waiting === 0) fn();
 	}
 	imgs.forEach(function(img) {
-		if (img.complete && img.naturalWidth) loaded();
-		else img.addEventListener("load", loaded, { once: true });
+		if (img.complete) done();
+		else {
+			img.addEventListener("load", done, { once: true });
+			img.addEventListener("error", done, { once: true });
+		}
+	});
+}
+
+// Chart images shown in turn (Hear the song) on one shared canvas. Each box
+// fits its own image on its own, so a chart cropped narrower or shorter
+// would sit somewhere else at another size. Here every image keeps one scale
+// and its place from fingeringImageOffset(), inside a stage sized to the
+// span they cover together, so the tone holes stay put from note to note.
+// boxes: { midi: box }.
+function lineUpChartImages(boxes) {
+	var charts = [];
+	Object.keys(boxes).forEach(function(midi) {
+		var img = boxes[midi].querySelector("img.fingering-image");
+		if (img) charts.push({ img: img, box: boxes[midi], at: fingeringImageOffset(practice.instrument, +midi) });
+	});
+	if (!charts.length) return;
+	whenImagesLoaded(charts.map(function(c) { return c.img; }), function() {
+		charts = charts.filter(function(c) { return c.img.naturalWidth; });
+		if (!charts.length) return;
+		var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		charts.forEach(function(c) {
+			minX = Math.min(minX, c.at[0]);
+			minY = Math.min(minY, c.at[1]);
+			maxX = Math.max(maxX, c.at[0] + c.img.naturalWidth);
+			maxY = Math.max(maxY, c.at[1] + c.img.naturalHeight);
+		});
+		var w = maxX - minX, h = maxY - minY;
+		charts.forEach(function(c) {
+			var stage = document.createElement("div");
+			stage.className = "chart-stage";
+			stage.style.aspectRatio = w + " / " + h;
+			// Fit the box, never past the images' own size
+			stage.style.height = "min(100cqh, " + h + "px, calc(100cqw * " + (h / w) + "))";
+			var img = c.img;
+			img.parentNode.insertBefore(stage, img);
+			stage.appendChild(img);
+			img.style.position = "absolute";
+			img.style.left = ((c.at[0] - minX) / w * 100) + "%";
+			img.style.top = ((c.at[1] - minY) / h * 100) + "%";
+			img.style.width = (img.naturalWidth / w * 100) + "%";
+			img.style.height = (img.naturalHeight / h * 100) + "%";
+			img.style.maxWidth = "none";
+			img.style.aspectRatio = "auto";
+			img.style.objectFit = "fill";
+			img.style.margin = "0";
+		});
+	});
+}
+
+// Flute songs on just B, A and G: beginners keep the thumb on the B-natural
+// key the whole time (G and A play either way), so those songs show G and A
+// with the thumb there too, not on the B-flat lever as the charts do.
+var FLUTE_B_THUMB_NOTES = [67, 69, 71];  // written G4, A4, B4
+
+function fluteBThumbSong(events) {
+	return practice.instrument === "flute" && events.every(function(e) {
+		return e.midi === null || FLUTE_B_THUMB_NOTES.indexOf(e.midi) >= 0;
 	});
 }
 
@@ -3650,8 +3716,16 @@ function showSongFingerings(events) {
 		wrap.appendChild(box);
 	});
 	if (!wrap.firstChild) return function() {};
+	if (fluteBThumbSong(events)) {
+		[67, 69].forEach(function(midi) {
+			var img = boxes[midi] && boxes[midi].querySelector("img.fingering-image");
+			if (img) img.src = "img/Fingerings/Flute/" + midi + "-b-thumb.png";
+		});
+	}
 	if (practice.instrument === "trombone") {
 		centerChartsTogether(Object.keys(boxes).map(function(m) { return boxes[m]; }));
+	} else if (imageFingeringMap[practice.instrument]) {
+		lineUpChartImages(boxes);
 	}
 	var help = body.querySelector(":scope > .practice-fingering");
 	if (help) help.hidden = true;

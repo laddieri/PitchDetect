@@ -245,7 +245,12 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   along and the mic ignoring it, and the fingering chart changing with each
   note (`showSongFingerings()`: one `practiceFingeringBox(true, midi)` per
   pitch built up front in `#song-fingering`, only the sounding one shown,
-  rests keep the last; a Help chart is hidden meanwhile;
+  rests keep the last; a Help chart is hidden meanwhile; image charts go on
+  one shared canvas, `lineUpChartImages()`: one scale, each file placed by
+  `fingeringImageOffset()` (fingerings.js, measured offsets, since files
+  are cropped per note), so the tone holes don't move; a flute song on only
+  B, A and G (`fluteBThumbSong()`) shows G and A from
+  `img/Fingerings/Flute/67-b-thumb.png` / `69-b-thumb.png`, thumb on B♮;
   `removeSongFingerings()` from `stopSongPlayback()`); `setPracticeMode()` and `closePractice()`
   stop it. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
