@@ -329,27 +329,41 @@ var clarinetFingerings = {
 // inside a box of that size (scaled down to fit the window), so the panel stays
 // the same size from note to note even though individual images differ.
 // (Trombone and horn images are uniform.)
+// first / last: the files in the set (numbered as the file names are)
 var imageFingeringMap = {
-	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0,  w: 331, h: 476 },
-	"flute":     { folder: "Flute",     ext: "png", transposition: 0,  w: 496, h: 163 },
-	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0,  w: 223, h: 469 },
+	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0,  w: 331, h: 476, first: 34, last: 68 },
+	"flute":     { folder: "Flute",     ext: "png", transposition: 0,  w: 496, h: 163, first: 60, last: 95,
+		extra: ["67-b-thumb", "69-b-thumb"] },  // the B-thumb G and A of the B A G lessons
+	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0,  w: 223, h: 469, first: 58, last: 84 },
 	// All saxophones share the same fingering images indexed at writtenMidi - 12.
 	// (The image set uses a MIDI numbering where C4 = 48 instead of 60,
 	//  so we subtract 12 regardless of which saxophone is selected.)
 	// Range: 46 (written low Bb3) through 73 (written C#6).
-	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
-	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
-	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462 },
-	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0,  w: 534, h: 112 },
+	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73 },
+	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73 },
+	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73 },
+	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0,  w: 534, h: 112, first: 40, last: 70 },
 	// Double F/Bb horn: F side through written G4, Bb side (thumb) from G#4.
 	// Range: 42 (written F#2) through 84 (written C6).
-	"horn":      { folder: "Horn",      ext: "png", transposition: 0,  w: 360, h: 160 }
+	"horn":      { folder: "Horn",      ext: "png", transposition: 0,  w: 360, h: 160, first: 42, last: 84 }
 };
 
 // Path of an image-based instrument's chart for a written MIDI note
 function fingeringImagePath(instrument, writtenMidi) {
 	var info = imageFingeringMap[instrument];
 	return "img/Fingerings/" + info.folder + "/" + (writtenMidi - info.transposition) + "." + info.ext;
+}
+
+// Every chart file of an instrument's set (none for instruments without
+// chart images), for keeping them offline
+function fingeringImagePaths(instrument) {
+	var info = imageFingeringMap[instrument];
+	if (!info) return [];
+	var dir = "img/Fingerings/" + info.folder + "/";
+	var paths = [];
+	for (var n = info.first; n <= info.last; n++) paths.push(dir + n + "." + info.ext);
+	(info.extra || []).forEach(function(name) { paths.push(dir + name + "." + info.ext); });
+	return paths;
 }
 
 // The chart images are cropped to each note's keys, so the main column of

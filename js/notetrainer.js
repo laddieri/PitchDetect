@@ -2494,6 +2494,13 @@ function showToast(message, duration) {
 	}, duration || 4000);
 }
 
+// A friendly notice rather than an error
+function showInfoToast(message, duration) {
+	showToast(message, duration);
+	var toast = document.getElementById("toast");
+	if (toast) toast.classList.add("info");
+}
+
 // The first sound of each visit says to turn the volume up, so a quiet or
 // muted device doesn't read as a broken button
 var soundHintShown = false;
