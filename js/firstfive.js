@@ -552,10 +552,10 @@ var PRACTICE_UNITS = [
 	{ id: "unit2", title: "The first 5 notes", activities: ["learn", "quiz", "names", "fingerings", "songs5", "write5"] },
 	{ id: "unit3", title: "Notes 6 and beyond", activities: ["learn4", "names9", "fingerings9", "quiz9", "songs"] },
 	{ id: "unit4", title: "The B♭ scale", activities: ["scale", "namesscale", "fingeringsscale", "scalerun", "songs"] },
-	{ id: "unit5", title: "The E♭ scale", activities: ["scaleEb", "namesscaleEb", "fingeringsscaleEb", "scalerunEb"] },
-	{ id: "unit6", title: "The A♭ scale", activities: ["scaleAb", "namesscaleAb", "fingeringsscaleAb", "scalerunAb"] },
-	{ id: "unit7", title: "The F scale", activities: ["scaleF", "namesscaleF", "fingeringsscaleF", "scalerunF"] },
-	{ id: "unit8", title: "The C scale", activities: ["scaleC", "namesscaleC", "fingeringsscaleC", "scalerunC"] }
+	{ id: "unit5", title: "The E♭ scale", activities: ["scaleEb", "namesscaleEb", "fingeringsscaleEb", "scalerunEb", "songs"] },
+	{ id: "unit6", title: "The A♭ scale", activities: ["scaleAb", "namesscaleAb", "fingeringsscaleAb", "scalerunAb", "songs"] },
+	{ id: "unit7", title: "The F scale", activities: ["scaleF", "namesscaleF", "fingeringsscaleF", "scalerunF", "songs"] },
+	{ id: "unit8", title: "The C scale", activities: ["scaleC", "namesscaleC", "fingeringsscaleC", "scalerunC", "songs"] }
 ];
 
 function practiceUnit(page) {
@@ -2631,6 +2631,16 @@ var MY_SONGS_STORAGE_KEY = "pitchdetect-my-songs";
 // steps) adds " in <key>" to the title, named at the student's written pitch.
 var BEYOND_AB_STEPS = [-2, 0, 2, 4, 5, 7, 9, 10];  // low A♭ B♭ C D E♭ F G A♭
 var BEYOND_A_STEPS = [-1, 0, 2, 4, 5, 7, 9, 10];   // low A B♭ C D E♭ F G A♭
+// A song with scale (a scale's lesson set: "scale", "scaleEb"...) numbers
+// its notes 1–8 up that scale, as its lesson plays it on this instrument,
+// and its title names the scale ("Joy to the World (E♭ scale)"): the scale
+// songs, one tune in every key the student learns.
+// Joy to the World (Lowell Mason, 1839) runs down the whole scale
+var JOY_TO_THE_WORLD = ["8h 7q. 68", "5h. 4q", "3h 2h", "1h. 5q",
+	"6h. 6q", "7h. 7q", "8h. 8q", "8q 7q 6q 5q",
+	"5q. 48 3q 8q", "8q 7q 6q 5q", "5q. 48 3q 3q", "3q 3q 3q 38 48",
+	"5h. 48 38", "2q 2q 2q 28 38", "4h. 38 28", "1q 8h 6q",
+	"5q. 48 3q 4q", "3h 2h", "1w"];
 var SONGS = [
 	{ id: "hotcrossbuns", level: "three", title: "Hot Cross Buns",
 		measures: ["3h 2h", "1w", "3h 2h", "1w", "1q 1q 1q 1q", "2q 2q 2q 2q", "3h 2h", "1w"] },
@@ -2700,7 +2710,12 @@ var SONGS = [
 			"3q 5q 5q. 38", "4q 3q 2h", "1q 2q 3q. 28", "1w"] },
 	{ id: "rowyourboat", level: "advanced", title: "Row, Row, Row Your Boat", time: "6/8",
 		measures: ["1q. 1q.", "1q 28 3q.", "3q 28 3q 48", "5h.",
-			"88 88 88 58 58 58", "38 38 38 18 18 18", "5q 48 3q 28", "1h."] }
+			"88 88 88 58 58 58", "38 38 38 18 18 18", "5q 48 3q 28", "1h."] },
+	{ id: "joyscale", level: "scales", title: "Joy to the World", scale: "scale", measures: JOY_TO_THE_WORLD },
+	{ id: "joyscaleEb", level: "scales", title: "Joy to the World", scale: "scaleEb", measures: JOY_TO_THE_WORLD },
+	{ id: "joyscaleAb", level: "scales", title: "Joy to the World", scale: "scaleAb", measures: JOY_TO_THE_WORLD },
+	{ id: "joyscaleF", level: "scales", title: "Joy to the World", scale: "scaleF", measures: JOY_TO_THE_WORLD },
+	{ id: "joyscaleC", level: "scales", title: "Joy to the World", scale: "scaleC", measures: JOY_TO_THE_WORLD }
 ];
 // The song list's levels, in order, each opening to its songs; each song
 // names its level
@@ -2709,7 +2724,8 @@ var SONG_LEVELS = [
 	{ id: "beginner", title: "Beginner", sub: "First 5 notes" },
 	{ id: "beyond", title: "Notes 6 and beyond", sub: "Songs with your new notes" },
 	{ id: "intermediate", title: "Intermediate", sub: "Rests, dots, more notes" },
-	{ id: "advanced", title: "Advanced", sub: "Eighth notes, whole scale" }
+	{ id: "advanced", title: "Advanced", sub: "Eighth notes, whole scale" },
+	{ id: "scales", title: "Scale songs", sub: "Joy to the World in every key" }
 ];
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
@@ -2720,7 +2736,8 @@ var songLevelsOpen = {};   // song list levels shown open, by level id
 function songEvents(song) {
 	if (song.custom) return customSongEvents(song);
 	var events = [];
-	var spelled = spellScale(song.level === "three" ? threeNoteScale() : practiceNotes(song.steps || SCALE_STEPS));
+	var spelled = spellScale(song.level === "three" ? threeNoteScale()
+		: song.scale ? practice.lessons[song.scale].notes : practiceNotes(song.steps || SCALE_STEPS));
 	song.measures.forEach(function(m, measure) {
 		m.split(" ").forEach(function(token) {
 			var e = { midi: null, dur: token.charAt(1), dots: token.charAt(2) === "." ? 1 : 0, measure: measure };
@@ -2764,8 +2781,9 @@ function spellScale(scale) {
 }
 
 // A song's title; a song in a key ("Hot Cross Buns in E♭") names the key
-// at the student's written pitch
+// at the student's written pitch, a scale song the (concert) scale
 function songTitle(song) {
+	if (song.scale) return song.title + " (" + scaleName(song.scale) + " scale)";
 	if (!song.tonic) return song.title;
 	return song.title + " in " + practiceNoteName(practiceNotes(song.steps)[song.tonic - 1]);
 }
