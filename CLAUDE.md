@@ -341,7 +341,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   printed. Set in the song view by `songKeyButton()` →
   `setSongKeySignatures()`: beside the whole song toggle in note by note and
   the import screen, alone above the staff on Play it through and Pick a
-  part. The editor always shows its key (`opts.keySig`).
+  part; not shown for a song in a key without sharps or flats. The editor always shows its key (`opts.keySig`).
 - **My songs** (`openSongEditor(id)`, mode `editor`, under "My songs" in the
   song list, with **Make a song** and a pencil per song): the student copies
   a tune from their own printed part. Stored per instrument, in written pitch,

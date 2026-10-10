@@ -3106,7 +3106,7 @@ function playThroughSong(id) {
 	document.getElementById("practice-view").setAttribute("data-step", "song-free");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
 	document.getElementById("practice-steps").innerHTML = "";
-	document.getElementById("practice-steps").appendChild(songKeyButton());
+	document.getElementById("practice-steps").appendChild(songKeyButton(song));
 	document.getElementById("practice-staff-output").scrollTop = 0;
 	resetFollow();
 }
@@ -3372,7 +3372,7 @@ function showSongPicker(id, back, pick) {
 	document.getElementById("practice-view").setAttribute("data-step", "song-pick");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
 	document.getElementById("practice-steps").innerHTML = "";
-	document.getElementById("practice-steps").appendChild(songKeyButton());
+	document.getElementById("practice-steps").appendChild(songKeyButton(song));
 	document.getElementById("practice-staff-output").scrollTop = 0;
 
 	var body = document.getElementById("practice-body");
@@ -3760,7 +3760,7 @@ function renderSongProgress() {
 	var current = s.pos < songEnd(s) ? unitOf(s.pos) : last + 1;
 	row.setAttribute("aria-label", (part ? "Measure " : "Line ") + (Math.min(current, last) - first + 1) + " of " + (last - first + 1));
 	list.appendChild(songViewButton());
-	list.appendChild(songKeyButton());
+	list.appendChild(songKeyButton(s.song));
 	for (var u = first; u <= last; u++) {
 		var dot = document.createElement("span");
 		var helped = s.results.some(function(own, i) { return !own && unitOf(i) === u; });
@@ -3853,8 +3853,10 @@ var KEY_SIG_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" s
 	'<path d="M7 3v15M7 18c3-1.5 6-3.5 5-6.5-.7-2-3.5-1.5-5 .5"/><path d="M15.5 6v15M19.5 5v15M14 11.5l7-2M14 16.5l7-2"/></svg>';
 
 // The button that turns key signatures on and off (beside the whole song
-// button, and alone on Play it through and Pick a part)
-function songKeyButton() {
+// button, and alone on Play it through and Pick a part); nothing for a song
+// whose key has no sharps or flats, where it would change nothing
+function songKeyButton(song) {
+	if (songKey(song) === "C") return document.createDocumentFragment();
 	var b = document.createElement("button");
 	b.className = "editor-tool song-key-toggle";
 	b.innerHTML = KEY_SIG_SVG;
@@ -5298,7 +5300,7 @@ function showSongImport() {
 	var steps = document.getElementById("practice-steps");
 	steps.innerHTML = "";
 	steps.appendChild(songViewButton());
-	steps.appendChild(songKeyButton());
+	steps.appendChild(songKeyButton(song));
 	document.getElementById("practice-prompt").textContent = "A friend shared \u201c" + song.title + "\u201d!";
 
 	var body = document.getElementById("practice-body");
