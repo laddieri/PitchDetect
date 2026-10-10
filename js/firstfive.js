@@ -2712,12 +2712,32 @@ var SONGS = [
 	{ id: "rowyourboat", level: "advanced", title: "Row, Row, Row Your Boat", time: "6/8",
 		measures: ["1q. 1q.", "1q 28 3q.", "3q 28 3q 48", "5h.",
 			"88 88 88 58 58 58", "38 38 38 18 18 18", "5q 48 3q 28", "1h."] },
+	{ id: "thisoldman", level: "advanced", title: "This Old Man",
+		measures: ["5q 3q 5h", "5q 3q 5h", "6q 5q 4q 3q", "2q 3q 4h",
+			"38 48 5q 1q 18 18", "1q 18 28 38 48 5q", "5q 2q 2q 4q", "3q 2q 1h"] },
 	{ id: "joyscale", level: "scales", title: "Joy to the World", scale: "scale", measures: JOY_TO_THE_WORLD },
 	{ id: "joyscaleEb", level: "scales", title: "Joy to the World", scale: "scaleEb", measures: JOY_TO_THE_WORLD },
 	{ id: "joyscaleAb", level: "scales", title: "Joy to the World", scale: "scaleAb", measures: JOY_TO_THE_WORLD },
 	{ id: "joyscaleF", level: "scales", title: "Joy to the World", scale: "scaleF", measures: JOY_TO_THE_WORLD },
 	{ id: "joyscaleC", level: "scales", title: "Joy to the World", scale: "scaleC", measures: JOY_TO_THE_WORLD }
 ];
+// More songs on each concert scale after B♭: tunes from above, numbered
+// up that scale (scale), so they play in its key at the lesson's octave.
+// Each scale gets its own level ("songsEb"...), easiest tune first (they
+// keep SONGS' order); ids are the tune's plus the scale's ("odetojoyscaleEb").
+// None of these stray below degree 1, where the scale's lesson has no notes.
+var SCALE_SONG_TUNES = {
+	scaleEb: ["merrily", "odetojoy", "saints", "twinkle", "thisoldman"],
+	scaleAb: ["steppingstones", "lightlyrow", "ducklings", "londonbridge", "michaelrow"],
+	scaleF: ["hotcrossbuns", "auntrhody", "jinglebells", "goinghome", "rowyourboat"],
+	scaleC: ["upanddown", "mary", "odetojoy", "twinkle", "thisoldman"]
+};
+MORE_SCALES.forEach(function(scale) {
+	SONGS.filter(function(song) { return SCALE_SONG_TUNES[scale.id].indexOf(song.id) >= 0; }).forEach(function(song) {
+		SONGS.push({ id: song.id + scale.id, level: "songs" + scale.id.slice(5), title: song.title,
+			scale: scale.id, time: song.time, measures: song.measures });
+	});
+});
 // The song list's levels, in order, each opening to its songs; each song
 // names its level
 var SONG_LEVELS = [
@@ -2728,6 +2748,10 @@ var SONG_LEVELS = [
 	{ id: "advanced", title: "Advanced", sub: "Eighth notes, whole scale" },
 	{ id: "scales", title: "Scale songs", sub: "Joy to the World in every key" }
 ];
+MORE_SCALES.forEach(function(scale) {
+	SONG_LEVELS.push({ id: "songs" + scale.id.slice(5), title: scale.name + " scale songs",
+		sub: "Old favorites on the concert " + scale.name + " scale" });
+});
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
 var songLevelsOpen = {};   // song list levels shown open, by level id
