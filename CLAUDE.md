@@ -258,7 +258,12 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   **Intermediate** (rests, dotted notes or notes past the fifth: Goin' Home,
   When the Saints, Twinkle, All My Little Ducklings), **Advanced** (eighth
   notes on the whole scale: London Bridge, Michael Row the Boat, Row Row Row
-  Your Boat). Keep `SONGS` in level order (Next song follows it). Each measure is a
+  Your Boat), **Scale songs** (`scales`: Joy to the World, `JOY_TO_THE_WORLD`,
+  once per scale, ids `joyscale`, `joyscaleEb`...; a song with `scale` (a
+  lesson set) numbers its notes 1–8 up that scale's lesson notes, so it gets
+  the lesson's octave and written-key spelling, and `songTitle()` adds
+  " (E♭ scale)"; the units 5–8 hold the More songs card and the path has
+  each one after its scale run). Keep `SONGS` in level order (Next song follows it). Each measure is a
   string of scale degree + duration (`"3q 2q 1h"`, `"5q. 68"` dotted,
   `"rq"` a rest; degrees 1–8 index the B♭ scale, spelled up the letters from
   the first note by `spellScale()` so alto sax gets F♯); a song may set `time` (e.g. `"6/8"`),
@@ -559,7 +564,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
   3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
   writing a 5-note song, notes 6 and beyond, 2 of its songs, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs, then learning and playing
-  the E♭, A♭, F and C scales, one unit each). Nothing is locked: the menu
+  the E♭, A♭, F and C scales and Joy to the World on each, one unit each). Nothing is locked: the menu
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
   the tab of the page it's on), and the profile lists the path; tapping a step opens it.
 - **Screens:** the player bar (`#player-bar`, menu only: avatar, level, XP

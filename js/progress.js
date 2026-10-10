@@ -526,6 +526,9 @@ function learningPath() {
 			done: practice.lessons[scale.id].stars.every(function(n) { return n > 0; }) });
 		nodes.push({ title: "Play the concert " + scale.name + " scale", activity: "scalerun" + scale.id.slice(5),
 			done: challengeStars(practice.scaleRunBest[scale.id] || 0, scaleRunSequence().length) > 0 });
+		var joy = SONGS.filter(function(song) { return song.id === "joy" + scale.id; })[0];
+		nodes.push({ title: "Play " + songTitle(joy), activity: "songs", level: "scales",
+			unit: firstUnitWith(scale.id), done: songStars(joy) > 0 });
 	});
 	nodes.forEach(function(node) {
 		node.unit = node.unit || firstUnitWith(node.activity) || PRACTICE_UNITS[0].id;
