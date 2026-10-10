@@ -3245,11 +3245,6 @@
 				width: 100%;
 			}
 
-			.practice-view[data-step="song-free"] .practice-steps,
-			.practice-view[data-step="song-pick"] .practice-steps {
-				display: none;
-			}
-
 			/* Pick a part: tap the measures to practice */
 			.practice-view[data-step="song-pick"] #practice-staff-output {
 				cursor: pointer;
@@ -3274,14 +3269,8 @@
 				margin-left: 10px;
 			}
 
-			.practice-steps .song-key-toggle {
+			.practice-steps .song-view-toggle + .song-key-toggle {
 				margin: 0 10px 0 6px;
-			}
-
-			/* The song list's key signature switch, above the songs */
-			.song-key-switch {
-				grid-column: 1 / -1;
-				justify-self: end;
 			}
 
 			/* Up and down beside the staff (overlapping its end a little) */
