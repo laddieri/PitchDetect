@@ -28,21 +28,21 @@ var trumpetFingerings = {
 	66: { primary: [2], alternates: [] },          // F#4
 	67: { primary: [], alternates: [] },           // G4 - open
 	68: { primary: [2, 3], alternates: [] },       // G#4
-	69: { primary: [1, 2], alternates: [] },       // A4
+	69: { primary: [1, 2], alternates: [[3]] },       // A4
 	70: { primary: [1], alternates: [] },          // A#4
 	71: { primary: [2], alternates: [] },          // B4
 
 	// Upper register
 	72: { primary: [], alternates: [] },           // C5 - open
-	73: { primary: [1, 2], alternates: [] },       // C#5
-	74: { primary: [1], alternates: [] },          // D5
+	73: { primary: [1, 2], alternates: [[3]] },       // C#5
+	74: { primary: [1], alternates: [[1, 3]] },          // D5
 	75: { primary: [2], alternates: [] },           // D#5
-	76: { primary: [], alternates: [] },            // E5 - open
+	76: { primary: [], alternates: [[1, 2]] },            // E5 - open
 	77: { primary: [1], alternates: [] },          // F5
 	78: { primary: [2], alternates: [] },          // F#5
-	79: { primary: [], alternates: [] },           // G5 - open
+	79: { primary: [], alternates: [[1, 3]] },           // G5 - open
 	80: { primary: [2, 3], alternates: [] },       // G#5
-	81: { primary: [1, 2], alternates: [] },       // A5
+	81: { primary: [1, 2], alternates: [[3]] },       // A5
 	82: { primary: [1], alternates: [] },          // A#5
 	83: { primary: [2], alternates: [] },          // B5
 	84: { primary: [], alternates: [] },           // C6 - open
@@ -228,6 +228,8 @@ var fluteFingerings = {
 //   L1-L3 / R1-R3 = left/right hand tone holes,
 //   S1-S4 = right-hand side (trill) keys, top to bottom,
 //   CsGs = C#/G# key,
+//   Sl = the Eb/Bb sliver key between L2 and L3 (left ring finger), which
+//        raises D4 / A5 a semitone like the lowest side key does,
 //   lE, lF, lFs = left pinky E/B, F/C, F#/C#,
 //   rE, rF, rFs, rAb = right pinky E/B, F/C, F#/C#, Ab/Eb.
 // E/B, F/C and F#/C# exist for both pinkies, which is what the pinky
@@ -262,7 +264,10 @@ var clarinetFingerings = {
 	60: { primary: { keys: clarinetLH }, alternates: [] },                   // C4
 	61: { primary: { keys: clarinetLH.concat(["CsGs"]) }, alternates: [] },  // C#4
 	62: { primary: { keys: ["T", "L1", "L2"] }, alternates: [] },            // D4
-	63: { primary: { keys: ["T", "L1", "L2", "S4"] }, alternates: [] },      // D#4
+	63: { // D#4
+		primary: { keys: ["T", "L1", "L2", "S4"], label: "Side key" },
+		alternates: [{ keys: ["T", "L1", "L2", "Sl"], label: "Sliver key" }]
+	},
 	64: { primary: { keys: ["T", "L1"] }, alternates: [] },                  // E4
 	65: { primary: { keys: ["T"] }, alternates: [] },                        // F4
 	66: { primary: { keys: ["L1"] }, alternates: [] },                       // F#4
@@ -300,7 +305,10 @@ var clarinetFingerings = {
 	79: { primary: { keys: ["Reg"].concat(clarinetLH) }, alternates: [] },                // G5
 	80: { primary: { keys: ["Reg"].concat(clarinetLH, ["CsGs"]) }, alternates: [] },      // G#5
 	81: { primary: { keys: ["Reg", "T", "L1", "L2"] }, alternates: [] },        // A5
-	82: { primary: { keys: ["Reg", "T", "L1", "L2", "S4"] }, alternates: [] },  // A#5
+	82: { // A#5
+		primary: { keys: ["Reg", "T", "L1", "L2", "S4"], label: "Side key" },
+		alternates: [{ keys: ["Reg", "T", "L1", "L2", "Sl"], label: "Sliver key" }]
+	},
 	83: { primary: { keys: ["Reg", "T", "L1"] }, alternates: [] },              // B5
 	84: { primary: { keys: ["Reg", "T"] }, alternates: [] },                    // C6
 
@@ -781,6 +789,11 @@ function drawClarinetFingering(keys) {
 	joint.setAttribute("stroke", ink);
 	joint.setAttribute("stroke-width", "2.5");
 	svg.appendChild(joint);
+
+	// Eb/Bb sliver key, the thin crescent below the second hole
+	if (isDown("Sl")) {
+		path("Sl", "M106.9 169.5 A29 29 0 0 1 83.0 195.6 L82.0 189.7 A23 23 0 0 0 100.9 169.0 Z");
+	}
 
 	// Side (trill) keys
 	var sideKeys = ["S1", "S2", "S3", "S4"];
