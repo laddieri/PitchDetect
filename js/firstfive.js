@@ -1002,7 +1002,8 @@ function startPracticeActivity(id) {
 function practiceBack() {
 	if (practice && practice.mode === "signin") {
 		// Practice needs someone signed in on an instrument
-		if (!practiceSignedIn() || !practice.instrument) closePractice();
+		if (practice.signinStep === "samename") showSignIn(practice.signinFrom);
+		else if (!practiceSignedIn() || !practice.instrument) closePractice();
 		else if (practice.signinFrom === "profile") showProfile();
 		else showPracticeMenu();
 		return;

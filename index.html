@@ -4140,11 +4140,6 @@
 				box-shadow: var(--ring);
 			}
 
-			.profile-id {
-				font-size: 0.8rem;
-				color: var(--text-muted);
-			}
-
 			/* What do you play? (sign-in and the profile) */
 			.instrument-picker {
 				display: grid;
@@ -4253,6 +4248,24 @@
 
 			.signin-input.signin-name {
 				letter-spacing: 0;
+			}
+
+			.signin-input.signin-initial {
+				flex: 0 0 3em;
+				padding-left: 4px;
+				padding-right: 4px;
+				letter-spacing: 0;
+				text-transform: uppercase;
+			}
+
+			.signin-form-initial > button {
+				flex: 1;
+			}
+
+			.signin-students {
+				display: flex;
+				flex-direction: column;
+				gap: 8px;
 			}
 
 			.profile-level {
