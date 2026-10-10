@@ -331,8 +331,17 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
   dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
   playable ones, each with its `event` index. `renderSongLine()` draws a
-  line for both song mode and the editor; built-in songs render exactly as
-  before (no key/time signature, every flat written out).
+  line for both song mode and the editor.
+- **Key signature or accidentals** (`songKeySignatures`, persisted
+  device-wide as `pitchdetect-song-key-signature`, off by default): off,
+  songs have no key signature and every sharp and flat is written on its
+  note (how the built-in songs always read); on, each song shows its
+  written key (`songKey()`: a custom song's `key`, a built-in song's from
+  its tonic as the song spells it) and accidentals last the measure as
+  printed. Set by the song list's **Key signature** switch
+  (`songKeySwitch()`) or the button beside the whole song toggle in note by
+  note and the import screen (`songKeyButton()`), both through
+  `setSongKeySignatures()`. The editor always shows its key (`opts.keySig`).
 - **My songs** (`openSongEditor(id)`, mode `editor`, under "My songs" in the
   song list, with **Make a song** and a pencil per song): the student copies
   a tune from their own printed part. Stored per instrument, in written pitch,
