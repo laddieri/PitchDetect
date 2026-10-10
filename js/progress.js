@@ -52,6 +52,9 @@ var TEACHER_STORAGE_KEY = "pitchdetect-teacher";
 // Typed as the name, opens teacher mode. Not a password (anyone can read
 // the page's code), just enough to keep students from wandering in.
 var TEACHER_CODE = "900900900";
+var DATA_VERSION_STORAGE_KEY = "pitchdetect-data-version";
+var INSTALL_HINT_STORAGE_KEY = "pitchdetect-install-hint";  // the day it was last shown
+var INSTALL_HINT_EVERY_DAYS = 7;
 
 // Avatars, each unlocked at a level
 var AVATARS = [
@@ -116,6 +119,41 @@ var BADGES = [
 // The student ID signed in on this device, "" for a guest, or null before
 // anyone has chosen
 var currentStudent = null;
+// ---------------------------------------------------------------------------
+// Saved data versions
+// ---------------------------------------------------------------------------
+
+// The shape of the saved progress. When it changes, bump DATA_VERSION and
+// add a step to DATA_MIGRATIONS: DATA_MIGRATIONS[n] turns version n's data
+// into version n + 1's, rewriting localStorage directly (every student's
+// keys, not just the one signed in). Devices with no version saved hold
+// version 1 (everything from before versions were kept). Steps run once,
+// in order, on load, before anything reads the progress.
+var DATA_VERSION = 1;
+var DATA_MIGRATIONS = {
+	// 1: function() { ... }
+};
+
+function migrateProgress() {
+	var version;
+	try {
+		version = parseInt(localStorage.getItem(DATA_VERSION_STORAGE_KEY), 10) || 1;
+	} catch (e) {
+		return;
+	}
+	if (version > DATA_VERSION) return;  // saved by a newer version of the app: leave it alone
+	for (; version < DATA_VERSION; version++) {
+		try {
+			if (DATA_MIGRATIONS[version]) DATA_MIGRATIONS[version]();
+		} catch (e) {
+			return;  // try again next load rather than skip a step
+		}
+		try { localStorage.setItem(DATA_VERSION_STORAGE_KEY, String(version + 1)); } catch (e) { return; }
+	}
+	try { localStorage.setItem(DATA_VERSION_STORAGE_KEY, String(DATA_VERSION)); } catch (e) {}
+}
+migrateProgress();
+
 try { currentStudent = localStorage.getItem(STUDENT_STORAGE_KEY); } catch (e) {}
 var profile = null;
 var lastPracticeActivity = 0;
@@ -145,7 +183,57 @@ function progressSet(key, value) {
 		teacherStore[key] = value;
 		return;
 	}
-	localStorage.setItem(studentKey(key), value);
+	try {
+		localStorage.setItem(studentKey(key), value);
+	} catch (e) {
+		warnSaveFailed();
+	}
+}
+
+// Storage full or blocked: say so once a visit, rather than letting a
+// student keep practicing and lose it all
+var saveFailedWarned = false;
+function warnSaveFailed() {
+	if (saveFailedWarned) return;
+	saveFailedWarned = true;
+	showToast("Your progress couldn\u2019t be saved on this device. Check that the browser isn\u2019t in private mode and has storage space.", 8000);
+}
+
+// Ask the browser to keep this site's storage instead of clearing it when
+// space runs low or the site goes unvisited. Browsers decide for themselves
+// (some only for installed apps), so this is a request, quietly ignored.
+function requestPersistentStorage() {
+	try {
+		if (navigator.storage && navigator.storage.persist) {
+			navigator.storage.persisted().then(function(persisted) {
+				if (!persisted) return navigator.storage.persist();
+			}).catch(function() {});
+		}
+	} catch (e) {}
+}
+
+// Safari on iPhone and iPad deletes a site's storage after about 7 days
+// without a visit, unless it's on the Home Screen. Remind students (at most
+// once every INSTALL_HINT_EVERY_DAYS) to add it there.
+function isIOSBrowserTab() {
+	var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+		(navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+	var standalone = navigator.standalone === true ||
+		(window.matchMedia && window.matchMedia("(display-mode: standalone)").matches);
+	return ios && !standalone;
+}
+
+function maybeShowInstallHint() {
+	if (teacherMode || !isIOSBrowserTab()) return;
+	var today = dayKey(new Date());
+	try {
+		var last = localStorage.getItem(INSTALL_HINT_STORAGE_KEY);
+		if (last && last > addDays(today, -INSTALL_HINT_EVERY_DAYS)) return;
+		localStorage.setItem(INSTALL_HINT_STORAGE_KEY, today);
+	} catch (e) {
+		return;
+	}
+	showInfoToast("To keep your stars saved, tap Share, then \u201CAdd to Home Screen\u201D", 8000);
 }
 
 // Someone is on practice: a student, a guest or the teacher
@@ -686,6 +774,7 @@ function updatePlayerBar() {
 // Called by showPracticeMenu() once the cards are built
 function onPracticeMenuShown(menu, page) {
 	updatePlayerBar();
+	if (practiceSignedIn()) maybeShowInstallHint();
 	updateTeacherHeader();
 	markNextUp(menu, page);
 }
@@ -955,6 +1044,7 @@ function signInStudent(id, named) {
 	saveProfile();
 	currentStudent = id;
 	try { localStorage.setItem(STUDENT_STORAGE_KEY, id); } catch (e) {}
+	requestPersistentStorage();
 	profile = loadProfile();
 	if (named) {
 		profile.name = named.name;
@@ -1374,9 +1464,34 @@ setInterval(practiceTick, 1000);
 	}, true);
 })();
 
+if (currentStudent !== null) requestPersistentStorage();
+
 // Installable and offline: the service worker keeps a copy of the app
 if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
 	window.addEventListener("load", function() {
-		navigator.serviceWorker.register("sw.js").catch(function() {});
+		navigator.serviceWorker.register("sw.js").then(function() {
+			return navigator.serviceWorker.ready;
+		}).then(function() {
+			cacheInstrumentCharts();
+			document.getElementById("instrument").addEventListener("change", cacheInstrumentCharts);
+		}).catch(function() {});
 	});
+}
+
+// Fetch the selected instrument's fingering charts in the background, so
+// they're all there offline, not just the ones already seen (the service
+// worker keeps whatever is fetched). Charts already kept aren't refetched.
+function cacheInstrumentCharts() {
+	var paths = fingeringImagePaths(document.getElementById("instrument").value);
+	if (!paths.length || !window.caches) return;
+	var i = 0;
+	function next() {
+		if (i >= paths.length) return;
+		var path = paths[i++];
+		caches.match(path).then(function(hit) {
+			return hit || fetch(path).catch(function() {});
+		}).then(next, next);
+	}
+	// A few at a time, so a slow connection still has room for the app
+	for (var n = 0; n < 3; n++) next();
 }

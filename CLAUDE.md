@@ -31,12 +31,13 @@ PitchDetect/
 ├── img/icon-192.png, icon-512.png  # App icons (rendered from favicon.svg)
 ├── manifest.webmanifest  # Installable app (PWA)
 ├── sw.js               # Service worker: network first, cached copy offline
+├── tests/smoke.js      # Playwright smoke test (fake mic, storage, offline)
 ├── CLAUDE.md           # This file
 └── _config.yml         # Jekyll config for GitHub Pages hosting
 ```
 
-There is **no build system, no package.json, no tests in-repo**. The page runs
-directly in a browser.
+There is **no build system and no package.json**; the page runs directly in
+a browser. `tests/smoke.js` is the one scripted test (see Testing).
 
 ## Architecture (`js/notetrainer.js`)
 
@@ -596,8 +597,29 @@ Loaded after firstfive.js; no server, everything stays on the device.
   Switch student. Both render into `#practice-hub`.
 - **PWA:** `manifest.webmanifest` + `sw.js` (registered at the end of
   progress.js over http(s)). Bump `CACHE` in sw.js only to drop old caches;
-  it's network first, so updates arrive without it. Add new app files to
-  `APP_FILES`.
+  it's network first, so updates arrive without it, but after
+  `NETWORK_TIMEOUT_MS` (3 s) a cached copy answers instead (the network's
+  reply still updates the cache). Add new app files to `APP_FILES`. Once
+  the worker is ready, `cacheInstrumentCharts()` fetches every chart of the
+  selected instrument (`fingeringImagePaths()`; on load and each `#instrument`
+  change, skipping ones already cached), so charts work offline unseen.
+- **Keeping progress safe:** `progressSet()` catches a failed write (full or
+  blocked storage) and `warnSaveFailed()` toasts once a visit — callers
+  needn't. `requestPersistentStorage()` (`navigator.storage.persist()`, at
+  sign-in and on load once someone has signed in) asks the browser not to
+  evict the data. iOS Safari outside the Home Screen deletes a site's
+  storage after ~7 days unvisited, so `maybeShowInstallHint()` (from
+  `onPracticeMenuShown()`, signed in, not teacher mode) shows an info toast
+  (`showInfoToast()`) to Add to Home Screen, at most every
+  `INSTALL_HINT_EVERY_DAYS`, the day stored in `pitchdetect-install-hint`.
+- **Data versions:** `pitchdetect-data-version` (device-wide) is the shape of
+  the saved progress; no value means version 1. **When a saved format
+  changes** (a key renamed, a field's meaning changed), bump `DATA_VERSION`
+  and add `DATA_MIGRATIONS[old]`, which rewrites localStorage for every
+  student's keys. `migrateProgress()` runs them in order at the top of
+  progress.js, before anything reads progress; a data version newer than the
+  app's is left alone. Adding an optional field with a default in
+  `loadProfile()` needs no migration.
 
 ### Fingerings (`js/fingerings.js`)
 
@@ -612,7 +634,10 @@ Loaded after firstfive.js; no server, everything stays on the device.
   side by side with captions via the Show Alternate Fingerings button.
   `img/Fingerings/Clarinet/` is no longer used.
 - `imageFingeringMap` — instruments using chart images from `img/Fingerings/`
-  (bassoon, flute, oboe, saxes, trombone, double horn)
+  (bassoon, flute, oboe, saxes, trombone, double horn); `first` / `last`
+  (file numbers) and `extra` list every file in a set, for
+  `fingeringImagePaths()` (offline caching; the smoke test checks they all
+  exist, so update them when adding or removing chart files)
 - `hasFingeringData()`, `displayFingering()` — entry points used by the app.
 - Instruments with **no** fingering data: bare clefs, bass clarinet,
   bells (value `glockenspiel`; they get piano-only panels).
@@ -708,8 +733,22 @@ python3 -m http.server 8000
 
 ### Testing (manual + scripted)
 
-No test suite exists. Changes are verified by driving the real app, ideally
-with Playwright + Chromium using a WAV file as a fake microphone:
+Run the smoke test before pushing:
+
+```bash
+npm install --no-save playwright   # once (or: NODE_PATH=$(npm root -g) with a global install)
+node tests/smoke.js                # CHROMIUM=/path/to/chrome for a browser of your own
+```
+
+It serves the repo itself and checks: no errors or page scroll at desktop and
+phone sizes; Listen names a 440 Hz tone; a student signs in, and their
+profile, instrument and XP survive a reload; a failed save warns; the iPhone
+Home Screen hint shows once; the service worker keeps every chart of the
+instrument, answers from cache on a slow network, and loads offline. Add a
+check there when adding something a broken change would silently lose.
+
+For anything else, drive the real app with Playwright + Chromium using a WAV
+file as a fake microphone:
 
 ```
 --use-fake-ui-for-media-stream
@@ -750,4 +789,4 @@ confidence threshold (0.85) in `autoCorrelate()` / `updateListenPitch()`.
 ## Git Workflow
 
 - Default branch: `master`; deployed via GitHub Pages (static hosting).
-- No CI. Verify by running the app before pushing.
+- No CI. Run `node tests/smoke.js` and verify in the app before pushing.
