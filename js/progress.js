@@ -1,11 +1,15 @@
 /*
  * Progress: the game layer over practice. Loaded after firstfive.js.
  *
- * Students: a student types their student ID on the sign-in screen
- * (showSignIn()), or practices as a guest. Everything is kept on this device
- * only (no server): every practice storage key gets "@<ID>" appended
- * (studentKey()), so several students can share a Chromebook or iPad, each
- * with their own stars, songs and level. A guest uses the plain keys, so
+ * Students: a student types their first name on the sign-in screen
+ * (showSignIn()), or practices as a guest. A name already used on this
+ * device asks which one they are, or a new student's last initial
+ * (showSameNameStep()). Each student gets an ID made up when they first
+ * sign in (newStudentId()); everything is kept on this device only (no
+ * server): every practice storage key gets "@<ID>" appended (studentKey()),
+ * so several students can share a Chromebook or iPad, each with their own
+ * stars, songs and level. The students on a device are found from their
+ * saved profiles (deviceStudents()). A guest uses the plain keys, so
  * progress from before sign-in existed stays with the guest. The last
  * student stays signed in (pitchdetect-student) until someone switches.
  *
@@ -26,7 +30,7 @@
  *     the menu marks the next one, and the profile lists them all. Nothing
  *     is locked: the path is a guide, so a teacher can send students anywhere.
  *
- * Teacher mode: typing TEACHER_CODE as the student ID opens every activity
+ * Teacher mode: typing TEACHER_CODE as the name opens every activity
  * for a teacher to demonstrate on any instrument (a drop-down in the
  * practice header). Stars, bests and XP are kept in memory only
  * (teacherStore), so nothing a teacher plays persists; songs written in
@@ -45,10 +49,8 @@ var BADGE_XP = 20;
 var NEW_BEST_XP = 10;
 var PROFILE_KEEP_DAYS = 400;   // daily practice times older than this are dropped
 var TEACHER_STORAGE_KEY = "pitchdetect-teacher";
-// Typed as the student ID, opens teacher mode. Not a password (anyone can
-// read the page's code), just enough to keep students from wandering in.
-// Numbers, so it types on the ID box's number pad; long enough not to be
-// a real student's ID.
+// Typed as the name, opens teacher mode. Not a password (anyone can read
+// the page's code), just enough to keep students from wandering in.
 var TEACHER_CODE = "900900900";
 
 // Avatars, each unlocked at a level
@@ -157,20 +159,88 @@ function progressCounts() {
 	return !teacherMode && currentStudent !== null;
 }
 
-// A typed student ID, tidied (spaces and dashes dropped, letters upper
-// case), or null if it isn't 3 to 12 letters and numbers
+// A typed student ID from before names (spaces and dashes dropped, letters
+// upper case), or null if it isn't 3 to 12 letters and numbers
 function normalizeStudentId(text) {
 	var id = String(text || "").replace(/[\s-]/g, "").toUpperCase();
 	return /^[A-Z0-9]{3,12}$/.test(id) ? id : null;
 }
 
-// A typed first name, tidied: no control characters, spaces collapsed, at
-// most STUDENT_NAME_MAX characters ("" if none). It's only ever shown as
-// text, never as HTML.
+// A typed first name, tidied: no control characters, spaces collapsed, a
+// capital first letter, at most STUDENT_NAME_MAX characters ("" if none).
+// It's only ever shown as text, never as HTML.
 var STUDENT_NAME_MAX = 20;
 function cleanStudentName(text) {
-	return String(text || "").replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, " ")
+	var name = String(text || "").replace(/[\u0000-\u001F\u007F]/g, "").replace(/\s+/g, " ")
 		.trim().slice(0, STUDENT_NAME_MAX).trim();
+	return name.charAt(0).toLocaleUpperCase() + name.slice(1);
+}
+
+// A typed last initial: one letter, upper case ("" if none)
+function cleanInitial(text) {
+	var c = String(text || "").trim().charAt(0).toUpperCase();
+	return /^\p{L}$/u.test(c) ? c : "";
+}
+
+// How a student is shown: "Maya", or "Maya R." when two share a name
+function namedStudentLabel(name, initial) {
+	return initial ? name + " " + initial + "." : name;
+}
+
+function sameStudentName(a, b) {
+	return a.toLocaleLowerCase() === b.toLocaleLowerCase();
+}
+
+// The named students on this device, from their saved profiles:
+// [{ id, name, initial, avatar }]
+function deviceStudents() {
+	var list = [];
+	var prefix = PROFILE_STORAGE_KEY + "@";
+	try {
+		for (var i = 0; i < localStorage.length; i++) {
+			var key = localStorage.key(i);
+			if (!key || key.indexOf(prefix) !== 0 || key === prefix + "teacher") continue;
+			var p = null;
+			try { p = JSON.parse(localStorage.getItem(key) || "null"); } catch (e) {}
+			var name = p && typeof p === "object" ? cleanStudentName(p.name) : "";
+			if (!name) continue;
+			list.push({ id: key.slice(prefix.length), name: name, initial: cleanInitial(p.initial),
+				avatar: nonNegative(p.avatar) < AVATARS.length ? nonNegative(p.avatar) : 0 });
+		}
+	} catch (e) {}
+	return list;
+}
+
+// Another student on this device already shown as name + initial
+function studentNameTaken(name, initial, exceptId) {
+	return deviceStudents().some(function(s) {
+		return s.id !== exceptId && s.initial === initial && sameStudentName(s.name, name);
+	});
+}
+
+// A new student's ID: upper case (so it can't clash with "@teacher") and
+// not one already on this device
+function newStudentId() {
+	var id;
+	do {
+		id = "N" + Date.now().toString(36).toUpperCase() + Math.floor(Math.random() * 1296).toString(36).toUpperCase();
+		try {
+			if (localStorage.getItem(PROFILE_STORAGE_KEY + "@" + id) === null) return id;
+		} catch (e) {
+			return id;
+		}
+	} while (true);
+}
+
+// A student ID from before names, typed on the name screen: their saved
+// progress, if this device has it
+function legacyStudentId(text) {
+	var id = normalizeStudentId(text);
+	try {
+		return id && localStorage.getItem(PROFILE_STORAGE_KEY + "@" + id) !== null ? id : null;
+	} catch (e) {
+		return null;
+	}
 }
 
 function nonNegative(n) {
@@ -199,6 +269,7 @@ function loadProfile() {
 		badges: p.badges && typeof p.badges === "object" ? p.badges : {},
 		instrument: typeof p.instrument === "string" ? p.instrument : null,
 		name: cleanStudentName(p.name),
+		initial: cleanInitial(p.initial),
 		menuAll: typeof p.menuAll === "boolean" ? p.menuAll : null  // practice menu: every activity, not a unit
 	};
 }
@@ -579,9 +650,10 @@ function markNextUp(menu, page) {
 // Screens: the player bar on the menu, the profile, sign-in
 // ---------------------------------------------------------------------------
 
-// The student's name, or their ID until they've given one
+// The student's name (with a last initial if they have one), or their
+// old student ID until they've given one
 function studentLabel() {
-	if (profile && profile.name) return profile.name;
+	if (profile && profile.name) return namedStudentLabel(profile.name, profile.initial);
 	return currentStudent ? "Student " + currentStudent : "Guest";
 }
 
@@ -691,6 +763,7 @@ function showSignIn(from) {
 	practiceStartedMic = false;
 	practice.step = -1;
 	practice.signinFrom = from || "open";
+	practice.signinStep = "";
 	setPracticeMode("signin");
 	var back = document.getElementById("practice-close");
 	var label = practice.signinFrom === "profile" ? "Back to your profile" : "Back to the app";
@@ -702,32 +775,39 @@ function showSignIn(from) {
 	box.appendChild(el("div", "signin-icon", "\uD83C\uDFBA"));
 	box.appendChild(el("h3", "signin-title", "Who\u2019s practicing?"));
 	var form = el("form", "signin-form");
-	var input = el("input", "signin-input");
-	input.id = "student-id";
+	var input = el("input", "signin-input signin-name");
+	input.id = "student-name";
 	input.type = "text";
-	input.inputMode = "numeric";  // student IDs and the teacher code are numbers
 	input.autocomplete = "off";
+	input.autocapitalize = "words";
 	input.spellcheck = false;
-	input.maxLength = 16;
-	input.placeholder = "Student ID";
-	input.setAttribute("aria-label", "Student ID");
+	input.maxLength = STUDENT_NAME_MAX;
+	input.placeholder = "First name";
+	input.setAttribute("aria-label", "First name");
 	form.appendChild(input);
 	var go = practiceButton("Start", "primary", function() {});
 	go.type = "submit";
 	form.appendChild(go);
 	form.onsubmit = function(event) {
 		event.preventDefault();
-		var id = normalizeStudentId(input.value);
-		if (id === TEACHER_CODE) {
+		if (input.value.replace(/[\s-]/g, "") === TEACHER_CODE) {
 			enterTeacherMode();
 			return;
 		}
-		if (!id) {
-			showToast("A student ID is 3 to 12 letters and numbers.");
+		var name = cleanStudentName(input.value);
+		if (!name) {
+			showToast("Type your first name.");
 			input.focus();
 			return;
 		}
-		signInStudent(id);
+		var matches = deviceStudents().filter(function(s) { return sameStudentName(s.name, name); });
+		if (matches.length) {
+			showSameNameStep(name, matches);
+			return;
+		}
+		var legacy = legacyStudentId(input.value);
+		if (legacy) signInStudent(legacy);
+		else signInStudent(newStudentId(), { name: name, initial: "" });
 	};
 	box.appendChild(form);
 	box.appendChild(el("p", "signin-note", "Your stars and levels are saved on this device only."));
@@ -736,6 +816,63 @@ function showSignIn(from) {
 	box.appendChild(guest);
 	hub.appendChild(box);
 	input.focus();
+}
+
+// Someone typed a name already used on this device: tap yours, or add
+// the first letter of your last name to start as a new student
+function showSameNameStep(name, matches) {
+	practice.step = -1;
+	practice.signinStep = "samename";
+	setPracticeMode("signin");
+	var back = document.getElementById("practice-close");
+	back.setAttribute("aria-label", "Back");
+	back.title = "Back";
+	matches.sort(function(a, b) { return a.initial < b.initial ? -1 : a.initial > b.initial ? 1 : 0; });
+
+	var hub = hubElement();
+	var box = el("div", "signin");
+	box.appendChild(el("div", "signin-icon", "\uD83D\uDC4B"));
+	box.appendChild(el("h3", "signin-title", "Which " + name + " are you?"));
+	var list = el("div", "signin-students");
+	matches.forEach(function(s) {
+		var b = practiceButton(AVATARS[s.avatar].icon + " " + namedStudentLabel(s.name, s.initial), "secondary",
+			function() { signInStudent(s.id); });
+		b.classList.add("signin-student");
+		list.appendChild(b);
+	});
+	box.appendChild(list);
+	box.appendChild(el("p", "signin-note", "New here? Add the first letter of your last name."));
+	var form = el("form", "signin-form signin-form-initial");
+	var input = el("input", "signin-input signin-initial");
+	input.id = "student-initial";
+	input.type = "text";
+	input.autocomplete = "off";
+	input.autocapitalize = "characters";
+	input.spellcheck = false;
+	input.maxLength = 1;
+	input.placeholder = "?";
+	input.setAttribute("aria-label", "First letter of your last name");
+	form.appendChild(input);
+	var go = practiceButton("Start", "primary", function() {});
+	go.type = "submit";
+	form.appendChild(go);
+	form.onsubmit = function(event) {
+		event.preventDefault();
+		var initial = cleanInitial(input.value);
+		if (!initial) {
+			showToast("Type the first letter of your last name.");
+			input.focus();
+			return;
+		}
+		// Already here with that initial: that's them
+		var same = matches.filter(function(s) { return s.initial === initial; })[0];
+		if (same) signInStudent(same.id);
+		else signInStudent(newStudentId(), { name: name, initial: initial });
+	};
+	box.appendChild(form);
+	hub.appendChild(box);
+	var first = list.querySelector("button");
+	if (first) first.focus();
 }
 
 // ---------------------------------------------------------------------------
@@ -810,17 +947,23 @@ function teacherPickInstrument(value) {
 }
 
 // Switch to a student ("" = guest): their progress, and their instrument
-// if this device has one saved for them
-function signInStudent(id) {
+// if this device has one saved for them. named: { name, initial } for a
+// new student.
+function signInStudent(id, named) {
 	var from = practice.signinFrom;  // loadPracticeInstrument() starts practice afresh
 	if (teacherMode) setTeacherMode(false);
 	saveProfile();
 	currentStudent = id;
 	try { localStorage.setItem(STUDENT_STORAGE_KEY, id); } catch (e) {}
 	profile = loadProfile();
+	if (named) {
+		profile.name = named.name;
+		profile.initial = named.initial;
+		saveProfile();
+	}
 	applyStudentInstrument();
 	loadPracticeInstrument();
-	// A student without a name yet is asked for one, to be greeted by
+	// A student from before names is asked for one, to sign in with next time
 	if (id && !profile.name) {
 		showNameStep(from);
 		return;
@@ -845,11 +988,13 @@ function finishSignIn() {
 	if (pendingSongImport) openSongImport();
 }
 
-// What's your name? Right after a new ID (from: how sign-in was reached),
-// or "rename" from the profile's pencil
+// What's your name? For a student signed in with an old student ID (from:
+// how sign-in was reached), or "rename" from the profile's pencil. The
+// last initial is optional, but needed if someone here has the name.
 function showNameStep(from) {
 	practice.step = -1;
 	practice.signinFrom = from === "open" ? "open" : "profile";
+	practice.signinStep = "";
 	setPracticeMode("signin");
 	var renaming = from === "rename";
 	var back = document.getElementById("practice-close");
@@ -873,6 +1018,18 @@ function showNameStep(from) {
 	input.value = profile.name;
 	input.setAttribute("aria-label", "First name");
 	form.appendChild(input);
+	var initialInput = el("input", "signin-input signin-initial");
+	initialInput.id = "student-initial";
+	initialInput.type = "text";
+	initialInput.autocomplete = "off";
+	initialInput.autocapitalize = "characters";
+	initialInput.spellcheck = false;
+	initialInput.maxLength = 1;
+	initialInput.placeholder = "?";
+	initialInput.value = profile.initial;
+	initialInput.setAttribute("aria-label", "First letter of your last name (optional)");
+	initialInput.title = "First letter of your last name";
+	form.appendChild(initialInput);
 	var go = practiceButton(renaming ? "Save" : "Let\u2019s go!", "primary", function() {});
 	go.type = "submit";
 	form.appendChild(go);
@@ -884,17 +1041,20 @@ function showNameStep(from) {
 			input.focus();
 			return;
 		}
+		var initial = cleanInitial(initialInput.value);
+		if (studentNameTaken(name, initial, currentStudent)) {
+			showToast("There\u2019s already a " + namedStudentLabel(name, initial) +
+				" here. Add the first letter of your last name.");
+			initialInput.focus();
+			return;
+		}
 		profile.name = name;
+		profile.initial = initial;
 		saveProfile();
 		if (renaming) showProfile(); else continueSignIn(from);
 	};
 	box.appendChild(form);
-	box.appendChild(el("p", "signin-note", "Student " + currentStudent));
-	if (!renaming) {
-		var skip = practiceButton("Skip", "secondary", function() { continueSignIn(from); });
-		skip.classList.add("signin-guest");
-		box.appendChild(skip);
-	}
+	if (!renaming) box.appendChild(el("p", "signin-note", "Next time, sign in with your name."));
 	hub.appendChild(box);
 	input.focus();
 }
@@ -903,6 +1063,7 @@ function showNameStep(from) {
 function showInstrumentStep(from) {
 	practice.step = -1;
 	practice.signinFrom = from === "open" ? "open" : "profile";
+	practice.signinStep = "";
 	setPracticeMode("signin");
 	var back = document.getElementById("practice-close");
 	var label = practice.signinFrom === "profile" ? "Back to your profile" : "Back to the practice menu";
@@ -963,7 +1124,6 @@ function renderProfile() {
 		nameRow.appendChild(rename);
 	}
 	who.appendChild(nameRow);
-	if (currentStudent && profile.name) who.appendChild(el("div", "profile-id", "Student " + currentStudent));
 	who.appendChild(el("div", "profile-level", "Level " + lv.level + " \u00B7 " + levelTitle(lv.level)));
 	var xpBar = el("div", "profile-xp");
 	var fill = el("div", "profile-xp-fill");
@@ -1109,7 +1269,7 @@ function renderProfile() {
 	view.appendChild(badges);
 
 	var actions = el("div", "practice-actions");
-	actions.appendChild(practiceButton(currentStudent ? "Switch student" : "Sign in with student ID", "secondary",
+	actions.appendChild(practiceButton(currentStudent ? "Switch student" : "Sign in with your name", "secondary",
 		function() { showSignIn("profile"); }));
 	view.appendChild(actions);
 	hub.appendChild(view);

@@ -488,24 +488,32 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 Loaded after firstfive.js; no server, everything stays on the device.
 
 - **Students:** Practice opens on **Who's practicing?** (`showSignIn()`, mode
-  `signin`) until someone has chosen on this device: a student ID
-  (`normalizeStudentId()`: 3–12 letters/numbers, spaces and dashes dropped)
-  or **Practice as a guest**. `currentStudent` (`pitchdetect-student`: the
-  ID, `""` for a guest, absent = not chosen) stays signed in until **Switch
+  `signin`) until someone has chosen on this device: a first name
+  (`cleanStudentName()`, at most `STUDENT_NAME_MAX`, capital first letter,
+  only ever set as text) or **Practice as a guest**. There are no student
+  IDs to type: a new name gets an ID made up for it (`newStudentId()`), and
+  the students on the device are found from their saved profiles
+  (`deviceStudents()`). A name already used here goes to **Which Maya are
+  you?** (`showSameNameStep()`, `practice.signinStep = "samename"`, back
+  returns to sign-in): a button per student with that name, or a new
+  student types the first letter of their last name (`cleanInitial()`,
+  `profile.initial`; an initial already there signs that student in).
+  `studentLabel()` gives "Maya" or "Maya R." (`namedStudentLabel()`), else
+  "Guest". An old student ID typed as the name (`legacyStudentId()`) still
+  signs that student in; one with no name is then asked for it
+  (`showNameStep()`). `currentStudent` (`pitchdetect-student`: the ID, `""`
+  for a guest, absent = not chosen) stays signed in until **Switch
   student** on the profile. `studentKey(key)` appends `@<ID>` to every
   practice progress key (stars, bests, my songs, first sounds, the profile)
   — firstfive.js's load/save helpers all go through it (via
   `progressGet()` / `progressSet()`) — so students sharing
   a device each keep their own; the guest uses the bare keys, so progress
   from before sign-in stays with the guest. `pitchdetect-song-whole` stays
-  device-wide. `signInStudent()` reloads practice and restores the
+  device-wide. `signInStudent(id, named)` reloads practice and restores the
   student's saved instrument (if the current mode offers it).
-- **Names:** a student ID with no name yet goes on to **What's your name?**
-  (`showNameStep()`, still mode `signin`; Skip asks again next sign-in).
-  The ID signs in; the name (`profile.name`, `cleanStudentName()`, at most
-  `STUDENT_NAME_MAX`, only ever set as text) is what the app shows:
-  `studentLabel()` gives the name, else "Student <ID>", else "Guest". The
-  profile's pencil (`showNameStep("rename")`) changes it.
+- **Names:** the profile's pencil (`showNameStep("rename")`) changes the
+  name and the optional last initial; a name + initial another student
+  here already has is refused with a toast (`studentNameTaken()`).
 - **Instrument:** after the name (or Skip, or a guest), anyone whose profile
   has no `instrument` yet gets **What do you play?** (`continueSignIn()` →
   `showInstrumentStep()`, buttons from `instrumentPicker()`). From then on
@@ -518,8 +526,8 @@ Loaded after firstfive.js; no server, everything stays on the device.
   need an instrument chosen in the app (the toolbar button is always
   enabled): `openPractice()` goes to sign-in, or to the instrument step when
   `practice.instrument` is empty, and back from there closes Practice.
-- **Teacher mode:** typing `TEACHER_CODE` ("900900900", numbers so
-  it fits the ID box's number pad; spaces and dashes dropped like any ID) on **Who's practicing?** calls
+- **Teacher mode:** typing `TEACHER_CODE` ("900900900"; spaces and
+  dashes dropped) as the name on **Who's practicing?** calls
   `enterTeacherMode()`. Every activity, any instrument: the header's pill
   becomes a drop-down (`#practice-instrument-select`,
   `updateTeacherHeader()`, `teacherPickInstrument()`: reloads practice and
@@ -533,7 +541,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
   signed in. It lasts the browser session (`sessionStorage`
   `pitchdetect-teacher`); signing a student in ends it.
 - **Profile** (`pitchdetect-profile[@ID]`, `loadProfile()` / `saveProfile()`):
-  `{ name, xp, avatar, goal, days: { "YYYY-MM-DD": seconds }, streak, bestStreak,
+  `{ name, initial, xp, avatar, goal, days: { "YYYY-MM-DD": seconds }, streak, bestStreak,
   lastGoalDay, freezes, badges: { id: day }, instrument }`.
 - **XP / levels:** the result handlers in firstfive.js call
   `recordProgress(xp)` (lesson note 10 + 5/star, quiz and scale run 10 +
@@ -722,7 +730,7 @@ confidence threshold (0.85) in `autoCorrelate()` / `updateListenPitch()`.
 2. Touch note placement has no drag preview — tap, then nudge with ▲▼.
 3. No dark mode yet (CSS custom properties are in place for it).
 4. Student progress lives only on the device it was earned on (no sync or
-   transfer), and anyone can type any student ID.
+   transfer), and anyone can sign in as any name on the device.
 5. Screen-reader support is partial: no `aria-live` announcements of detected
    notes; staff placement is pointer-only.
 
