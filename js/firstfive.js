@@ -1223,46 +1223,44 @@ function whenImagesLoaded(imgs, fn) {
 // Chart images shown in turn (Hear the song) on one shared canvas. Each box
 // fits its own image on its own, so a chart cropped narrower or shorter
 // would sit somewhere else at another size. Here every image keeps one scale
-// and its place from fingeringImageOffset(), inside a stage sized to the
-// span they cover together, so the tone holes stay put from note to note.
+// and its place from fingeringImageBox(), inside a stage sized to the span
+// they cover together, so the tone holes stay put from note to note. The
+// sizes are known up front, so this is laid out at once, not after the
+// images load (on a slow connection that could be most of the song).
 // boxes: { midi: box }.
 function lineUpChartImages(boxes) {
 	var charts = [];
 	Object.keys(boxes).forEach(function(midi) {
 		var img = boxes[midi].querySelector("img.fingering-image");
-		if (img) charts.push({ img: img, box: boxes[midi], at: fingeringImageOffset(practice.instrument, +midi) });
+		if (img) charts.push({ img: img, at: fingeringImageBox(practice.instrument, +midi) });
 	});
 	if (!charts.length) return;
-	whenImagesLoaded(charts.map(function(c) { return c.img; }), function() {
-		charts = charts.filter(function(c) { return c.img.naturalWidth; });
-		if (!charts.length) return;
-		var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-		charts.forEach(function(c) {
-			minX = Math.min(minX, c.at[0]);
-			minY = Math.min(minY, c.at[1]);
-			maxX = Math.max(maxX, c.at[0] + c.img.naturalWidth);
-			maxY = Math.max(maxY, c.at[1] + c.img.naturalHeight);
-		});
-		var w = maxX - minX, h = maxY - minY;
-		charts.forEach(function(c) {
-			var stage = document.createElement("div");
-			stage.className = "chart-stage";
-			stage.style.aspectRatio = w + " / " + h;
-			// Fit the box, never past the images' own size
-			stage.style.height = "min(100cqh, " + h + "px, calc(100cqw * " + (h / w) + "))";
-			var img = c.img;
-			img.parentNode.insertBefore(stage, img);
-			stage.appendChild(img);
-			img.style.position = "absolute";
-			img.style.left = ((c.at[0] - minX) / w * 100) + "%";
-			img.style.top = ((c.at[1] - minY) / h * 100) + "%";
-			img.style.width = (img.naturalWidth / w * 100) + "%";
-			img.style.height = (img.naturalHeight / h * 100) + "%";
-			img.style.maxWidth = "none";
-			img.style.aspectRatio = "auto";
-			img.style.objectFit = "fill";
-			img.style.margin = "0";
-		});
+	var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+	charts.forEach(function(c) {
+		minX = Math.min(minX, c.at[0]);
+		minY = Math.min(minY, c.at[1]);
+		maxX = Math.max(maxX, c.at[0] + c.at[2]);
+		maxY = Math.max(maxY, c.at[1] + c.at[3]);
+	});
+	var w = maxX - minX, h = maxY - minY;
+	charts.forEach(function(c) {
+		var stage = document.createElement("div");
+		stage.className = "chart-stage";
+		stage.style.aspectRatio = w + " / " + h;
+		// Fit the box, never past the images' own size
+		stage.style.height = "min(100cqh, " + h + "px, calc(100cqw * " + (h / w) + "))";
+		var img = c.img;
+		img.parentNode.insertBefore(stage, img);
+		stage.appendChild(img);
+		img.style.position = "absolute";
+		img.style.left = ((c.at[0] - minX) / w * 100) + "%";
+		img.style.top = ((c.at[1] - minY) / h * 100) + "%";
+		img.style.width = (c.at[2] / w * 100) + "%";
+		img.style.height = (c.at[3] / h * 100) + "%";
+		img.style.maxWidth = "none";
+		img.style.aspectRatio = "auto";
+		img.style.objectFit = "fill";
+		img.style.margin = "0";
 	});
 }
 
@@ -3963,6 +3961,10 @@ function showSongFingerings(events) {
 	wrap.className = "song-fingering";
 	wrap.id = "song-fingering";
 	wrap.setAttribute("aria-hidden", "true");
+	// The area's height is fixed for the whole song (see the CSS), so a
+	// chart of another size can never move the staff above it
+	wrap.style.setProperty("--fingering-h", hasFingeringData(practice.instrument)
+		? fingeringBoxHeight(practice.instrument) : "134px");
 	var boxes = {};
 	events.forEach(function(e) {
 		if (e.midi === null || boxes[e.midi]) return;
