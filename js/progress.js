@@ -369,7 +369,7 @@ function progressSnapshot() {
 		// Every note's stars of the concert E♭, A♭, F and C scales
 		moreScales: [].concat.apply([], MORE_SCALES.map(function(scale) { return practice.lessons[scale.id].stars; })),
 		quizBest: practice.challengeBest || 0,
-		scaleRunBest: practice.scaleRunBest || 0,
+		scaleRunBest: practice.scaleRunBest.scale || 0,
 		scaleRunLength: scaleRunSequence().length,
 		namesBest: practice.drillBest.names || 0,
 		fingeringsBest: practice.drillBest.fingerings || 0,
@@ -515,14 +515,17 @@ function learningPath() {
 	nodes.push({ title: "Learn the B\u266D scale", activity: "scale",
 		done: practice.lessons.scale.stars.every(function(n) { return n > 0; }) });
 	nodes.push({ title: "Play the B\u266D scale", activity: "scalerun",
-		done: challengeStars(practice.scaleRunBest || 0, scaleRunSequence().length) > 0 });
+		done: challengeStars(practice.scaleRunBest.scale || 0, scaleRunSequence().length) > 0 });
 	nodes.push({ title: "Play 3 intermediate songs", activity: "songs", level: "intermediate", unit: "unit4",
 		done: songsStarredAt("intermediate") >= 3 });
 	nodes.push({ title: "Play 3 advanced songs", activity: "songs", level: "advanced", unit: "unit4",
 		done: songsStarredAt("advanced") >= 3 });
+	// Then each concert scale, in its own unit: learn it, play it
 	MORE_SCALES.forEach(function(scale) {
 		nodes.push({ title: "Learn the concert " + scale.name + " scale", activity: scale.id,
 			done: practice.lessons[scale.id].stars.every(function(n) { return n > 0; }) });
+		nodes.push({ title: "Play the concert " + scale.name + " scale", activity: "scalerun" + scale.id.slice(5),
+			done: challengeStars(practice.scaleRunBest[scale.id] || 0, scaleRunSequence().length) > 0 });
 	});
 	nodes.forEach(function(node) {
 		node.unit = node.unit || firstUnitWith(node.activity) || PRACTICE_UNITS[0].id;
