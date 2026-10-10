@@ -4899,7 +4899,7 @@
 			body.kid-mode .practice-choice[data-activity="write3"] .practice-choice-icon,
 			body.kid-mode .practice-choice[data-activity="write5"] .practice-choice-icon { background: #ffb3c6; }
 			body.kid-mode .practice-choice[data-activity="firstsounds"] .practice-choice-icon { background: #ffb3c6; }
-			body.kid-mode .practice-choice[data-activity="scale"] .practice-choice-icon { background: #c9b6ff; }
+			body.kid-mode .practice-choice[data-activity^="scale"] .practice-choice-icon { background: #c9b6ff; }
 			body.kid-mode .practice-choice[data-activity="scalerun"] .practice-choice-icon { background: #ffcf8f; }
 			body.kid-mode .practice-choice[data-activity="songs"] .practice-choice-icon { background: #7fe0d0; }
 			body.kid-mode .practice-group-toggle[data-group="names"] .practice-choice-icon { background: #7ee081; }
@@ -5199,6 +5199,16 @@
 					grid-auto-rows: minmax(58px, auto);
 					max-height: none;
 					padding-bottom: 5px;
+				}
+
+				/* The Lessons tab (a card per lesson set) scrolls like a unit
+				   rather than squeeze its cards */
+				.practice-view[data-menu-page="lessons"] .practice-menu {
+					grid-auto-rows: minmax(58px, auto);
+					max-height: none;
+					overflow-y: auto;
+					padding: 0 8px 5px 0;
+					margin-right: -8px;
 				}
 
 				.practice-menu[data-count="2"] {
