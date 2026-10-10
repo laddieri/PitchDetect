@@ -2965,6 +2965,7 @@ function showSongList(list) {
 	// Each level is a button that shows or hides its songs in place; what's
 	// open stays open (and the level of the song just played opens)
 	if (practice.song && practice.song.song.level) songLevelsOpen[practice.song.song.level] = true;
+	list.appendChild(songKeySwitch());
 	if (three || five) {
 		listSongs(practice.songList).forEach(function(song) { list.appendChild(songButton(song)); });
 	}
@@ -3758,6 +3759,7 @@ function renderSongProgress() {
 	var current = s.pos < songEnd(s) ? unitOf(s.pos) : last + 1;
 	row.setAttribute("aria-label", (part ? "Measure " : "Line ") + (Math.min(current, last) - first + 1) + " of " + (last - first + 1));
 	list.appendChild(songViewButton());
+	list.appendChild(songKeyButton());
 	for (var u = first; u <= last; u++) {
 		var dot = document.createElement("span");
 		var helped = s.results.some(function(own, i) { return !own && unitOf(i) === u; });
@@ -3825,6 +3827,68 @@ function drawSongEvent(hl, arrow, ghost) {
 		});
 }
 
+// Show songs with their key signatures (songKey()), or with no key
+// signature and every sharp and flat written out (the default: how the
+// built-in songs always read); remembered per browser
+var SONG_KEY_SIG_STORAGE_KEY = "pitchdetect-song-key-signature";
+var songKeySignatures = false;
+try { songKeySignatures = localStorage.getItem(SONG_KEY_SIG_STORAGE_KEY) === "1"; } catch (e) {}
+
+// A song's written key (VexFlow key name): a custom song's own; a built-in
+// song's from its tonic as the song spells it (degree 1, the song's tonic,
+// or the concert B♭ of a song with steps). "C" if that isn't a key with a
+// signature to draw.
+function songKey(song) {
+	if (song.custom) return song.key || "C";
+	var spelled = spellScale(song.level === "three" ? threeNoteScale()
+		: song.scale ? practice.lessons[song.scale].notes : practiceNotes(song.steps || SCALE_STEPS));
+	var n = spelled[song.tonic ? song.tonic - 1 : song.steps ? Math.max(0, song.steps.indexOf(0)) : 0];
+	if (!n || Math.abs(n.alter) > 1) return "C";
+	var key = "CDEFGAB".charAt(n.letter) + (n.alter > 0 ? "#" : n.alter < 0 ? "b" : "");
+	return key in keySignatureNotes ? key : "C";
+}
+
+var KEY_SIG_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
+	'<path d="M7 3v15M7 18c3-1.5 6-3.5 5-6.5-.7-2-3.5-1.5-5 .5"/><path d="M15.5 6v15M19.5 5v15M14 11.5l7-2M14 16.5l7-2"/></svg>';
+
+// The button that turns key signatures on and off (beside the whole song
+// button; the song list has a switch for it, songKeySwitch())
+function songKeyButton() {
+	var b = document.createElement("button");
+	b.className = "editor-tool song-key-toggle";
+	b.innerHTML = KEY_SIG_SVG;
+	b.onclick = function() { setSongKeySignatures(!songKeySignatures); };
+	updateSongKeyButton(b);
+	return b;
+}
+
+function updateSongKeyButton(b) {
+	var label = songKeySignatures ? "Show sharps and flats on the notes" : "Show the key signature";
+	b.setAttribute("aria-label", label);
+	b.title = label;
+	b.setAttribute("aria-pressed", songKeySignatures ? "true" : "false");
+}
+
+function songKeySwitch() {
+	var label = document.createElement("label");
+	label.className = "mode-switch song-key-switch";
+	label.title = "Show songs with a key signature instead of a sharp or flat on every note";
+	label.innerHTML = '<input type="checkbox"><span class="sustain-slider"></span><span>Key signature</span>';
+	var input = label.firstChild;
+	input.checked = songKeySignatures;
+	input.onchange = function() { setSongKeySignatures(input.checked); };
+	return label;
+}
+
+function setSongKeySignatures(on) {
+	songKeySignatures = on;
+	try { localStorage.setItem(SONG_KEY_SIG_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
+	document.querySelectorAll(".song-key-toggle").forEach(updateSongKeyButton);
+	document.querySelectorAll(".song-key-switch input").forEach(function(input) { input.checked = on; });
+	if (practice.mode === "song") drawSongLine(practice.song.pos);
+	else if (practice.mode === "import") drawImportPreview(-1);
+}
+
 // Key signatures offered for the student's own songs, counted the way they
 // read them off the page (VexFlow key names)
 var SONG_KEYS = [
@@ -3856,10 +3920,11 @@ function measureBeats(time) {
 // song's events into out, scaled like every other line. measures: how many
 // measures the song has; color(i): event i's color or null. opts.end puts the final barline
 // on the last measure; opts.left draws the whole line, empty measures and
-// all (the editor, where notes are added), instead of centering a short one. Built-in songs have
-// no key signature and write every flat out; the student's own songs
-// follow their key and time signatures, with accidentals lasting the
-// measure as printed. opts.arrow: an event index to mark with an arrow
+// all (the editor, where notes are added), instead of centering a short one.
+// With key signatures on (songKeySignatures, or opts.keySig: the editor) a
+// song shows its key (songKey()) and accidentals last the measure as
+// printed; off, there's no key signature and every sharp and flat is
+// written on its note. Custom songs follow their time signature. opts.arrow: an event index to mark with an arrow
 // above it (the note the mic is listening for); opts.ghost: a written MIDI
 // note to show faintly beside that one (the wrong note being played). Returns { svg, stave, xs (event index → x), measureX
 // (measure → [start, end] of its note area) }, in SVG units.
@@ -3867,7 +3932,8 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 	out.innerHTML = "";
 	var VF = Vex.Flow;
 	var clef = getCurrentClef();
-	var key = song.custom && song.key ? song.key : "C";
+	var keySig = opts.keySig || songKeySignatures;
+	var key = keySig ? songKey(song) : "C";
 	var time = song.custom ? song.time || "4/4" : song.time || null;
 	var perLine = opts.perLine || SONG_MEASURES_PER_LINE;
 	var first = line * perLine;
@@ -3922,14 +3988,10 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 				var name = "cdefgab".charAt(e.letter);
 				note = new VF.StaveNote({ clef: clef, keys: [name + "/" + e.octave], duration: duration, auto_stem: true });
 				var shown;
-				if (song.custom) {
-					var place = name + e.octave;
-					var current = place in inEffect ? inEffect[place] : keyAlter(key, e.letter);
-					if (e.alter !== current) shown = e.alter;
-					inEffect[place] = e.alter;
-				} else if (e.alter) {
-					shown = e.alter;
-				}
+				var place = name + e.octave;
+				var current = place in inEffect ? inEffect[place] : keyAlter(key, e.letter);
+				if (e.alter !== current || (!keySig && e.alter)) shown = e.alter;
+				inEffect[place] = e.alter;
 				if (shown !== undefined) note.addAccidental(0, new VF.Accidental(shown < 0 ? "b" : shown > 0 ? "#" : "n"));
 			}
 			if (e.dots) note.addDotToAll();
@@ -4644,7 +4706,7 @@ function drawEditor(playing) {
 
 	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
 	var out = document.getElementById("practice-staff-output");
-	ed.layouts = renderSongView(out, song, events, ed.line, ed.measures, { left: true, perLine: ed.perLine, through: through },
+	ed.layouts = renderSongView(out, song, events, ed.line, ed.measures, { left: true, perLine: ed.perLine, through: through, keySig: true },
 		function(i) { return i === focus || i === target ? accent : null; });
 	ed.layout = ed.layouts[ed.line];
 	// ▲▼ stay beside that measure, at the bottom
@@ -5247,6 +5309,7 @@ function showSongImport() {
 	var steps = document.getElementById("practice-steps");
 	steps.innerHTML = "";
 	steps.appendChild(songViewButton());
+	steps.appendChild(songKeyButton());
 	document.getElementById("practice-prompt").textContent = "A friend shared \u201c" + song.title + "\u201d!";
 
 	var body = document.getElementById("practice-body");

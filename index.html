@@ -3263,7 +3263,8 @@
 				overflow: visible;
 			}
 
-			.editor-tool.song-view-toggle {
+			.editor-tool.song-view-toggle,
+			.editor-tool.song-key-toggle {
 				width: 36px;
 				height: 36px;
 				flex-shrink: 0;
@@ -3271,6 +3272,16 @@
 
 			.practice-steps .song-view-toggle {
 				margin-left: 10px;
+			}
+
+			.practice-steps .song-key-toggle {
+				margin: 0 10px 0 6px;
+			}
+
+			/* The song list's key signature switch, above the songs */
+			.song-key-switch {
+				grid-column: 1 / -1;
+				justify-self: end;
 			}
 
 			/* Up and down beside the staff (overlapping its end a little) */
