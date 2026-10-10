@@ -354,23 +354,45 @@ function fingeringImagePath(instrument, writtenMidi) {
 
 // The chart images are cropped to each note's keys, so the main column of
 // tone holes sits at different spots in different files (side keys to its
-// left, an octave key above). [x, y] places a file's drawing over the rest
-// of its set, so charts shown in turn (Hear the song) stay lined up; files
-// not listed are at [0, 0]. Measured by matching the tone-hole outlines.
-var fingeringImageOffsets = {
-	"Oboe": { 58: [-67, 0], 59: [-67, 0], 60: [-67, 0], 61: [-67, 0], 63: [-67, 0], 73: [-67, 0], 75: [-67, 0],
-		77: [-39, -60], 78: [-39, -60], 79: [-39, -60], 80: [-39, -60], 81: [0, -60], 82: [0, -60], 83: [0, -60], 84: [0, -60] },
-	"Saxophone": { 58: [29, 8], 63: [36, 0], 64: [36, 0], 65: [36, 0], 66: [36, 0], 67: [36, 0], 68: [36, 0],
-		69: [36, 0], 70: [29, 0], 71: [36, 0], 72: [36, 0], 73: [36, 0] },
-	"Bassoon": { 40: [70, 0], 57: [173, 0], 58: [70, 0], 59: [173, 0], 60: [173, 0], 62: [173, 0], 63: [173, 0],
-		64: [173, 0], 65: [173, 0] },
-	"Flute": { 60: [0, -8], 62: [0, 6], 68: [0, -40], 74: [0, 6], 80: [0, -40], 92: [0, -40], 93: [0, -40] }
+// left, an octave key above) and the files differ in size. Each set lists
+// its usual file size, and [x, y, width, height] for the files that differ:
+// x and y place a file's drawing over the rest of its set, so charts shown
+// in turn (Hear the song) stay lined up, and knowing every size up front
+// lets them be laid out before the images load. Offsets were measured by
+// matching the tone-hole outlines; sets not listed (horn) already line up.
+var fingeringImageLayouts = {
+	"Oboe": { size: [67, 409], files: {
+		58: [-67, 0, 223, 451], 59: [-67, 0, 223, 451], 60: [-67, 0, 134, 451], 61: [-67, 0, 134, 451], 63: [-67, 0, 134, 451],
+		68: [0, 0, 130, 409], 73: [-67, 0, 134, 451], 75: [-67, 0, 134, 451], 77: [-39, -60, 106, 469], 78: [-39, -60, 106, 469],
+		79: [-39, -60, 106, 469], 80: [-39, -60, 170, 469], 81: [0, -60, 105, 468], 82: [0, -60, 105, 468], 83: [0, -60, 105, 468],
+		84: [0, -60, 105, 468]
+	} },
+	"Saxophone": { size: [149, 402], files: {
+		46: [0, 0, 221, 462], 47: [0, 0, 221, 462], 48: [0, 0, 152, 462], 49: [0, 0, 221, 462], 51: [0, 0, 152, 462],
+		56: [0, 0, 221, 402], 58: [29, 8, 120, 395], 63: [36, 0, 116, 462], 64: [36, 0, 112, 402], 65: [36, 0, 112, 402],
+		66: [36, 0, 112, 402], 67: [36, 0, 112, 402], 68: [36, 0, 185, 402], 69: [36, 0, 112, 402], 70: [29, 0, 120, 402],
+		71: [36, 0, 112, 402], 72: [36, 0, 112, 402], 73: [36, 0, 112, 402]
+	} },
+	"Bassoon": { size: [331, 476], files: {
+		40: [70, 0, 261, 476], 43: [0, 0, 281, 397], 45: [0, 0, 281, 397], 46: [0, 0, 281, 397], 47: [0, 0, 281, 397],
+		48: [0, 0, 281, 397], 49: [0, 0, 281, 397], 50: [0, 0, 281, 397], 51: [0, 0, 318, 397], 52: [0, 0, 281, 397],
+		53: [0, 0, 281, 397], 54: [0, 0, 281, 397], 55: [0, 0, 281, 397], 57: [173, 0, 108, 397], 58: [70, 0, 211, 397],
+		59: [173, 0, 108, 397], 60: [173, 0, 108, 397], 61: [0, 0, 281, 397], 62: [173, 0, 108, 397], 63: [173, 0, 108, 397],
+		64: [173, 0, 145, 397], 65: [173, 0, 145, 397]
+	} },
+	"Flute": { size: [474, 122], files: {
+		60: [0, -8, 496, 130], 62: [0, 6, 386, 116], 68: [0, -40, 474, 163], 72: [0, 0, 474, 78], 73: [0, 0, 474, 78],
+		74: [0, 6, 386, 116], 80: [0, -40, 474, 163], 84: [0, 0, 474, 78], 85: [0, 0, 474, 78], 91: [0, 0, 474, 78],
+		92: [0, -40, 474, 118], 93: [0, -40, 474, 163]
+	} }
 };
 
-function fingeringImageOffset(instrument, writtenMidi) {
+// Where an image chart's file sits in its set: [x, y, width, height]
+function fingeringImageBox(instrument, writtenMidi) {
 	var info = imageFingeringMap[instrument];
-	var set = fingeringImageOffsets[info.folder];
-	return (set && set[writtenMidi - info.transposition]) || [0, 0];
+	var layout = fingeringImageLayouts[info.folder];
+	if (!layout) return [0, 0, info.w, info.h];
+	return layout.files[writtenMidi - info.transposition] || [0, 0, layout.size[0], layout.size[1]];
 }
 
 // Display fingering using an image file from img/Fingerings/

@@ -3718,11 +3718,17 @@
 				justify-content: center;
 				width: 100%;
 				flex: 0 0 auto;
+				/* One height for the whole song (--fingering-h is set on it per
+				   instrument), and contained, so no chart, loaded or not, can
+				   change its size and move the staff above */
+				height: min(var(--fingering-h, 180px), 22vh);
+				contain: strict;
+				overflow: hidden;
 			}
 
 			#practice-body .song-fingering > .practice-fingering {
-				flex: 0 1 auto;
-				height: min(var(--fingering-h, 180px), 22vh);
+				flex: 1 1 auto;
+				height: 100%;
 			}
 
 			#practice-body .practice-fingering[hidden] {
