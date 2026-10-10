@@ -2965,7 +2965,6 @@ function showSongList(list) {
 	// Each level is a button that shows or hides its songs in place; what's
 	// open stays open (and the level of the song just played opens)
 	if (practice.song && practice.song.song.level) songLevelsOpen[practice.song.song.level] = true;
-	list.appendChild(songKeySwitch());
 	if (three || five) {
 		listSongs(practice.songList).forEach(function(song) { list.appendChild(songButton(song)); });
 	}
@@ -3107,6 +3106,7 @@ function playThroughSong(id) {
 	document.getElementById("practice-view").setAttribute("data-step", "song-free");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
 	document.getElementById("practice-steps").innerHTML = "";
+	document.getElementById("practice-steps").appendChild(songKeyButton());
 	document.getElementById("practice-staff-output").scrollTop = 0;
 	resetFollow();
 }
@@ -3372,6 +3372,7 @@ function showSongPicker(id, back, pick) {
 	document.getElementById("practice-view").setAttribute("data-step", "song-pick");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
 	document.getElementById("practice-steps").innerHTML = "";
+	document.getElementById("practice-steps").appendChild(songKeyButton());
 	document.getElementById("practice-staff-output").scrollTop = 0;
 
 	var body = document.getElementById("practice-body");
@@ -3852,7 +3853,7 @@ var KEY_SIG_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" s
 	'<path d="M7 3v15M7 18c3-1.5 6-3.5 5-6.5-.7-2-3.5-1.5-5 .5"/><path d="M15.5 6v15M19.5 5v15M14 11.5l7-2M14 16.5l7-2"/></svg>';
 
 // The button that turns key signatures on and off (beside the whole song
-// button; the song list has a switch for it, songKeySwitch())
+// button, and alone on Play it through and Pick a part)
 function songKeyButton() {
 	var b = document.createElement("button");
 	b.className = "editor-tool song-key-toggle";
@@ -3869,22 +3870,10 @@ function updateSongKeyButton(b) {
 	b.setAttribute("aria-pressed", songKeySignatures ? "true" : "false");
 }
 
-function songKeySwitch() {
-	var label = document.createElement("label");
-	label.className = "mode-switch song-key-switch";
-	label.title = "Show songs with a key signature instead of a sharp or flat on every note";
-	label.innerHTML = '<input type="checkbox"><span class="sustain-slider"></span><span>Key signature</span>';
-	var input = label.firstChild;
-	input.checked = songKeySignatures;
-	input.onchange = function() { setSongKeySignatures(input.checked); };
-	return label;
-}
-
 function setSongKeySignatures(on) {
 	songKeySignatures = on;
 	try { localStorage.setItem(SONG_KEY_SIG_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
 	document.querySelectorAll(".song-key-toggle").forEach(updateSongKeyButton);
-	document.querySelectorAll(".song-key-switch input").forEach(function(input) { input.checked = on; });
 	if (practice.mode === "song") drawSongLine(practice.song.pos);
 	else if (practice.mode === "import") drawImportPreview(-1);
 }
