@@ -639,7 +639,8 @@ Loaded after firstfive.js; no server, everything stays on the device.
   `fingeringImagePaths()` (offline caching; the smoke test checks they all
   exist, so update them when adding or removing chart files); `alternates`
   (by file number, the saxophones' chromatic F♯ charts `54-fork` /
-  `66-fork`, also in `extra`) shows them side by side with captions, like
+  `66-fork` and bis B♭ charts `58-bis` / `70-bis`, also in `extra` via
+  `saxAlternateFiles`) shows them side by side with captions, like
   the clarinet's, behind the same Show Alternate Fingerings button
 - `hasFingeringData()`, `displayFingering()` — entry points used by the app.
 - Instruments with **no** fingering data: bare clefs, bass clarinet,

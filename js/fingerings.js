@@ -343,10 +343,16 @@ var clarinetFingerings = {
 // primary: that note's own caption once alternates show.
 // Saxophone F#: the chromatic (fork) F# puts the right ring finger down
 // instead of the middle finger, for E-F#-G and F#-G# passages.
+// Saxophone Bb: the bis key, the small key between the first two holes,
+// pressed with the first finger (the second hole stays open), beside the
+// side Bb key the charts show.
 var saxAlternates = {
 	54: { primary: "Middle finger", alternates: [{ file: "54-fork", label: "Ring finger" }] },  // F#4
-	66: { primary: "Middle finger", alternates: [{ file: "66-fork", label: "Ring finger" }] }   // F#5
+	58: { primary: "Side key", alternates: [{ file: "58-bis", label: "Bis key" }] },            // Bb4
+	66: { primary: "Middle finger", alternates: [{ file: "66-fork", label: "Ring finger" }] },  // F#5
+	70: { primary: "Side key", alternates: [{ file: "70-bis", label: "Bis key" }] }             // Bb5
 };
+var saxAlternateFiles = ["54-fork", "58-bis", "66-fork", "70-bis"];
 
 var imageFingeringMap = {
 	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0,  w: 331, h: 476, first: 34, last: 68 },
@@ -358,11 +364,11 @@ var imageFingeringMap = {
 	//  so we subtract 12 regardless of which saxophone is selected.)
 	// Range: 46 (written low Bb3) through 73 (written C#6).
 	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73,
-		extra: ["54-fork", "66-fork"], alternates: saxAlternates },
+		extra: saxAlternateFiles, alternates: saxAlternates },
 	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73,
-		extra: ["54-fork", "66-fork"], alternates: saxAlternates },
+		extra: saxAlternateFiles, alternates: saxAlternates },
 	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73,
-		extra: ["54-fork", "66-fork"], alternates: saxAlternates },
+		extra: saxAlternateFiles, alternates: saxAlternates },
 	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0,  w: 534, h: 112, first: 40, last: 70 },
 	// Double F/Bb horn: F side through written G4, Bb side (thumb) from G#4.
 	// Range: 42 (written F#2) through 84 (written C6).
