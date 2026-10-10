@@ -722,9 +722,13 @@ function drawClarinetFingering(keys) {
 	path("Reg", "M32 8 C26 44 21 80 23 94 A9 9 0 0 0 41 94 C43 80 38 44 32 8 Z");
 	circle("T", 28, 134, 19);
 
-	// Throat A and G# keys
+	// Throat A and G# keys. The A key is egg-shaped like the old charts
+	// (narrower at the top). G# shows the A key beside it for reference, but
+	// A doesn't show the unused G# key.
 	if (anyDown(["A", "Gs"])) {
-		oval("A", 78, 60, 8, 15);
+		path("A", "M78 34 C85 34 89.5 48 89.5 60 C89.5 73 84.5 82 78 82 C71.5 82 66.5 73 66.5 60 C66.5 48 71 34 78 34 Z");
+	}
+	if (isDown("Gs")) {
 		path("Gs", "M116 34 C108 36 112 52 118 66 C124 82 118 98 126 104 C136 108 138 86 132 70 C126 54 128 38 116 34 Z");
 	}
 
