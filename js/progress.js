@@ -67,7 +67,7 @@ var LEVEL_TITLES = ["New Musician", "Note Finder", "Practice Pal", "Rhythm Rooki
 // current instrument can't earn (unless it's already earned)
 var BADGES = [
 	{ id: "first-note", icon: "\uD83C\uDFB5", name: "First Note", how: "Earn a star on any note",
-		test: function(s) { return s.first3.concat(s.first3bag, s.first5, s.next4, s.scale).some(function(n) { return n > 0; }); } },
+		test: function(s) { return s.first3.concat(s.first3bag, s.first5, s.next4, s.scale, s.moreScales).some(function(n) { return n > 0; }); } },
 	{ id: "five-alive", icon: "\u270B", name: "Five Alive", how: "Learn all of the first 5 notes",
 		test: function(s) { return s.first5.every(function(n) { return n > 0; }); } },
 	{ id: "gold-stars", icon: "\u2B50", name: "Gold Stars", how: "Get 3 stars on each of the first 5 notes",
@@ -80,6 +80,8 @@ var BADGES = [
 		test: function(s) { return s.scale.every(function(n) { return n > 0; }); } },
 	{ id: "scale-master", icon: "\uD83D\uDC51", name: "Scale Master", how: "Play the B\u266D scale up and down on your own",
 		test: function(s) { return s.scaleRunBest >= s.scaleRunLength; } },
+	{ id: "scale-explorer", icon: "\uD83E\uDDED", name: "Scale Explorer", how: "Learn the concert E\u266D, A\u266D, F and C scales",
+		test: function(s) { return s.moreScales.every(function(n) { return n > 0; }); } },
 	{ id: "first-song", icon: "\uD83C\uDFB6", name: "First Song", how: "Finish a song",
 		test: function(s) { return s.songsFinished > 0; } },
 	{ id: "perfect-song", icon: "\uD83D\uDCAF", name: "Perfect Performance", how: "Play a whole song with every note right",
@@ -364,8 +366,10 @@ function progressSnapshot() {
 		first5: practice.lessons.first5.stars,
 		next4: practice.lessons.next4.stars,
 		scale: practice.lessons.scale.stars,
+		// Every note's stars of the concert E♭, A♭, F and C scales
+		moreScales: [].concat.apply([], MORE_SCALES.map(function(scale) { return practice.lessons[scale.id].stars; })),
 		quizBest: practice.challengeBest || 0,
-		scaleRunBest: practice.scaleRunBest || 0,
+		scaleRunBest: practice.scaleRunBest.scale || 0,
 		scaleRunLength: scaleRunSequence().length,
 		namesBest: practice.drillBest.names || 0,
 		fingeringsBest: practice.drillBest.fingerings || 0,
@@ -511,11 +515,18 @@ function learningPath() {
 	nodes.push({ title: "Learn the B\u266D scale", activity: "scale",
 		done: practice.lessons.scale.stars.every(function(n) { return n > 0; }) });
 	nodes.push({ title: "Play the B\u266D scale", activity: "scalerun",
-		done: challengeStars(practice.scaleRunBest || 0, scaleRunSequence().length) > 0 });
+		done: challengeStars(practice.scaleRunBest.scale || 0, scaleRunSequence().length) > 0 });
 	nodes.push({ title: "Play 3 intermediate songs", activity: "songs", level: "intermediate", unit: "unit4",
 		done: songsStarredAt("intermediate") >= 3 });
 	nodes.push({ title: "Play 3 advanced songs", activity: "songs", level: "advanced", unit: "unit4",
 		done: songsStarredAt("advanced") >= 3 });
+	// Then each concert scale, in its own unit: learn it, play it
+	MORE_SCALES.forEach(function(scale) {
+		nodes.push({ title: "Learn the concert " + scale.name + " scale", activity: scale.id,
+			done: practice.lessons[scale.id].stars.every(function(n) { return n > 0; }) });
+		nodes.push({ title: "Play the concert " + scale.name + " scale", activity: "scalerun" + scale.id.slice(5),
+			done: challengeStars(practice.scaleRunBest[scale.id] || 0, scaleRunSequence().length) > 0 });
+	});
 	nodes.forEach(function(node) {
 		node.unit = node.unit || firstUnitWith(node.activity) || PRACTICE_UNITS[0].id;
 	});

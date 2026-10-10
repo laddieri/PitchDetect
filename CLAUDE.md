@@ -61,9 +61,10 @@ A full-screen practice view (`#practice-view`, opened by the toolbar's
 It opens on a **menu** (`showPracticeMenu(page)`, `PRACTICE_ACTIVITIES`) of
 activities, each card showing its best result. Students see one **unit** at
 a time (`PRACTICE_UNITS`: Your first notes, The first 5 notes, Notes 6 and
-beyond, The B♭ scale; menu pages `unit1`–`unit4`, `practiceUnit()`): the
+beyond, The B♭ scale, then one unit per concert scale: The E♭ / A♭ / F / C
+scale; menu pages `unit1`–`unit8`, `practiceUnit()`): the
 unit's cards in path order (a half card left unpaired goes wide), a unit
-bar above (`#practice-units`, `renderPracticeUnits()`: "Unit n of 4", steps
+bar above (`#practice-units`, `renderPracticeUnits()`: "Unit n of 8", steps
 done, ‹ › arrows, a dot on the arrow toward the next path step) and a
 dashed card at the end leading on (`practiceUnitNextCard()`). Past the last
 unit is **Every activity**: the old tabbed pages below, where teachers
@@ -81,8 +82,23 @@ easier start: concert D C B♭, `FIRST3_STEPS`, best stars in
 first 5 notes**, **Learn notes 6 and beyond** (`learn4`, lesson set `next4`:
 `NEXT4_STEPS`, concert G, A♭, the low A♭, the low A, the band-method notes
 after the first five, named on the card by `nextFourText()`; best stars in
-`pitchdetect-next-four`; its result leads to the 9 note quiz) and **Learn the
-B♭ scale**. Flute and oboe also have **Learn B, A and G**
+`pitchdetect-next-four`; its result leads to the 9 note quiz), **Learn the
+B♭ scale**, and **Learn the E♭ / A♭ / F / C scale** (`MORE_SCALES`, lesson
+sets and activity ids `scaleEb` `scaleAb` `scaleF` `scaleC`, units 5–8: the
+concert major scales after B♭, one octave each from `tonic` steps above the
+first B♭, `octave` moving an instrument's start an octave to stay in a
+beginner's range and on its charts, read through `lessonSteps()`; each card
+says "Concert E♭: F up to F" at the written pitch, `moreScaleText()`; best
+stars in `pitchdetect-eb-scale` etc.; each result leads to its scale run).
+Each also has drills and a scale run like the B♭ scale's, their ids the
+B♭ ones plus the key (`namesscaleEb`, `fingeringsscaleEb`, `scalerunEb`;
+`scaleSetOf(id)` gives the lesson set, `scaleName(set)` its name; run
+bests in `practice.scaleRunBest[set]`, stored under `SCALE_RUN_STORAGE_KEYS`,
+e.g. `pitchdetect-eb-scale-run`). Their notes are spelled in the written key
+(`spell` → the lesson's `spellings`, from `scaleSpellings()`, which
+`practiceSpelling()` uses during the lesson and, via
+`practice.challenge.spellings`, its drills and run: trumpet's concert C
+scale reads D E F♯ G A B C♯ D). Flute and oboe also have **Learn B, A and G**
 (`FIRST3_BAG_STEPS` / `FIRST3_BAG_INSTRUMENTS`, in
 `pitchdetect-first-three-bag`, where their classes start), and get both
 sets' cards side by side: lesson, name and fingering drills, songs and song
@@ -207,8 +223,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `LESSON_SETS` / `practice.lessons` (menu ids map to them via
   `LESSON_ACTIVITIES`), `practice.lesson` picks one, `currentLesson()` gives
   its notes and stars (best per note in `pitchdetect-bb-scale`); the Read
-  step offers each name once. **Play the B♭ scale** (`startScaleRun()`) is a
-  challenge round (`practice.challenge.kind === "scale"`) in order up and
+  step offers each name once. **Play the B♭ scale** (`startScaleRun(set)`,
+  default `"scale"`) is a challenge round (`practice.challenge.kind ===
+  "scale"`, `challenge.set` the lesson set) in order up and
   back down (`scaleRunSequence()`, 15 notes; no name step, and feedback
   never names the target), best in
   `pitchdetect-bb-scale-run`; `challengeStars(score, total)` scales the
@@ -541,7 +558,8 @@ Loaded after firstfive.js; no server, everything stays on the device.
   the first 3 notes (the student's set), naming, fingering and the quiz on them, 2
   3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
   writing a 5-note song, notes 6 and beyond, 2 of its songs, B♭ scale,
-  scale run, 3 intermediate, 3 advanced songs). Nothing is locked: the menu
+  scale run, 3 intermediate, 3 advanced songs, then learning and playing
+  the E♭, A♭, F and C scales, one unit each). Nothing is locked: the menu
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
   the tab of the page it's on), and the profile lists the path; tapping a step opens it.
 - **Screens:** the player bar (`#player-bar`, menu only: avatar, level, XP

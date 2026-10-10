@@ -33,6 +33,8 @@
  * B♭ C D E♭ F G A B♭ (SCALE_STEPS) from the same starting B♭, eight lessons
  * with their own stars. Play the B♭ scale is a challenge round in order, up
  * the octave and back down (scaleRunSequence()), with Help like the quiz.
+ * The concert E♭, A♭, F and C scales (MORE_SCALES) follow, taught the same
+ * way and spelled in the student's written key.
  * The 9 note quiz (startNineQuiz()) is the quiz over the first five notes
  * and notes 6 and beyond; the 3 note quiz (startThreeQuiz(set)) is the quiz
  * over a set of first 3 notes (one card per set on flute and oboe).
@@ -85,6 +87,22 @@ var FIRST3_BAG_INSTRUMENTS = ["flute", "oboe"];
 // Notes 6 and beyond: notes 6 to 9 in most band methods, in the order
 // they're usually taught: concert G, A♭, the A♭ an octave lower, the low A
 var NEXT4_STEPS = [9, 10, -2, -1];
+// The concert scales band students learn after B♭, each a lesson set of its
+// own: tonic, steps from the first B♭ to the scale's first note; octave, the
+// instruments that start it an octave away (to stay in a beginner's range
+// and on their charts: flute, oboe and horn would climb too high in E♭, and
+// tenor sax's low F is off its range, tuba's a long way down); run, the
+// storage of its scale run's best. Each also has drills and a scale run,
+// their ids the B♭ scale's plus the key: namesscaleEb, scalerunEb...
+var MAJOR_SCALE_STEPS = [0, 2, 4, 5, 7, 9, 11, 12];
+var MORE_SCALES = [
+	{ id: "scaleEb", name: "E\u266d", tonic: 5, storage: "pitchdetect-eb-scale", run: "pitchdetect-eb-scale-run",
+		octave: { "treble clef": -12, "flute": -12, "oboe": -12, "horn": -12, "glockenspiel": -12 } },
+	{ id: "scaleAb", name: "A\u266d", tonic: -2, storage: "pitchdetect-ab-scale", run: "pitchdetect-ab-scale-run" },
+	{ id: "scaleF", name: "F", tonic: -5, storage: "pitchdetect-f-scale", run: "pitchdetect-f-scale-run",
+		octave: { "tenor sax": 12, "tuba": 12 } },
+	{ id: "scaleC", name: "C", tonic: 2, storage: "pitchdetect-c-scale", run: "pitchdetect-c-scale-run" }
+];
 
 var PRACTICE_STORAGE_KEY = "pitchdetect-first-five";
 var PRACTICE_HOLD_MS = 1200;       // how long the note must be held to pass
@@ -134,6 +152,44 @@ var LESSON_SETS = {
 	next4: { steps: NEXT4_STEPS, storage: NEXT4_STORAGE_KEY },
 	scale: { steps: SCALE_STEPS, storage: SCALE_STORAGE_KEY }
 };
+// ...and the concert E♭, A♭, F and C scales, spelled in the student's
+// written key (spell: trumpet's concert C scale is D major, with F♯ and C♯)
+MORE_SCALES.forEach(function(scale) {
+	LESSON_SETS[scale.id] = {
+		steps: MAJOR_SCALE_STEPS.map(function(step) { return scale.tonic + step; }),
+		storage: scale.storage, octave: scale.octave, spell: true
+	};
+});
+
+// A lesson set's steps on an instrument (some start a scale an octave away)
+function lessonSteps(set, instrument) {
+	var shift = (set.octave && set.octave[instrument]) || 0;
+	return set.steps.map(function(step) { return step + shift; });
+}
+
+// The concert scale (MORE_SCALES) of lesson set id, or null
+function moreScale(id) {
+	return MORE_SCALES.filter(function(scale) { return scale.id === id; })[0] || null;
+}
+
+// Where each scale run's best is kept, by lesson set ("scale" is B♭)
+var SCALE_RUN_STORAGE_KEYS = { scale: SCALE_RUN_STORAGE_KEY };
+MORE_SCALES.forEach(function(scale) { SCALE_RUN_STORAGE_KEYS[scale.id] = scale.run; });
+
+// A scale's name by lesson set ("scale" is B♭)
+function scaleName(set) {
+	return set === "scale" ? "B\u266d" : moreScale(set).name;
+}
+
+// The scale (lesson set) a scale drill or run activity is on, or null:
+// "namesscale" and "scalerun" are on "scale", "fingeringsscaleEb" and
+// "scalerunEb" on "scaleEb"
+function scaleSetOf(id) {
+	var m = /^(?:names|fingerings)scale(\w*)$|^scalerun(\w*)$/.exec(id);
+	if (!m) return null;
+	var set = "scale" + (m[1] || m[2] || "");
+	return LESSON_SETS[set] ? set : null;
+}
 
 var practiceOpen = false;
 var practiceStartedMic = false;
@@ -154,6 +210,18 @@ function practiceNotes(steps) {
 // Spelling of a written MIDI note in the lessons: flats, as band parts read,
 // except F♯ (alto and bari sax read concert A as F♯, never G♭)
 function practiceSpelling(writtenMidi) {
+	var pc = ((writtenMidi % 12) + 12) % 12;
+	// A scale's lesson, drills and run spell its notes as its written key does
+	var spellings = !practice ? null
+		: practice.mode === "lesson" ? currentLesson().spellings
+		: (practice.mode === "challenge" || practice.mode === "drill") && practice.challenge ? practice.challenge.spellings
+		: null;
+	if (spellings && spellings[pc]) return spellings[pc];
+	return plainPracticeSpelling(writtenMidi);
+}
+
+// The lessons' spelling before any scale's: flats, and F♯
+function plainPracticeSpelling(writtenMidi) {
 	var pc = ((writtenMidi % 12) + 12) % 12;
 	return pc === 6 ? "F#" : flatNoteSpellings[pc];
 }
@@ -282,11 +350,13 @@ function loadPracticeInstrument() {
 	var lessons = {};
 	Object.keys(LESSON_SETS).forEach(function(id) {
 		var set = LESSON_SETS[id];
+		var notes = practiceNotes(lessonSteps(set, select.value));
 		lessons[id] = {
 			id: id,
-			notes: practiceNotes(set.steps),
+			notes: notes,
 			stars: loadPracticeStars(select.value, set.storage, set.steps.length),
-			storage: set.storage
+			storage: set.storage,
+			spellings: set.spell ? scaleSpellings(notes) : null
 		};
 	});
 	practice = {
@@ -301,7 +371,11 @@ function loadPracticeInstrument() {
 			? profile.menuAll : teacherMode,
 		fingeringKeys: {},
 		challengeBest: loadChallengeBest(select.value),
-		scaleRunBest: loadChallengeBest(select.value, SCALE_RUN_STORAGE_KEY),
+		// Each scale run's best, by lesson set ("scale" is B♭)
+		scaleRunBest: Object.keys(SCALE_RUN_STORAGE_KEYS).reduce(function(best, set) {
+			best[set] = loadChallengeBest(select.value, SCALE_RUN_STORAGE_KEYS[set]);
+			return best;
+		}, {}),
 		quiz9Best: loadChallengeBest(select.value, QUIZ9_STORAGE_KEY),
 		quiz3Best: {
 			first3: loadChallengeBest(select.value, QUIZ3_STORAGE_KEYS.first3),
@@ -352,7 +426,8 @@ function setPracticeMode(mode) {
 }
 
 // Lesson set for each lesson activity id
-var LESSON_ACTIVITIES = { learn3bag: "first3bag", learn3: "first3", learn: "first5", learn4: "next4", scale: "scale" };
+var LESSON_ACTIVITIES = { learn3bag: "first3bag", learn3: "first3", learn: "first5", learn4: "next4", scale: "scale",
+	scaleEb: "scaleEb", scaleAb: "scaleAb", scaleF: "scaleF", scaleC: "scaleC" };
 
 // Whether an activity is offered on the current instrument
 function practiceActivityAvailable(id) {
@@ -424,21 +499,37 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "lessons", wide: true },
 	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "lessons", wide: true },  // sub: nextFourText()
 	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "lessons", wide: true },
+	{ id: "scaleEb", icon: "scale", title: "Learn the E\u266d scale", sub: "", page: "lessons" },  // sub: moreScaleText()
+	{ id: "scaleAb", icon: "scale", title: "Learn the A\u266d scale", sub: "", page: "lessons" },
+	{ id: "scaleF", icon: "scale", title: "Learn the F scale", sub: "", page: "lessons" },
+	{ id: "scaleC", icon: "scale", title: "Learn the C scale", sub: "", page: "lessons" },
 	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "playing" },  // title: the notes
 	{ id: "quiz3", icon: "trophy", title: "3 note quiz", sub: "", page: "drills", group: "playing" },  // sub: the notes
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills", group: "playing" },
 	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "drills", group: "playing" },
 	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing", wide: true },
+	{ id: "scalerunEb", icon: "scalerun", title: "Play the E\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing" },
+	{ id: "scalerunAb", icon: "scalerun", title: "Play the A\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing" },
+	{ id: "scalerunF", icon: "scalerun", title: "Play the F scale", sub: "Up and back down, note by note", page: "drills", group: "playing" },
+	{ id: "scalerunC", icon: "scalerun", title: "Play the C scale", sub: "Up and back down, note by note", page: "drills", group: "playing" },
 	{ id: "names3bag", icon: "A\u00a0B", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "names" },  // title: the notes
 	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
 	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
 	{ id: "names9", icon: "A\u00a0B", title: "Name 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "names" },
 	{ id: "namesscale", icon: "A\u00a0B", title: "Name the B\u266d scale notes", sub: "", page: "drills", group: "names" },  // sub: its range
+	{ id: "namesscaleEb", icon: "A\u00a0B", title: "Name the E\u266d scale notes", sub: "", page: "drills", group: "names" },
+	{ id: "namesscaleAb", icon: "A\u00a0B", title: "Name the A\u266d scale notes", sub: "", page: "drills", group: "names" },
+	{ id: "namesscaleF", icon: "A\u00a0B", title: "Name the F scale notes", sub: "", page: "drills", group: "names" },
+	{ id: "namesscaleC", icon: "A\u00a0B", title: "Name the C scale notes", sub: "", page: "drills", group: "names" },
 	{ id: "fingerings3bag", icon: "fingering", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "fingerings" },  // title: the notes
 	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
 	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
 	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "fingerings" },
 	{ id: "fingeringsscale", icon: "fingering", title: "Finger the B\u266d scale", sub: "", page: "drills", group: "fingerings" },  // sub: its range
+	{ id: "fingeringsscaleEb", icon: "fingering", title: "Finger the E\u266d scale", sub: "", page: "drills", group: "fingerings" },
+	{ id: "fingeringsscaleAb", icon: "fingering", title: "Finger the A\u266d scale", sub: "", page: "drills", group: "fingerings" },
+	{ id: "fingeringsscaleF", icon: "fingering", title: "Finger the F scale", sub: "", page: "drills", group: "fingerings" },
+	{ id: "fingeringsscaleC", icon: "fingering", title: "Finger the C scale", sub: "", page: "drills", group: "fingerings" },
 	{ id: "songs3bag", icon: "\u266b", title: "", sub: "Hot Cross Buns and more", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "write3bag", icon: "pencil", title: "", sub: "Make up your own tune", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "songs3", icon: "\u266b", title: "Play 3-note songs", sub: "Hot Cross Buns and more", page: "songs" },
@@ -460,7 +551,11 @@ var PRACTICE_UNITS = [
 		"songs3bag", "songs3", "write3bag", "write3"] },
 	{ id: "unit2", title: "The first 5 notes", activities: ["learn", "quiz", "names", "fingerings", "songs5", "write5"] },
 	{ id: "unit3", title: "Notes 6 and beyond", activities: ["learn4", "names9", "fingerings9", "quiz9", "songs"] },
-	{ id: "unit4", title: "The B♭ scale", activities: ["scale", "namesscale", "fingeringsscale", "scalerun", "songs"] }
+	{ id: "unit4", title: "The B♭ scale", activities: ["scale", "namesscale", "fingeringsscale", "scalerun", "songs"] },
+	{ id: "unit5", title: "The E♭ scale", activities: ["scaleEb", "namesscaleEb", "fingeringsscaleEb", "scalerunEb"] },
+	{ id: "unit6", title: "The A♭ scale", activities: ["scaleAb", "namesscaleAb", "fingeringsscaleAb", "scalerunAb"] },
+	{ id: "unit7", title: "The F scale", activities: ["scaleF", "namesscaleF", "fingeringsscaleF", "scalerunF"] },
+	{ id: "unit8", title: "The C scale", activities: ["scaleC", "namesscaleC", "fingeringsscaleC", "scalerunC"] }
 ];
 
 function practiceUnit(page) {
@@ -476,7 +571,8 @@ function practiceUnitSub(unit) {
 	if (unit.id === "unit1") return threeNotesText(defaultThreeSet(practice.instrument));
 	if (unit.id === "unit2") return notesText(practice.lessons.first5.notes);
 	if (unit.id === "unit3") return nextFourText();
-	return "All eight notes, and harder songs";
+	if (unit.id === "unit4") return "All eight notes, and harder songs";
+	return moreScaleText(unit.activities[0]);  // a unit per concert scale
 }
 
 // The path's steps in a unit, and how many are done (null for the teacher,
@@ -703,10 +799,10 @@ function showPracticeMenu(page) {
 			title = "Slide positions for 9 notes";
 		} else if (a.id === "fingerings9" && !chart) {
 			title = "Find 9 notes on the keyboard";
-		} else if (a.id === "fingeringsscale" && slide) {
-			title = "Slide positions for the B\u266d scale";
-		} else if (a.id === "fingeringsscale" && !chart) {
-			title = "Find the B\u266d scale on the keyboard";
+		} else if (/^fingeringsscale/.test(a.id) && slide) {
+			title = "Slide positions for the " + scaleName(scaleSetOf(a.id)) + " scale";
+		} else if (/^fingeringsscale/.test(a.id) && !chart) {
+			title = "Find the " + scaleName(scaleSetOf(a.id)) + " scale on the keyboard";
 		} else if (a.id === "write3" && !bag) {
 			sub = "Make up your own tune with " + threeNotesText(set);
 		}
@@ -719,11 +815,13 @@ function showPracticeMenu(page) {
 			sub = threeNotesText(set);
 		} else if (a.id === "names" || a.id === "fingerings") {
 			sub = notesText(practice.lessons.first5.notes);
-		} else if (a.id === "namesscale" || a.id === "fingeringsscale") {
-			var scaleNotes = practice.lessons.scale.notes;
+		} else if (/^(names|fingerings)scale/.test(a.id)) {
+			var scaleNotes = practice.lessons[scaleSetOf(a.id)].notes;
 			sub = practiceNoteName(scaleNotes[0]) + " up to " + practiceNoteName(scaleNotes[scaleNotes.length - 1]);
 		} else if (a.id === "learn4") {
 			sub = nextFourText();
+		} else if (moreScale(a.id)) {
+			sub = moreScaleText(a.id);
 		}
 
 		var score;
@@ -740,8 +838,8 @@ function showPracticeMenu(page) {
 		} else if (a.id === "write3" || a.id === "write3bag" || a.id === "write5") {
 			var mine = (set ? threeNoteCustomSongs(set) : fiveNoteCustomSongs()).length;
 			score = mine ? mine + (mine === 1 ? " song" : " songs") : "New";
-		} else if (a.id === "scalerun") {
-			var run = practice.scaleRunBest;
+		} else if (/^scalerun/.test(a.id)) {
+			var run = practice.scaleRunBest[scaleSetOf(a.id)];
 			score = typeof run === "number" ? starText(challengeStars(run, scaleRunSequence().length)) : "\u2606\u2606\u2606";
 		} else if (a.id === "quiz") {
 			var best = practice.challengeBest;
@@ -869,8 +967,8 @@ function startPracticeActivity(id) {
 		startThreeQuiz(practice.threeSet);
 	} else if (id === "quiz9") {
 		startNineQuiz();
-	} else if (id === "scalerun") {
-		startScaleRun();
+	} else if (/^scalerun/.test(id)) {
+		startScaleRun(scaleSetOf(id));
 	} else if (id === "firstsounds") {
 		startFirstSounds();
 	} else if (id === "songs") {
@@ -925,7 +1023,8 @@ function currentPracticeActivity() {
 	}
 	if (practice.mode === "challenge") {
 		if (practice.challenge.kind === "quiz3") return threeSetActivity("quiz3", practice.challenge.set);
-		return { scale: "scalerun", quiz9: "quiz9" }[practice.challenge.kind] || "quiz";
+		if (practice.challenge.kind === "scale") return "scalerun" + practice.challenge.set.slice(5);
+		return { quiz9: "quiz9" }[practice.challenge.kind] || "quiz";
 	}
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
@@ -955,8 +1054,17 @@ function closePractice() {
 	if (button && button.offsetParent !== null) button.focus();
 }
 
-// Open a lesson set ("first3", "first5", "next4" or "scale"): an overview of its notes and
-// their names first, so the Read step never asks a name before it's taught
+// "Concert E♭: F up to F": a concert scale and where it starts and ends at
+// the student's written pitch
+function moreScaleText(id) {
+	var notes = practice.lessons[id].notes;
+	var name = practiceNoteName(notes[0]);
+	return "Concert " + moreScale(id).name + ": " + name + " up to " + name;
+}
+
+// Open a lesson set ("first3", "first5", "next4", "scale" or one of
+// MORE_SCALES): an overview of its notes and their names first, so the Read
+// step never asks a name before it's taught
 function startLesson(id) {
 	practice.lesson = id;
 	if (id.indexOf("first3") === 0) practice.threeSet = id;
@@ -974,7 +1082,9 @@ function showLessonOverview() {
 	document.getElementById("practice-view").setAttribute("data-step", "overview");
 	document.getElementById("practice-steps").innerHTML = "";
 	var notes = currentLesson().notes;
-	document.getElementById("practice-prompt").textContent = practice.lesson === "scale" ? "Meet the B\u266d scale!"
+	var more = moreScale(practice.lesson);
+	document.getElementById("practice-prompt").textContent = more ? "Meet the concert " + more.name + " scale!"
+		: practice.lesson === "scale" ? "Meet the B\u266d scale!"
 		: practice.lesson === "next4" ? "Meet notes 6 and beyond!"
 		: practice.lesson.indexOf("first3") === 0 ? "Meet your first 3 notes!" : "Meet your first 5 notes!";
 	drawLessonOverview(-1);
@@ -1623,9 +1733,11 @@ function renderPracticeResult() {
 	var scale = practice.lesson === "scale";
 	var next4 = practice.lesson === "next4";
 	var first3 = practice.lesson.indexOf("first3") === 0;
+	var more = moreScale(practice.lesson);
 	var prompt = document.getElementById("practice-prompt");
 	var body = document.getElementById("practice-body");
 	prompt.textContent = !practice.allLearned ? "You played " + name + "!"
+		: more ? "You learned the whole concert " + more.name + " scale!"
 		: scale ? "You learned the whole B\u266d scale!"
 		: first3 ? "You learned your first 3 notes!"
 		: next4 ? "You learned notes 6 and beyond!"
@@ -1656,7 +1768,8 @@ function renderPracticeResult() {
 		startPracticeNote(nextIndex);
 	}));
 	if (practice.allLearned) {
-		actions.appendChild(scale ? practiceButton("Play the whole scale \u2192", "primary", startScaleRun)
+		var set = practice.lesson;
+		actions.appendChild(scale || more ? practiceButton("Play the whole scale \u2192", "primary", function() { startScaleRun(set); })
 			: first3 ? practiceButton("Name the notes \u2192", "primary", function() { startDrill(threeSetActivity("names3", practice.lesson)); })
 			: next4 ? practiceButton("Take the 9 note quiz \u2192", "primary", startNineQuiz)
 			: practiceButton("Take the quiz \u2192", "primary", startChallenge));
@@ -1809,12 +1922,16 @@ function scaleRunSequence() {
 	return up.concat(up.slice(0, -1).reverse());
 }
 
-// Play the B♭ scale: a challenge round over the scale's notes in order
-function startScaleRun() {
+// Play the B♭ scale (or set, one of MORE_SCALES): a challenge round over
+// the scale's notes in order
+function startScaleRun(set) {
+	set = set || "scale";
 	clearTimeout(practiceAdvanceTimer);
 	setPracticeMode("challenge");
 	practice.index = -1;
-	practice.challenge = { kind: "scale", notes: practice.lessons.scale.notes, seq: scaleRunSequence(), pos: 0, results: [] };
+	var lesson = practice.lessons[set];
+	practice.challenge = { kind: "scale", set: set, notes: lesson.notes, spellings: lesson.spellings,
+		seq: scaleRunSequence(), pos: 0, results: [] };
 	showChallengeNote();
 }
 
@@ -2037,15 +2154,16 @@ function finishThreeQuiz() {
 function finishScaleRun() {
 	var c = practice.challenge;
 	var score = c.results.filter(Boolean).length;
-	var newBest = practice.scaleRunBest === null || score > practice.scaleRunBest;
+	var best = practice.scaleRunBest[c.set];
+	var newBest = best === null || score > best;
 	if (newBest) {
-		practice.scaleRunBest = score;
-		saveChallengeBest(practice.instrument, score, SCALE_RUN_STORAGE_KEY);
+		practice.scaleRunBest[c.set] = score;
+		saveChallengeBest(practice.instrument, score, SCALE_RUN_STORAGE_KEYS[c.set]);
 	}
 	showRoundResult(score, newBest,
-		score === c.seq.length ? "Perfect! You played the whole B\u266d scale!" : "Scale complete!",
+		score === c.seq.length ? "Perfect! You played the whole " + scaleName(c.set) + " scale!" : "Scale complete!",
 		"You played " + score + " of " + c.seq.length + " on your own",
-		startScaleRun, c.seq.length);
+		function() { startScaleRun(c.set); }, c.seq.length);
 	recordProgress(10 + 3 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
 }
 
@@ -2116,7 +2234,8 @@ function renderChallengeProgress() {
 // kind "names" shows the note on the staff; "fingerings" shows only its chart
 // (or unlabeled piano key). "names3" and "fingerings3" do the same on the
 // first 3 notes (D C B♭; "names3bag" / "fingerings3bag" on B A G), "names9" / "fingerings9" on the first 5
-// and notes 6 and beyond, "namesscale" / "fingeringsscale" on the B♭ scale. Either way the student picks its name; a note
+// and notes 6 and beyond, "namesscale" / "fingeringsscale" on the B♭ scale
+// ("namesscaleEb"... on MORE_SCALES, spelled in their key). Either way the student picks its name; a note
 // scores if named on the first try (a wrong answer still has to be fixed
 // before moving on). The clock starts once the first answers can be tapped.
 // Shares the challenge's result screen.
@@ -2128,8 +2247,9 @@ function startDrill(kind) {
 	if (isThreeDrill(kind)) practice.threeSet = /bag$/.test(kind) ? "first3bag" : "first3";
 	practice.drillNotes = drillNotes(kind);
 	practice.index = -1;
+	var scale = scaleSetOf(kind);
 	practice.challenge = { kind: "drill", notes: practice.drillNotes, seq: [], pos: 0, results: [], score: 0, endsAt: 0,
-		balloonGoal: drillBalloonGoal(kind) };
+		balloonGoal: drillBalloonGoal(kind), spellings: scale ? practice.lessons[scale].spellings : null };
 	document.getElementById("practice-steps").innerHTML = "";
 	var balloon = document.getElementById("drill-balloon");
 	if (balloon) balloon.remove();
@@ -2137,11 +2257,11 @@ function startDrill(kind) {
 }
 
 // The notes a drill kind asks: the first 3, the first 5, those plus notes 6
-// and beyond ("9"), or the B♭ scale ("scale")
+// and beyond ("9"), or a scale ("scale", "scaleEb"...)
 function drillNotes(kind) {
 	if (isThreeDrill(kind)) return threeNotes(/bag$/.test(kind) ? "first3bag" : "first3");
 	if (/9$/.test(kind)) return practice.notes.concat(practice.lessons.next4.notes);
-	if (/scale$/.test(kind)) return practice.lessons.scale.notes;
+	if (scaleSetOf(kind)) return practice.lessons[scaleSetOf(kind)].notes;
 	return practice.notes;
 }
 
@@ -2617,11 +2737,21 @@ function songEvents(song) {
 	return events;
 }
 
+// Spellings by pitch class ({ 6: "F#" }) of a scale's written notes, up the
+// letters from its first note: a lesson on a scale reads like its key
+function scaleSpellings(notes) {
+	var spellings = {};
+	spellScale(notes).forEach(function(n) {
+		spellings[((n.midi % 12) + 12) % 12] = "CDEFGAB".charAt(n.letter) + (n.alter > 0 ? "#" : n.alter < 0 ? "b" : "");
+	});
+	return spellings;
+}
+
 // Written notes of a scale (lowest first), spelled up the letters from the
 // first note's, so a written scale with a sharp (alto sax: G A B C D E F♯)
 // reads right: [{ midi, letter, octave, alter, s (diatonic step) }]
 function spellScale(scale) {
-	var first = practiceSpelling(scale[0]);
+	var first = plainPracticeSpelling(scale[0]);
 	var firstLetter = "CDEFGAB".indexOf(first.charAt(0));
 	var firstOctave = Math.floor((scale[0] - (first.length > 1 ? (first.charAt(1) === "#" ? 1 : -1) : 0)) / 12) - 1;
 	return scale.map(function(midi, step) {
