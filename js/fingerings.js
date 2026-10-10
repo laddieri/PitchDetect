@@ -338,6 +338,16 @@ var clarinetFingerings = {
 // the same size from note to note even though individual images differ.
 // (Trombone and horn images are uniform.)
 // first / last: the files in the set (numbered as the file names are)
+// alternates: by file number, the alternate charts (file names without the
+// extension, which also go in extra) shown beside it, each with a caption;
+// primary: that note's own caption once alternates show.
+// Saxophone F#: the chromatic (fork) F# puts the right ring finger down
+// instead of the middle finger, for E-F#-G and F#-G# passages.
+var saxAlternates = {
+	54: { primary: "Middle finger", alternates: [{ file: "54-fork", label: "Ring finger" }] },  // F#4
+	66: { primary: "Middle finger", alternates: [{ file: "66-fork", label: "Ring finger" }] }   // F#5
+};
+
 var imageFingeringMap = {
 	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0,  w: 331, h: 476, first: 34, last: 68 },
 	"flute":     { folder: "Flute",     ext: "png", transposition: 0,  w: 496, h: 163, first: 60, last: 95,
@@ -347,9 +357,12 @@ var imageFingeringMap = {
 	// (The image set uses a MIDI numbering where C4 = 48 instead of 60,
 	//  so we subtract 12 regardless of which saxophone is selected.)
 	// Range: 46 (written low Bb3) through 73 (written C#6).
-	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73 },
-	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73 },
-	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73 },
+	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73,
+		extra: ["54-fork", "66-fork"], alternates: saxAlternates },
+	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73,
+		extra: ["54-fork", "66-fork"], alternates: saxAlternates },
+	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73,
+		extra: ["54-fork", "66-fork"], alternates: saxAlternates },
 	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0,  w: 534, h: 112, first: 40, last: 70 },
 	// Double F/Bb horn: F side through written G4, Bb side (thumb) from G#4.
 	// Range: 42 (written F#2) through 84 (written C6).
@@ -418,9 +431,36 @@ function fingeringImageBox(instrument, writtenMidi) {
 }
 
 // Display fingering using an image file from img/Fingerings/
-function displayImageFingering(container, instrument, writtenMidi) {
+function displayImageFingering(container, instrument, writtenMidi, showAlternates) {
 	var info = imageFingeringMap[instrument];
 	var imgPath = fingeringImagePath(instrument, writtenMidi);
+	var alt = info.alternates && info.alternates[writtenMidi - info.transposition];
+
+	// Alternates are drawn side by side like the clarinet's, each image in
+	// a captioned cell; the persistent <img> below is rebuilt afterwards.
+	if (alt && showAlternates) {
+		var dir = "img/Fingerings/" + info.folder + "/";
+		var row = document.createElement("div");
+		row.className = "fingering-choices";
+		[{ path: imgPath, label: alt.primary }].concat(alt.alternates.map(function(a) {
+			return { path: dir + a.file + "." + info.ext, label: a.label };
+		})).forEach(function(f, i) {
+			var cell = document.createElement("div");
+			cell.className = "fingering-choice" + (i > 0 ? " alternate" : "");
+			var img = document.createElement("img");
+			img.alt = "Fingering diagram";
+			img.src = f.path;
+			cell.appendChild(img);
+			var caption = document.createElement("div");
+			caption.className = "fingering-caption";
+			caption.textContent = f.label;
+			cell.appendChild(caption);
+			row.appendChild(cell);
+		});
+		container.innerHTML = "";
+		container.appendChild(row);
+		return true;
+	}
 
 	// Reuse a persistent <img> and just swap its src. The browser keeps showing
 	// the current image until the new one finishes loading, so the panel never
@@ -465,7 +505,7 @@ function displayImageFingering(container, instrument, writtenMidi) {
 
 	img.src = imgPath;
 
-	return false;  // No alternate fingerings for image-based instruments
+	return !!alt;
 }
 
 // ============================================================================
@@ -837,13 +877,13 @@ function displayClarinetFingering(container, fingering, showAlternates) {
 		list = list.concat(fingering.alternates);
 	}
 	var row = document.createElement("div");
-	row.className = "clarinet-fingerings";
+	row.className = "fingering-choices";
 	list.forEach(function(f, i) {
 		var cell = document.createElement("div");
-		cell.className = "clarinet-fingering" + (i > 0 ? " alternate" : "");
+		cell.className = "fingering-choice" + (i > 0 ? " alternate" : "");
 		cell.appendChild(drawClarinetFingering(f.keys));
 		var caption = document.createElement("div");
-		caption.className = "clarinet-caption";
+		caption.className = "fingering-caption";
 		caption.textContent = f.label || "\u00A0";
 		cell.appendChild(caption);
 		row.appendChild(cell);
@@ -886,7 +926,7 @@ function displayFingering(container, instrument, midiNote, showAlternates) {
 	// <img> and swap its src to avoid a load-time layout collapse), so don't
 	// clear the container here for them.
 	if (imageFingeringMap[instrument]) {
-		return displayImageFingering(container, instrument, midiNote);
+		return displayImageFingering(container, instrument, midiNote, showAlternates);
 	}
 
 	container.innerHTML = "";

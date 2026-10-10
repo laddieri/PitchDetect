@@ -2395,10 +2395,10 @@ function updateFingeringDisplay() {
 	// Reveal the alternate-fingering button when this note has alternates. For
 	// valve instruments the button's slot stays reserved (visibility) even when
 	// a note has no alternates, so the fingering glyph doesn't shift sideways as
-	// you move between notes. Image-based instruments never have alternates, so
-	// their button is removed entirely rather than leaving a blank slot.
-	var imageBased = (typeof imageFingeringMap !== "undefined") && (instrument in imageFingeringMap);
-	if (imageBased) {
+	// you move between notes. Image chart sets without alternates (only the
+	// saxophones have any) remove the button rather than leave a blank slot.
+	var imageInfo = (typeof imageFingeringMap !== "undefined") && imageFingeringMap[instrument];
+	if (imageInfo && !imageInfo.alternates) {
 		alternateButton.style.display = "none";
 	} else {
 		alternateButton.style.display = "inline-block";

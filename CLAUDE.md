@@ -627,7 +627,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
 - `fluteFingerings` (key diagrams)
 - `clarinetFingerings` — written E3–G6 (incl. lower altissimo), drawn as SVG
   by `drawClarinetFingering()` (keys listed by id: `Reg`, `T`, `L1`–`R3`,
-  side keys `S1`–`S4`, `CsGs`, pinkies `lE`/`lF`/`lFs`, `rE`/`rF`/`rFs`/`rAb`).
+  side keys `S1`–`S4`, `CsGs`, the E♭/B♭ sliver key `Sl`, pinkies `lE`/`lF`/`lFs`, `rE`/`rF`/`rFs`/`rAb`).
   Like a printed chart, only the register key, thumb and tone holes always
   show; other key groups appear only when the note uses one of their keys.
   Alternates (left/right pinky E/B, F/C, F♯/C♯; throat-tone resonance) show
@@ -637,7 +637,10 @@ Loaded after firstfive.js; no server, everything stays on the device.
   (bassoon, flute, oboe, saxes, trombone, double horn); `first` / `last`
   (file numbers) and `extra` list every file in a set, for
   `fingeringImagePaths()` (offline caching; the smoke test checks they all
-  exist, so update them when adding or removing chart files)
+  exist, so update them when adding or removing chart files); `alternates`
+  (by file number, the saxophones' chromatic F♯ charts `54-fork` /
+  `66-fork`, also in `extra`) shows them side by side with captions, like
+  the clarinet's, behind the same Show Alternate Fingerings button
 - `hasFingeringData()`, `displayFingering()` — entry points used by the app.
 - Instruments with **no** fingering data: bare clefs, bass clarinet,
   bells (value `glockenspiel`; they get piano-only panels).

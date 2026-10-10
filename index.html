@@ -1040,7 +1040,7 @@
 			/* Clarinet: tall diagrams drawn side by side (primary, then any
 			   alternates), each filling the reserved height above a
 			   one-line caption slot. */
-			#fingering-display .clarinet-fingerings {
+			#fingering-display .fingering-choices {
 				display: flex;
 				justify-content: center;
 				gap: 14px;
@@ -1049,7 +1049,7 @@
 				max-width: 100%;
 			}
 
-			#fingering-display .clarinet-fingering {
+			#fingering-display .fingering-choice {
 				display: flex;
 				flex-direction: column;
 				align-items: center;
@@ -1057,7 +1057,7 @@
 				min-height: 0;
 			}
 
-			#fingering-display .clarinet-fingering svg {
+			#fingering-display .fingering-choice svg {
 				flex: 1 1 0;
 				min-height: 0;
 				height: 100%;
@@ -1066,7 +1066,17 @@
 				max-height: none;
 			}
 
-			.clarinet-caption {
+			#fingering-display .fingering-choice img {
+				flex: 1 1 0;
+				min-height: 0;
+				height: 100%;
+				width: auto;
+				max-width: 100%;
+				max-height: none;
+				object-fit: contain;
+			}
+
+			.fingering-caption {
 				flex-shrink: 0;
 				font-size: 0.75rem;
 				line-height: 1.4;
@@ -3689,21 +3699,21 @@
 				display: none;
 			}
 
-			.practice-fingering .clarinet-fingerings {
+			.practice-fingering .fingering-choices {
 				display: flex;
 				justify-content: center;
 				height: 100cqh;
 				min-height: 0;
 			}
 
-			.practice-fingering .clarinet-fingering {
+			.practice-fingering .fingering-choice {
 				display: flex;
 				flex-direction: column;
 				align-items: center;
 				min-height: 0;
 			}
 
-			.practice-fingering .clarinet-fingering svg {
+			.practice-fingering .fingering-choice svg {
 				flex: 1 1 0;
 				min-height: 0;
 				height: 100%;
