@@ -722,14 +722,15 @@ function drawClarinetFingering(keys) {
 	path("Reg", "M32 8 C26 44 21 80 23 94 A9 9 0 0 0 41 94 C43 80 38 44 32 8 Z");
 	circle("T", 28, 134, 19);
 
-	// Throat A and G# keys. The A key is egg-shaped like the old charts
-	// (narrower at the top). G# shows the A key beside it for reference, but
-	// A doesn't show the unused G# key.
+	// Throat A and G# keys, shaped like the old charts: the A key an egg
+	// (narrower at the top), the G# key a club, thin on top and round below.
+	// G# shows the A key beside it for reference, but A doesn't show the
+	// unused G# key.
 	if (anyDown(["A", "Gs"])) {
 		path("A", "M78 34 C85 34 89.5 48 89.5 60 C89.5 73 84.5 82 78 82 C71.5 82 66.5 73 66.5 60 C66.5 48 71 34 78 34 Z");
 	}
 	if (isDown("Gs")) {
-		path("Gs", "M116 34 C108 36 112 52 118 66 C124 82 118 98 126 104 C136 108 138 86 132 70 C126 54 128 38 116 34 Z");
+		path("Gs", "M110 29 C113 29 116 31 117.5 36 C120 43 125 50 128 58 C130 65 131 72 131 81 C131 97 127 108 118.5 108 C110 108 106 100 106 89 C106 79 111 68 111.5 57 C111.5 50 109 43 106.5 38 C104.5 34 105.5 29 110 29 Z");
 	}
 
 	// Tone holes, with the joint line between the hands
