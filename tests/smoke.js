@@ -154,6 +154,22 @@ async function run() {
 		var after = await page.evaluate(function() { return { student: currentStudent, xp: profile.xp }; });
 		check(after.student === saved.id && after.xp === saved.profile.xp, "still signed in, with the same XP, after a reload");
 
+		// Songs have a piano part, and Play along counts in, then plays it
+		var chords = await page.evaluate(function() {
+			playThroughSong("mary");
+			return songAccompaniment(practice.song.song, practice.song.events).filter(function(h) { return h.midis.length > 2; }).length;
+		});
+		check(chords > 0, "a song has piano chords");
+		await page.click("#song-along");
+		var counted = await page.textContent("#practice-feedback");
+		await page.waitForTimeout(3200);
+		var along = await page.evaluate(function() {
+			return { piano: accompNodes.length, label: document.getElementById("song-along").textContent };
+		});
+		check(counted === "1" && along.piano > 0 && /Stop/.test(along.label), "Play along counts in and plays the piano");
+		await page.click("#song-along");
+		check(await page.evaluate(function() { return songPlayTimer === null && accompNodes.length === 0; }), "Play along stops");
+
 		// A save that fails says so instead of losing progress silently
 		var toast = await page.evaluate(function() {
 			var setItem = Storage.prototype.setItem;

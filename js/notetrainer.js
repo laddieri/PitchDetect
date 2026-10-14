@@ -1447,8 +1447,11 @@ function synthesizeWind(freq, timbre, t, dest, sustain) {
 }
 
 // Synthesize a struck/percussive instrument tone (piano, glockenspiel)
-// sustain parameter accepted for API consistency; struck tones decay naturally
-function synthesizeStruck(freq, timbre, t, dest, sustain) {
+// sustain parameter accepted for API consistency; struck tones decay naturally.
+// nodes (optional): the list that owns the sources, default activeAudioNodes;
+// the songs' piano accompaniment passes its own so stopNote() leaves it be.
+function synthesizeStruck(freq, timbre, t, dest, sustain, nodes) {
+	nodes = nodes || activeAudioNodes;
 	var duration = timbre.duration;
 	var detuneOffsets = timbre.detuneSpread > 0
 		? [-timbre.detuneSpread, timbre.detuneSpread] : [0];
@@ -1490,7 +1493,7 @@ function synthesizeStruck(freq, timbre, t, dest, sustain) {
 
 			osc.start(t);
 			osc.stop(t + duration);
-			activeAudioNodes.push(osc);
+			nodes.push(osc);
 		});
 	});
 
@@ -1523,7 +1526,7 @@ function synthesizeStruck(freq, timbre, t, dest, sustain) {
 
 		noiseSource.start(t);
 		noiseSource.stop(t + 0.05);
-		activeAudioNodes.push(noiseSource);
+		nodes.push(noiseSource);
 	}
 }
 
