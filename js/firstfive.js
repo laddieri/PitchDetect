@@ -2754,6 +2754,7 @@ MORE_SCALES.forEach(function(scale) {
 });
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
+var PLAY_ALONG_LABEL = "\u266b Play along";
 var songLevelsOpen = {};   // song list levels shown open, by level id
 
 // Every note and rest of a song for this instrument, in order:
@@ -3133,6 +3134,13 @@ function resetFollow() {
 	});
 	hear.id = "song-hear";
 	actions.appendChild(hear);
+	var along = practiceButton(PLAY_ALONG_LABEL, "secondary", function() {
+		var playing = songPlayTimer !== null && songPlayAlong;
+		stopSongPlayback();
+		if (!playing) playAlong();
+	});
+	along.id = "song-along";
+	actions.appendChild(along);
 	actions.appendChild(practiceButton("Note by note", "secondary", function() { startSong(s.id); }));
 	actions.appendChild(practiceButton("Pick a part", "secondary", function() {
 		showSongPicker(s.id, function() { playThroughSong(s.id); });
@@ -3841,12 +3849,24 @@ try { songKeySignatures = localStorage.getItem(SONG_KEY_SIG_STORAGE_KEY) === "1"
 // signature to draw.
 function songKey(song) {
 	if (song.custom) return song.key || "C";
-	var spelled = spellScale(song.level === "three" ? threeNoteScale()
-		: song.scale ? practice.lessons[song.scale].notes : practiceNotes(song.steps || SCALE_STEPS));
-	var n = spelled[song.tonic ? song.tonic - 1 : song.steps ? Math.max(0, song.steps.indexOf(0)) : 0];
+	var n = songTonic(song);
 	if (!n || Math.abs(n.alter) > 1) return "C";
 	var key = "CDEFGAB".charAt(n.letter) + (n.alter > 0 ? "#" : n.alter < 0 ? "b" : "");
 	return key in keySignatureNotes ? key : "C";
+}
+
+// A song's tonic as written, { letter (0–6 = C–B), alter }, or null: a
+// custom song's key; a built-in song's degree 1, its tonic, or the concert
+// B♭ of a song with steps
+function songTonic(song) {
+	if (!song.measures) {
+		var key = song.key || "C";
+		return { letter: "CDEFGAB".indexOf(key.charAt(0)),
+			alter: key.charAt(1) === "#" ? 1 : key.charAt(1) === "b" ? -1 : 0 };
+	}
+	var spelled = spellScale(song.level === "three" ? threeNoteScale()
+		: song.scale ? practice.lessons[song.scale].notes : practiceNotes(song.steps || SCALE_STEPS));
+	return spelled[song.tonic ? song.tonic - 1 : song.steps ? Math.max(0, song.steps.indexOf(0)) : 0] || null;
 }
 
 var KEY_SIG_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
@@ -4128,29 +4148,57 @@ function toggleSongView() {
 
 // Play a song's events (notes and rests) from the start at SONG_TEMPO with
 // the instrument's sound, calling show(i) as each begins. The mic ignores it
-// while it plays; stopSongPlayback() ends it.
-function playSongEvents(events, show) {
-	var beatMs = 60000 / SONG_TEMPO;
-	var i = 0;
+// while it plays; stopSongPlayback() ends it. opts (optional): tempo; piano,
+// a piano part to play along (songAccompaniment()); silent, no tune (Play
+// along); countIn, pulses (opts.pulse beats each) to count first, calling
+// onCount(n) on each.
+function playSongEvents(events, show, opts) {
+	opts = opts || {};
+	var beatMs = 60000 / (opts.tempo || SONG_TEMPO);
+	var piano = opts.piano || [];
+	var i = 0, beat = 0, h = 0, count = 0;
+	if (piano.length || opts.countIn) startAccompaniment();
 	function next() {
 		if (i >= events.length) {
+			// The last chord rings on; the mic waits it out
+			var ring = accompNodes.length ? ACCOMP_RING_MS : 0;
+			accompNodes = [];
 			stopSongPlayback();
+			if (ring && practice) practice.ignoreUntil = performance.now() + ring;
 			return;
 		}
 		var e = events[i];
-		var ms = eventBeats(e) * beatMs;
+		var beats = eventBeats(e);
+		var ms = beats * beatMs;
 		practice.ignoreUntil = performance.now() + ms + 600;
 		show(i);
 		// End each note just before the next (a tongued gap, which also
 		// keeps repeated notes distinct) so nothing is cut off mid-sound.
-		if (e.midi !== null) {
+		if (e.midi !== null && !opts.silent) {
 			playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false,
 				null, Math.max(0.1, ms / 1000 - TONE_RELEASE));
 		}
+		// The piano's chords during this note, timed on the audio clock
+		for (; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
+			playPianoHit(piano[h], (piano[h].beat - beat) * beatMs / 1000, beatMs / 1000);
+		}
+		beat += beats;
 		i++;
 		songPlayTimer = setTimeout(next, ms);
 	}
-	next();
+	function countIn() {
+		if (count >= opts.countIn) {
+			next();
+			return;
+		}
+		var ms = opts.pulse * beatMs;
+		practice.ignoreUntil = performance.now() + ms + 600;
+		count++;
+		opts.onCount(count);
+		playPianoHit({ midis: [count === 1 ? 96 : 91], len: 0.2, gain: ACCOMP_CLICK_GAIN }, 0, beatMs / 1000);
+		songPlayTimer = setTimeout(countIn, ms);
+	}
+	if (opts.countIn) countIn(); else next();
 }
 
 // Hear the song: play the whole tune, the staff and the fingering chart
@@ -4172,6 +4220,201 @@ function playSong() {
 		if (practice.song.pick) drawSongPicker(start + i);
 		else drawSongEvent(start + i);
 		showFingering(i);
+	}, { piano: songAccompaniment(practice.song.song, events) });
+}
+
+// Play along: just the piano, slower and after a measure counted in, the
+// staff and fingering following the tune, for the student to play it over.
+// Nothing is scored meanwhile: the mic would hear the piano too.
+function playAlong() {
+	var s = practice.song;
+	if (s.pos > 0) resetFollow();
+	songPlayAlong = true;
+	var along = document.getElementById("song-along");
+	if (along) along.textContent = "\u25a0 Stop";
+	var time = s.song.time || "4/4";
+	var pulse = time.split("/")[1] === "8" ? 1.5 : 1;
+	var pulses = Math.round(measureBeats(time) / pulse);
+	var showFingering = showSongFingerings(s.events);
+	playSongEvents(s.events, function(i) {
+		if (i === 0) setPracticeFeedback("Play!", "Play along with the piano");
+		drawSongEvent(i);
+		showFingering(i);
+	}, {
+		tempo: PLAY_ALONG_TEMPO, piano: songAccompaniment(s.song, s.events), silent: true,
+		// Short measures count two
+		countIn: pulses < 3 ? pulses * 2 : pulses, pulse: pulse,
+		onCount: function(n) { setPracticeFeedback(String((n - 1) % pulses + 1), "Get ready\u2026"); }
+	});
+}
+
+// ---------------------------------------------------------------------------
+// Piano accompaniment for Hear the song and Play along: an oom-pah part (a
+// bass note on the first beat of each chord, the chord on the beats after),
+// its chords picked from the tune itself: I, IV, V(7), vi or ii of the
+// song's key (songTonic()), one per half measure in 4/4, else per measure.
+// It sounds through its own nodes (accompNodes), so each note of the tune
+// (playTone() stops the last) leaves it ringing.
+// ---------------------------------------------------------------------------
+
+var ACCOMP_CHORDS = [  // semitones above the tonic; bias: how readily it's picked
+	{ root: 0, tones: [0, 4, 7], bias: 0.3 },   // I
+	{ root: 5, tones: [5, 9, 0], bias: 0.1 },   // IV
+	{ root: 7, tones: [7, 11, 2], bias: 0.2 },  // V
+	{ root: 9, tones: [9, 0, 4], bias: -0.2 },  // vi
+	{ root: 2, tones: [2, 5, 9], bias: -0.4 }   // ii
+];
+var ACCOMP_CHORD_GAIN = 0.05;   // per chord note; the tune plays at ~0.2
+var ACCOMP_BASS_GAIN = 0.09;
+var ACCOMP_CLICK_GAIN = 0.06;   // Play along's count-in
+var ACCOMP_RING_MS = 1500;      // the last chord's ring after the tune ends
+var PLAY_ALONG_TEMPO = 80;      // quarter notes per minute, slower than Hear the song
+// A lighter piano than the main app's (no doubled strings, fewer partials):
+// chords on every beat would otherwise mean hundreds of oscillators
+var ACCOMP_TIMBRE = Object.assign({}, instrumentTimbres["default"], {
+	harmonics: instrumentTimbres["default"].harmonics.slice(0, 5), detuneSpread: 0, strikeNoise: 0.15
+});
+var accompNodes = [];      // the piano's gain nodes still sounding: [{ gain, end }]
+var songPlayAlong = false; // Play along (not Hear the song) is playing
+
+// The piano part for a song's events (all of them, or a part's): hits
+// [{ beat (from the first event), midis (concert), len (beats), gain }]
+function songAccompaniment(song, events) {
+	var tonic = songTonic(song);
+	var notes = events.filter(function(e) { return e.midi !== null; });
+	if (!tonic || tonic.letter < 0 || !notes.length) return [];
+	var tonicPc = NATURAL_SEMITONES[tonic.letter] + tonic.alter;
+	var time = song.time || "4/4";
+	var measure = measureBeats(time);
+	var pulse = time.split("/")[1] === "8" ? 1.5 : 1;
+	var segLen = measure === 4 ? 2 : measure;
+	var starts = [], total = 0;
+	events.forEach(function(e) {
+		starts.push(total);
+		total += eventBeats(e);
+	});
+
+	// How long each note (as degrees of the key, 0–11) sounds in each
+	// segment; a note sounding as the chord starts counts double
+	var segs = [];
+	for (var a = 0; a < total - 1e-6; a += segLen) {
+		var w = null;
+		events.forEach(function(e, i) {
+			if (e.midi === null) return;
+			var on = Math.min(a + segLen, starts[i] + eventBeats(e)) - Math.max(a, starts[i]);
+			if (on <= 0) return;
+			var pc = (((e.midi - tonicPc) % 12) + 12) % 12;
+			w = w || {};
+			w[pc] = (w[pc] || 0) + on * (starts[i] <= a + 1e-6 ? 2 : 1);
+		});
+		segs.push(w);
+	}
+	// The chord that fits each segment's notes best, held over rests,
+	// leaning toward staying put, starting and ending at home
+	var chords = [];
+	segs.forEach(function(w, s) {
+		var prev = s ? chords[s - 1] : null;
+		if (!w) {
+			chords.push(prev || ACCOMP_CHORDS[0]);
+			return;
+		}
+		var best = null, bestScore = -Infinity;
+		ACCOMP_CHORDS.forEach(function(c) {
+			var score = c.bias + (c === prev ? 0.25 : 0);
+			if (c === ACCOMP_CHORDS[0] && (s === 0 || s === segs.length - 1)) score += s ? 3 : 0.5;
+			Object.keys(w).forEach(function(pc) {
+				score += c.tones.indexOf(+pc) >= 0 ? w[pc] : -0.7 * w[pc];
+			});
+			if (score > bestScore) {
+				best = c;
+				bestScore = score;
+			}
+		});
+		chords.push(best);
+	});
+
+	// Voiced under the tune; under a low tune (low brass, tuba) the chords
+	// go above it, with no bass to muddy it
+	var t = getTransposition();
+	var low = Math.min.apply(null, notes.map(function(e) { return e.midi - t; }));
+	var bassless = low < 52;
+	var chordLo = bassless ? 55 : Math.min(57, Math.max(48, low - 10));
+	function place(degree, lo) {
+		return lo + (((degree + tonicPc - t - lo) % 12) + 24) % 12;
+	}
+	var hits = [], onRoot = false;
+	chords.forEach(function(c, s) {
+		var a = s * segLen, end = Math.min(total, a + segLen), last = s === chords.length - 1;
+		var tones = c.tones.slice();
+		// V gets its seventh when the tune has it, or leads home at the end
+		if (c.root === 7 && ((segs[s] && segs[s][5]) || (chords[s + 1] === ACCOMP_CHORDS[0] && s + 2 === chords.length))) {
+			tones.push(5);
+		}
+		var chord = tones.map(function(d) { return place(d, chordLo); });
+		// The bass alternates root and fifth while a chord holds
+		onRoot = !(s && chords[s - 1] === c && onRoot);
+		var bass = place(onRoot ? c.root : c.root + 7, chordLo - 12);
+		if (last) {
+			// The last chord, whole, ringing out
+			hits.push({ beat: a, midis: chord, len: end - a + 1, gain: ACCOMP_CHORD_GAIN });
+			if (!bassless) hits.push({ beat: a, midis: [bass], len: end - a + 1, gain: ACCOMP_BASS_GAIN });
+			return;
+		}
+		for (var b = a; b < end - 1e-6; b += pulse) {
+			if (b === a && !bassless) hits.push({ beat: b, midis: [bass], len: pulse * 1.5, gain: ACCOMP_BASS_GAIN });
+			else hits.push({ beat: b, midis: chord, len: pulse * 0.75, gain: ACCOMP_CHORD_GAIN });
+		}
+	});
+	return hits;
+}
+
+// Get the audio going for the piano, stopping any piano still sounding
+function startAccompaniment() {
+	stopAccompaniment();
+	setAudioSessionType("playback");
+	try {
+		if (!audioContext || audioContext.state === "closed") {
+			audioContext = new (window.AudioContext || window.webkitAudioContext)();
+		}
+		if (audioContext.state !== "running") audioContext.resume();
+	} catch (e) {
+		// No audio available
+	}
+}
+
+// One piano hit, offset seconds from now; beatSec sets its length
+function playPianoHit(hit, offset, beatSec) {
+	if (!audioContext || audioContext.state === "closed") return;
+	try {
+		var t = audioContext.currentTime + 0.05 + offset;
+		var duration = Math.min(ACCOMP_TIMBRE.duration, hit.len * beatSec + 0.3);
+		var timbre = Object.assign({}, ACCOMP_TIMBRE, { duration: duration });
+		var gain = audioContext.createGain();
+		gain.gain.setValueAtTime(hit.gain, t);
+		gain.connect(audioContext.destination);
+		hit.midis.forEach(function(midi) {
+			synthesizeStruck(frequencyFromNoteNumber(midi), timbre, t, gain, false, []);
+		});
+		// Only the gains need keeping, to fade; the oscillators stop themselves
+		var now = audioContext.currentTime;
+		accompNodes = accompNodes.filter(function(n) { return n.end > now; });
+		accompNodes.push({ gain: gain, end: t + duration });
+	} catch (e) {
+		// No audio available
+	}
+}
+
+// Fade out the piano (Hear the song or Play along stopped)
+function stopAccompaniment() {
+	var nodes = accompNodes;
+	accompNodes = [];
+	if (!nodes.length || !audioContext || audioContext.state === "closed") return;
+	var now = audioContext.currentTime;
+	nodes.forEach(function(n) {
+		rampGainToZero(n.gain.gain, now, 0.03);
+		setTimeout(function() {
+			try { n.gain.disconnect(); } catch (e) {}
+		}, 100);
 	});
 }
 
@@ -4235,7 +4478,10 @@ function stopSongPlayback() {
 	clearTimeout(songPlayTimer);
 	songPlayTimer = null;
 	stopNote();
+	stopAccompaniment();
 	removeSongFingerings();
+	var along = songPlayAlong;
+	songPlayAlong = false;
 	if (practice && practice.mode === "editor") {
 		var editorHear = document.getElementById("editor-hear");
 		if (editorHear) editorHear.textContent = "\u25b6 Hear it";
@@ -4259,6 +4505,9 @@ function stopSongPlayback() {
 	resetPracticeHold();
 	var hear = document.getElementById("song-hear");
 	if (hear) hear.textContent = songHearLabel();
+	var alongButton = document.getElementById("song-along");
+	if (alongButton) alongButton.textContent = PLAY_ALONG_LABEL;
+	if (along && practice.song.free && !practice.song.done) setPracticeFeedback("Play it all the way through!", " ");
 	drawSongLine(practice.song.pos);
 }
 
@@ -4607,7 +4856,8 @@ function openSongEditor(id, set) {
 			stopSongPlayback();
 		} else {
 			hear.textContent = "\u25a0 Stop";
-			playSongEvents(practice.editor.events, function(i) { drawEditor(i); });
+			playSongEvents(practice.editor.events, function(i) { drawEditor(i); },
+				{ piano: songAccompaniment(practice.editor.song, practice.editor.events) });
 		}
 	});
 	hear.id = "editor-hear";
@@ -5319,7 +5569,8 @@ function showSongImport() {
 			stopSongPlayback();
 		} else {
 			hear.textContent = "\u25a0 Stop";
-			playSongEvents(practice.importSong.events, drawImportPreview);
+			playSongEvents(practice.importSong.events, drawImportPreview,
+				{ piano: songAccompaniment(practice.importSong.song, practice.importSong.events) });
 		}
 	});
 	hear.id = "import-hear";

@@ -296,7 +296,28 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   files are cropped per note), laid out at once, before the images load, so
   the tone holes don't move;
   `removeSongFingerings()` from `stopSongPlayback()`); `setPracticeMode()` and `closePractice()`
-  stop it. Help works as in the quiz; best unhelped-note score per song
+  stop it. **Piano accompaniment:** Hear the song (and the editor's and
+  import screen's Hear it) plays an oom-pah piano part under the tune
+  (`songAccompaniment(song, events)`: hits `{ beat, midis (concert), len,
+  gain }`). Its chords are picked from the melody: I, IV, V (V7 when the
+  tune has the seventh or it leads to the last chord), vi, ii of the song's
+  key (`songTonic()`, also behind `songKey()`), one per half measure in 4/4,
+  else per measure (`ACCOMP_CHORDS`, scored by how long each chord's notes
+  sound, leaning toward staying put and ending on I). A bass note on each
+  chord's first beat (root, then fifth while it holds), the chord on the
+  other beats; under a low tune (concert below E3: low brass, tuba) no
+  bass and the chords sit above it. `playSongEvents()` schedules each
+  note's hits on the audio clock (`playPianoHit()`, a light
+  `ACCOMP_TIMBRE`); they sound through `accompNodes`, not
+  `activeAudioNodes` (`synthesizeStruck()`'s `nodes` argument), so each
+  `playTone()` leaves them ringing; `stopAccompaniment()` (from
+  `stopSongPlayback()`) fades them, and the last chord rings
+  `ACCOMP_RING_MS` with the mic still ignoring it. **Play along** (Play it
+  through's `#song-along`, `playAlong()`, `songPlayAlong`): a measure
+  counted in, then just the piano at `PLAY_ALONG_TEMPO` with the staff and
+  fingering following, for the student to play the tune over; the mic
+  isn't scored meanwhile (it would hear the piano: `echoCancellation` is
+  off). Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
   from a song returns to the song list, and from the list to the Songs page.
   A song opens in **Play it through** (`playThroughSong()`; the song list,
@@ -744,7 +765,8 @@ It serves the repo itself and checks: no errors or page scroll at desktop and
 phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload; a failed save warns; the iPhone
 Home Screen hint shows once; the service worker keeps every chart of the
-instrument, answers from cache on a slow network, and loads offline. Add a
+instrument, answers from cache on a slow network, and loads offline; a
+song has piano chords and Play along counts in, plays and stops. Add a
 check there when adding something a broken change would silently lose.
 
 For anything else, drive the real app with Playwright + Chromium using a WAV
