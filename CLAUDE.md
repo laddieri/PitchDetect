@@ -303,7 +303,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   tune has the seventh or it leads to the last chord), vi, ii of the song's
   key (`songTonic()`, also behind `songKey()`), one per half measure in 4/4,
   else per measure (`ACCOMP_CHORDS`, scored by how long each chord's notes
-  sound, leaning toward staying put and ending on I). A bass note on each
+  sound, leaning toward staying put and ending on I; the last chord starts with
+  the last note, and the chord before it is V, or IV when the tonic fills it, so
+  the cadence waits for the last note). A bass note on each
   chord's first beat (root, then fifth while it holds), the chord on the
   other beats; under a low tune (concert below E3: low brass, tuba) no
   bass and the chords sit above it. `playSongEvents()` schedules each
