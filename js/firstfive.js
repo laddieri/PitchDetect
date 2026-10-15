@@ -4296,19 +4296,26 @@ function songAccompaniment(song, events) {
 
 	// How long each note (as degrees of the key, 0–11) sounds in each
 	// segment; a note sounding as the chord starts counts double
+	// Segments start every segLen beats; the last one runs from where the
+	// last note starts to the end: its chord is the last chord
+	var lastNote = events.lastIndexOf(notes[notes.length - 1]);
+	var lastSeg = Math.floor((starts[lastNote] + 1e-6) / segLen) * segLen;
+	var bounds = [];
+	for (var b = 0; b < lastSeg - 1e-6; b += segLen) bounds.push(b);
+	bounds.push(lastSeg, total);
 	var segs = [];
-	for (var a = 0; a < total - 1e-6; a += segLen) {
-		var w = null;
+	bounds.slice(0, -1).forEach(function(a, s) {
+		var z = bounds[s + 1], w = null;
 		events.forEach(function(e, i) {
 			if (e.midi === null) return;
-			var on = Math.min(a + segLen, starts[i] + eventBeats(e)) - Math.max(a, starts[i]);
+			var on = Math.min(z, starts[i] + eventBeats(e)) - Math.max(a, starts[i]);
 			if (on <= 0) return;
 			var pc = (((e.midi - tonicPc) % 12) + 12) % 12;
 			w = w || {};
 			w[pc] = (w[pc] || 0) + on * (starts[i] <= a + 1e-6 ? 2 : 1);
 		});
 		segs.push(w);
-	}
+	});
 	// The chord that fits each segment's notes best, held over rests,
 	// leaning toward staying put, starting and ending at home
 	var chords = [];
@@ -4316,6 +4323,15 @@ function songAccompaniment(song, events) {
 		var prev = s ? chords[s - 1] : null;
 		if (!w) {
 			chords.push(prev || ACCOMP_CHORDS[0]);
+			return;
+		}
+		// The chord before the last leads home, so I waits for the last
+		// note: V, its melody notes heard as leaning into the last
+		// ("2q 2q 3q 2q | 1w" stays on V), or IV under a tonic held
+		// through it (an "amen" ending)
+		if (s === segs.length - 2) {
+			var sum = Object.keys(w).reduce(function(t, pc) { return t + w[pc]; }, 0);
+			chords.push(ACCOMP_CHORDS[(w[0] || 0) >= 0.75 * sum ? 1 : 2]);
 			return;
 		}
 		var best = null, bestScore = -Infinity;
@@ -4344,7 +4360,7 @@ function songAccompaniment(song, events) {
 	}
 	var hits = [], onRoot = false;
 	chords.forEach(function(c, s) {
-		var a = s * segLen, end = Math.min(total, a + segLen), last = s === chords.length - 1;
+		var a = bounds[s], end = bounds[s + 1], last = s === chords.length - 1;
 		var tones = c.tones.slice();
 		// V gets its seventh when the tune has it, or leads home at the end
 		if (c.root === 7 && ((segs[s] && segs[s][5]) || (chords[s + 1] === ACCOMP_CHORDS[0] && s + 2 === chords.length))) {
@@ -4360,9 +4376,9 @@ function songAccompaniment(song, events) {
 			if (!bassless) hits.push({ beat: a, midis: [bass], len: end - a + 1, gain: ACCOMP_BASS_GAIN });
 			return;
 		}
-		for (var b = a; b < end - 1e-6; b += pulse) {
-			if (b === a && !bassless) hits.push({ beat: b, midis: [bass], len: pulse * 1.5, gain: ACCOMP_BASS_GAIN });
-			else hits.push({ beat: b, midis: chord, len: pulse * 0.75, gain: ACCOMP_CHORD_GAIN });
+		for (var beat = a; beat < end - 1e-6; beat += pulse) {
+			if (beat === a && !bassless) hits.push({ beat: beat, midis: [bass], len: pulse * 1.5, gain: ACCOMP_BASS_GAIN });
+			else hits.push({ beat: beat, midis: chord, len: pulse * 0.75, gain: ACCOMP_CHORD_GAIN });
 		}
 	});
 	return hits;
