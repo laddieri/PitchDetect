@@ -2714,7 +2714,7 @@ var SONGS = [
 			"88 88 88 58 58 58", "38 38 38 18 18 18", "5q 48 3q 28", "1h."] },
 	{ id: "thisoldman", level: "advanced", title: "This Old Man",
 		measures: ["5q 3q 5h", "5q 3q 5h", "6q 5q 4q 3q", "2q 3q 4q 38 48",
-			"5q 1q 18 18 1q", "18 28 38 48 5q 5q", "2q 2q 4q 3q", "2q 1h rq"] },
+			"5q 1q 18 18 1q", "18 28 38 48 5h", "5q 2q 2q 4q", "3q 2q 1h"] },
 	{ id: "joyscale", level: "scales", title: "Joy to the World", scale: "scale", measures: JOY_TO_THE_WORLD },
 	{ id: "joyscaleEb", level: "scales", title: "Joy to the World", scale: "scaleEb", measures: JOY_TO_THE_WORLD },
 	{ id: "joyscaleAb", level: "scales", title: "Joy to the World", scale: "scaleAb", measures: JOY_TO_THE_WORLD },
