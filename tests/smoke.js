@@ -170,6 +170,19 @@ async function run() {
 		await page.click("#song-along");
 		check(await page.evaluate(function() { return songPlayTimer === null && accompNodes.length === 0; }), "Play along stops");
 
+		// Following a long song, the next line shows before it's reached
+		await page.evaluate(function() {
+			playThroughSong("joyscale");
+			drawSongEvent(practice.song.events.findIndex(function(e) { return e.measure === SONG_MEASURES_PER_LINE * 2; }));
+		});
+		await page.waitForTimeout(800);
+		var ahead = await page.evaluate(function() {
+			var out = document.getElementById("practice-staff-output");
+			var next = songLineInk(out.querySelector(".song-line.current").nextElementSibling);
+			return out.scrollTop > 0 && next.bottom <= out.scrollTop + out.clientHeight;
+		});
+		check(ahead, "a song scrolls to show the next line ahead");
+
 		// A save that fails says so instead of losing progress silently
 		var toast = await page.evaluate(function() {
 			var setItem = Storage.prototype.setItem;

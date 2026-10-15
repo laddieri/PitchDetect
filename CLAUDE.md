@@ -412,8 +412,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `renderSongView()` wraps `renderSongLine()` for all three screens: one
   `.song-line` div per line (shorter viewBox, `SONG_WHOLE_LINE_HEIGHT`,
   ledger notes overhang), keeps the scroll position across redraws and
-  scrolls the current line into view only as far as needed (so it follows
-  along while playing). It returns layouts by line; the editor's tap handler
+  scrolls the current line into view only as far as needed. Following along
+  (`opts.ahead`: Hear the song, Play along, Play it through, note by note,
+  Pick a part's playback, the import's Hear it) the next line must show
+  too: once it doesn't, the current line goes to the top, like a page turn;
+  lines are measured by their drawn ink (`songLineInk()`), not headroom. It returns layouts by line; the editor's tap handler
   uses the tapped `.song-line`'s layout.
 - **Sharing songs** (no server): the editor's share button
   (`shareEditorSong()`) makes a link `#song=<payload>` — base64url JSON
@@ -768,7 +771,8 @@ phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload; a failed save warns; the iPhone
 Home Screen hint shows once; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
-song has piano chords and Play along counts in, plays and stops. Add a
+song has piano chords and Play along counts in, plays and stops; a long
+song scrolls the next line into view before it's reached. Add a
 check there when adding something a broken change would silently lose.
 
 For anything else, drive the real app with Playwright + Chromium using a WAV

@@ -3441,7 +3441,7 @@ function drawSongPicker(playing) {
 	var out = document.getElementById("practice-staff-output");
 	var line = playing >= 0 ? Math.floor(s.events[playing].measure / SONG_MEASURES_PER_LINE)
 		: part ? Math.floor(part.a / SONG_MEASURES_PER_LINE) : -1;
-	var layouts = renderSongView(out, s.song, s.events, line, s.measures, { end: true, whole: true }, function(i) {
+	var layouts = renderSongView(out, s.song, s.events, line, s.measures, { end: true, whole: true, ahead: playing >= 0 }, function(i) {
 		if (i === playing) return done;
 		var m = s.events[i].measure;
 		return part && m >= part.a && m <= part.b ? accent : null;
@@ -3801,7 +3801,7 @@ function drawSongLine(pos) {
 		s.notes.forEach(function(n, i) { byEvent[n.event] = s.results[i]; });
 		var at = Math.min(pos, s.notes.length - 1);
 		renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
-			s.done || pos === 0 ? -1 : songLineOf(at), s.measures, { end: true, whole: true },
+			s.done || pos === 0 ? -1 : songLineOf(at), s.measures, { end: true, whole: true, ahead: true },
 			function(i) {
 				var r = byEvent[i];
 				return r === "right" || r === "octave" ? good : s.done && r ? bad : null;
@@ -3829,7 +3829,7 @@ function drawSongEvent(hl, arrow, ghost) {
 	if (part && hl >= inPart.end) e = s.events[inPart.end - 1];
 	renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
-		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null, whole: !!s.free },
+		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null, whole: !!s.free, ahead: true },
 		function(i) {
 			if (inPart && (i < inPart.start || i >= inPart.end)) return muted;
 			return i === hl ? accent : i < hl ? done : null;
@@ -4100,18 +4100,41 @@ function renderSongView(out, song, events, line, measures, opts, color) {
 		layouts[l] = r;
 	}
 	out.scrollTop = scroll;
-	// Bring the current line into view (only as far as it takes)
+	// Bring the current line into view (only as far as it takes). Following
+	// along (opts.ahead), the next line has to show too, before it's reached:
+	// once it doesn't, the current line goes to the top, turning the page.
+	// Then lines count by what's drawn, not their blank headroom.
 	var el = out.querySelector(".song-line.current");
 	if (el) {
-		var top = el.offsetTop, bottom = top + el.offsetHeight;
-		var to = top < out.scrollTop ? top - 6
-			: bottom > out.scrollTop + out.clientHeight ? bottom - out.clientHeight + 6 : null;
-		if (to !== null) {
+		var cur = opts.ahead ? songLineInk(el) : { top: el.offsetTop, bottom: el.offsetTop + el.offsetHeight };
+		var view = out.scrollTop + out.clientHeight;
+		var next = opts.ahead && el.nextElementSibling ? songLineInk(el.nextElementSibling) : null;
+		var to = cur.top < out.scrollTop || (next && next.bottom > view) ? cur.top - 6
+			: cur.bottom > view ? cur.bottom - out.clientHeight + 6 : null;
+		if (to !== null) to = Math.max(0, Math.min(to, out.scrollHeight - out.clientHeight));
+		// (A screen too short for both lines stays put with the current one on top)
+		if (to !== null && Math.abs(to - out.scrollTop) > 1) {
 			var smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 			out.scrollTo({ top: to, behavior: smooth ? "smooth" : "auto" });
 		}
 	}
 	return layouts;
+}
+
+// Where a stacked line's notes and staff are drawn: { top, bottom } in its
+// scroller's coordinates (the whole line, if it can't be measured)
+function songLineInk(el) {
+	var top = el.offsetTop, bottom = top + el.offsetHeight;
+	var svg = el.querySelector("svg");
+	var box = svg && svg.viewBox && svg.viewBox.baseVal;
+	if (!box || !box.height) return { top: top, bottom: bottom };
+	try {
+		var ink = svg.getBBox(), scale = el.offsetHeight / box.height;
+		if (!ink.height) return { top: top, bottom: bottom };
+		return { top: top + (ink.y - box.y) * scale, bottom: top + (ink.y + ink.height - box.y) * scale };
+	} catch (e) {
+		return { top: top, bottom: bottom };
+	}
 }
 
 var WHOLE_SONG_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">' +
@@ -5609,7 +5632,7 @@ function drawImportPreview(hl) {
 	var line = hl >= 0 ? Math.floor(imp.events[hl].measure / SONG_MEASURES_PER_LINE) : 0;
 	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
 	renderSongView(document.getElementById("practice-staff-output"), imp.song, imp.events, line, imp.measures,
-		{ end: true }, function(i) { return i === hl ? accent : null; });
+		{ end: true, ahead: hl >= 0 }, function(i) { return i === hl ? accent : null; });
 }
 
 // Keep the friend's song (once: the same song again isn't added twice)
