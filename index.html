@@ -2754,6 +2754,34 @@
 				from { opacity: 0; }
 			}
 
+			/* The pitch trace: the target's pass zone, and the pitch being
+			   played drawn from the note to a dot at the right */
+			.pitch-trace-band {
+				fill: var(--success);
+				opacity: 0.2;
+			}
+
+			.pitch-trace-line {
+				fill: none;
+				stroke-width: 3;
+				stroke-linecap: round;
+				stroke-linejoin: round;
+				opacity: 0.9;
+			}
+
+			.pitch-trace-line[data-state="good"] { stroke: var(--success); }
+			.pitch-trace-line[data-state="close"] { stroke: var(--warning); }
+			.pitch-trace-line[data-state="off"] { stroke: var(--danger); }
+			.pitch-trace-dot[data-state="good"] { fill: var(--success); }
+			.pitch-trace-dot[data-state="close"] { fill: var(--warning); }
+			.pitch-trace-dot[data-state="off"] { fill: var(--danger); }
+
+			.pitch-trace-dot {
+				stroke: #fff;
+				stroke-width: 1;
+				stroke-linejoin: round;
+			}
+
 			/* The arrow over the song note the mic is listening for */
 			.song-arrow {
 				animation: song-arrow-bob 1s ease-in-out infinite;

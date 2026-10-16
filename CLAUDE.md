@@ -175,11 +175,24 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   note passes within `PRACTICE_PASS_CENTS` held for `PRACTICE_HOLD_MS`, with
   gaps under `PRACTICE_GAP_MS` forgiven. Wrong notes are named only after
   `PRACTICE_HINT_FRAMES` steady frames (octave errors get their own hint).
-  At the same moment the wrong note appears as a faint gray whole note just
-  right of the target (`setPracticeGhost()` → `drawPracticeGhost()`, in the
-  lesson Play step, quiz, scale run and songs; not for an out-of-tune right
-  note or anything over an octave off). It clears in tune, after
-  `PRACTICE_GHOST_CLEAR_MS` of silence, or on the next note.
+  In songs the wrong note then appears as a faint gray whole note just
+  right of the target (`setPracticeGhost()` → `drawPracticeGhost()`; not for
+  an out-of-tune right note or anything over an octave off). It clears in
+  tune, after `PRACTICE_GHOST_CLEAR_MS` of silence, or on the next note.
+- **Pitch trace** (lesson Play step, quiz, scale run; in place of the
+  ghost): lesson and quiz staves are drawn `PRACTICE_TRACE_STAFF_WIDTH` wide
+  so the pitch being played can be drawn right of the note
+  (`setupPitchTrace()`, state in `pitchTrace`): a green band at the target's
+  height (the `PRACTICE_PASS_CENTS` zone), a line of the last
+  `PITCH_TRACE_MS` flowing from the note to a dot (now) at the right, colored
+  in the band / within half a step / off (`pitchTraceState()`). Height is
+  staff position (`practiceStaffStep()`, as the staff spells the note), so a
+  wrong note or brass partial sits on its own line; within half a step it's
+  zoomed (`PITCH_TRACE_FINE` units per 50¢, `pitchTraceOffset()`) so a bit
+  sharp or flat shows. Off the view, the dot becomes an arrow at the edge.
+  `updatePracticeListen()` feeds it (`pushPitchTrace(now, diff)`, EMA
+  smoothed, broken by `PITCH_TRACE_BREAK_MS` of silence); it shows only at
+  step 3, and `resetPracticeHold()` clears it.
 - **Tuning tips:** a student who plays every note a bit flat or sharp
   can't fix it note by note, so `trackTuning(cents, dt)` (lesson Play, quiz,
   scale run, note-by-note songs; frames within 50¢ of the target) keeps each

@@ -111,6 +111,13 @@ var PRACTICE_TUNE_CENTS = 12;      // average offset for the in-tune star
 var PRACTICE_GAP_MS = 250;         // dropouts shorter than this keep the hold
 var PRACTICE_HINT_FRAMES = 4;      // frames a wrong note must last to be named
 var PRACTICE_GHOST_CLEAR_MS = 600; // silence before the wrong-note ghost goes
+// Pitch trace: the lesson Play step, quiz and scale run draw the pitch being
+// played on the staff, a line running right from the target note
+var PITCH_TRACE_MS = 2500;         // history shown across the staff
+var PITCH_TRACE_FINE = 8;          // staff units 50¢ is drawn from the target (zoomed in)
+var PITCH_TRACE_SMOOTHING = 0.35;  // per-frame EMA on the drawn pitch
+var PITCH_TRACE_BREAK_MS = 150;    // silence that breaks the line
+var PRACTICE_TRACE_STAFF_WIDTH = 230; // lesson/quiz staff, wide for the trace
 // Tuning tips: a student who plays every note a bit flat (or sharp) needs
 // their instrument tuned or their embouchure firmed, not "push it up" note
 // after note
@@ -1475,6 +1482,7 @@ function resetPracticeHold() {
 	practice.hintDiff = null;
 	practice.hintFrames = 0;
 	practice.ghost = null;
+	clearPitchTrace();
 	var fill = document.getElementById("practice-hold-fill");
 	if (fill) fill.style.width = "0%";
 }
@@ -1525,6 +1533,7 @@ function updatePracticeListen(now, freq, level) {
 
 	if (now < (practice.ignoreUntil || 0)) {
 		setPracticeFeedback("Listen\u2026", "\u00a0");
+		pushPitchTrace(now, null);
 		return;
 	}
 
@@ -1534,6 +1543,7 @@ function updatePracticeListen(now, freq, level) {
 		var written = 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition();
 		var diff = written - practice.target;  // semitones, fractional
 		var cents = diff * 100;
+		pushPitchTrace(now, diff);
 		trackTuning(cents, dt);
 		if (Math.abs(cents) <= PRACTICE_PASS_CENTS) {
 			inZone = true;
@@ -1548,8 +1558,9 @@ function updatePracticeListen(now, freq, level) {
 		} else {
 			practiceWrongNoteHint(diff, hideName);
 		}
-	} else if (now - practice.lastSound > PRACTICE_GHOST_CLEAR_MS) {
-		setPracticeGhost(null);
+	} else {
+		pushPitchTrace(now, null);
+		if (now - practice.lastSound > PRACTICE_GHOST_CLEAR_MS) setPracticeGhost(null);
 	}
 	if (!freq && now - practice.lastSound > 1500) {
 		setPracticeFeedback(hideName ? "Hold it until the bar fills" : "Play " + name + " and hold it", "\u00a0");
@@ -3665,8 +3676,9 @@ function updateSongListen(now, freq, level) {
 		} else {
 			practiceWrongNoteHint(diff, true);
 		}
-	} else if (now - practice.lastSound > PRACTICE_GHOST_CLEAR_MS) {
-		setPracticeGhost(null);
+	} else {
+		pushPitchTrace(now, null);
+		if (now - practice.lastSound > PRACTICE_GHOST_CLEAR_MS) setPracticeGhost(null);
 	}
 	if (!freq && now - practice.lastSound > 1500) {
 		setPracticeFeedback("Play the glowing note", " ");
@@ -6426,12 +6438,15 @@ function playPop() {
 
 // Draw the note on a plain staff: no key signature, explicit flats, so a
 // beginner sees exactly what to play
-function drawPracticeStaff(writtenMidi, sharp, ghost) {
+function drawPracticeStaff(writtenMidi, sharp) {
 	var out = document.getElementById("practice-staff-output");
 	out.innerHTML = "";
 	var VF = Vex.Flow;
 	var clef = getCurrentClef();
-	var W = 170, H = STAFF_VIEWBOX_HEIGHT;
+	// Lessons and quizzes leave room right of the note for the pitch trace
+	var traced = practice && (practice.mode === "lesson" || practice.mode === "challenge");
+	var W = traced ? PRACTICE_TRACE_STAFF_WIDTH : 170, H = STAFF_VIEWBOX_HEIGHT;
+	if (!traced) pitchTrace = null;
 	var renderer = new VF.Renderer(out, VF.Renderer.Backends.SVG);
 	renderer.resize(W, H);
 	var context = renderer.getContext();
@@ -6448,9 +6463,9 @@ function drawPracticeStaff(writtenMidi, sharp, ghost) {
 		voice.addTickables([note]);
 		new VF.Formatter().joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 20);
 		voice.draw(context, stave);
-		if (ghost) drawPracticeGhost(context, stave, clef, ghost, note);
 	} catch (e) {
 		console.log("Could not render practice note:", spelled, octave, e.message);
+		note = null;
 	}
 
 	var svg = out.querySelector("svg");
@@ -6460,16 +6475,171 @@ function drawPracticeStaff(writtenMidi, sharp, ghost) {
 		svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
 		svg.style.width = "100%";
 		svg.style.height = "100%";
+		if (traced && note) setupPitchTrace(svg, note, writtenMidi, center - H / 2, H, stave.getNoteEndX());
 	}
 }
 
 // Show (or with null, clear) the wrong note being played beside the target,
-// redrawing the staff only when it changes
+// redrawing the staff only when it changes. Lessons and quizzes have the
+// pitch trace instead, which already shows where the wrong note is.
 function setPracticeGhost(midi) {
-	if (!practice || practice.ghost === midi || practice.step !== 3) return;
+	if (!practice || practice.ghost === midi || practice.step !== 3 || practice.mode !== "song") return;
 	practice.ghost = midi;
-	if (practice.mode === "song") drawSongLine(practice.song.pos);
-	else if (practice.mode === "lesson" || practice.mode === "challenge") drawPracticeStaff(practice.target, false, midi);
+	drawSongLine(practice.song.pos);
+}
+
+// The pitch trace: a band at the target note's height (the pass zone), and
+// the pitch the student is playing drawn as a line flowing right from the
+// note, newest at the right, ending in a dot. Height is staff position, so a
+// wrong note or partial sits on its own line or space; within half a step
+// the scale is zoomed in (PITCH_TRACE_FINE per 50¢) so a little sharp or flat
+// shows plainly.
+var pitchTrace = null;
+
+function setupPitchTrace(svg, note, target, top, height, endX) {
+	var ns = "http://www.w3.org/2000/svg";
+	var headX = note.getAbsoluteX();
+	var headW = note.getGlyphWidth();
+	var g = document.createElementNS(ns, "g");
+	g.setAttribute("class", "pitch-trace");
+	g.setAttribute("aria-hidden", "true");
+	// Under the staff lines and note, so they read over it
+	svg.insertBefore(g, svg.firstChild);
+	var band = document.createElementNS(ns, "rect");
+	band.setAttribute("class", "pitch-trace-band");
+	var lines = {};
+	g.appendChild(band);
+	["good", "close", "off"].forEach(function(state) {
+		var p = document.createElementNS(ns, "path");
+		p.setAttribute("class", "pitch-trace-line");
+		p.setAttribute("data-state", state);
+		g.appendChild(p);
+		lines[state] = p;
+	});
+	// The dot goes on top of everything
+	var dot = document.createElementNS(ns, "path");
+	dot.setAttribute("class", "pitch-trace-dot");
+	svg.appendChild(dot);
+
+	var y = note.getYs()[0];
+	var bandH = PRACTICE_PASS_CENTS / 50 * PITCH_TRACE_FINE;
+	band.setAttribute("x", headX - 4);
+	band.setAttribute("width", endX - headX + 4);
+	band.setAttribute("y", y - bandH);
+	band.setAttribute("height", 2 * bandH);
+	band.setAttribute("rx", bandH);
+
+	var old = pitchTrace;
+	pitchTrace = {
+		target: target, y: y, top: top + 5, bottom: top + height - 5,
+		x0: headX + headW + 6, x1: endX - 6,
+		points: old && old.target === target ? old.points : [],
+		smooth: old && old.target === target ? old.smooth : null,
+		lastSound: old && old.target === target ? old.lastSound : 0,
+		band: band, lines: lines, dot: dot
+	};
+	renderPitchTrace(performance.now());
+}
+
+function pitchTraceActive() {
+	return !!pitchTrace && !!practice && practice.step === 3 &&
+		(practice.mode === "lesson" || practice.mode === "challenge");
+}
+
+// The staff step (diatonic, half a space each) of a written note, as the
+// practice staff spells it
+function practiceStaffStep(midi) {
+	var spelled = practiceSpelling(midi);
+	var alter = spelled.length > 1 ? (spelled.charAt(1) === "#" ? 1 : -1) : 0;
+	var natural = midi - alter;
+	return (Math.floor(natural / 12) - 1) * 7 + "CDEFGAB".indexOf(spelled.charAt(0));
+}
+
+// Height above the target, in staff units, for a pitch diff semitones from it
+function pitchTraceOffset(diff) {
+	var t = pitchTrace.target, x = t + diff, n = Math.floor(x);
+	var a = practiceStaffStep(n), b = practiceStaffStep(n + 1);
+	var staff = (a + (b - a) * (x - n) - practiceStaffStep(t)) * LINE_SPACING / 2;
+	var fine = Math.max(-0.5, Math.min(0.5, diff)) * 2 * PITCH_TRACE_FINE;
+	// Both grow with the diff, so the larger keeps the line moving one way
+	return Math.abs(staff) > Math.abs(fine) ? staff : fine;
+}
+
+function pitchTraceState(diff) {
+	if (Math.abs(diff) * 100 <= PRACTICE_PASS_CENTS) return "good";
+	return Math.round(diff) === 0 ? "close" : "off";
+}
+
+function clearPitchTrace() {
+	if (!pitchTrace) return;
+	pitchTrace.points = [];
+	pitchTrace.smooth = null;
+	pitchTrace.lastSound = 0;
+	renderPitchTrace(performance.now());
+}
+
+// Called from the mic loop each frame while the trace is up: diff is the
+// pitch in semitones from the target, null for no confident pitch
+function pushPitchTrace(now, diff) {
+	if (!pitchTraceActive()) return;
+	var tr = pitchTrace;
+	if (diff !== null) {
+		// Smooth the wobble frame to frame, but jump straight to another note
+		tr.smooth = tr.smooth === null || now - tr.lastSound > PITCH_TRACE_BREAK_MS || Math.abs(diff - tr.smooth) > 0.7
+			? diff : tr.smooth + PITCH_TRACE_SMOOTHING * (diff - tr.smooth);
+		tr.lastSound = now;
+		tr.points.push({ t: now, d: tr.smooth });
+	} else if (now - tr.lastSound > PITCH_TRACE_BREAK_MS && tr.points.length && tr.points[tr.points.length - 1].d !== null) {
+		tr.points.push({ t: now, d: null });
+	}
+	while (tr.points.length && tr.points[0].t < now - PITCH_TRACE_MS) tr.points.shift();
+	renderPitchTrace(now);
+}
+
+function renderPitchTrace(now) {
+	var tr = pitchTrace;
+	if (!tr || !tr.band.isConnected) return;
+	var active = pitchTraceActive();
+	tr.band.style.display = active ? "" : "none";
+	var paths = { good: "", close: "", off: "" };
+	var prev = null, prevXY = null;
+	var span = tr.x1 - tr.x0;
+	function xy(p) {
+		var y = tr.y - pitchTraceOffset(p.d);
+		return [tr.x1 - (now - p.t) / PITCH_TRACE_MS * span, Math.max(tr.top, Math.min(tr.bottom, y)), y];
+	}
+	if (active) {
+		tr.points.forEach(function(p) {
+			if (p.d === null) { prev = null; return; }
+			var c = xy(p);
+			if (prev) {
+				paths[pitchTraceState(p.d)] += "M" + prevXY[0].toFixed(1) + " " + prevXY[1].toFixed(1) +
+					"L" + c[0].toFixed(1) + " " + c[1].toFixed(1);
+			}
+			prev = p;
+			prevXY = c;
+		});
+	}
+	for (var state in paths) tr.lines[state].setAttribute("d", paths[state]);
+
+	// The dot: the pitch now, held through short dropouts like the note panel
+	var last = active && tr.points.length ? tr.points[tr.points.length - 1] : null;
+	if (!last || last.d === null || now - tr.lastSound > NOTE_CLEAR_HOLD_MS) {
+		tr.dot.setAttribute("d", "");
+		return;
+	}
+	var p = xy({ t: now, d: last.d });
+	var x = p[0], y = p[1], r = 3.2;
+	tr.dot.setAttribute("data-state", pitchTraceState(last.d));
+	if (p[2] < tr.top || p[2] > tr.bottom) {
+		// Off the staff's view: an arrow at the edge pointing to where it is
+		var s = p[2] < tr.top ? -1 : 1;
+		tr.dot.setAttribute("d", "M" + (x - 4) + " " + (y - 2 * s) + "L" + (x + 4) + " " + (y - 2 * s) +
+			"L" + x + " " + (y + 4 * s) + "Z");
+	} else {
+		tr.dot.setAttribute("d", "M" + (x - r) + " " + y + "a" + r + " " + r + " 0 1 0 " + (2 * r) +
+			" 0a" + r + " " + r + " 0 1 0 " + (-2 * r) + " 0");
+	}
 }
 
 // A faint whole note for the wrong note played, just right of the target (a
