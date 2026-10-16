@@ -2462,6 +2462,16 @@
 				margin-right: -8px;
 			}
 
+			/* So do the Lessons and Songs tabs of Every activity (more cards
+			   in teacher mode, and on flute and oboe): no squeezing them */
+			.practice-view[data-menu-page="lessons"] .practice-menu,
+			.practice-view[data-menu-page="songs"] .practice-menu {
+				grid-auto-rows: minmax(min-content, auto);
+				overflow-y: auto;
+				padding: 0 8px 8px 0;
+				margin-right: -8px;
+			}
+
 			/* The card at the end of a unit, on to the next */
 			.practice-choice.unit-next {
 				border-style: dashed;
@@ -5269,15 +5279,16 @@
 				}
 
 				.practice-menu[data-unit] {
-					grid-auto-rows: minmax(58px, auto);
+					grid-auto-rows: minmax(min-content, auto);
 					max-height: none;
 					padding-bottom: 5px;
 				}
 
-				/* The Lessons tab (a card per lesson set) scrolls like a unit
-				   rather than squeeze its cards */
-				.practice-view[data-menu-page="lessons"] .practice-menu {
-					grid-auto-rows: minmax(58px, auto);
+				/* The Lessons and Songs tabs scroll like a unit rather than
+				   squeeze their cards */
+				.practice-view[data-menu-page="lessons"] .practice-menu,
+				.practice-view[data-menu-page="songs"] .practice-menu {
+					grid-auto-rows: minmax(min-content, auto);
 					max-height: none;
 					overflow-y: auto;
 					padding: 0 8px 5px 0;
