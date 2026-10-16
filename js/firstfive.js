@@ -1601,7 +1601,16 @@ function practiceWrongNoteHint(diff, hideTarget) {
 	// far off it is (a slightly out-of-tune right note doesn't; squeaks
 	// beyond an octave would only clutter the staff)
 	setPracticeGhost(r !== 0 && Math.abs(r) <= 12 ? practice.target + r : null);
-	if (r === 0) {
+	var partial = r !== 0 ? brassPartialMiss(diff) : 0;
+	if (partial) {
+		// Brass on the wrong partial: the fingers are fine, the lips and air aren't
+		var played = r % 12 === 0
+			? (hideTarget ? "the same note, " + (r > 0 ? "higher" : "lower") : "a " + (r > 0 ? "higher " : "lower ") + practiceNoteName(practice.target))
+			: practiceNoteName(practice.target + r);
+		var right = practice.instrument === "trombone" ? "Right slide" : "Right fingers";
+		setPracticeFeedback(right + (partial > 0 ? ", too high!" : ", too low!"),
+			"That was " + played + (partial > 0 ? ". Relax your lips and use slower air." : ". Firm up your lips and use faster air."), "off");
+	} else if (r === 0) {
 		setPracticeFeedback(cents < 0 ? "A little low" : "A little high",
 			cents < 0 ? "Push the pitch up a bit" : "Relax the pitch down a bit", "close");
 	} else if (r % 12 === 0) {
@@ -1613,6 +1622,36 @@ function practiceWrongNoteHint(diff, hideTarget) {
 			: hasFingeringData(practice.instrument) ? ". Check your fingering." : ". Try again.";
 		setPracticeFeedback("Not quite!", "That sounded like " + practiceNoteName(practice.target + r) + check, "off");
 	}
+}
+
+// Each brass instrument's open fundamental (concert MIDI), and the harmonic
+// series above it in semitones (partials 2-12; the 7th and 11th are too out
+// of tune to be fingered for, so they never pick a fingering)
+var BRASS_FUNDAMENTALS = { trumpet: 46, horn: 29, trombone: 34, euphonium: 34, tuba: 22 };
+var BRASS_PARTIALS = [12, 19.02, 24, 27.86, 31.02, 33.69, 36, 38.04, 39.86, 41.51, 43.02];
+
+// Whether a wrong note (diff semitones from the target) is another partial
+// of the target's fingering: 1 above, -1 below, 0 not (or not brass). The
+// fingering is the shortest tubing (valves down or slide out by 0-6
+// semitones) that has the target as a partial, which is how charts finger
+// nearly every note.
+function brassPartialMiss(diff) {
+	var fund = BRASS_FUNDAMENTALS[practice.instrument];
+	if (fund === undefined) return 0;
+	var target = practice.target - getTransposition();
+	for (var lower = 0; lower <= 6; lower++) {
+		var base = fund - lower;
+		var fits = BRASS_PARTIALS.some(function(p, i) {
+			return i !== 5 && i !== 9 && Math.abs(base + p - target) < 0.35;
+		});
+		if (!fits) continue;
+		var played = target + diff;
+		var other = BRASS_PARTIALS.some(function(p) {
+			return Math.abs(base + p - played) < 0.5 && Math.abs(base + p - target) > 0.5;
+		});
+		return other ? (diff > 0 ? 1 : -1) : 0;
+	}
+	return 0;
 }
 
 // ---------------------------------------------------------------------------

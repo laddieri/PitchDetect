@@ -175,6 +175,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   note passes within `PRACTICE_PASS_CENTS` held for `PRACTICE_HOLD_MS`, with
   gaps under `PRACTICE_GAP_MS` forgiven. Wrong notes are named only after
   `PRACTICE_HINT_FRAMES` steady frames (octave errors get their own hint).
+  On brass, a wrong note that's another partial of the target's fingering
+  (`brassPartialMiss()`: `BRASS_FUNDAMENTALS` / `BRASS_PARTIALS`, the
+  fingering taken as the shortest tubing with the target as a partial) says
+  "Right fingers (Right slide), too high/low!" with lips-and-air advice
+  instead of "Check your fingering".
   In songs the wrong note then appears as a faint gray whole note just
   right of the target (`setPracticeGhost()` → `drawPracticeGhost()`; not for
   an out-of-tune right note or anything over an octave off). It clears in
