@@ -59,9 +59,17 @@ mic failures go through `micErrorMessage()`, which says what to do next). |
 
 A full-screen practice view (`#practice-view`, opened by the toolbar's
 **Practice** button → `openPractice()`; the app behind it is made `inert`).
-It opens on a **menu** (`showPracticeMenu(page)`, `PRACTICE_ACTIVITIES`) of
-activities, each card showing its best result. Students see one **unit** at
-a time (`PRACTICE_UNITS`: Your first notes, The first 5 notes, Notes 6 and
+It opens on the **map** (menu page `map`, `showPracticeMap()`), a game-style
+overworld: every unit as a numbered stop on a winding trail
+(`.world-row`, one SVG curve per gap to the next stop, gold up to the
+student's unit), each with its title, notes (`practiceUnitSub()`) and steps
+done; finished units turn gold, the unit with the next path step
+(`practiceCurrentUnit()`) carries the student's avatar and is scrolled into
+view, and the last stop is **Every activity**. A **Next:** button under the
+trail starts the next path step (its unit goes into history first). A stop
+opens that unit's page of the **menu** (`showPracticeMenu(page)`,
+`PRACTICE_ACTIVITIES`) of activities, each card showing its best result.
+Students see one **unit** at a time (`PRACTICE_UNITS`: Your first notes, The first 5 notes, Notes 6 and
 beyond, The B♭ scale, then one unit per concert scale: The E♭ / A♭ / F / C
 scale; menu pages `unit1`–`unit8`, `practiceUnit()`): the
 unit's cards in path order (a half card left unpaired goes wide), a unit
@@ -71,12 +79,13 @@ dashed card at the end leading on (`practiceUnitNextCard()`). Past the last
 unit is **Every activity**: the old tabbed pages below, where teachers
 start. Which of the two a student uses sticks (`practice.menuAll`, saved as
 `profile.menuAll`); `menuPageFor(id)` is the page to return to from an
-activity, `defaultMenuPage()` the unit with the next path step. Every
+activity, `defaultMenuPage()` the map. The player bar shows only on the
+map; units and tabs go back to the map. Every
 activity's three pages are picked by tabs (`PRACTICE_PAGES`, `#practice-tabs`, `renderPracticeTabs()`; each
 activity's `page`, `activityPage()`; `practice.menuPage` /
 `#practice-view[data-menu-page]`), all row cards read top to bottom,
 easiest first. Leaving an activity returns to its page; opening Practice
-shows the page with the next path step.
+shows the map.
 **Lessons** (`lessons`): first sounds, **Learn the first 3 notes** (an
 easier start: concert D C B♭, `FIRST3_STEPS`, best stars in
 `pitchdetect-first-three`; its result leads to the name drill), **Learn the
@@ -148,11 +157,13 @@ list's built-in songs, `listCustomSongs(list)` its own songs), **Write a
 `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
-to the menu and the menu to the app; the menu also stops the mic. Browser
+to its menu page, a menu page to the map and the map to the app; the menu
+also stops the mic. Browser
 history mirrors these screens (`syncPracticeHistory()`, run after every
 `setPracticeMode()` and in `closePractice()`), so Android's back button and
-iOS's swipe-back step back like the arrow: each screen has a depth (menu 1,
-any page, so tabs replace; activity 2, song 3); deeper pushes, sideways replaces, shallower
+iOS's swipe-back step back like the arrow: each screen has a depth (map 1;
+a unit or tab 2, so they replace each other; the profile 2; activity 3,
+song 4); deeper pushes, sideways replaces, shallower
 `history.go()`s back, and `popstate` shows the entry's screen. Keep new
 screens inside `practiceHistoryState()`. The lessons
 teach the band-method first five notes, concert B♭ C D E♭ F, at each
@@ -636,13 +647,15 @@ Loaded after firstfive.js; no server, everything stays on the device.
   3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
   writing a 5-note song, notes 6 and beyond, 2 of its songs, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs, then learning and playing
-  the E♭, A♭, F and C scales and Joy to the World on each, one unit each). Nothing is locked: the menu
+  the E♭, A♭, F and C scales and Joy to the World on each, one unit each). Nothing is locked: the map
+  puts the avatar on the next step's unit, and a unit page
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
   the tab of the page it's on), and the profile lists the path; tapping a step opens it.
-- **Screens:** the player bar (`#player-bar`, menu only: avatar, level, XP
+- **Screens:** the player bar (`#player-bar`, on the map only: avatar, level, XP
   bar, streak, today's goal ring; `updatePlayerBar()`, run by
   `onPracticeMenuShown()`) opens the profile (`showProfile()`, mode
-  `profile`, depth 2 in history): level and XP, avatar picker, streak /
+  `profile`, depth 2 in history; from a path step, the step's unit takes
+  the profile's place first): level and XP, avatar picker, streak /
   today / total, this week's bars and the goal picker, the path, badges,
   Switch student. Both render into `#practice-hub`.
 - **PWA:** `manifest.webmanifest` + `sw.js` (registered at the end of
@@ -792,7 +805,8 @@ node tests/smoke.js                # CHROMIUM=/path/to/chrome for a browser of y
 
 It serves the repo itself and checks: no errors or page scroll at desktop and
 phone sizes; Listen names a 440 Hz tone; a student signs in, and their
-profile, instrument and XP survive a reload; a failed save warns; the iPhone
+profile, instrument and XP survive a reload;
+Practice opens on the map and back from its Next step goes to the unit, then the map; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a

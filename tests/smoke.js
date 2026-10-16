@@ -138,6 +138,21 @@ async function run() {
 		page = await newPage(context, errors);
 		await page.goto(base);
 		await signIn(page, "Smoke", "Trumpet");
+		var map = await page.evaluate(function() {
+			return { page: document.getElementById("practice-view").getAttribute("data-menu-page"),
+				stops: document.querySelectorAll(".world-stop").length - PRACTICE_UNITS.length,
+				here: !!document.querySelector('.world-row[data-state="current"] .world-avatar') };
+		});
+		check(map.page === "map" && map.stops === 1 && map.here,
+			"Practice opens on the map of units, the student on theirs");
+		await page.click(".world-continue");
+		await page.waitForFunction(function() { return practice.mode !== "menu"; });
+		await page.goBack();
+		await page.waitForFunction(function() { return practice.mode === "menu"; });
+		var unitPage = await page.getAttribute("#practice-view", "data-menu-page");
+		await page.goBack();
+		await page.waitForFunction(function() { return practice.menuPage === "map"; });
+		check(unitPage === "unit1", "back from the next step goes to its unit, then the map (got " + unitPage + ")");
 		await page.evaluate(function() { recordProgress(25); saveProfile(); });
 		var saved = await page.evaluate(function() {
 			var id = localStorage.getItem("pitchdetect-student");

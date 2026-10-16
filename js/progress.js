@@ -701,8 +701,14 @@ function nextPathNode(nodes) {
 
 function startPathNode(node) {
 	if (node.level) songLevelsOpen[node.level] = true;
-	// Back from it lands on its unit
-	if (!practice.menuAll) practice.menuPage = node.unit;
+	// Back from it lands on its unit (then the map): from the profile, the
+	// unit takes the profile's place in history first
+	if (practice.mode === "profile") {
+		showPracticeMenu(node.unit);
+		syncPracticeHistory();
+	} else if (!practice.menuAll) {
+		practice.menuPage = node.unit;
+	}
 	startPracticeActivity(node.activity);
 }
 
@@ -711,7 +717,8 @@ function startPathNode(node) {
 function markNextUp(menu, page) {
 	if (!progressCounts()) return;
 	var next = nextPathNode();
-	if (!next) return;
+	// The map marks the student's unit itself (showPracticeMap())
+	if (!next || page === "map") return;
 	// On a unit, only a card for the step's own unit; else the arrow (and the
 	// card at the end) that leads toward it
 	var unit = practiceUnit(page);

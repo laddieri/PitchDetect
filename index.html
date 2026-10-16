@@ -2586,6 +2586,282 @@
 				background: var(--success);
 			}
 
+			/* The map Practice opens on (showPracticeMap()): every unit as a
+			   stop on a winding trail, and a button on to the next step. It
+			   has no unit bar or tabs; the player bar shows only here. */
+			.practice-view[data-menu-page="map"] .practice-units,
+			.practice-view[data-menu-page="map"] .practice-tabs,
+			.practice-view:not([data-menu-page="map"]) .player-bar {
+				display: none;
+			}
+
+			.practice-menu[data-world] {
+				display: flex;
+				flex-direction: column;
+				gap: 12px;
+				max-height: 600px;
+			}
+
+			.world-scroll {
+				position: relative;
+				flex: 1;
+				min-height: 0;
+				overflow-y: auto;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				background: var(--surface);
+				box-shadow: var(--shadow-md);
+			}
+
+			/* Scenery that scrolls with the trail */
+			.world-trail {
+				position: relative;
+				background:
+					radial-gradient(circle at 12% 30%, rgba(22, 163, 74, 0.08) 0 50px, transparent 51px),
+					radial-gradient(circle at 88% 75%, rgba(79, 70, 229, 0.07) 0 70px, transparent 71px);
+				background-size: 100% 420px;
+				padding: 18px 0 8px;
+				--world-row-h: 104px;
+				--world-node: 64px;
+			}
+
+			.world-row {
+				position: relative;
+				height: var(--world-row-h);
+			}
+
+			/* The trail from this stop's node to the next one's */
+			.world-path {
+				position: absolute;
+				left: 0;
+				top: calc(var(--world-node) / 2);
+				width: 100%;
+				height: 100%;
+				overflow: visible;
+				pointer-events: none;
+			}
+
+			.world-path path {
+				fill: none;
+				stroke: var(--border-strong);
+				stroke-width: 6;
+				stroke-dasharray: 2 12;
+				stroke-linecap: round;
+			}
+
+			.world-path.walked path {
+				stroke: #f5b301;
+				stroke-dasharray: none;
+			}
+
+			.world-stop {
+				position: absolute;
+				inset: 0;
+				border: none;
+				background: transparent;
+				color: var(--text);
+				font-family: var(--font);
+				cursor: pointer;
+			}
+
+			.world-stop:focus-visible {
+				outline: none;
+			}
+
+			.world-stop:focus-visible .world-node {
+				box-shadow: var(--ring);
+			}
+
+			.world-node {
+				position: absolute;
+				top: 0;
+				left: calc(25% - var(--world-node) / 2);
+				width: var(--world-node);
+				height: var(--world-node);
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border: 3px solid var(--border-strong);
+				border-radius: 50%;
+				background: var(--surface);
+				color: var(--text-muted);
+				font-size: 1.6rem;
+				font-weight: 700;
+				line-height: 1;
+				box-shadow: 0 4px 0 var(--border-strong);
+				transition: transform 0.15s ease;
+			}
+
+			.world-row.right .world-node {
+				left: calc(75% - var(--world-node) / 2);
+			}
+
+			.world-stop:hover .world-node {
+				transform: translateY(-2px);
+			}
+
+			.world-row[data-state="started"] .world-node {
+				border-color: var(--accent);
+				background: var(--accent-soft);
+				color: var(--accent);
+				box-shadow: 0 4px 0 var(--accent);
+			}
+
+			.world-row[data-state="current"] .world-node {
+				border-color: var(--accent-active);
+				background: var(--accent);
+				color: #fff;
+				box-shadow: 0 4px 0 var(--accent-active), 0 0 0 8px var(--accent-ring);
+			}
+
+			.world-row[data-state="done"] .world-node {
+				border-color: #c98f00;
+				background: #f5b301;
+				color: #fff;
+				box-shadow: 0 4px 0 #c98f00;
+			}
+
+			.world-row[data-state="all"] .world-node {
+				border-style: dashed;
+				box-shadow: none;
+				font-size: 1.4rem;
+			}
+
+			/* The student, standing on their unit */
+			.world-avatar {
+				position: absolute;
+				top: -18px;
+				right: -16px;
+				width: 34px;
+				height: 34px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border: 2px solid var(--accent);
+				border-radius: 50%;
+				background: var(--surface);
+				font-size: 1.25rem;
+				animation: next-up-bob 1.6s ease-in-out infinite;
+			}
+
+			.world-info {
+				position: absolute;
+				top: 0;
+				left: calc(25% + var(--world-node) / 2 + 14px);
+				right: 12px;
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				gap: 2px;
+				text-align: left;
+			}
+
+			.world-row.right .world-info {
+				left: 12px;
+				right: calc(25% + var(--world-node) / 2 + 14px);
+				align-items: flex-end;
+				text-align: right;
+			}
+
+			.world-kicker {
+				color: var(--text-muted);
+				font-size: 0.75rem;
+				font-weight: 700;
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+			}
+
+			.world-row[data-state="current"] .world-kicker {
+				color: var(--accent);
+			}
+
+			.world-title {
+				max-width: 100%;
+				font-size: 1.08rem;
+				font-weight: 700;
+				line-height: 1.2;
+			}
+
+			.world-sub {
+				max-width: 100%;
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+				color: var(--text-muted);
+				font-size: 0.85rem;
+			}
+
+			.world-meter {
+				width: min(140px, 100%);
+				margin-top: 3px;
+			}
+
+			/* On to the next step on the path */
+			.world-continue {
+				flex-shrink: 0;
+				display: flex;
+				align-items: center;
+				gap: 14px;
+				width: 100%;
+				padding: 10px 18px;
+				background: var(--accent);
+				color: #fff;
+				text-align: left;
+				box-shadow: var(--shadow-md);
+			}
+
+			.world-continue:hover {
+				background: var(--accent-hover);
+			}
+
+			.world-continue:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.world-continue-play {
+				flex: 0 0 40px;
+				height: 40px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border-radius: 50%;
+				background: rgba(255, 255, 255, 0.22);
+				font-size: 1rem;
+				padding-left: 3px;
+			}
+
+			.world-continue-text {
+				flex: 1;
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+			}
+
+			.world-continue-title,
+			.world-continue-sub {
+				overflow: hidden;
+				text-overflow: ellipsis;
+				white-space: nowrap;
+			}
+
+			.world-continue-title {
+				font-size: 1.1rem;
+				font-weight: 700;
+			}
+
+			.world-continue-sub {
+				font-size: 0.85rem;
+				font-weight: 600;
+				opacity: 0.85;
+			}
+
+			@media (prefers-reduced-motion: reduce) {
+				.world-avatar {
+					animation: none;
+				}
+			}
+
 			/* The page tabs above the menu */
 			.practice-tabs {
 				flex-shrink: 0;
@@ -4959,6 +5235,59 @@
 				box-shadow: none;
 			}
 
+			body.kid-mode .world-scroll {
+				border: var(--cartoon-border);
+				box-shadow: var(--cartoon-shadow);
+				background: #fffdf5;
+			}
+
+			body.kid-mode .world-trail {
+				background-image:
+					radial-gradient(circle at 12% 30%, rgba(126, 224, 129, 0.25) 0 50px, transparent 51px),
+					radial-gradient(circle at 88% 75%, rgba(143, 211, 255, 0.3) 0 70px, transparent 71px);
+			}
+
+			body.kid-mode .world-node {
+				border: var(--cartoon-border);
+				box-shadow: 0 4px 0 var(--ink);
+				color: var(--ink);
+			}
+
+			body.kid-mode .world-row[data-state="started"] .world-node { background: #ffe9a8; }
+			body.kid-mode .world-row[data-state="current"] .world-node {
+				background: var(--accent);
+				color: #fff;
+				box-shadow: 0 4px 0 var(--ink), 0 0 0 8px var(--accent-ring);
+			}
+			body.kid-mode .world-row[data-state="done"] .world-node { background: #ffd23f; }
+			body.kid-mode .world-row[data-state="all"] .world-node {
+				border-style: dashed;
+				box-shadow: none;
+			}
+
+			body.kid-mode .world-path path {
+				stroke: #c9bfa8;
+			}
+
+			body.kid-mode .world-path.walked path {
+				stroke: #ffb300;
+			}
+
+			body.kid-mode .world-avatar {
+				border: var(--cartoon-border);
+				background: #ffd23f;
+			}
+
+			body.kid-mode .world-continue {
+				border: var(--cartoon-border);
+				box-shadow: var(--cartoon-shadow);
+			}
+
+			body.kid-mode .world-continue:active {
+				transform: translate(3px, 3px);
+				box-shadow: 2px 2px 0 var(--ink);
+			}
+
 			body.kid-mode .practice-choice:active {
 				transform: translate(3px, 3px);
 				box-shadow: 2px 2px 0 var(--ink);
@@ -5282,6 +5611,47 @@
 					grid-auto-rows: minmax(min-content, auto);
 					max-height: none;
 					padding-bottom: 5px;
+				}
+
+				.practice-menu[data-world] {
+					max-height: none;
+					gap: 10px;
+				}
+
+				.world-trail {
+					--world-row-h: 96px;
+					--world-node: 56px;
+				}
+
+				.world-node {
+					font-size: 1.4rem;
+				}
+
+				.world-info {
+					left: calc(25% + var(--world-node) / 2 + 10px);
+					right: 8px;
+				}
+
+				.world-row.right .world-info {
+					left: 8px;
+					right: calc(25% + var(--world-node) / 2 + 10px);
+				}
+
+				.world-title {
+					font-size: 1rem;
+				}
+
+				.world-sub {
+					font-size: 0.78rem;
+				}
+
+				.world-continue {
+					padding: 8px 14px;
+					gap: 12px;
+				}
+
+				.world-continue-title {
+					font-size: 1rem;
 				}
 
 				/* The Lessons and Songs tabs scroll like a unit rather than
