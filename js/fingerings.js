@@ -334,7 +334,7 @@ var imageFingeringMap = {
 	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0,  w: 331, h: 476, first: 34, last: 68 },
 	"flute":     { folder: "Flute",     ext: "png", transposition: 0,  w: 496, h: 163, first: 60, last: 95,
 		extra: ["67-b-thumb", "69-b-thumb"] },  // the B-thumb G and A of the B A G lessons
-	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0,  w: 223, h: 469, first: 58, last: 84 },
+	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0,  w: 223, h: 511, first: 58, last: 84 },
 	// All saxophones share the same fingering images indexed at writtenMidi - 12.
 	// (The image set uses a MIDI numbering where C4 = 48 instead of 60,
 	//  so we subtract 12 regardless of which saxophone is selected.)
@@ -375,11 +375,12 @@ function fingeringImagePaths(instrument) {
 // lets them be laid out before the images load. Offsets were measured by
 // matching the tone-hole outlines; sets not listed (horn) already line up.
 var fingeringImageLayouts = {
-	"Oboe": { size: [67, 409], files: {
-		58: [-67, 0, 223, 451], 59: [-67, 0, 223, 451], 60: [-67, 0, 134, 451], 61: [-67, 0, 134, 451], 63: [-67, 0, 134, 451],
-		68: [0, 0, 130, 409], 73: [-67, 0, 134, 451], 75: [-67, 0, 134, 451], 77: [-39, -60, 106, 469], 78: [-39, -60, 106, 469],
-		79: [-39, -60, 106, 469], 80: [-39, -60, 170, 469], 81: [0, -60, 105, 468], 82: [0, -60, 105, 468], 83: [0, -60, 105, 468],
-		84: [0, -60, 105, 468]
+	// Every oboe file has the thumb octave key and the right pinky keys (white
+	// when not pressed), so they don't come and go; files with keys to the
+	// right of the column are wider.
+	"Oboe": { size: [134, 511], files: {
+		58: [0, 0, 223, 511], 59: [0, 0, 223, 511], 68: [0, 0, 197, 511], 80: [0, 0, 198, 511], 81: [0, 0, 172, 511],
+		82: [0, 0, 172, 511], 83: [0, 0, 172, 511], 84: [0, 0, 172, 511]
 	} },
 	"Saxophone": { size: [149, 402], files: {
 		46: [0, 0, 221, 462], 47: [0, 0, 221, 462], 48: [0, 0, 152, 462], 49: [0, 0, 221, 462], 51: [0, 0, 152, 462],
