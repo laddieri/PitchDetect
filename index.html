@@ -2776,6 +2776,36 @@
 			.pitch-trace-dot[data-state="close"] { fill: var(--warning); }
 			.pitch-trace-dot[data-state="off"] { fill: var(--danger); }
 
+			/* Brass: the notes the target's fingering plays, the one being
+			   played lit up */
+			.pitch-ladder-rail {
+				stroke: var(--text-faint);
+				stroke-width: 1;
+				fill: none;
+			}
+
+			.pitch-ladder-rung {
+				stroke: var(--text-faint);
+				stroke-width: 2.5;
+				stroke-linecap: round;
+				fill: none;
+			}
+
+			.pitch-ladder-rung[data-target] { stroke: var(--success); }
+			.pitch-ladder-rung[data-state="good"] { stroke: var(--success); stroke-width: 4; }
+			.pitch-ladder-rung[data-state="close"] { stroke: var(--warning); stroke-width: 4; }
+			.pitch-ladder-rung[data-state="off"] { stroke: var(--danger); stroke-width: 4; }
+
+			.pitch-ladder-label {
+				font-family: var(--font);
+				font-size: 8.5px;
+				font-weight: 600;
+				fill: var(--text-muted);
+			}
+
+			.pitch-ladder-label[data-target] { fill: var(--success); }
+			.pitch-ladder-label[data-state="off"] { fill: var(--danger); }
+
 			.pitch-trace-dot {
 				stroke: #fff;
 				stroke-width: 1;

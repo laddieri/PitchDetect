@@ -176,8 +176,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   gaps under `PRACTICE_GAP_MS` forgiven. Wrong notes are named only after
   `PRACTICE_HINT_FRAMES` steady frames (octave errors get their own hint).
   On brass, a wrong note that's another partial of the target's fingering
-  (`brassPartialMiss()`: `BRASS_FUNDAMENTALS` / `BRASS_PARTIALS`, the
-  fingering taken as the shortest tubing with the target as a partial) says
+  (`brassPartialMiss()` over `brassPartials()`: `BRASS_FUNDAMENTALS` /
+  `BRASS_PARTIALS`, the fingering taken as the shortest tubing with the
+  target as a partial) says
   "Right fingers (Right slide), too high/low!" with lips-and-air advice
   instead of "Check your fingering".
   In songs the wrong note then appears as a faint gray whole note just
@@ -197,7 +198,12 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   sharp or flat shows. Off the view, the dot becomes an arrow at the edge.
   `updatePracticeListen()` feeds it (`pushPitchTrace(now, diff)`, EMA
   smoothed, broken by `PITCH_TRACE_BREAK_MS` of silence); it shows only at
-  step 3, and `resetPracticeHold()` clears it.
+  step 3, and `resetPracticeHold()` clears it. **Brass partial ladder**
+  (`setupPitchLadder()`, at the trace's right end, `PITCH_LADDER_WIDTH`): a
+  named rung at each note the target's fingering plays (`brassPartials()`,
+  within `PITCH_LADDER_RANGE`; crowded rungs dropped), at the trace's
+  heights, so the dot points at the rung being played; that rung lights
+  (green on the target, red elsewhere).
 - **Tuning tips:** a student who plays every note a bit flat or sharp
   can't fix it note by note, so `trackTuning(cents, dt)` (lesson Play, quiz,
   scale run, note-by-note songs; frames within 50¢ of the target) keeps each
@@ -787,7 +793,8 @@ node tests/smoke.js                # CHROMIUM=/path/to/chrome for a browser of y
 It serves the repo itself and checks: no errors or page scroll at desktop and
 phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload; a failed save warns; the iPhone
-Home Screen hint shows once; the service worker keeps every chart of the
+Home Screen hint shows once; the lesson's Play step traces a wrong note
+and shows trumpet's partial ladder; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 song has piano chords and Play along counts in, plays and stops; a long
 song scrolls the next line into view before it's reached. Add a

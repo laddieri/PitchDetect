@@ -118,6 +118,8 @@ var PITCH_TRACE_FINE = 8;          // staff units 50¢ is drawn from the target 
 var PITCH_TRACE_SMOOTHING = 0.35;  // per-frame EMA on the drawn pitch
 var PITCH_TRACE_BREAK_MS = 150;    // silence that breaks the line
 var PRACTICE_TRACE_STAFF_WIDTH = 230; // lesson/quiz staff, wide for the trace
+var PITCH_LADDER_WIDTH = 36;       // room kept at the right for brass's partial ladder
+var PITCH_LADDER_RANGE = 19.5;     // semitones either side of the target it shows (an octave and a fifth)
 // Tuning tips: a student who plays every note a bit flat (or sharp) needs
 // their instrument tuned or their embouchure firmed, not "push it up" note
 // after note
@@ -1630,28 +1632,34 @@ function practiceWrongNoteHint(diff, hideTarget) {
 var BRASS_FUNDAMENTALS = { trumpet: 46, horn: 29, trombone: 34, euphonium: 34, tuba: 22 };
 var BRASS_PARTIALS = [12, 19.02, 24, 27.86, 31.02, 33.69, 36, 38.04, 39.86, 41.51, 43.02];
 
-// Whether a wrong note (diff semitones from the target) is another partial
-// of the target's fingering: 1 above, -1 below, 0 not (or not brass). The
-// fingering is the shortest tubing (valves down or slide out by 0-6
-// semitones) that has the target as a partial, which is how charts finger
-// nearly every note.
-function brassPartialMiss(diff) {
+// The notes the target's fingering plays on a brass instrument, as written
+// pitches (fractional: partials aren't tempered), low to high; null if not
+// brass. The fingering is the shortest tubing (valves down or slide out by
+// 0-6 semitones) that has the target as a partial, which is how charts
+// finger nearly every note. The 7th and 11th partials are too out of tune to
+// be fingered for, so they never pick the fingering and aren't listed.
+function brassPartials(target) {
 	var fund = BRASS_FUNDAMENTALS[practice.instrument];
-	if (fund === undefined) return 0;
-	var target = practice.target - getTransposition();
+	if (fund === undefined) return null;
+	var shift = getTransposition();
+	var tuned = BRASS_PARTIALS.filter(function(p, i) { return i !== 5 && i !== 9; });
 	for (var lower = 0; lower <= 6; lower++) {
-		var base = fund - lower;
-		var fits = BRASS_PARTIALS.some(function(p, i) {
-			return i !== 5 && i !== 9 && Math.abs(base + p - target) < 0.35;
-		});
-		if (!fits) continue;
-		var played = target + diff;
-		var other = BRASS_PARTIALS.some(function(p) {
-			return Math.abs(base + p - played) < 0.5 && Math.abs(base + p - target) > 0.5;
-		});
-		return other ? (diff > 0 ? 1 : -1) : 0;
+		var notes = tuned.map(function(p) { return fund - lower + p + shift; });
+		if (notes.some(function(n) { return Math.abs(n - target) < 0.35; })) return notes;
 	}
-	return 0;
+	return null;
+}
+
+// Whether a wrong note (diff semitones from the target) is another partial
+// of the target's fingering: 1 above, -1 below, 0 not (or not brass)
+function brassPartialMiss(diff) {
+	var notes = brassPartials(practice.target);
+	if (!notes) return 0;
+	var played = practice.target + diff;
+	var other = notes.some(function(n) {
+		return Math.abs(n - played) < 0.5 && Math.abs(n - practice.target) > 0.5;
+	});
+	return other ? (diff > 0 ? 1 : -1) : 0;
 }
 
 // ---------------------------------------------------------------------------
@@ -6568,16 +6576,70 @@ function setupPitchTrace(svg, note, target, top, height, endX) {
 	band.setAttribute("height", 2 * bandH);
 	band.setAttribute("rx", bandH);
 
+	var partials = brassPartials(target);
 	var old = pitchTrace;
 	pitchTrace = {
 		target: target, y: y, top: top + 5, bottom: top + height - 5,
-		x0: headX + headW + 6, x1: endX - 6,
+		x0: headX + headW + 6, x1: endX - (partials ? PITCH_LADDER_WIDTH : 6),
 		points: old && old.target === target ? old.points : [],
 		smooth: old && old.target === target ? old.smooth : null,
 		lastSound: old && old.target === target ? old.lastSound : 0,
-		band: band, lines: lines, dot: dot
+		band: band, lines: lines, dot: dot, ladder: null
 	};
+	if (partials) setupPitchLadder(svg, g, partials);
 	renderPitchTrace(performance.now());
+}
+
+// The partial ladder (brass): a rung at the height of each note the target's
+// fingering plays, named, at the right end of the trace, so the dot points at
+// the rung the student is on. Heights use the trace's scale, so the target's
+// rung sits in its band.
+function setupPitchLadder(svg, g, partials) {
+	var ns = "http://www.w3.org/2000/svg";
+	var tr = pitchTrace;
+	var left = tr.x1 + 5, right = left + 12;
+	var ladder = document.createElementNS(ns, "g");
+	ladder.setAttribute("class", "pitch-ladder");
+	g.appendChild(ladder);
+	var rungs = [];
+	partials.forEach(function(midi) {
+		// A partial or two either way is where a beginner's misses land
+		if (Math.abs(midi - tr.target) > PITCH_LADDER_RANGE) return;
+		var y = tr.y - pitchTraceOffset(midi - tr.target);
+		if (y < tr.top || y > tr.bottom) return;
+		var target = Math.abs(midi - tr.target) < 0.5;
+		// Top partials crowd together; keep the target's, else the first
+		var near = rungs.filter(function(r) { return Math.abs(r.y - y) < 5.5; })[0];
+		if (near) {
+			if (!target) return;
+			rungs.splice(rungs.indexOf(near), 1);
+		}
+		rungs.push({ midi: midi, y: y, target: target });
+	});
+	if (!rungs.length) return;
+	rungs.sort(function(a, b) { return a.y - b.y; });
+	var rails = document.createElementNS(ns, "path");
+	rails.setAttribute("class", "pitch-ladder-rail");
+	var y0 = rungs[0].y - 3, y1 = rungs[rungs.length - 1].y + 3;
+	rails.setAttribute("d", "M" + left + " " + y0 + "V" + y1 + "M" + right + " " + y0 + "V" + y1);
+	ladder.appendChild(rails);
+	rungs.forEach(function(r) {
+		var line = document.createElementNS(ns, "path");
+		line.setAttribute("class", "pitch-ladder-rung");
+		line.setAttribute("d", "M" + left + " " + r.y.toFixed(1) + "H" + right);
+		if (r.target) line.setAttribute("data-target", "1");
+		ladder.appendChild(line);
+		var label = document.createElementNS(ns, "text");
+		label.setAttribute("class", "pitch-ladder-label");
+		label.setAttribute("x", right + 3);
+		label.setAttribute("y", (r.y + 2.6).toFixed(1));
+		label.textContent = practiceNoteName(Math.round(r.midi));
+		if (r.target) label.setAttribute("data-target", "1");
+		ladder.appendChild(label);
+		r.line = line;
+		r.label = label;
+	});
+	tr.ladder = { el: ladder, rungs: rungs };
 }
 
 function pitchTraceActive() {
@@ -6640,6 +6702,7 @@ function renderPitchTrace(now) {
 	if (!tr || !tr.band.isConnected) return;
 	var active = pitchTraceActive();
 	tr.band.style.display = active ? "" : "none";
+	if (tr.ladder) tr.ladder.el.style.display = active ? "" : "none";
 	var paths = { good: "", close: "", off: "" };
 	var prev = null, prevXY = null;
 	var span = tr.x1 - tr.x0;
@@ -6663,7 +6726,17 @@ function renderPitchTrace(now) {
 
 	// The dot: the pitch now, held through short dropouts like the note panel
 	var last = active && tr.points.length ? tr.points[tr.points.length - 1] : null;
-	if (!last || last.d === null || now - tr.lastSound > NOTE_CLEAR_HOLD_MS) {
+	var sounding = !!last && last.d !== null && now - tr.lastSound <= NOTE_CLEAR_HOLD_MS;
+	// The rung being played lights up: green on the target, red elsewhere
+	if (tr.ladder) {
+		tr.ladder.rungs.forEach(function(r) {
+			var on = sounding && Math.abs(tr.target + last.d - r.midi) < 0.5;
+			var state = on ? pitchTraceState(last.d) : "";
+			r.line.setAttribute("data-state", state);
+			r.label.setAttribute("data-state", state);
+		});
+	}
+	if (!sounding) {
 		tr.dot.setAttribute("d", "");
 		return;
 	}

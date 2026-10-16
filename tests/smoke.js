@@ -211,6 +211,13 @@ async function run() {
 			return dot.getBBox().y < pitchTrace.y - 20;
 		}, null, { timeout: 8000 }).then(function() { return true; }, function() { return false; });
 		check(traced, "a wrong note is traced above the target");
+		var ladder = await page.evaluate(function() {
+			return Array.prototype.map.call(document.querySelectorAll(".pitch-ladder-label"), function(l) {
+				return (l.hasAttribute("data-target") ? "*" : "") + l.textContent;
+			}).join(" ");
+		});
+		// Open on trumpet: C, G, C, E, G, the lesson's C the target
+		check(ladder === "G E C G *C", "trumpet's partial ladder shows the open notes (got \"" + ladder + "\")");
 		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
 		await context.close();
 
