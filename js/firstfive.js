@@ -548,7 +548,8 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "songs", icon: "\u266b", title: "More songs", sub: "When the Saints, Twinkle, or make your own", page: "songs", wide: true }
 ];
 
-// The units: the menu shows one at a time (its own menu page, "unit1"...),
+// The units: Practice opens on a map of them all (menu page "map",
+// showPracticeMap()); a unit's own menu page ("unit1"...) shows one at a time,
 // with just that stretch of the path's cards in path order, so a beginner
 // sees a few cards, not everything. The arrows step through them and, past
 // the last, to every activity on the tabbed pages (PRACTICE_PAGES), which
@@ -572,7 +573,7 @@ function practiceUnit(page) {
 }
 
 function isPracticeMenuPage(page) {
-	return !!practiceUnit(page) || PRACTICE_PAGES.some(function(p) { return p.id === page; });
+	return page === "map" || !!practiceUnit(page) || PRACTICE_PAGES.some(function(p) { return p.id === page; });
 }
 
 // What a unit's notes are, for the card that leads to it
@@ -607,13 +608,118 @@ function firstUnitWith(id) {
 	return unit ? unit.id : null;
 }
 
-// The page the menu opens on: the unit (or tab) with the next step on the
-// path; the first unit, or the Lessons tab, for the teacher
+// The page the menu opens on: the map of every unit
 function defaultMenuPage() {
+	return "map";
+}
+
+// The unit with the next step on the path (null for the teacher, or once
+// the path is done)
+function practiceCurrentUnit() {
 	var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
-	if (practice.menuAll) return (next && activityPage(next.activity)) || "lessons";
-	if (next) return next.unit;
-	return progressCounts() ? PRACTICE_UNITS[PRACTICE_UNITS.length - 1].id : PRACTICE_UNITS[0].id;
+	return next ? practiceUnit(next.unit) : null;
+}
+
+// The map Practice opens on, like a game's overworld: every unit as a stop
+// on a winding trail, the done ones gold, the student's avatar on the one
+// with the next step, and a button on to that step. A stop opens its unit.
+function showPracticeMap(menu) {
+	var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
+	var current = next ? practiceUnit(next.unit) : null;
+	var avatar = typeof profile !== "undefined" && profile && progressCounts() && AVATARS[profile.avatar]
+		? AVATARS[profile.avatar].icon : "";
+	var trail = document.createElement("div");
+	trail.className = "world-trail";
+	var stops = PRACTICE_UNITS.concat([null]);  // then every activity
+	var currentRow = null;
+	stops.forEach(function(unit, i) {
+		var row = document.createElement("div");
+		row.className = "world-row " + (i % 2 ? "right" : "left");
+		var progress = unit ? practiceUnitProgress(unit) : null;
+		var done = !!progress && progress.total > 0 && progress.done === progress.total;
+		var state = !unit ? "all" : done ? "done" : unit === current ? "current"
+			: progress && progress.done ? "started" : "todo";
+		row.setAttribute("data-state", state);
+		if (unit) row.setAttribute("data-unit", unit.id);
+		// The trail on to the next stop: gold up to the student's unit
+		if (i < stops.length - 1) {
+			var walked = state === "done" && (!current || PRACTICE_UNITS.indexOf(current) > i);
+			var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+			svg.setAttribute("class", "world-path" + (walked ? " walked" : ""));
+			svg.setAttribute("viewBox", "0 0 100 100");
+			svg.setAttribute("preserveAspectRatio", "none");
+			svg.setAttribute("aria-hidden", "true");
+			var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+			path.setAttribute("d", i % 2 ? "M75,0 C75,55 25,45 25,100" : "M25,0 C25,55 75,45 75,100");
+			path.setAttribute("vector-effect", "non-scaling-stroke");
+			svg.appendChild(path);
+			row.appendChild(svg);
+		}
+		var b = document.createElement("button");
+		b.className = "world-stop";
+		b.type = "button";
+		b.setAttribute("data-page", unit ? unit.id : "lessons");
+		b.innerHTML = '<span class="world-node"><span class="world-node-label"></span></span>' +
+			'<span class="world-info"><span class="world-kicker"></span><span class="world-title"></span>' +
+			'<span class="world-sub"></span></span>';
+		b.querySelector(".world-node-label").textContent = !unit ? "\u2630" : done ? "\u2605" : String(i + 1);
+		b.querySelector(".world-kicker").textContent = !unit ? "Review"
+			: "Unit " + (i + 1) + (!progress || !progress.total ? ""
+				: done ? " \u00b7 Done \u2713" : " \u00b7 " + progress.done + " of " + progress.total);
+		b.querySelector(".world-title").textContent = unit ? unit.title : "Every activity";
+		b.querySelector(".world-sub").textContent = unit ? practiceUnitSub(unit) : "Everything in one place";
+		if (progress && progress.done && !done) {
+			var meter = document.createElement("span");
+			meter.className = "unit-meter world-meter";
+			meter.innerHTML = '<span class="unit-meter-fill"></span>';
+			meter.firstChild.style.width = (progress.done / progress.total * 100).toFixed(1) + "%";
+			b.querySelector(".world-info").appendChild(meter);
+		}
+		if (state === "current" && avatar) {
+			var me = document.createElement("span");
+			me.className = "world-avatar";
+			me.setAttribute("aria-hidden", "true");
+			me.textContent = avatar;
+			b.querySelector(".world-node").appendChild(me);
+		}
+		b.setAttribute("aria-label", (unit ? "Unit " + (i + 1) + ": " + unit.title : "Every activity") +
+			(progress && progress.total ? ", " + progress.done + " of " + progress.total + " done" : "") +
+			(state === "current" ? ", you are here" : ""));
+		b.onclick = function() { showPracticeMenu(unit ? unit.id : "lessons"); };
+		row.appendChild(b);
+		trail.appendChild(row);
+		if (state === "current") currentRow = row;
+	});
+	var scroller = document.createElement("div");
+	scroller.className = "world-scroll";
+	scroller.appendChild(trail);
+	menu.appendChild(scroller);
+
+	// On to the next step: its unit goes in history first, so back from the
+	// step lands there, then on the map
+	if (next) {
+		var go = document.createElement("button");
+		go.className = "practice-btn world-continue";
+		go.type = "button";
+		go.innerHTML = '<span class="world-continue-play" aria-hidden="true">\u25b6</span>' +
+			'<span class="world-continue-text"><span class="world-continue-title"></span>' +
+			'<span class="world-continue-sub"></span></span>';
+		go.querySelector(".world-continue-title").textContent = "Next: " + next.title;
+		go.querySelector(".world-continue-sub").textContent = "Unit " + (PRACTICE_UNITS.indexOf(current) + 1) + ": " + current.title;
+		go.onclick = function() {
+			showPracticeMenu(next.unit);
+			syncPracticeHistory();
+			startPathNode(next);
+		};
+		menu.appendChild(go);
+	}
+	// Bring the student's stop into view (the trail scrolls on a phone)
+	if (currentRow) {
+		requestAnimationFrame(function() {
+			if (!scroller.isConnected) return;
+			scroller.scrollTop = Math.max(0, currentRow.offsetTop - (scroller.clientHeight - currentRow.offsetHeight) / 2);
+		});
+	}
 }
 
 // The unit bar above the menu: the unit on show, how far along it is, and
@@ -733,8 +839,9 @@ function showPracticeMenu(page) {
 		page = page || defaultMenuPage();
 	}
 	var unit = practiceUnit(page);
+	var map = page === "map";
 	// Showing every activity (or a unit) sticks for the student
-	if (practice.menuAll !== !unit) {
+	if (!map && practice.menuAll !== !unit) {
 		practice.menuAll = !unit;
 		if (typeof profile !== "undefined" && profile) {
 			profile.menuAll = practice.menuAll;
@@ -748,20 +855,32 @@ function showPracticeMenu(page) {
 	setPracticeMode("menu");
 	document.getElementById("practice-view").setAttribute("data-menu-page", page);
 	var back = document.getElementById("practice-close");
-	back.setAttribute("aria-label", "Back to the app");
-	back.title = "Back to the app";
+	back.setAttribute("aria-label", map ? "Back to the app" : "Back to the map");
+	back.title = back.getAttribute("aria-label");
+	// Nothing on the menu listens; the mic restarts with the next Play step
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
+	var menu = document.getElementById("practice-menu");
+	menu.innerHTML = "";
+	menu.toggleAttribute("data-world", map);
+	if (map) {
+		document.getElementById("practice-units").innerHTML = "";
+		document.getElementById("practice-tabs").innerHTML = "";
+		document.getElementById("practice-view").removeAttribute("data-menu-unit");
+		menu.removeAttribute("data-unit");
+		menu.removeAttribute("data-grouped");
+		menu.removeAttribute("data-count");
+		showPracticeMap(menu);
+		onPracticeMenuShown(menu, page);
+		return;
+	}
 	renderPracticeUnits(page);
 	if (unit) document.getElementById("practice-tabs").innerHTML = "";
 	else renderPracticeTabs(page);
 	document.getElementById("practice-view").toggleAttribute("data-menu-unit", !!unit);
-	// Nothing on the menu listens; the mic restarts with the next Play step
-	if (practiceStartedMic && listenActive) stopListening();
-	practiceStartedMic = false;
 	var slide = practice.instrument === "trombone";
 	var chart = hasFingeringData(practice.instrument);
 
-	var menu = document.getElementById("practice-menu");
-	menu.innerHTML = "";
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
 	var activities = unit
 		? unit.activities.map(function(id) {
@@ -1006,8 +1125,8 @@ function startPracticeActivity(id) {
 	}
 }
 
-// The back arrow (and Escape): an activity returns to its menu page, and
-// the menu leaves practice
+// The back arrow (and Escape): an activity returns to its menu page, a
+// menu page to the map, and the map leaves practice
 function practiceBack() {
 	if (practice && practice.mode === "signin") {
 		// Practice needs someone signed in on an instrument
@@ -1021,6 +1140,8 @@ function practiceBack() {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
+	} else if (practice && practice.menuPage !== "map") {
+		showPracticeMenu("map");
 	} else {
 		closePractice();
 	}
@@ -6798,16 +6919,19 @@ document.addEventListener("keydown", function(event) {
 // menu (any page) < activity < song. Each screen has a depth; moving deeper
 // pushes an entry (always from a tap, so browsers don't skip it), moving
 // sideways replaces it, and moving shallower (the back arrow, Escape, a
-// "Back to the menu" button) goes back through history to that entry.
+// "Back to the menu" button) goes back through history to that entry. The
+// map is the top; a unit or tab is a level under it, and the profile (from
+// the map's player bar) is too.
 function practiceHistoryState() {
 	if (!practiceOpen || !practice) return null;
 	var activity = currentPracticeActivity();
 	if (activity === "menu") {
-		return { practice: "menu", page: practice.menuPage, depth: 1 };
+		return { practice: "menu", page: practice.menuPage, depth: practice.menuPage === "map" ? 1 : 2 };
 	}
-	// Sign-in on opening stands in for the menu; from the profile it's a level deeper
+	// Sign-in on opening stands in for the map; from the profile it's a level deeper
 	if (activity === "signin") return { practice: "signin", depth: practice.signinFrom === "profile" ? 3 : 1 };
-	var depth = 2;
+	if (activity === "profile") return { practice: "profile", depth: 2 };
+	var depth = 3;
 	if (practice.mode === "song") return { practice: "song", song: practice.song.id, free: !!practice.song.free, depth: depth + 1 };
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
 	if (practice.mode === "import") return { practice: "import", depth: depth + 1 };
