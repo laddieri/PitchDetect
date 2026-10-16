@@ -2466,10 +2466,13 @@
 			}
 
 			/* So do the Lessons and Songs tabs of Every activity (more cards
-			   in teacher mode, and on flute and oboe): no squeezing them */
+			   in teacher mode, and on flute and oboe): no squeezing them, and
+			   like a unit, they take the screen's height with card-sized rows */
 			.practice-view[data-menu-page="lessons"] .practice-menu,
 			.practice-view[data-menu-page="songs"] .practice-menu {
-				grid-auto-rows: minmax(min-content, auto);
+				grid-auto-rows: minmax(min-content, 110px);
+				align-content: start;
+				max-height: none;
 				overflow-y: auto;
 				padding: 0 8px 8px 0;
 				margin-right: -8px;
@@ -5612,6 +5615,7 @@
 
 				.practice-menu[data-unit] {
 					grid-auto-rows: minmax(min-content, auto);
+					align-content: normal;
 					padding-bottom: 5px;
 				}
 
@@ -5660,7 +5664,7 @@
 				.practice-view[data-menu-page="lessons"] .practice-menu,
 				.practice-view[data-menu-page="songs"] .practice-menu {
 					grid-auto-rows: minmax(min-content, auto);
-					max-height: none;
+					align-content: normal;
 					overflow-y: auto;
 					padding: 0 8px 5px 0;
 					margin-right: -8px;
