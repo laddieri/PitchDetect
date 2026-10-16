@@ -195,6 +195,32 @@ async function run() {
 		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
 		await context.close();
 
+		// --- The lesson's Play step draws the pitch on the staff ---
+		console.log("Pitch trace");
+		errors = [];
+		context = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ["microphone"], serviceWorkers: "block" });
+		page = await newPage(context, errors);
+		await page.goto(base);
+		await signIn(page, "Trace", "Trumpet");
+		await page.evaluate(function() { startLesson("first5"); startPracticeNote(0); goToPracticeStep(3); });
+		// 440 Hz is written B4 on trumpet: well above the lesson's first note, C4
+		var traced = await page.waitForFunction(function() {
+			var line = document.querySelector('.pitch-trace-line[data-state="off"]');
+			var dot = document.querySelector(".pitch-trace-dot");
+			if (!line || !line.getAttribute("d") || !dot.getAttribute("d")) return false;
+			return dot.getBBox().y < pitchTrace.y - 20;
+		}, null, { timeout: 8000 }).then(function() { return true; }, function() { return false; });
+		check(traced, "a wrong note is traced above the target");
+		var ladder = await page.evaluate(function() {
+			return Array.prototype.map.call(document.querySelectorAll(".pitch-ladder-label"), function(l) {
+				return (l.hasAttribute("data-target") ? "*" : "") + l.textContent;
+			}).join(" ");
+		});
+		// Open on trumpet: C, G, C, E, G, the lesson's C the target
+		check(ladder === "G E C G *C", "trumpet's partial ladder shows the open notes (got \"" + ladder + "\")");
+		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
+		await context.close();
+
 		// --- iPhone Safari is told to add the app to the Home Screen ---
 		console.log("iPhone");
 		errors = [];
