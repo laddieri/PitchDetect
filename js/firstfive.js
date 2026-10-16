@@ -5771,12 +5771,22 @@ function saveFirstSoundsBest(instrument, stars) {
 	} catch (e) {}
 }
 
-// The dashed air stream, ending in an arrowhead at (x, y)
-function airArrowSVG(x, y) {
-	return '<path d="M' + (x - 26) + ' ' + (y - 24) + ' Q' + (x - 8) + ' ' + (y - 20) + ' ' + (x - 2) + ' ' + (y - 4) +
+// The dashed air stream: a curve flowing into a solid arrowhead whose tip is
+// at (x, y), pointing down ("down") or right ("right"), drawn over the
+// instrument so nothing hides it
+function airArrowSVG(x, y, dir) {
+	var down = dir === "down";
+	// start, control and the arrowhead's base (the curve ends along the head)
+	var path = down ?
+		[x - 24, y - 34, x - 1, y - 32, x, y - 11] :
+		[x - 32, y - 16, x - 22, y, x - 11, y];
+	var head = down ?
+		[x - 6, y - 12, x + 6, y - 12] :
+		[x - 12, y - 6, x - 12, y + 6];
+	return '<path d="M' + path[0] + ' ' + path[1] + ' Q' + path[2] + ' ' + path[3] + ' ' + path[4] + ' ' + path[5] +
 		'" fill="none" stroke="#4d96ff" stroke-width="3" stroke-linecap="round" stroke-dasharray="5 5"/>' +
-		'<path d="M' + (x - 7) + ' ' + (y - 8) + ' L' + (x - 1) + ' ' + (y - 1) + ' L' + (x + 2) + ' ' + (y - 10) +
-		'" fill="none" stroke="#4d96ff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>';
+		'<path d="M' + x + ' ' + y + ' L' + head[0] + ' ' + head[1] + ' L' + head[2] + ' ' + head[3] +
+		' Z" fill="#4d96ff" stroke="#4d96ff" stroke-width="2" stroke-linejoin="round"/>';
 }
 
 // Drawings for each setup (drawing ids are used by FIRST_SOUNDS)
@@ -5793,8 +5803,7 @@ function firstSoundsSVG(drawing) {
 	var s = '<svg class="first-sounds-drawing" viewBox="0 0 250 84" role="img" aria-label="' + label + '">';
 
 	if (drawing === "flute-open" || drawing === "flute-covered") {
-		s += airArrowSVG(49, 32) +
-			'<rect x="6" y="38" width="14" height="20" rx="4" fill="#aeb8c4" stroke="#6b7685" stroke-width="2"/>' +
+		s += '<rect x="6" y="38" width="14" height="20" rx="4" fill="#aeb8c4" stroke="#6b7685" stroke-width="2"/>' +
 			'<rect x="18" y="40" width="208" height="16" rx="3" fill="#dfe5ec" stroke="#6b7685" stroke-width="2"/>' +
 			'<ellipse cx="50" cy="40" rx="20" ry="8" fill="#cfd7e0" stroke="#6b7685" stroke-width="2"/>' +
 			'<ellipse cx="50" cy="40" rx="7" ry="3.5" fill="#2b2140"/>';
@@ -5804,17 +5813,18 @@ function firstSoundsSVG(drawing) {
 		} else {
 			s += '<ellipse cx="226" cy="48" rx="4" ry="8" fill="#2b2140"/>';
 		}
+		s += airArrowSVG(50, 36, "down");
 	} else if (drawing === "clarinet-barrel") {
 		var x0 = 48;
-		s += airArrowSVG(x0 + 2, 46) +
-			// reed under the beak, mouthpiece body, ligature, then the barrel
+		s += // reed under the beak, mouthpiece body, ligature, then the barrel
 			// right against it (the tenon hides inside the barrel)
 			'<path d="M' + (x0 + 4) + ' 58 L' + (x0 + 70) + ' 58 L' + (x0 + 70) + ' 62 L' + (x0 + 8) + ' 62 Z" fill="#e8c77a" stroke="#a8843a" stroke-width="1.5"/>' +
 			'<path d="M' + x0 + ' 52 Q' + (x0 + 8) + ' 34 ' + (x0 + 34) + ' 32 L' + (x0 + 90) + ' 32 L' + (x0 + 90) + ' 60 L' + (x0 + 2) + ' 58 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
 			'<rect x="' + (x0 + 48) + '" y="29" width="14" height="34" rx="3" fill="#c7cfd8" stroke="#6b7685" stroke-width="2"/>' +
 			'<path d="M' + (x0 + 90) + ' 32 Q' + (x0 + 134) + ' 26 ' + (x0 + 178) + ' 32 L' + (x0 + 178) + ' 60 Q' + (x0 + 134) + ' 66 ' + (x0 + 90) + ' 60 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
 				'<rect x="' + (x0 + 90) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>' +
-				'<rect x="' + (x0 + 172) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>';
+				'<rect x="' + (x0 + 172) + '" y="30" width="6" height="32" rx="2" fill="#c7cfd8" stroke="#6b7685" stroke-width="1.5"/>' +
+			airArrowSVG(x0 - 3, 56, "right");
 	} else if (drawing === "mouthpiece-small" || drawing === "mouthpiece-large") {
 		// rim and cup on the left (where the lips go), then the stem narrowing
 		// to a waist, swelling over the backbore and tapering to the shank tip.
@@ -5823,30 +5833,31 @@ function firstSoundsSVG(drawing) {
 		var r = big ? 30 : 22, len = big ? 160 : 150, c0 = Math.round((250 - len) / 2) + 6;
 		var cupEnd = c0 + (big ? 44 : 36), end = c0 + len, mid = cupEnd + Math.round((end - cupEnd) * 0.45);
 		var t = big ? 8 : 6, sh = big ? 12 : 9, tip = big ? 9 : 6.5;
-		s += airArrowSVG(c0 - 6, 42 - r + 6) +
-			'<path d="M' + c0 + ' ' + (42 - r) + ' Q' + (cupEnd - 6) + ' ' + (42 - r) + ' ' + cupEnd + ' ' + (42 - t) +
+		s += '<path d="M' + c0 + ' ' + (42 - r) + ' Q' + (cupEnd - 6) + ' ' + (42 - r) + ' ' + cupEnd + ' ' + (42 - t) +
 				' C' + (cupEnd + 16) + ' ' + (42 - t) + ' ' + (mid - 24) + ' ' + (42 - sh) + ' ' + mid + ' ' + (42 - sh) +
 				' Q' + (mid + 24) + ' ' + (42 - sh) + ' ' + end + ' ' + (42 - tip) +
 				' L' + end + ' ' + (42 + tip) + ' Q' + (mid + 24) + ' ' + (42 + sh) + ' ' + mid + ' ' + (42 + sh) +
 				' C' + (mid - 24) + ' ' + (42 + sh) + ' ' + (cupEnd + 16) + ' ' + (42 + t) + ' ' + cupEnd + ' ' + (42 + t) +
 				' Q' + (cupEnd - 6) + ' ' + (42 + r) + ' ' + c0 + ' ' + (42 + r) + ' Z" fill="#e9c46a" stroke="#a37b1e" stroke-width="2" stroke-linejoin="round"/>' +
-			'<rect x="' + (c0 - 6) + '" y="' + (42 - r - 3) + '" width="10" height="' + (2 * r + 6) + '" rx="5" fill="#f1d58a" stroke="#a37b1e" stroke-width="2"/>';
+			'<rect x="' + (c0 - 6) + '" y="' + (42 - r - 3) + '" width="10" height="' + (2 * r + 6) + '" rx="5" fill="#f1d58a" stroke="#a37b1e" stroke-width="2"/>' +
+			airArrowSVG(c0 - 9, 42, "right");
 	} else if (drawing === "oboe-reed") {
 		// two cane blades meeting at a thin tip, thread wrapping, cork and staple
-		s += airArrowSVG(30, 38) +
+		s += '<g transform="translate(12 0)">' +
 			'<path d="M30 38 Q60 30 120 33 L120 51 Q60 54 30 46 Z" fill="#e8c77a" stroke="#a8843a" stroke-width="2"/>' +
 			'<path d="M30 42 L120 42" stroke="#a8843a" stroke-width="1.5"/>' +
 			'<rect x="120" y="32" width="44" height="20" rx="3" fill="#d84a4a" stroke="#8f2626" stroke-width="2"/>' +
-			'<path d="M164 34 L226 37 L226 47 L164 50 Z" fill="#c9a27a" stroke="#86643f" stroke-width="2"/>';
+			'<path d="M164 34 L226 37 L226 47 L164 50 Z" fill="#c9a27a" stroke="#86643f" stroke-width="2"/>' +
+			'</g>' + airArrowSVG(39, 42, "right");
 	} else {
-		var m0 = 14;
-		s += airArrowSVG(m0 + 2, 46) +
-			'<path d="M' + (m0 + 4) + ' 55 L' + (m0 + 64) + ' 55 L' + (m0 + 64) + ' 59 L' + (m0 + 8) + ' 59 Z" fill="#e8c77a" stroke="#a8843a" stroke-width="1.5"/>' +
+		var m0 = 36;
+		s += 			'<path d="M' + (m0 + 4) + ' 55 L' + (m0 + 64) + ' 55 L' + (m0 + 64) + ' 59 L' + (m0 + 8) + ' 59 Z" fill="#e8c77a" stroke="#a8843a" stroke-width="1.5"/>' +
 			'<path d="M' + m0 + ' 50 Q' + (m0 + 12) + ' 34 ' + (m0 + 40) + ' 33 L' + (m0 + 100) + ' 38 L' + (m0 + 100) + ' 54 L' + (m0 + 2) + ' 55 Z" fill="#2f2f38" stroke="#15151b" stroke-width="2"/>' +
 			'<rect x="' + (m0 + 40) + '" y="31" width="16" height="30" rx="3" fill="#c7cfd8" stroke="#6b7685" stroke-width="2"/>' +
 			// the brass neck, curving down and widening toward the body joint
-			'<path d="M' + (m0 + 92) + ' 40 Q' + (m0 + 170) + ' 34 ' + (m0 + 205) + ' 56 L' + (m0 + 220) + ' 80 L' + (m0 + 198) + ' 82 L' + (m0 + 188) + ' 64 Q' + (m0 + 160) + ' 50 ' + (m0 + 92) + ' 54 Z" fill="#e9c46a" stroke="#a37b1e" stroke-width="2"/>' +
-				'<circle cx="' + (m0 + 150) + '" cy="40" r="4" fill="#d4a93a" stroke="#a37b1e" stroke-width="1.5"/>';
+			'<path d="M' + (m0 + 92) + ' 40 Q' + (m0 + 158) + ' 34 ' + (m0 + 191) + ' 56 L' + (m0 + 205) + ' 80 L' + (m0 + 184) + ' 82 L' + (m0 + 175) + ' 64 Q' + (m0 + 150) + ' 50 ' + (m0 + 92) + ' 54 Z" fill="#e9c46a" stroke="#a37b1e" stroke-width="2"/>' +
+				'<circle cx="' + (m0 + 142) + '" cy="40" r="4" fill="#d4a93a" stroke="#a37b1e" stroke-width="1.5"/>' +
+			airArrowSVG(m0 - 3, 53, "right");
 	}
 	return s + '</svg>';
 }
