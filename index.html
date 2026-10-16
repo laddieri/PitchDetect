@@ -2451,11 +2451,14 @@
 				min-width: 0;
 			}
 
-			/* A unit's cards in path order: they fill the menu, and it scrolls
-			   if there are more than fit */
+			/* A unit's cards in path order: the menu takes the screen's
+			   height, its rows stay card-sized (a short unit leaves room
+			   below rather than stretching its cards), and it scrolls if
+			   there are more than fit */
 			.practice-menu[data-unit] {
-				grid-auto-rows: minmax(min-content, 1fr);
-				max-height: 520px;
+				grid-auto-rows: minmax(min-content, 110px);
+				align-content: start;
+				max-height: none;
 				overflow-y: auto;
 				/* room for the cards' shadows inside the scroller */
 				padding: 0 8px 8px 0;
@@ -5609,7 +5612,6 @@
 
 				.practice-menu[data-unit] {
 					grid-auto-rows: minmax(min-content, auto);
-					max-height: none;
 					padding-bottom: 5px;
 				}
 
