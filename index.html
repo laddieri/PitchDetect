@@ -3122,8 +3122,7 @@
 			/* Steps with a chart: on a short screen the staff and the chart
 			   share the squeeze (in proportion to their sizes) instead of the
 			   chart shrinking alone to a sliver */
-			.practice-view[data-step="finger"] .practice-staff,
-			.practice-view[data-step="challenge-help"] .practice-staff {
+			.practice-view[data-step="finger"] .practice-staff {
 				flex: 0 1 auto;
 				min-height: 80px;
 			}
@@ -3133,10 +3132,12 @@
 				flex: 1 1 auto;
 			}
 
-			/* Quiz Help: the name in big letters and a bigger chart, with the
-			   staff giving up some room for them */
+			/* Quiz Help: the name in big letters and a bigger chart. The staff
+			   and chart share a squeeze, but the staff never goes below its
+			   floor: the quiz staff is wide, so a short one draws the note tiny */
 			.practice-view[data-step="challenge-help"] .practice-staff {
-				height: clamp(80px, 16vh, 150px);
+				flex: 0 1 auto;
+				min-height: clamp(110px, 17vh, 160px);
 			}
 
 			.practice-view[data-step="challenge-help"] .practice-prompt {
@@ -3159,7 +3160,19 @@
 			}
 
 			.practice-view[data-step="challenge-help"] .practice-fingering {
-				height: calc(var(--fingering-h, 180px) * 1.6);
+				height: calc(var(--fingering-h, 180px) * 1.4);
+				min-height: 90px;
+			}
+
+			/* A short window: the big name and the chart give up room for the staff */
+			@media (max-height: 700px) {
+				.challenge-help-name {
+					font-size: 3.5rem;
+				}
+
+				.practice-view[data-step="challenge-help"] .practice-fingering {
+					min-height: 75px;
+				}
 			}
 
 			.practice-view[data-step="challenge-help"] .practice-fingering img {
@@ -5839,10 +5852,6 @@
 
 				.practice-view[data-step="challenge-help"] .practice-fingering {
 					height: auto;
-				}
-
-				.practice-view[data-step="challenge-help"] .practice-staff {
-					height: clamp(70px, 12vh, 110px);
 				}
 
 				.challenge-help-name {
