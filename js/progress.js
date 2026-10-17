@@ -712,6 +712,25 @@ function startPathNode(node) {
 	startPracticeActivity(node.activity);
 }
 
+// On a result screen: a button straight on to the next step of the path,
+// so a student needn't go back to the map for it. None when the step is the
+// activity just done (Play again, Next note and Next song cover that). It
+// takes over as the screen's main button, in a row of its own. Returns
+// whether it was added.
+function addPathNextButton(actions) {
+	if (!progressCounts()) return false;
+	var next = nextPathNode();
+	if (!next || next.activity === currentPracticeActivity()) return false;
+	Array.prototype.forEach.call(actions.querySelectorAll(".practice-btn.primary"), function(b) {
+		b.className = "practice-btn secondary";
+	});
+	var go = practiceButton("Next: " + next.title + " →", "primary path-next", function() {
+		startPathNode(next);
+	});
+	actions.appendChild(go);
+	return true;
+}
+
 // Mark the menu card (or the tab of the page it's on) for the next step on
 // the path
 function markNextUp(menu, page) {
