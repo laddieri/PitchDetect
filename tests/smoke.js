@@ -198,6 +198,20 @@ async function run() {
 		});
 		check(ahead, "a song scrolls to show the next line ahead");
 
+		// A good result leads straight on to the next step of the path
+		await page.evaluate(function() {
+			practice.firstSoundsBest = 3;
+			practice.lessons.first3.stars = [3, 3, 3];
+			startDrill("names3");
+			practice.challenge.score = DRILL_STAR_GOAL;
+			finishDrill();
+		});
+		var nextStep = await page.textContent(".path-next").catch(function() { return ""; });
+		await page.click(".path-next");
+		var onward = await page.evaluate(function() { return practice.mode + " " + practice.drillKind; });
+		check(/^Next: Finger/.test(nextStep) && onward === "drill fingerings3",
+			"a drill's result goes on to the next step (got \"" + nextStep + "\", " + onward + ")");
+
 		// A save that fails says so instead of losing progress silently
 		var toast = await page.evaluate(function() {
 			var setItem = Storage.prototype.setItem;

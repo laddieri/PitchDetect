@@ -164,7 +164,9 @@ history mirrors these screens (`syncPracticeHistory()`, run after every
 iOS's swipe-back step back like the arrow: each screen has a depth (map 1;
 a unit or tab 2, so they replace each other; the profile 2; activity 3,
 song 4); deeper pushes, sideways replaces, shallower
-`history.go()`s back, and `popstate` shows the entry's screen. Keep new
+`history.go()`s back, and `popstate` shows the entry's screen (after our
+own `history.go()`, `practiceHistoryGoing`, it syncs history to the screen
+instead, which may have moved on meanwhile). Keep new
 screens inside `practiceHistoryState()`. The lessons
 teach the band-method first five notes, concert B♭ C D E♭ F, at each
 instrument's written pitch (`practiceStartConcertMidi` holds each instrument's
@@ -654,6 +656,11 @@ Loaded after firstfive.js; no server, everything stays on the device.
   puts the avatar on the next step's unit, and a unit page
   marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
   the tab of the page it's on), and the profile lists the path; tapping a step opens it.
+  A result done well (stars on a quiz, drill, scale run, song or first
+  sounds, or a whole lesson learned) gets **Next: <step>**
+  (`addPathNextButton(actions)`, `.path-next`, its own row, the main
+  button), unless the next step is the activity just done; the lesson's and
+  first sounds' fixed follow-on buttons show only when it doesn't.
 - **Screens:** the player bar (`#player-bar`, on the map only: avatar, level, XP
   bar, streak, today's goal ring; `updatePlayerBar()`, run by
   `onPracticeMenuShown()`) opens the profile (`showProfile()`, mode
@@ -809,7 +816,8 @@ node tests/smoke.js                # CHROMIUM=/path/to/chrome for a browser of y
 It serves the repo itself and checks: no errors or page scroll at desktop and
 phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload;
-Practice opens on the map and back from its Next step goes to the unit, then the map; a failed save warns; the iPhone
+Practice opens on the map and back from its Next step goes to the unit, then the map; a drill's result
+goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a

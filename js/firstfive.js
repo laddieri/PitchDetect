@@ -1988,7 +1988,10 @@ function renderPracticeResult() {
 	actions.appendChild(practiceButton("Next note \u2192", practice.allLearned ? "secondary" : "primary", function() {
 		startPracticeNote(nextIndex);
 	}));
-	if (practice.allLearned) {
+	// The whole lesson learned: on to the next step of the path, or else
+	// what follows the lesson
+	var learned = currentLesson().stars.every(function(n) { return n > 0; });
+	if (!(learned && addPathNextButton(actions)) && practice.allLearned) {
 		var set = practice.lesson;
 		actions.appendChild(scale || more ? practiceButton("Play the whole scale \u2192", "primary", function() { startScaleRun(set); })
 			: first3 ? practiceButton("Name the notes \u2192", "primary", function() { startDrill(threeSetActivity("names3", practice.lesson)); })
@@ -2421,6 +2424,8 @@ function showRoundResult(score, newBest, title, scoreText, again, total, back) {
 	actions.appendChild(back ? practiceButton(back.label, "secondary", back.onclick)
 		: practiceButton("Back to the menu", "secondary", showPracticeMenu));
 	actions.appendChild(practiceButton("Play again", "primary", again));
+	// Done well: straight on to the next step (a song's result adds its own)
+	if (stars > 0 && !back) addPathNextButton(actions);
 	body.appendChild(actions);
 
 	if (stars > 0) launchFireworks(document.getElementById("practice-stage"));
@@ -3561,6 +3566,7 @@ function finishFollow() {
 	if (right === total && next) {
 		actions.appendChild(practiceButton("Next song \u2192", "primary", function() { playThroughSong(next.id); }));
 	}
+	if (stars > 0) addPathNextButton(actions);
 	if (right === total) launchFireworks(document.getElementById("practice-stage"));
 	if (s.follow.heard.length) {
 		recordProgress(10 + 2 * right + (right === total ? 15 : 0) + (newBest && right > 0 ? NEW_BEST_XP : 0));
@@ -3968,6 +3974,7 @@ function finishSong() {
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.lastChild.className = "practice-btn secondary";
 	actions.appendChild(practiceButton("Play it through \u2192", "primary", function() { playThroughSong(s.id); }));
+	if (challengeStars(score, total) > 0) addPathNextButton(actions);
 	recordProgress(10 + 2 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
 }
 
@@ -6301,9 +6308,11 @@ function renderFirstSoundsResult() {
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
 	actions.appendChild(practiceButton("Play it again", "secondary", startFirstSounds));
-	actions.appendChild(practiceButton("Learn the first 3 notes \u2192", "primary", function() {
-		startPracticeActivity(firstThreeActivity());
-	}));
+	if (!(stars > 0 && addPathNextButton(actions))) {
+		actions.appendChild(practiceButton("Learn the first 3 notes \u2192", "primary", function() {
+			startPracticeActivity(firstThreeActivity());
+		}));
+	}
 	body.appendChild(actions);
 	launchFireworks(document.getElementById("practice-stage"));
 }
@@ -6991,14 +7000,22 @@ function samePracticeState(a, b) {
 	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song && !a.free === !b.free;
 }
 
+// Set while a history.go() of ours is on its way, so its popstate syncs
+// history to the screen rather than the screen to history: the screen may
+// have moved on meanwhile (a result's Next step from a song lands on an
+// activity, not the song list)
+var practiceHistoryGoing = false;
+
 function syncPracticeHistory() {
+	if (practiceHistoryGoing) return;
 	var want = practiceHistoryState();
 	var depth = practiceHistoryDepth(want);
 	var have = practiceHistoryDepth(history.state);
 	if (depth > have) {
 		history.pushState(want, "");
 	} else if (depth < have) {
-		// Land on the ancestor entry; popstate finds it already showing
+		// Land on the ancestor entry, then catch up with the screen
+		practiceHistoryGoing = true;
 		history.go(depth - have);
 	} else if (want && !samePracticeState(history.state, want)) {
 		history.replaceState(want, "");
@@ -7018,6 +7035,11 @@ function schedulePracticeHistorySync() {
 
 // Back (or forward) through history: show the screen the entry names
 window.addEventListener("popstate", function(event) {
+	if (practiceHistoryGoing) {
+		practiceHistoryGoing = false;
+		syncPracticeHistory();
+		return;
+	}
 	var state = event.state && event.state.practice ? event.state : null;
 	if (samePracticeState(state, practiceHistoryState())) return;
 	if (!state) {
