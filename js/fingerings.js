@@ -333,7 +333,10 @@ var clarinetFingerings = {
 var imageFingeringMap = {
 	"bassoon":   { folder: "Bassoon",   ext: "png", transposition: 0,  w: 331, h: 476, first: 34, last: 68 },
 	"flute":     { folder: "Flute",     ext: "png", transposition: 0,  w: 496, h: 163, first: 60, last: 95,
-		extra: ["67-b-thumb", "69-b-thumb"] },  // the B-thumb G and A of the B A G lessons
+		// the B-thumb G and A of the B A G lessons, and the chromatic scale's
+		// charts (chromaticFingerings)
+		extra: ["67-b-thumb", "69-b-thumb", "68-b-thumb", "79-b-thumb", "80-b-thumb", "81-b-thumb",
+			"70-1-and-1", "82-1-and-1"] },
 	"oboe":      { folder: "Oboe",      ext: "png", transposition: 0,  w: 223, h: 511, first: 58, last: 84 },
 	// All saxophones share the same fingering images indexed at writtenMidi - 12.
 	// (The image set uses a MIDI numbering where C4 = 48 instead of 60,
@@ -409,6 +412,34 @@ function fingeringImageBox(instrument, writtenMidi) {
 	var layout = fingeringImageLayouts[info.folder];
 	if (!layout) return [0, 0, info.w, info.h];
 	return layout.files[writtenMidi - info.transposition] || [0, 0, layout.size[0], layout.size[1]];
+}
+
+// Chromatic fingerings: where a chromatic scale wants another fingering
+// than the chart's, so no finger has to slide or jump between neighbors.
+// Flute: the thumb stays on the B-natural key and B♭ is "1 and 1" (left
+// and right index fingers), not the thumb B♭ lever, which can't go on to
+// B-natural. Clarinet: F♯ is thumb and the bottom two side keys, a half
+// step up from F's thumb without lifting it; its E♭ already takes the side
+// key and its B and C alternate pinkies. The saxophone charts' B♭ is
+// already side B♭ (A plus the side key), the one for chromatic passages.
+// Image charts name their file; drawn ones give the fingering.
+var chromaticFingerings = {
+	"flute": { 70: "70-1-and-1", 79: "79-b-thumb", 80: "80-b-thumb", 81: "81-b-thumb", 82: "82-1-and-1" },
+	"clarinet": { 66: { keys: ["T", "S3", "S4"], label: "Side keys" } }
+};
+
+// Show writtenMidi's chromatic fingering in container (already showing its
+// chart) if it has one
+function displayChromaticFingering(container, instrument, writtenMidi) {
+	var alt = (chromaticFingerings[instrument] || {})[writtenMidi];
+	if (!alt) return;
+	if (typeof alt === "string") {
+		var info = imageFingeringMap[instrument];
+		container.querySelector("img.fingering-image").src = "img/Fingerings/" + info.folder + "/" + alt + "." + info.ext;
+	} else {
+		container.innerHTML = "";
+		displayClarinetFingering(container, { primary: alt, alternates: [] }, false);
+	}
 }
 
 // Display fingering using an image file from img/Fingerings/
