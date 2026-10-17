@@ -622,7 +622,8 @@ function practiceCurrentUnit() {
 
 // The map Practice opens on, like a game's overworld: every unit as a stop
 // on a winding trail, the done ones gold, the student's avatar on the one
-// with the next step, and a button on to that step. A stop opens its unit.
+// with the next step, and a button on to that step. A unit's stop shows its
+// summary first (showUnitSummary()); Every activity opens straight away.
 function showPracticeMap(menu) {
 	var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
 	var current = next ? practiceUnit(next.unit) : null;
@@ -685,7 +686,10 @@ function showPracticeMap(menu) {
 		b.setAttribute("aria-label", (unit ? "Unit " + (i + 1) + ": " + unit.title : "Every activity") +
 			(progress && progress.total ? ", " + progress.done + " of " + progress.total + " done" : "") +
 			(state === "current" ? ", you are here" : ""));
-		b.onclick = function() { showPracticeMenu(unit ? unit.id : "lessons"); };
+		b.onclick = function() {
+			if (unit) showUnitSummary(unit.id);
+			else showPracticeMenu("lessons");
+		};
 		row.appendChild(b);
 		trail.appendChild(row);
 		if (state === "current") currentRow = row;
@@ -719,6 +723,129 @@ function showPracticeMap(menu) {
 			if (!scroller.isConnected) return;
 			scroller.scrollTop = Math.max(0, currentRow.offsetTop - (scroller.clientHeight - currentRow.offsetHeight) / 2);
 		});
+	}
+}
+
+// The built-in songs a unit's More songs card is about: the songs with its
+// new notes, the B♭ scale unit's harder songs, a concert scale's songs
+function unitSongs(unit) {
+	if (unit.id === "unit3") return SONGS.filter(function(song) { return song.level === "beyond"; });
+	if (unit.id === "unit4") {
+		return SONGS.filter(function(song) {
+			return song.level === "intermediate" || song.level === "advanced" || song.id === "joyscale";
+		});
+	}
+	var scale = unit.activities[0];
+	if (!moreScale(scale)) return [];
+	return SONGS.filter(function(song) {
+		return song.level === "songs" + scale.slice(5) || song.id === "joy" + scale;
+	});
+}
+
+// How an activity in unit is going: { stars, max, passed }. Stars are the
+// menu card's (max 0 for song writing, which earns none). Passed: its steps
+// on the learning path in the unit are done; off the path, every lesson
+// note learned, all of first sounds, a song written, or any star.
+function practiceActivityResult(id, unit, nodes) {
+	var set = THREE_SET_ACTIVITIES[id];
+	var stars = 0, max = 3, passed = null;
+	if (LESSON_ACTIVITIES[id]) {
+		var lesson = practice.lessons[LESSON_ACTIVITIES[id]].stars;
+		stars = lesson.reduce(function(t, n) { return t + n; }, 0);
+		max = lesson.length * 3;
+		passed = lesson.every(function(n) { return n > 0; });
+	} else if (id === "firstsounds") {
+		stars = practice.firstSoundsBest || 0;
+		passed = stars >= 3;
+	} else if (/^(songs3|songs3bag|songs5|songs)$/.test(id)) {
+		var list = id === "songs" ? unitSongs(unit) : listSongs(id === "songs5" ? "five" : "three");
+		stars = list.reduce(function(t, song) { return t + songStars(song, set); }, 0);
+		max = list.length * 3;
+	} else if (/^write/.test(id)) {
+		max = 0;
+		passed = (set ? threeNoteCustomSongs(set) : fiveNoteCustomSongs()).length > 0;
+	} else if (/^scalerun/.test(id)) {
+		stars = challengeStars(practice.scaleRunBest[scaleSetOf(id)] || 0, scaleRunSequence().length);
+	} else if (id === "quiz") {
+		stars = challengeStars(practice.challengeBest || 0);
+	} else if (id === "quiz3" || id === "quiz3bag") {
+		stars = challengeStars(practice.quiz3Best[set] || 0, QUIZ3_LENGTH);
+	} else if (id === "quiz9") {
+		stars = challengeStars(practice.quiz9Best || 0, QUIZ9_LENGTH);
+	} else {
+		stars = challengeStars(practice.drillBest[id] || 0, DRILL_STAR_GOAL);
+	}
+	var steps = (nodes || []).filter(function(n) { return n.unit === unit.id && n.activity === id; });
+	if (steps.length) passed = steps.every(function(n) { return n.done; });
+	else if (passed === null) passed = stars > 0;
+	return { stars: stars, max: max, passed: passed };
+}
+
+// A unit's totals: { passed, total, stars, max }
+function practiceUnitSummary(unit) {
+	var nodes = typeof learningPath === "function" ? learningPath() : [];
+	var sum = { passed: 0, total: 0, stars: 0, max: 0 };
+	unit.activities.filter(practiceActivityAvailable).forEach(function(id) {
+		var r = practiceActivityResult(id, unit, nodes);
+		sum.total++;
+		if (r.passed) sum.passed++;
+		sum.stars += r.stars;
+		sum.max += r.max;
+	});
+	return sum;
+}
+
+// The card a unit's stop on the map opens: how many of its activities are
+// passed and its stars, with a button into the unit. It has its own place in
+// history (practice.mapSummary), so back closes it.
+function showUnitSummary(id) {
+	var unit = practiceUnit(id);
+	var card = document.getElementById("unit-summary");
+	if (!unit || !card) return;
+	practice.mapSummary = id;
+	var index = PRACTICE_UNITS.indexOf(unit);
+	var sum = practiceUnitSummary(unit);
+	var done = sum.total > 0 && sum.passed === sum.total;
+	card.setAttribute("data-state", done ? "done" : sum.passed || sum.stars ? "started" : "todo");
+	card.querySelector(".unit-summary-badge").textContent = done ? "\u2605" : String(index + 1);
+	card.querySelector(".unit-summary-kicker").textContent = "Unit " + (index + 1) + " of " + PRACTICE_UNITS.length;
+	card.querySelector(".unit-summary-title").textContent = unit.title;
+	card.querySelector(".unit-summary-sub").textContent = practiceUnitSub(unit);
+	var stat = function(name, have, of) {
+		var el = card.querySelector(".unit-summary-stat." + name);
+		el.querySelector(".unit-summary-value").textContent = have;
+		el.querySelector(".unit-summary-of").textContent = "of " + of;
+		el.querySelector(".unit-meter-fill").style.width = (of ? have / of * 100 : 0).toFixed(1) + "%";
+	};
+	stat("passed", sum.passed, sum.total);
+	stat("stars", sum.stars, sum.max);
+	var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
+	var nextEl = card.querySelector(".unit-summary-next");
+	nextEl.textContent = next && next.unit === unit.id ? "Next: " + next.title : "";
+	var go = card.querySelector(".unit-summary-go");
+	go.textContent = done ? "Play again" : sum.passed || sum.stars ? "Keep going" : "Let\u2019s go!";
+	go.onclick = function() { showPracticeMenu(unit.id); };
+	card.hidden = false;
+	go.focus();
+	syncPracticeHistory();
+}
+
+function unitSummaryOpen() {
+	var card = document.getElementById("unit-summary");
+	return !!card && !card.hidden;
+}
+
+// Close the unit card (sync: back through its history entry, unless a
+// screen change is taking its place)
+function closeUnitSummary(sync) {
+	var card = document.getElementById("unit-summary");
+	if (card) card.hidden = true;
+	var id = practice && practice.mapSummary;
+	if (practice) practice.mapSummary = null;
+	if (sync && practiceOpen) {
+		syncPracticeHistory();
+		var stop = id && document.querySelector('.world-row[data-unit="' + id + '"] .world-stop');
+		if (stop) stop.focus();
 	}
 }
 
@@ -850,6 +977,7 @@ function showPracticeMenu(page) {
 	}
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
+	closeUnitSummary();
 	practice.step = -1;
 	practice.menuPage = page;
 	setPracticeMode("menu");
@@ -1140,6 +1268,8 @@ function practiceBack() {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
+	} else if (unitSummaryOpen()) {
+		closeUnitSummary(true);
 	} else if (practice && practice.menuPage !== "map") {
 		showPracticeMenu("map");
 	} else {
@@ -1173,6 +1303,7 @@ function closePractice() {
 	practiceOpen = false;
 	stopSongPlayback();
 	closeTuningTip();
+	closeUnitSummary();
 	clearTimeout(practiceAdvanceTimer);
 	clearInterval(drillClockTimer);
 	stopNote();
@@ -6978,6 +7109,10 @@ function practiceHistoryState() {
 	if (!practiceOpen || !practice) return null;
 	var activity = currentPracticeActivity();
 	if (activity === "menu") {
+		// A unit's card on the map is a level under it, like the unit's page
+		if (practice.menuPage === "map" && practice.mapSummary) {
+			return { practice: "menu", page: "map", summary: practice.mapSummary, depth: 2 };
+		}
 		return { practice: "menu", page: practice.menuPage, depth: practice.menuPage === "map" ? 1 : 2 };
 	}
 	// Sign-in on opening stands in for the map; from the profile it's a level deeper
@@ -6997,7 +7132,8 @@ function practiceHistoryDepth(state) {
 
 function samePracticeState(a, b) {
 	if (!a || !a.practice) return !b;
-	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song && !a.free === !b.free;
+	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song && !a.free === !b.free &&
+		(a.summary || null) === (b.summary || null);
 }
 
 // Set while a history.go() of ours is on its way, so its popstate syncs
@@ -7050,7 +7186,10 @@ window.addEventListener("popstate", function(event) {
 		openPractice();
 		if (!practiceOpen) return;
 	}
-	if (state.practice === "menu") showPracticeMenu(state.page);
+	if (state.practice === "menu") {
+		showPracticeMenu(state.page);
+		if (state.summary && state.page === "map") showUnitSummary(state.summary);
+	}
 	else if (state.practice === "signin" && !practiceSignedIn()) showSignIn("open");
 	else if (state.practice === "signin" && !practice.instrument) showInstrumentStep("open");
 	else if (state.practice === "signin") showPracticeMenu();

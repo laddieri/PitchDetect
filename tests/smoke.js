@@ -153,6 +153,27 @@ async function run() {
 		await page.goBack();
 		await page.waitForFunction(function() { return practice.menuPage === "map"; });
 		check(unitPage === "unit1", "back from the next step goes to its unit, then the map (got " + unitPage + ")");
+		// A unit's stop shows its summary first; back closes it, its button opens the unit
+		await page.evaluate(function() { practice.lessons.first5.stars[0] = 3; });
+		await page.click('.world-stop[data-page="unit2"]');
+		var summary = await page.evaluate(function() {
+			var card = document.getElementById("unit-summary");
+			return { shown: !card.hidden, page: practice.menuPage,
+				passed: card.querySelector(".passed .unit-summary-of").textContent,
+				stars: card.querySelector(".stars .unit-summary-value").textContent + " " +
+					card.querySelector(".stars .unit-summary-of").textContent };
+		});
+		check(summary.shown && summary.page === "map" && summary.passed === "of 6" && summary.stars === "3 of 39",
+			"a unit's stop shows its activities passed and stars (got " + summary.passed + ", " + summary.stars + ")");
+		await page.goBack();
+		await page.waitForFunction(function() { return document.getElementById("unit-summary").hidden; });
+		await page.click('.world-stop[data-page="unit2"]');
+		await page.click(".unit-summary-go");
+		var opened = await page.getAttribute("#practice-view", "data-menu-page");
+		await page.goBack();
+		await page.waitForFunction(function() { return practice.menuPage === "map"; });
+		check(opened === "unit2" && await page.isHidden("#unit-summary"),
+			"back closes the summary, and its button opens the unit, then back to the map");
 		await page.evaluate(function() { recordProgress(25); saveProfile(); });
 		var saved = await page.evaluate(function() {
 			var id = localStorage.getItem("pitchdetect-student");

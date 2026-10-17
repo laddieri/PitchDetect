@@ -66,7 +66,17 @@ student's unit), each with its title, notes (`practiceUnitSub()`) and steps
 done; finished units turn gold, the unit with the next path step
 (`practiceCurrentUnit()`) carries the student's avatar and is scrolled into
 view, and the last stop is **Every activity**. A **Next:** button under the
-trail starts the next path step (its unit goes into history first). A stop
+trail starts the next path step (its unit goes into history first). A
+unit's stop first shows its **summary** (`showUnitSummary(id)`, the
+`#unit-summary` card over the map, styled like the level-up card;
+`practice.mapSummary`, its own history entry at depth 2, so back or Escape
+closes it via `closeUnitSummary()`): activities passed and stars earned out
+of the possible (`practiceUnitSummary()` over `practiceActivityResult(id,
+unit, nodes)`: the menu card's stars, none for song writing, a unit's More
+songs counted over `unitSongs(unit)`; passed means its path steps in the
+unit are done, else every lesson note learned / all of first sounds / a song
+written / any star), the next step if it's there, and a button into the
+unit. Every activity opens straight away. A unit's button
 opens that unit's page of the **menu** (`showPracticeMenu(page)`,
 `PRACTICE_ACTIVITIES`) of activities, each card showing its best result.
 Students see one **unit** at a time (`PRACTICE_UNITS`: Your first notes, The first 5 notes, Notes 6 and
@@ -162,7 +172,7 @@ also stops the mic. Browser
 history mirrors these screens (`syncPracticeHistory()`, run after every
 `setPracticeMode()` and in `closePractice()`), so Android's back button and
 iOS's swipe-back step back like the arrow: each screen has a depth (map 1;
-a unit or tab 2, so they replace each other; the profile 2; activity 3,
+a unit or tab 2, a unit's summary on the map 2, so they replace each other; the profile 2; activity 3,
 song 4); deeper pushes, sideways replaces, shallower
 `history.go()`s back, and `popstate` shows the entry's screen (after our
 own `history.go()`, `practiceHistoryGoing`, it syncs history to the screen
@@ -816,7 +826,8 @@ node tests/smoke.js                # CHROMIUM=/path/to/chrome for a browser of y
 It serves the repo itself and checks: no errors or page scroll at desktop and
 phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload;
-Practice opens on the map and back from its Next step goes to the unit, then the map; a drill's result
+Practice opens on the map and back from its Next step goes to the unit, then the map;
+a unit's stop shows its summary (activities passed, stars), which back closes; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the service worker keeps every chart of the
