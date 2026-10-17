@@ -5108,6 +5108,184 @@
 				margin-top: 10px;
 			}
 
+			/* A unit's card on the map (showUnitSummary()) */
+			.unit-summary-card {
+				width: 360px;
+				gap: 4px;
+			}
+
+			.unit-summary-card .unit-summary-close {
+				position: absolute;
+				top: 8px;
+				right: 8px;
+				width: 40px;
+				height: 40px;
+				border: none;
+				border-radius: 50%;
+				background: transparent;
+				color: var(--text-muted);
+				font-family: var(--font);
+				font-size: 1.8rem;
+				line-height: 1;
+				cursor: pointer;
+			}
+
+			.unit-summary-close:hover {
+				background: var(--surface-2);
+				color: var(--text);
+			}
+
+			.unit-summary-close:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.unit-summary-badge {
+				width: 72px;
+				height: 72px;
+				margin-bottom: 6px;
+				display: flex;
+				align-items: center;
+				justify-content: center;
+				border: 3px solid var(--border-strong);
+				border-radius: 50%;
+				background: var(--surface);
+				color: var(--text-muted);
+				font-size: 2rem;
+				font-weight: 700;
+				box-shadow: 0 4px 0 var(--border-strong);
+			}
+
+			.unit-summary[data-state="started"] .unit-summary-badge {
+				border-color: var(--accent-active);
+				background: var(--accent);
+				color: #fff;
+				box-shadow: 0 4px 0 var(--accent-active);
+			}
+
+			.unit-summary[data-state="done"] .unit-summary-badge {
+				border-color: #c98f00;
+				background: #f5b301;
+				color: #fff;
+				box-shadow: 0 4px 0 #c98f00;
+			}
+
+			.unit-summary-kicker {
+				color: var(--accent);
+				font-size: 0.8rem;
+				font-weight: 700;
+				letter-spacing: 0.06em;
+				text-transform: uppercase;
+			}
+
+			.unit-summary-title {
+				font-size: 1.4rem;
+				font-weight: 700;
+				line-height: 1.2;
+			}
+
+			.unit-summary-sub {
+				color: var(--text-muted);
+				font-size: 0.95rem;
+			}
+
+			.unit-summary-stats {
+				align-self: stretch;
+				display: grid;
+				grid-template-columns: 1fr 1fr;
+				gap: 10px;
+				margin-top: 12px;
+			}
+
+			.unit-summary-stat {
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 4px;
+				padding: 12px 8px;
+				border-radius: var(--radius-sm);
+				background: var(--surface-2);
+			}
+
+			.unit-summary-label {
+				color: var(--text-muted);
+				font-size: 0.78rem;
+				font-weight: 700;
+				text-transform: uppercase;
+				letter-spacing: 0.04em;
+			}
+
+			.unit-summary-count {
+				white-space: nowrap;
+			}
+
+			.unit-summary-icon {
+				margin-right: 4px;
+				font-size: 1.2rem;
+			}
+
+			.unit-summary-stat.passed .unit-summary-icon {
+				color: var(--success);
+			}
+
+			.unit-summary-stat.stars .unit-summary-icon {
+				color: #f5b301;
+			}
+
+			.unit-summary-value {
+				font-size: 1.6rem;
+				font-weight: 800;
+			}
+
+			.unit-summary-of {
+				color: var(--text-muted);
+				font-size: 0.95rem;
+				font-weight: 600;
+			}
+
+			.unit-summary-stat .unit-meter {
+				width: 100%;
+				background: var(--border);
+			}
+
+			.unit-summary-stat.stars .unit-meter-fill {
+				background: #f5b301;
+			}
+
+			.unit-summary-next {
+				min-height: 1.3em;
+				margin-top: 8px;
+				font-weight: 600;
+			}
+
+			.unit-summary-next:empty {
+				display: none;
+			}
+
+			.unit-summary-go {
+				align-self: stretch;
+			}
+
+			body.kid-mode .unit-summary-badge {
+				border: var(--cartoon-border);
+				box-shadow: 0 4px 0 var(--ink);
+				color: var(--ink);
+			}
+
+			body.kid-mode .unit-summary[data-state="started"] .unit-summary-badge {
+				background: var(--accent);
+				color: #fff;
+			}
+
+			body.kid-mode .unit-summary[data-state="done"] .unit-summary-badge {
+				background: #ffd23f;
+			}
+
+			body.kid-mode .unit-summary-stat {
+				border: var(--cartoon-border);
+				background: #fffdf5;
+			}
+
 			/* Tuning tip: a student whose notes all lean flat or sharp */
 			.tuning-tip-card {
 				width: 340px;
@@ -6149,6 +6327,29 @@
 						<div class="tuning-tip-teacher">Not sure how? Ask your teacher to help.</div>
 					</div>
 					<button class="practice-btn primary" onclick="closeTuningTip()">I&rsquo;ll try it!</button>
+				</div>
+			</div>
+			<div id="unit-summary" class="level-up unit-summary" role="dialog" aria-modal="true" aria-labelledby="unit-summary-title" hidden onclick="if (event.target === this) practiceBack()">
+				<div class="level-up-card unit-summary-card">
+					<button type="button" class="unit-summary-close" onclick="practiceBack()" aria-label="Close" title="Close">&times;</button>
+					<div class="unit-summary-badge" aria-hidden="true"></div>
+					<div class="unit-summary-kicker"></div>
+					<div id="unit-summary-title" class="unit-summary-title"></div>
+					<div class="unit-summary-sub"></div>
+					<div class="unit-summary-stats">
+						<div class="unit-summary-stat passed">
+							<span class="unit-summary-label">Activities passed</span>
+							<span class="unit-summary-count"><span class="unit-summary-icon" aria-hidden="true">&#10003;</span><span class="unit-summary-value"></span> <span class="unit-summary-of"></span></span>
+							<span class="unit-meter"><span class="unit-meter-fill"></span></span>
+						</div>
+						<div class="unit-summary-stat stars">
+							<span class="unit-summary-label">Stars earned</span>
+							<span class="unit-summary-count"><span class="unit-summary-icon" aria-hidden="true">&#9733;</span><span class="unit-summary-value"></span> <span class="unit-summary-of"></span></span>
+							<span class="unit-meter"><span class="unit-meter-fill"></span></span>
+						</div>
+					</div>
+					<div class="unit-summary-next"></div>
+					<button type="button" class="practice-btn primary unit-summary-go"></button>
 				</div>
 			</div>
 			<div id="level-up" class="level-up" role="alertdialog" aria-labelledby="level-up-heading" hidden>
