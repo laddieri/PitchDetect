@@ -271,6 +271,39 @@ async function run() {
 		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
 		await context.close();
 
+		// --- The chromatic scale shows chromatic fingerings ---
+		console.log("Chromatic scale");
+		errors = [];
+		context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+		page = await newPage(context, errors);
+		await page.goto(base);
+		await signIn(page, "Flutey", "Flute");
+		var flute = await page.evaluate(function() {
+			startPracticeActivity("scaleChromatic");
+			startPracticeNote(0);
+			goToPracticeStep(1);
+			var lesson = currentLesson().notes.length;
+			var bFlat = document.querySelector("#practice-body img.fingering-image").getAttribute("src");
+			startPracticeActivity("scalerunChromatic");
+			return { lesson: lesson, run: practice.challenge.seq.length, bFlat: bFlat };
+		});
+		check(flute.lesson === 13 && flute.run === 25, "the chromatic lesson has 13 notes and its run 25 (got " + flute.lesson + ", " + flute.run + ")");
+		check(/70-1-and-1\.png$/.test(flute.bFlat), "flute's chromatic B♭ is 1 and 1 (got " + flute.bFlat + ")");
+		await context.close();
+		context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
+		page = await newPage(context, errors);
+		await page.goto(base);
+		await signIn(page, "Clary", "Clarinet");
+		var fSharp = await page.evaluate(function() {
+			startPracticeActivity("scaleChromatic");
+			startPracticeNote(6);
+			goToPracticeStep(1);
+			return practiceNoteName(practice.target) + " " + document.querySelector("#practice-body .clarinet-caption").textContent;
+		});
+		check(fSharp === "F♯ Side keys", "clarinet's chromatic F♯ takes the side keys (got \"" + fSharp + "\")");
+		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
+		await context.close();
+
 		// --- iPhone Safari is told to add the app to the Home Screen ---
 		console.log("iPhone");
 		errors = [];

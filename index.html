@@ -3927,6 +3927,12 @@
 				width: 72px;
 			}
 
+			/* The chromatic scale's twelve names: two rows of six */
+			.practice-answers[data-count="12"] {
+				grid-template-columns: repeat(6, minmax(0, 72px));
+				gap: 8px;
+			}
+
 			.practice-answer {
 				height: 64px;
 				border: 2px solid var(--border-strong);
@@ -5744,6 +5750,27 @@
 
 				.practice-map[data-count="8"] .practice-map-stars {
 					font-size: 0.55rem;
+				}
+
+				/* The chromatic scale's thirteen notes */
+				.practice-map[data-count="13"] {
+					gap: 2px;
+				}
+
+				.practice-map[data-count="13"] .practice-map-note {
+					padding: 6px 0;
+				}
+
+				.practice-map[data-count="13"] .practice-map-name {
+					font-size: 0.85rem;
+				}
+
+				.practice-map[data-count="13"] .practice-map-stars {
+					font-size: 0.4rem;
+				}
+
+				.practice-answers[data-count="12"] {
+					gap: 6px;
 				}
 
 				.challenge-progress {

@@ -72,7 +72,7 @@ var LEVEL_TITLES = ["New Musician", "Note Finder", "Practice Pal", "Rhythm Rooki
 // current instrument can't earn (unless it's already earned)
 var BADGES = [
 	{ id: "first-note", icon: "\uD83C\uDFB5", name: "First Note", how: "Earn a star on any note",
-		test: function(s) { return s.first3.concat(s.first3bag, s.first5, s.next4, s.scale, s.moreScales).some(function(n) { return n > 0; }); } },
+		test: function(s) { return s.first3.concat(s.first3bag, s.first5, s.next4, s.scale, s.moreScales, s.chromatic).some(function(n) { return n > 0; }); } },
 	{ id: "five-alive", icon: "\u270B", name: "Five Alive", how: "Learn all of the first 5 notes",
 		test: function(s) { return s.first5.every(function(n) { return n > 0; }); } },
 	{ id: "gold-stars", icon: "\u2B50", name: "Gold Stars", how: "Get 3 stars on each of the first 5 notes",
@@ -87,6 +87,8 @@ var BADGES = [
 		test: function(s) { return s.scaleRunBest >= s.scaleRunLength; } },
 	{ id: "scale-explorer", icon: "\uD83E\uDDED", name: "Scale Explorer", how: "Learn the concert E\u266D, A\u266D, F and C scales",
 		test: function(s) { return s.moreScales.every(function(n) { return n > 0; }); } },
+	{ id: "half-step-hero", icon: "\uD83C\uDF08", name: "Half Step Hero", how: "Learn all 13 notes of the chromatic scale",
+		test: function(s) { return s.chromatic.every(function(n) { return n > 0; }); } },
 	{ id: "first-song", icon: "\uD83C\uDFB6", name: "First Song", how: "Finish a song",
 		test: function(s) { return s.songsFinished > 0; } },
 	{ id: "perfect-song", icon: "\uD83D\uDCAF", name: "Perfect Performance", how: "Play a whole song with every note right",
@@ -527,6 +529,7 @@ function progressSnapshot() {
 		scale: practice.lessons.scale.stars,
 		// Every note's stars of the concert E♭, A♭, F and C scales
 		moreScales: [].concat.apply([], MORE_SCALES.map(function(scale) { return practice.lessons[scale.id].stars; })),
+		chromatic: practice.lessons.scaleChromatic.stars,
 		quizBest: practice.challengeBest || 0,
 		scaleRunBest: practice.scaleRunBest.scale || 0,
 		scaleRunLength: scaleRunSequence().length,
@@ -684,11 +687,16 @@ function learningPath() {
 		nodes.push({ title: "Learn the concert " + scale.name + " scale", activity: scale.id,
 			done: practice.lessons[scale.id].stars.every(function(n) { return n > 0; }) });
 		nodes.push({ title: "Play the concert " + scale.name + " scale", activity: "scalerun" + scale.id.slice(5),
-			done: challengeStars(practice.scaleRunBest[scale.id] || 0, scaleRunSequence().length) > 0 });
+			done: challengeStars(practice.scaleRunBest[scale.id] || 0, scaleRunSequence(scale.id).length) > 0 });
 		var joy = SONGS.filter(function(song) { return song.id === "joy" + scale.id; })[0];
 		nodes.push({ title: "Play " + songTitle(joy), activity: "songs", level: "scales",
 			unit: firstUnitWith(scale.id), done: songStars(joy) > 0 });
 	});
+	// Then the chromatic scale: every half step
+	nodes.push({ title: "Learn the chromatic scale", activity: "scaleChromatic",
+		done: practice.lessons.scaleChromatic.stars.every(function(n) { return n > 0; }) });
+	nodes.push({ title: "Play the chromatic scale", activity: "scalerunChromatic",
+		done: challengeStars(practice.scaleRunBest.scaleChromatic || 0, scaleRunSequence("scaleChromatic").length) > 0 });
 	nodes.forEach(function(node) {
 		node.unit = node.unit || firstUnitWith(node.activity) || PRACTICE_UNITS[0].id;
 	});

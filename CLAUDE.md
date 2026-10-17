@@ -81,9 +81,9 @@ opens that unit's page of the **menu** (`showPracticeMenu(page)`,
 `PRACTICE_ACTIVITIES`) of activities, each card showing its best result.
 Students see one **unit** at a time (`PRACTICE_UNITS`: Your first notes, The first 5 notes, Notes 6 and
 beyond, The B♭ scale, then one unit per concert scale: The E♭ / A♭ / F / C
-scale; menu pages `unit1`–`unit8`, `practiceUnit()`): the
+scale, then The chromatic scale; menu pages `unit1`–`unit9`, `practiceUnit()`): the
 unit's cards in path order (a half card left unpaired goes wide), a unit
-bar above (`#practice-units`, `renderPracticeUnits()`: "Unit n of 8", steps
+bar above (`#practice-units`, `renderPracticeUnits()`: "Unit n of 9", steps
 done, ‹ › arrows, a dot on the arrow toward the next path step) and a
 dashed card at the end leading on (`practiceUnitNextCard()`). Past the last
 unit is **Every activity**: the old tabbed pages below, where teachers
@@ -118,7 +118,14 @@ e.g. `pitchdetect-eb-scale-run`). Their notes are spelled in the written key
 (`spell` → the lesson's `spellings`, from `scaleSpellings()`, which
 `practiceSpelling()` uses during the lesson and, via
 `practice.challenge.spellings`, its drills and run: trumpet's concert C
-scale reads D E F♯ G A B C♯ D). Flute and oboe also have **Learn B, A and G**
+scale reads D E F♯ G A B C♯ D). **Learn the chromatic scale** (lesson set
+and activity id `scaleChromatic`, unit 9, `CHROMATIC_STEPS`: every half
+step from the first B♭ up the octave, spelled as the lessons are; best stars
+in `pitchdetect-chromatic-scale`) and **Play the chromatic scale**
+(`scalerunChromatic`, its run up and back down, 25 notes; best in
+`pitchdetect-chromatic-scale-run`) have no drills. While either is on
+(`chromaticNow()`), `practiceFingeringBox()` shows the chromatic fingerings
+(`displayChromaticFingering()`, see Fingerings). Flute and oboe also have **Learn B, A and G**
 (`FIRST3_BAG_STEPS` / `FIRST3_BAG_INSTRUMENTS`, in
 `pitchdetect-first-three-bag`, where their classes start), and get both
 sets' cards side by side: lesson, name and fingering drills, songs and song
@@ -721,6 +728,13 @@ Loaded after firstfive.js; no server, everything stays on the device.
   (file numbers) and `extra` list every file in a set, for
   `fingeringImagePaths()` (offline caching; the smoke test checks they all
   exist, so update them when adding or removing chart files)
+- `chromaticFingerings` — where a chromatic scale takes another fingering
+  than the chart's: flute keeps the thumb on the B♮ key (`-b-thumb` files)
+  and plays B♭ "1 and 1" (`70-1-and-1.png`, `82-1-and-1.png`, made from the
+  B chart plus the F chart's right index finger); clarinet's F♯4 is thumb +
+  the bottom two side keys (`S3`, `S4`). Clarinet's E♭ (side key) and B / C
+  (alternating pinkies) and the saxophone charts' B♭ (side B♭) already suit
+  a chromatic scale. Oboe and bassoon use their charts as they are.
 - `hasFingeringData()`, `displayFingering()` — entry points used by the app.
 - Instruments with **no** fingering data: bare clefs, bass clarinet,
   bells (value `glockenspiel`; they get piano-only panels).
@@ -830,7 +844,8 @@ Practice opens on the map and back from its Next step goes to the unit, then the
 a unit's stop shows its summary (activities passed, stars), which back closes; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
-and shows trumpet's partial ladder; the service worker keeps every chart of the
+and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
+B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 song has piano chords and Play along counts in, plays and stops; a long
 song scrolls the next line into view before it's reached. Add a
