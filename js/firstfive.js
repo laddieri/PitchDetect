@@ -400,6 +400,7 @@ function loadPracticeInstrument() {
 		},
 		drillBest: loadDrillBest(select.value),
 		songBest: loadSongBest(select.value),
+		songSpeedBest: loadSongSpeedBest(select.value),
 		customSongs: loadCustomSongs(select.value),
 		firstSoundsBest: loadFirstSoundsBest(select.value),
 		tuning: { notes: [], sum: 0, ms: 0, lowMs: 0, highMs: 0, tipAt: -Infinity },
@@ -3306,6 +3307,24 @@ function saveSongBest(instrument, best) {
 	} catch (e) {}
 }
 
+// Play along's bests per song for an instrument, by speed:
+// { songBestKey: { turtle: notes right, walk: ..., ... } }
+function loadSongSpeedBest(instrument) {
+	try {
+		var best = JSON.parse(progressGet(SONG_SPEED_STORAGE_KEY) || "{}")[instrument];
+		if (best && typeof best === "object") return best;
+	} catch (e) {}
+	return {};
+}
+
+function saveSongSpeedBest(instrument, best) {
+	try {
+		var all = JSON.parse(progressGet(SONG_SPEED_STORAGE_KEY) || "{}");
+		all[instrument] = best;
+		progressSet(SONG_SPEED_STORAGE_KEY, JSON.stringify(all));
+	} catch (e) {}
+}
+
 // Trophy stars earned on a song so far (0 if never finished)
 // (set: for 3-note songs, which 3 notes; see songBestKey())
 function songStars(song, set) {
@@ -3343,12 +3362,15 @@ function showSongList(list) {
 	list.className = "song-list";
 	function songButton(song) {
 		var stars = songStars(song);
+		var fastest = ALONG_SPEEDS[alongSpeedPassed(song)];
 		var b = document.createElement("button");
 		b.className = "song-choice";
 		b.innerHTML = '<span class="song-choice-title"></span><span class="song-choice-stars" aria-hidden="true"></span>';
 		b.firstChild.textContent = songTitle(song);
-		b.lastChild.textContent = starText(stars);
-		b.setAttribute("aria-label", songTitle(song) + ", " + stars + " of 3 stars");
+		// The fastest speed played along at, like a medal
+		b.lastChild.textContent = (fastest ? fastest.icon + " " : "") + starText(stars);
+		b.setAttribute("aria-label", songTitle(song) + ", " + stars + " of 3 stars" +
+			(fastest ? ", played along at " + fastest.name + " speed" : ""));
 		b.onclick = function() { playThroughSong(song.id); };
 		return b;
 	}
@@ -3496,9 +3518,11 @@ function playThroughSong(id) {
 	document.getElementById("practice-view").setAttribute("data-step", "song-free");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
 	document.getElementById("practice-steps").innerHTML = "";
+	document.getElementById("practice-steps").appendChild(alongSpeedPicker());
 	document.getElementById("practice-steps").appendChild(songKeyButton(song));
 	document.getElementById("practice-staff-output").scrollTop = 0;
 	resetFollow();
+	updateSpeedPicker();
 }
 
 // Start (or restart) a run through the song: nothing played yet
@@ -3510,6 +3534,7 @@ function resetFollow() {
 	s.pos = 0;
 	s.results = s.notes.map(function() { return null; });
 	s.follow = { seg: null, silentMs: 0, heard: [], started: false, lastSound: 0 };
+	s.along = null;
 	s.done = false;
 
 	var body = document.getElementById("practice-body");
@@ -3551,11 +3576,29 @@ function resetFollow() {
 // tongued again (a dip in loudness, then a rise), and counts once it has
 // held FOLLOW_NOTE_MS. Each note played goes to followNote().
 function updateFollowListen(now, freq, level) {
-	var s = practice.song, f = s.follow;
+	var s = practice.song, f = s.follow, a = s.along;
 	if (practice.step !== 3) return;
 	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
 	practice.lastFrame = now;
-	if (now < (practice.ignoreUntil || 0)) {
+	if (a) {
+		// Play along: the mic listens over the piano (see alongNote())
+		if (a.done) return;
+		if (!a.times.length) {
+			// The count-in: how loud the speakers are at the mic
+			a.bleed = Math.max(a.bleed, level);
+			f.seg = null;
+			return;
+		}
+		// Not louder than the piano: that's the piano the mic is hearing. As
+		// quiet as that, a note held is being tongued again.
+		if (level < Math.min(ALONG_GATE_MAX, a.bleed * ALONG_BLEED_FACTOR)) {
+			freq = null;
+			if (f.seg) {
+				f.seg.low = f.seg.dipped ? Math.min(f.seg.low, level) : level;
+				f.seg.dipped = true;
+			}
+		}
+	} else if (now < (practice.ignoreUntil || 0)) {
 		f.seg = null;
 		return;
 	}
@@ -3563,6 +3606,7 @@ function updateFollowListen(now, freq, level) {
 	if (!freq) {
 		f.silentMs += dt;
 		if (f.silentMs >= FOLLOW_GAP_MS) f.seg = null;
+		if (a) return;
 		// Stopped: soon after reaching the last note, or after a long quiet
 		var quiet = s.pos >= s.notes.length ? 1500 : FOLLOW_END_SILENCE_MS;
 		if (f.started && now - f.lastSound > quiet) finishFollow();
@@ -3597,7 +3641,7 @@ function updateFollowListen(now, freq, level) {
 	if (!seg.counted && seg.ms >= FOLLOW_NOTE_MS) {
 		seg.counted = true;
 		f.started = true;
-		followNote(pitch);
+		if (a) alongNote(pitch, now - seg.ms); else followNote(pitch);
 	}
 }
 
@@ -3672,6 +3716,10 @@ function alignFollow(heard, notes, toEnd) {
 // in green and red, a score, and the way to fix the misses
 function finishFollow() {
 	var s = practice.song;
+	if (s.along) {
+		finishAlong(true);
+		return;
+	}
 	if (s.done) return;
 	s.done = true;
 	practice.step = 4;
@@ -4219,12 +4267,17 @@ function drawSongEvent(hl, arrow, ghost) {
 	var muted = "rgba(100, 116, 139, 0.4)";
 	var inPart = part ? songPartEvents(s, part) : null;
 	if (part && hl >= inPart.end) e = s.events[inPart.end - 1];
+	// Play along: the notes played right green, not just the ones gone by
+	var byEvent = {};
+	if (s.along) s.notes.forEach(function(n, j) { byEvent[n.event] = s.results[j]; });
 	renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
 		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null, whole: !!s.free, ahead: true },
 		function(i) {
 			if (inPart && (i < inPart.start || i >= inPart.end)) return muted;
-			return i === hl ? accent : i < hl ? done : null;
+			if (i === hl) return accent;
+			if (s.along) return byEvent[i] === "right" || byEvent[i] === "octave" ? done : null;
+			return i < hl ? done : null;
 		});
 }
 
@@ -4566,7 +4619,8 @@ function toggleSongView() {
 // while it plays; stopSongPlayback() ends it. opts (optional): tempo; piano,
 // a piano part to play along (songAccompaniment()); silent, no tune (Play
 // along); countIn, pulses (opts.pulse beats each) to count first, calling
-// onCount(n) on each.
+// onCount(n) on each; onEnd, called once the last event has played (not
+// when stopped).
 function playSongEvents(events, show, opts) {
 	opts = opts || {};
 	var beatMs = 60000 / (opts.tempo || SONG_TEMPO);
@@ -4578,6 +4632,7 @@ function playSongEvents(events, show, opts) {
 			// The last chord rings on; the mic waits it out
 			var ring = accompNodes.length ? ACCOMP_RING_MS : 0;
 			accompNodes = [];
+			if (opts.onEnd) opts.onEnd();
 			stopSongPlayback();
 			if (ring && practice) practice.ignoreUntil = performance.now() + ring;
 			return;
@@ -4638,12 +4693,18 @@ function playSong() {
 	}, { piano: songAccompaniment(practice.song.song, events) });
 }
 
-// Play along: just the piano, slower and after a measure counted in, the
-// staff and fingering following the tune, for the student to play it over.
-// Nothing is scored meanwhile: the mic would hear the piano too.
+// Play along: just the piano, at the speed picked (songSpeed) and after a
+// measure counted in, the staff and fingering following the tune, for the
+// student to play it over. Each note is scored in time (alongNote()), and
+// the result (finishAlong()) can open the next speed.
 function playAlong() {
 	var s = practice.song;
+	clearTimeout(practiceAdvanceTimer);
 	if (s.pos > 0) resetFollow();
+	var speed = ALONG_SPEEDS[alongSpeedIndex()];
+	// times: when each event started; bleed: the count-in's loudest level
+	var a = s.along = { speed: speed, times: [], played: 0, bleed: 0, ended: false, done: false };
+	s.results = s.notes.map(function() { return null; });
 	songPlayAlong = true;
 	var along = document.getElementById("song-along");
 	if (along) along.textContent = "\u25a0 Stop";
@@ -4653,14 +4714,216 @@ function playAlong() {
 	var showFingering = showSongFingerings(s.events);
 	playSongEvents(s.events, function(i) {
 		if (i === 0) setPracticeFeedback("Play!", "Play along with the piano");
+		a.times[i] = performance.now();
 		drawSongEvent(i);
 		showFingering(i);
 	}, {
-		tempo: PLAY_ALONG_TEMPO, piano: songAccompaniment(s.song, s.events), silent: true,
+		tempo: speed.tempo, piano: songAccompaniment(s.song, s.events), silent: true,
 		// Short measures count two
 		countIn: pulses < 3 ? pulses * 2 : pulses, pulse: pulse,
-		onCount: function(n) { setPracticeFeedback(String((n - 1) % pulses + 1), "Get ready\u2026"); }
+		onCount: function(n) { setPracticeFeedback(String((n - 1) % pulses + 1), "Get ready\u2026"); },
+		// The last note may still be sounding: listen a moment longer
+		onEnd: function() {
+			a.ended = true;
+			practiceAdvanceTimer = setTimeout(function() { finishAlong(false); }, ALONG_LATE_MS + 100);
+		}
 	});
+	updateSpeedPicker();
+}
+
+// Play along again at a speed
+function startAlong(id) {
+	songSpeed = id;
+	resetFollow();
+	playAlong();
+}
+
+// When event ev of a song's Play along starts (performance.now() time):
+// as shown, or for one still to come, from the last one shown. null before
+// the first.
+function alongEventTime(s, ev, beatMs) {
+	var a = s.along, k = ev;
+	while (k >= 0 && a.times[k] === undefined) k--;
+	if (k < 0) return null;
+	var t = a.times[k];
+	for (; k < ev; k++) t += eventBeats(s.events[k]) * beatMs;
+	return t;
+}
+
+// A note played during Play along, starting at onset: it counts for a
+// song note it falls on (from ALONG_EARLY_MS before the note starts to
+// ALONG_LATE_MS after it ends) that isn't played yet, right if any of those
+// is its pitch (or an octave off), else wrong on the first. Right notes
+// turn green as they go.
+function alongNote(pitch, onset) {
+	var s = practice.song, a = s.along;
+	var beatMs = 60000 / a.speed.tempo;
+	var wrong = -1;
+	a.played++;
+	for (var j = 0; j < s.notes.length; j++) {
+		var start = alongEventTime(s, s.notes[j].event, beatMs);
+		var len = eventBeats(s.notes[j]) * beatMs;
+		if (start === null || onset < start - Math.min(ALONG_EARLY_MS, len / 2)) break;
+		var r = s.results[j];
+		if (onset > start + len + ALONG_LATE_MS || r === "right" || r === "octave") continue;
+		var d = Math.abs(pitch - s.notes[j].midi);
+		if (d === 0 || d === 12) {
+			s.results[j] = d ? "octave" : "right";
+			wrong = -1;
+			break;
+		}
+		if (wrong < 0) wrong = j;
+	}
+	if (wrong >= 0) s.results[wrong] = "wrong";
+	if (!a.ended) drawSongEvent(a.times.length - 1);
+}
+
+// The end of Play along: the song in green and red, a score at that speed
+// (best kept per speed, and for the song), and the next speed once this one
+// is passed. partway: Stop and score before the end, so only the notes
+// already gone by count and nothing is saved.
+function finishAlong(partway) {
+	var s = practice.song, a = s.along;
+	if (!a || a.done || practice.mode !== "song") return;
+	a.done = a.ended = true;
+	clearTimeout(practiceAdvanceTimer);
+	stopSongPlayback();
+	var now = performance.now(), beatMs = 60000 / a.speed.tempo;
+	s.notes.forEach(function(n, j) {
+		var start = alongEventTime(s, n.event, beatMs);
+		var gone = start !== null && start + eventBeats(n) * beatMs + ALONG_LATE_MS < now;
+		if (!s.results[j] && (!partway || gone)) s.results[j] = "missed";
+	});
+	var total = s.notes.length;
+	s.done = true;
+	s.pos = total;
+	practice.step = 4;
+	drawSongLine(s.pos);
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
+
+	var speed = a.speed, k = ALONG_SPEEDS.indexOf(speed), next = ALONG_SPEEDS[k + 1];
+	var right = s.results.filter(function(r) { return r === "right" || r === "octave"; }).length;
+	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
+	var stars = challengeStars(right, total);
+	var scored = !partway && a.played > 0;
+	var key = songBestKey(s.song);
+	var bests = practice.songSpeedBest[key] || {};
+	var wasOpen = next && alongSpeedOpen(s.song, k + 1);
+	var newBest = scored && (typeof bests[speed.id] !== "number" || right > bests[speed.id]);
+	if (newBest) {
+		bests[speed.id] = right;
+		practice.songSpeedBest[key] = bests;
+		saveSongSpeedBest(practice.instrument, practice.songSpeedBest);
+	}
+	// Played in time with the piano: it counts for the song too
+	var prev = practice.songBest[key];
+	if (scored && (typeof prev !== "number" || right > prev)) {
+		practice.songBest[key] = right;
+		saveSongBest(practice.instrument, practice.songBest);
+	}
+	var nextOpen = next && alongSpeedOpen(s.song, k + 1);
+
+	if (!a.played) {
+		setPracticeFeedback("No notes heard", "Play into the mic along with the piano", "close");
+	} else {
+		setPracticeFeedback(
+			speed.icon + " " + (right === total ? "Perfect! " : right + " of " + total + " notes right ") + starText(stars),
+			partway ? "You stopped partway through"
+				: nextOpen && !wasOpen ? "You unlocked " + next.icon + " " + next.name + " speed!"
+				: firstMiss >= 0 ? "The red notes were missed or wrong"
+				: !next ? "Top speed!" : "\u00a0",
+			right === total ? "good" : "close");
+	}
+
+	var actions = document.querySelector("#practice-body .practice-actions");
+	actions.innerHTML = "";
+	if (firstMiss >= 0) {
+		actions.appendChild(practiceButton("Practice the red notes", "secondary", function() {
+			startSong(s.id, songLineStart(firstMiss));
+		}));
+	}
+	var faster = scored && nextOpen && stars >= ALONG_PASS_STARS;
+	actions.appendChild(practiceButton(PLAY_ALONG_LABEL + " again", faster ? "secondary" : "primary", function() {
+		startAlong(speed.id);
+	}));
+	if (faster) {
+		actions.appendChild(practiceButton("Try " + next.icon + " " + next.name + " speed \u2192", "primary", function() {
+			startAlong(next.id);
+		}));
+	}
+	actions.appendChild(practiceButton("Play it through", "secondary", resetFollow));
+	if (scored && stars > 0) addPathNextButton(actions);
+	updateSpeedPicker();
+	if (right === total && scored) launchFireworks(document.getElementById("practice-stage"));
+	if (scored) recordProgress(10 + 2 * right + (right === total ? 15 : 0) + speed.xp + (newBest && right > 0 ? NEW_BEST_XP : 0));
+}
+
+// Play along's speed picker (above Play it through): a button per speed,
+// a lock on the ones not open yet on this song (updateSpeedPicker())
+function alongSpeedPicker() {
+	var row = document.createElement("div");
+	row.className = "speed-picker";
+	row.setAttribute("role", "group");
+	row.setAttribute("aria-label", "Play along speed");
+	ALONG_SPEEDS.forEach(function(speed) {
+		var b = document.createElement("button");
+		b.className = "speed-choice";
+		b.innerHTML = '<span class="speed-icon" aria-hidden="true"></span><span class="speed-name"></span>';
+		b.onclick = function() {
+			songSpeed = speed.id;
+			updateSpeedPicker();
+		};
+		row.appendChild(b);
+	});
+	return row;
+}
+
+function updateSpeedPicker() {
+	var row = document.querySelector("#practice-steps .speed-picker");
+	var s = practice && practice.song;
+	if (!row || !s) return;
+	// A speed not open on this song falls back to the fastest that is
+	var k = alongSpeedIndex();
+	while (k > 0 && !alongSpeedOpen(s.song, k)) k--;
+	songSpeed = ALONG_SPEEDS[k].id;
+	var playing = songPlayTimer !== null || (s.along && !s.along.done);
+	row.querySelectorAll(".speed-choice").forEach(function(b, i) {
+		var speed = ALONG_SPEEDS[i], open = alongSpeedOpen(s.song, i);
+		b.querySelector(".speed-icon").textContent = open ? speed.icon : "\ud83d\udd12";
+		b.querySelector(".speed-name").textContent = speed.name;
+		b.disabled = !open || playing;
+		b.setAttribute("aria-pressed", i === k ? "true" : "false");
+		var label = open ? speed.name + " speed" : speed.name + " speed: play along at " + ALONG_SPEEDS[i - 1].name + " speed to open it";
+		b.title = label;
+		b.setAttribute("aria-label", label);
+	});
+}
+
+function alongSpeedIndex() {
+	var k = ALONG_SPEEDS.findIndex(function(speed) { return speed.id === songSpeed; });
+	return k < 0 ? 1 : k;
+}
+
+// Whether Play along offers speed k on a song: Turtle and Walk always (and
+// every speed to a teacher), each faster one once the one before it has
+// ALONG_PASS_STARS
+function alongSpeedOpen(song, k) {
+	if (k <= 1 || teacherMode) return true;
+	var best = (practice.songSpeedBest[songBestKey(song)] || {})[ALONG_SPEEDS[k - 1].id];
+	return typeof best === "number" && challengeStars(best, songNotes(song).length) >= ALONG_PASS_STARS;
+}
+
+// The fastest speed a song has been played along at with ALONG_PASS_STARS
+// (an index into ALONG_SPEEDS), or -1
+function alongSpeedPassed(song) {
+	var best = practice.songSpeedBest[songBestKey(song)] || {};
+	var total = songNotes(song).length;
+	for (var k = ALONG_SPEEDS.length - 1; k >= 0; k--) {
+		var n = best[ALONG_SPEEDS[k].id];
+		if (typeof n === "number" && challengeStars(n, total) >= ALONG_PASS_STARS) return k;
+	}
+	return -1;
 }
 
 // ---------------------------------------------------------------------------
@@ -4683,7 +4946,22 @@ var ACCOMP_CHORD_GAIN = 0.05;   // per chord note; the tune plays at ~0.2
 var ACCOMP_BASS_GAIN = 0.09;
 var ACCOMP_CLICK_GAIN = 0.06;   // Play along's count-in
 var ACCOMP_RING_MS = 1500;      // the last chord's ring after the tune ends
-var PLAY_ALONG_TEMPO = 80;      // quarter notes per minute, slower than Hear the song
+// Play along's speeds (quarter notes per minute; Walk is the old one).
+// Turtle and Walk are always open; each faster one opens on a song once the
+// one before it has ALONG_PASS_STARS there. xp: extra for a run at it.
+var ALONG_SPEEDS = [
+	{ id: "turtle", name: "Turtle", icon: "\ud83d\udc22", tempo: 60, xp: 0 },
+	{ id: "walk", name: "Walk", icon: "\ud83d\udeb6", tempo: 80, xp: 0 },
+	{ id: "bunny", name: "Bunny", icon: "\ud83d\udc07", tempo: 100, xp: 5 },
+	{ id: "rocket", name: "Rocket", icon: "\ud83d\ude80", tempo: 120, xp: 10 }
+];
+var ALONG_PASS_STARS = 2;
+var ALONG_EARLY_MS = 200;      // a note played this early (at most half its length)...
+var ALONG_LATE_MS = 200;       // ...or this late past its end (speakers lag) still counts
+var ALONG_BLEED_FACTOR = 2.5;  // the piano's chords at the mic, against the count-in's click
+var ALONG_GATE_MAX = 0.04;     // never ask for a level (RMS) above this to beat the piano
+var SONG_SPEED_STORAGE_KEY = "pitchdetect-song-speeds";
+var songSpeed = "walk";        // Play along's speed, for this visit
 // A lighter piano than the main app's (no doubled strings, fewer partials):
 // chords on every beat would otherwise mean hundreds of oscillators
 var ACCOMP_TIMBRE = Object.assign({}, instrumentTimbres["default"], {
@@ -4934,14 +5212,21 @@ function stopSongPlayback() {
 		return;
 	}
 	if (!practice || !practice.song || practice.mode !== "song") return;
+	// Play along stopped partway: that run doesn't count
+	var s = practice.song;
+	if (along && s.along && !s.along.ended) {
+		s.along = null;
+		s.results = s.notes.map(function() { return null; });
+	}
 	practice.ignoreUntil = performance.now() + 400;
 	resetPracticeHold();
 	var hear = document.getElementById("song-hear");
 	if (hear) hear.textContent = songHearLabel();
 	var alongButton = document.getElementById("song-along");
 	if (alongButton) alongButton.textContent = PLAY_ALONG_LABEL;
-	if (along && practice.song.free && !practice.song.done) setPracticeFeedback("Play it all the way through!", " ");
-	drawSongLine(practice.song.pos);
+	if (along && s.free && !s.done && !s.along) setPracticeFeedback("Play it all the way through!", " ");
+	drawSongLine(s.pos);
+	updateSpeedPicker();
 }
 
 // ---------------------------------------------------------------------------
@@ -5339,6 +5624,10 @@ function saveEditorSong(notesChanged) {
 	if (notesChanged && song.id in practice.songBest) {
 		delete practice.songBest[song.id];
 		saveSongBest(practice.instrument, practice.songBest);
+	}
+	if (notesChanged && song.id in practice.songSpeedBest) {
+		delete practice.songSpeedBest[song.id];
+		saveSongSpeedBest(practice.instrument, practice.songSpeedBest);
 	}
 }
 
