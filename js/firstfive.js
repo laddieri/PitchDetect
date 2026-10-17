@@ -1404,6 +1404,7 @@ function practiceFingeringBox(hideName, midi, noCenter) {
 			box.querySelector("img.fingering-image").src = "img/Fingerings/Flute/" + midi + "-b-thumb.png";
 		}
 		if (practice.instrument === "trombone" && !noCenter) centerChartDrawing(box);
+		if (practice.instrument === "clarinet" && !noCenter) trimClarinetCharts([box]);
 	} else {
 		box.style.setProperty("--fingering-h", "134px");  // the keyboard at 300px wide
 		var concertPc = (((midi - getTransposition()) % 12) + 12) % 12;
@@ -1442,6 +1443,46 @@ function centerChartsTogether(boxes) {
 		if (maxX < 0) return;
 		var shift = "translateX(" + ((width - (minX + maxX + 1)) / 2 / width * 100) + "%)";
 		imgs.forEach(function(img) { img.style.transform = shift; });
+	});
+}
+
+// The clarinet diagram is drawn on one canvas with room for every key
+// group, so a note without pinky or throat keys leaves much of it blank and
+// the holes small. Crop the canvas to what's drawn (for charts shown in
+// turn, to what they draw together, so the holes keep one size), and drop
+// the empty caption line under it.
+function trimClarinetCharts(boxes) {
+	var svgs = [];
+	boxes.forEach(function(box) {
+		box.querySelectorAll(".clarinet-fingering svg").forEach(function(svg) { svgs.push(svg); });
+		box.querySelectorAll(".clarinet-caption").forEach(function(caption) {
+			if (!caption.textContent.trim()) caption.remove();
+		});
+	});
+	if (!svgs.length) return;
+	// getBBox() needs the drawing on the page: measure it out of sight
+	var probe = document.createElement("div");
+	probe.style.cssText = "position: absolute; left: -9999px; top: 0; visibility: hidden;";
+	document.body.appendChild(probe);
+	var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+	svgs.forEach(function(svg) {
+		var next = svg.nextSibling, parent = svg.parentNode;
+		probe.appendChild(svg);
+		var b = svg.getBBox();
+		parent.insertBefore(svg, next);
+		minX = Math.min(minX, b.x);
+		minY = Math.min(minY, b.y);
+		maxX = Math.max(maxX, b.x + b.width);
+		maxY = Math.max(maxY, b.y + b.height);
+	});
+	probe.remove();
+	if (!(maxX > minX && maxY > minY)) return;
+	var pad = 3;  // half the outline, and a little room
+	var x = minX - pad, y = minY - pad, w = maxX - minX + pad * 2, h = maxY - minY + pad * 2;
+	svgs.forEach(function(svg) {
+		svg.setAttribute("viewBox", [x, y, w, h].join(" "));
+		svg.setAttribute("width", w);
+		svg.setAttribute("height", h);
 	});
 }
 
@@ -4664,6 +4705,8 @@ function showSongFingerings(events) {
 	if (!wrap.firstChild) return function() {};
 	if (practice.instrument === "trombone") {
 		centerChartsTogether(Object.keys(boxes).map(function(m) { return boxes[m]; }));
+	} else if (practice.instrument === "clarinet") {
+		trimClarinetCharts(Object.keys(boxes).map(function(m) { return boxes[m]; }));
 	} else if (imageFingeringMap[practice.instrument]) {
 		lineUpChartImages(boxes);
 	}

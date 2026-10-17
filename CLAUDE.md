@@ -547,6 +547,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   Hear the song's charts are shown in turn, so they share one shift
   (`centerChartsTogether()`, the span they draw together): the bell stays put
   and only the slide moves.
+  The clarinet diagram's canvas has room for every key group, so
+  `trimClarinetCharts()` crops it to what's drawn (Hear the song's charts
+  to what they draw together, one size) and drops an empty caption.
   The main app's fingering panel leaves charts as drawn.
 - The header's big instrument pill (`#practice-instrument`) is only a label
   (set by `loadPracticeInstrument()`); the instrument is changed on the
