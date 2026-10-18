@@ -3636,6 +3636,61 @@
 				margin: 0 10px 0 6px;
 			}
 
+			/* Play along's speeds (alongSpeedPicker()), above Play it through */
+			.speed-picker {
+				display: flex;
+				gap: 2px;
+				padding: 3px;
+				border-radius: var(--radius-pill);
+				background: var(--surface-2);
+			}
+
+			.speed-choice {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				padding: 4px 9px;
+				border: none;
+				border-radius: var(--radius-pill);
+				background: transparent;
+				color: var(--text-muted);
+				font-family: var(--font);
+				font-size: 0.8rem;
+				font-weight: 600;
+				cursor: pointer;
+			}
+
+			.speed-choice[aria-pressed="true"] {
+				background: var(--surface);
+				color: var(--text);
+				box-shadow: var(--shadow-sm);
+			}
+
+			.speed-choice:disabled {
+				cursor: default;
+				opacity: 0.5;
+			}
+
+			.speed-choice[aria-pressed="true"]:disabled {
+				opacity: 0.8;
+			}
+
+			.speed-icon {
+				font-size: 1rem;
+				line-height: 1;
+			}
+
+			.practice-steps .speed-picker + .song-key-toggle {
+				margin-left: 8px;
+			}
+
+			/* Phones: only the speed picked keeps its name */
+			@media (max-width: 420px) {
+				.speed-choice:not([aria-pressed="true"]) .speed-name {
+					display: none;
+				}
+			}
+
 			/* Up and down beside the staff (overlapping its end a little) */
 			.practice-view[data-step="song-editor"] .practice-staff {
 				position: relative;

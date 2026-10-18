@@ -206,6 +206,60 @@ async function run() {
 		await page.click("#song-along");
 		check(await page.evaluate(function() { return songPlayTimer === null && accompNodes.length === 0; }), "Play along stops");
 
+		// Play along scores each note in time, over the piano: a note no
+		// louder than the piano doesn't count, and passing a speed opens the
+		// next. The mic is replaced by frames playing each note as it comes
+		// (skip: a note played only as loud as the piano).
+		await page.evaluate(function() {
+			window.realPracticeListen = updatePracticeListen;
+			updatePracticeListen = function() {};
+			ALONG_SPEEDS[1].tempo = 240;  // quick, for the test
+			window.alongSim = { skip: -1 };
+			window.alongSimTimer = setInterval(function() {
+				var s = practice.song, a = s && s.along;
+				if (!a || a.done) return;
+				var now = performance.now();
+				if (!a.times.length) {
+					updateFollowListen(now, null, 0.01);  // the count-in click
+					return;
+				}
+				var i = a.times.length - 1, e = s.events[i];
+				var j = s.notes.findIndex(function(n) { return n.event === i; });
+				var freq = e && e.midi !== null ? frequencyFromNoteNumber(e.midi - getTransposition()) : null;
+				// A short tongued gap at the start of each note
+				var level = !freq || a.ended || now - a.times[i] < 40 ? 0.001 : j === alongSim.skip ? 0.015 : 0.2;
+				updateFollowListen(now, freq, level);
+			}, 16);
+			playThroughSong("auclair");
+			songSpeed = "walk";
+			alongSim.skip = 2;
+			playAlong();
+		});
+		await page.waitForFunction(function() { return practice.song.done; }, null, { timeout: 15000 });
+		var missed = await page.evaluate(function() {
+			return { results: practice.song.results.slice(), text: document.getElementById("practice-feedback").textContent };
+		});
+		check(missed.results[2] === "missed" && missed.results.filter(function(r) { return r === "right"; }).length === missed.results.length - 1,
+			"Play along scores notes in time, and not one as quiet as the piano");
+		await page.evaluate(function() {
+			alongSim.skip = -1;
+			startAlong("walk");
+		});
+		await page.waitForFunction(function() { return practice.song.done; }, null, { timeout: 15000 });
+		var passed = await page.evaluate(function() {
+			var bunny = document.querySelectorAll("#practice-steps .speed-choice")[2];
+			return { text: document.getElementById("practice-feedback").textContent, bunnyOpen: !bunny.disabled,
+				best: practice.songSpeedBest.auclair, total: practice.song.notes.length };
+		});
+		check(/Perfect/.test(passed.text) && passed.bunnyOpen && passed.best && passed.best.walk === passed.total,
+			"a perfect Play along is saved and opens the next speed");
+		await page.evaluate(function() {
+			clearInterval(alongSimTimer);
+			updatePracticeListen = realPracticeListen;
+			ALONG_SPEEDS[1].tempo = 80;
+			closeLevelUp();  // the runs' XP may have leveled up
+		});
+
 		// Following a long song, the next line shows before it's reached
 		await page.evaluate(function() {
 			playThroughSong("joyscale");

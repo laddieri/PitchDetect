@@ -370,10 +370,26 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `stopSongPlayback()`) fades them, and the last chord rings
   `ACCOMP_RING_MS` with the mic still ignoring it. **Play along** (Play it
   through's `#song-along`, `playAlong()`, `songPlayAlong`): a measure
-  counted in, then just the piano at `PLAY_ALONG_TEMPO` with the staff and
-  fingering following, for the student to play the tune over; the mic
-  isn't scored meanwhile (it would hear the piano: `echoCancellation` is
-  off). Help works as in the quiz; best unhelped-note score per song
+  counted in, then just the piano with the staff and fingering following,
+  for the student to play the tune over, at the speed picked above the
+  staff (`ALONG_SPEEDS`: Turtle 60, Walk 80, Bunny 100, Rocket 120;
+  `alongSpeedPicker()` / `updateSpeedPicker()`, `songSpeed` for the visit).
+  It's scored in time (`practice.song.along`, `alongNote()`): the follow
+  mic's notes each count for a song note they fall on, from
+  `ALONG_EARLY_MS` before it to `ALONG_LATE_MS` after it ends (event start
+  times from `alongEventTime()`). The mic hears the piano too
+  (`echoCancellation` is off), so the count-in measures the speakers'
+  level at the mic (`bleed`) and frames under `ALONG_BLEED_FACTOR` × that
+  (at most `ALONG_GATE_MAX`) count as silence, and as a re-tongue.
+  `finishAlong()` (the end, or Stop and score: partway, nothing saved)
+  marks red and green, saves the best per song per speed in
+  `pitchdetect-song-speeds` (`practice.songSpeedBest`, keyed by
+  `songBestKey()`) and in the song's best, and offers the next speed.
+  Turtle and Walk are always open; each faster speed opens on a song once
+  the one before has `ALONG_PASS_STARS` (`alongSpeedOpen()`; all open to
+  teachers), and the song list shows the fastest passed
+  (`alongSpeedPassed()`) as a medal beside the stars. Stopping Play along
+  drops that run. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
   from a song returns to the song list, and from the list to the Songs page.
   A song opens in **Play it through** (`playThroughSong()`; the song list,
@@ -847,7 +863,8 @@ Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
 B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
-song has piano chords and Play along counts in, plays and stops; a long
+song has piano chords and Play along counts in, plays and stops, scores
+notes in time over the piano and opens the next speed; a long
 song scrolls the next line into view before it's reached. Add a
 check there when adding something a broken change would silently lose.
 
