@@ -5162,6 +5162,8 @@ function showSongFingerings(events) {
 	var help = body.querySelector(":scope > .practice-fingering");
 	if (help) help.hidden = true;
 	body.insertBefore(wrap, body.firstChild);
+	// A wide screen puts it beside the staff (see the CSS)
+	document.getElementById("practice-view").setAttribute("data-song-charts", "1");
 	var shown = null;
 	function show(midi) {
 		if (shown) shown.hidden = true;
@@ -5176,6 +5178,7 @@ function showSongFingerings(events) {
 
 // Put away the play-along fingering and bring back any Help chart
 function removeSongFingerings() {
+	document.getElementById("practice-view").removeAttribute("data-song-charts");
 	var wrap = document.getElementById("song-fingering");
 	if (!wrap) return;
 	var help = wrap.parentNode.querySelector(":scope > .practice-fingering");

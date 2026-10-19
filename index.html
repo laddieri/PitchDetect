@@ -4159,6 +4159,50 @@
 				display: none;
 			}
 
+			/* A wide screen's Play it through: under the song the chart would
+			   leave room for barely a line of music, so while it plays (Hear
+			   the song, Play along) the card widens and the chart goes beside
+			   the staff, the feedback and buttons below both */
+			@media (min-width: 1000px) {
+				.practice-view[data-step="song-free"][data-song-charts] .practice-card {
+					margin-inline: calc((760px - min(1180px, 100vw - 48px)) / 2);
+				}
+
+				.practice-view[data-step="song-free"][data-song-charts] .practice-stage {
+					display: grid;
+					grid-template-columns: minmax(0, 1fr) clamp(240px, 32%, 380px);
+					grid-template-rows: auto minmax(0, 1fr);
+					grid-auto-rows: auto;
+					justify-items: center;
+					column-gap: 20px;
+				}
+
+				.practice-view[data-step="song-free"][data-song-charts] .practice-staff {
+					grid-column: 1;
+					grid-row: 2;
+					height: 100%;
+				}
+
+				.practice-view[data-step="song-free"][data-song-charts] .practice-prompt {
+					grid-column: 1;
+				}
+
+				.practice-view[data-step="song-free"][data-song-charts] #practice-body {
+					display: contents;
+				}
+
+				.practice-view[data-step="song-free"][data-song-charts] #practice-body > * {
+					grid-column: 1 / -1;
+				}
+
+				.practice-view[data-step="song-free"][data-song-charts] #practice-body > .song-fingering {
+					grid-column: 2;
+					grid-row: 1 / 3;
+					align-self: center;
+					height: min(var(--fingering-h, 180px), 34vh);
+				}
+			}
+
 			/* The song's chart images on one canvas: see lineUpChartImages() */
 			.chart-stage {
 				position: relative;

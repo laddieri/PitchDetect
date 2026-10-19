@@ -349,7 +349,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `fingeringImageLayouts`: measured offsets and every file's size, since
   files are cropped per note), laid out at once, before the images load, so
   the tone holes don't move;
-  `removeSongFingerings()` from `stopSongPlayback()`); `setPracticeMode()` and `closePractice()`
+  `removeSongFingerings()` from `stopSongPlayback()`; while it's up,
+  `#practice-view[data-song-charts]`: on screens 1000px+ wide, Play it
+  through's card widens and the chart sits beside the staff, so the music
+  keeps its room); `setPracticeMode()` and `closePractice()`
   stop it. **Piano accompaniment:** Hear the song (and the editor's and
   import screen's Hear it) plays an oom-pah piano part under the tune
   (`songAccompaniment(song, events)`: hits `{ beat, midis (concert), len,
@@ -863,7 +866,8 @@ Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
 B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
-song has piano chords and Play along counts in, plays and stops, scores
+song has piano chords and Play along counts in (on a desktop with the chart
+beside the staff), plays and stops, scores
 notes in time over the piano and opens the next speed; a long
 song scrolls the next line into view before it's reached. Add a
 check there when adding something a broken change would silently lose.

@@ -203,6 +203,13 @@ async function run() {
 			return { piano: accompNodes.length, label: document.getElementById("song-along").textContent };
 		});
 		check(counted === "1" && along.piano > 0 && /Stop/.test(along.label), "Play along counts in and plays the piano");
+		// On a desktop the chart goes beside the music, not under it
+		var side = await page.evaluate(function() {
+			var staff = document.querySelector(".practice-staff").getBoundingClientRect();
+			var chart = document.getElementById("song-fingering").getBoundingClientRect();
+			return { beside: chart.left >= staff.right, h: Math.round(staff.height) };
+		});
+		check(side.beside && side.h >= 300, "on a desktop the song's chart goes beside the staff (staff " + side.h + "px tall)");
 		await page.click("#song-along");
 		check(await page.evaluate(function() { return songPlayTimer === null && accompNodes.length === 0; }), "Play along stops");
 
