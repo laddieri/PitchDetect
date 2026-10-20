@@ -197,7 +197,11 @@ async function run() {
 		});
 		check(chords > 0, "a song has piano chords");
 		await page.click("#song-along");
-		var counted = await page.textContent("#practice-feedback");
+		// (once the mic is on: the count-in measures the piano at the mic)
+		var counted = await page.waitForFunction(function() {
+			return /^\d$/.test(document.getElementById("practice-feedback").textContent) && listenActive
+				&& document.getElementById("practice-feedback").textContent;
+		}).then(function(h) { return h.jsonValue(); });
 		await page.waitForTimeout(3200);
 		var along = await page.evaluate(function() {
 			return { piano: accompNodes.length, label: document.getElementById("song-along").textContent };
@@ -212,6 +216,43 @@ async function run() {
 		check(side.beside && side.h >= 300, "on a desktop the song's chart goes beside the staff (staff " + side.h + "px tall)");
 		await page.click("#song-along");
 		check(await page.evaluate(function() { return songPlayTimer === null && accompNodes.length === 0; }), "Play along stops");
+
+		// A song doesn't listen until asked; a tapped note shows its fingering
+		var quiet = await page.evaluate(function() {
+			playThroughSong("mary");
+			return listenActive;
+		});
+		await page.click("#song-listen");
+		await page.waitForFunction(function() { return listenActive; }, null, { timeout: 5000 }).catch(function() {});
+		var listening = await page.evaluate(function() {
+			return { on: listenActive, label: document.getElementById("song-listen").textContent };
+		});
+		check(!quiet && listening.on && /Stop and score/.test(listening.label),
+			"a song listens only after Listen to me");
+		await page.click("#song-listen");
+		function noteSpot() {
+			var s = practice.song, i = s.notes[2].event;
+			var line = Object.keys(s.layouts).find(function(l) { return s.layouts[l].xs[i] !== undefined; });
+			var r = s.layouts[line], pt = r.svg.createSVGPoint();
+			pt.x = r.xs[i];
+			pt.y = r.stave.getYForLine(2);
+			var p = pt.matrixTransform(r.svg.getScreenCTM());
+			return { x: p.x, y: p.y, event: i, mic: listenActive };
+		}
+		var spot = await page.evaluate(noteSpot);
+		await page.mouse.click(spot.x, spot.y);
+		var tapped = await page.evaluate(function() {
+			var wrap = document.getElementById("song-fingering");
+			return { tapped: practice.song.tapped, chart: !!(wrap && wrap.querySelector(".practice-fingering:not([hidden])")),
+				name: wrap ? wrap.querySelector(".song-fingering-name").textContent : "" };
+		});
+		check(!spot.mic && tapped.tapped === spot.event && tapped.chart && tapped.name,
+			"Stop and score turns the mic off, and a tapped note shows its fingering (" + tapped.name + ")");
+		// (On a desktop the chart goes beside the staff, which moves it)
+		spot = await page.evaluate(noteSpot);
+		await page.mouse.click(spot.x, spot.y);
+		check(await page.evaluate(function() { return !document.getElementById("song-fingering") && practice.song.tapped === null; }),
+			"tapping the note again puts its fingering away");
 
 		// Play along scores each note in time, over the piano: a note no
 		// louder than the piano doesn't count, and passing a speed opens the
@@ -233,8 +274,10 @@ async function run() {
 				var i = a.times.length - 1, e = s.events[i];
 				var j = s.notes.findIndex(function(n) { return n.event === i; });
 				var freq = e && e.midi !== null ? frequencyFromNoteNumber(e.midi - getTransposition()) : null;
-				// A short tongued gap at the start of each note
-				var level = !freq || a.ended || now - a.times[i] < 40 ? 0.001 : j === alongSim.skip ? 0.015 : 0.2;
+				// A short tongued gap at the start of each note (at least one
+				// frame, should the timer run late)
+				var level = !freq || a.ended || now - a.times[i] < 40 || alongSim.last !== i ? 0.001 : j === alongSim.skip ? 0.015 : 0.2;
+				alongSim.last = i;
 				updateFollowListen(now, freq, level);
 			}, 16);
 			playThroughSong("auclair");

@@ -421,6 +421,7 @@ function loadPracticeInstrument() {
 // still playing from the last result.
 function setPracticeMode(mode) {
 	stopSongPlayback();
+	removeSongFingerings();
 	closeTuningTip();
 	clearInterval(drillClockTimer);
 	practice.mode = mode;
@@ -3522,6 +3523,8 @@ function playThroughSong(id) {
 	document.getElementById("practice-steps").appendChild(songKeyButton(song));
 	document.getElementById("practice-staff-output").scrollTop = 0;
 	resetFollow();
+	// The mic waits for Listen to me (or Play along)
+	songMicOff();
 	updateSpeedPicker();
 }
 
@@ -3533,23 +3536,28 @@ function resetFollow() {
 	practice.lastFrame = null;
 	s.pos = 0;
 	s.results = s.notes.map(function() { return null; });
-	s.follow = { seg: null, silentMs: 0, heard: [], started: false, lastSound: 0 };
+	s.follow = { seg: null, silentMs: 0, heard: [], started: false, lastSound: 0, listening: false };
 	s.along = null;
 	s.done = false;
+	removeSongFingerings();
+	s.tapped = null;
 
 	var body = document.getElementById("practice-body");
 	body.innerHTML =
 		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Play it all the way through!</div>' +
-		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>';
+		'<div class="practice-feedback-sub" id="practice-feedback-sub">Tap a note to see how to play it</div>';
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
+	var listen = practiceButton(LISTEN_TO_ME_LABEL, "primary", startFollow);
+	listen.id = "song-listen";
+	actions.appendChild(listen);
 	var hear = practiceButton("\u25b6 Hear the song", "secondary", function() {
 		if (songPlayTimer !== null) stopSongPlayback(); else playSong();
 	});
 	hear.id = "song-hear";
 	actions.appendChild(hear);
 	var along = practiceButton(PLAY_ALONG_LABEL, "secondary", function() {
-		var playing = songPlayTimer !== null && songPlayAlong;
+		var playing = songPlayAlong;
 		stopSongPlayback();
 		if (!playing) playAlong();
 	});
@@ -3559,15 +3567,51 @@ function resetFollow() {
 	actions.appendChild(practiceButton("Pick a part", "secondary", function() {
 		showSongPicker(s.id, function() { playThroughSong(s.id); });
 	}));
-	var done = practiceButton("\u25a0 Stop and score", "secondary", finishFollow);
-	done.id = "follow-done";
-	actions.appendChild(done);
 	body.appendChild(actions);
 	drawSongLine(0);
-	// The mic is on only while a run is going
-	if (!listenActive) {
-		practiceStartedMic = true;
-		startListening();
+}
+
+var LISTEN_TO_ME_LABEL = "\ud83c\udfa4 Listen to me";
+
+// Listen to me: the mic on and a run started; the button turns into Stop
+// and score
+function startFollow() {
+	var s = practice.song;
+	stopSongPlayback();
+	if (s.pos > 0 || s.done || s.along) resetFollow();
+	s.follow.listening = true;
+	practice.ignoreUntil = performance.now() + 300;
+	songMicOn();
+	setPracticeFeedback("I\u2019m listening!", "Play it all the way through", "good");
+	var listen = document.getElementById("song-listen");
+	if (listen) {
+		listen.textContent = "\u25a0 Stop and score";
+		listen.onclick = finishFollow;
+	}
+}
+
+// The mic for a song, on only while something is listening (left alone if
+// the student had it on before Practice did)
+function songMicOn() {
+	if (listenActive && !practiceStartedMic) return;
+	practiceStartedMic = true;
+	if (!listenActive && !listenStarting) startListening();
+}
+
+// Off again; a mic still starting up is stopped once it has, unless it's
+// been wanted again meanwhile
+function songMicOff() {
+	if (!practiceStartedMic) return;
+	practiceStartedMic = false;
+	if (listenActive) {
+		stopListening();
+	} else if (listenStarting) {
+		(function wait() {
+			setTimeout(function() {
+				if (listenStarting) wait();
+				else if (listenActive && !practiceStartedMic) stopListening();
+			}, 50);
+		})();
 	}
 }
 
@@ -3598,7 +3642,7 @@ function updateFollowListen(now, freq, level) {
 				f.seg.dipped = true;
 			}
 		}
-	} else if (now < (practice.ignoreUntil || 0)) {
+	} else if (!f.listening || now < (practice.ignoreUntil || 0)) {
 		f.seg = null;
 		return;
 	}
@@ -3733,9 +3777,9 @@ function finishFollow() {
 	if (!partway) a = alignFollow(s.follow.heard, s.notes, true);
 	s.results = a.results;
 	s.pos = total;
+	s.follow.listening = false;
 	drawSongLine(s.pos);
-	if (practiceStartedMic && listenActive) stopListening();
-	practiceStartedMic = false;
+	songMicOff();
 	var right = s.results.filter(function(r) { return r === "right" || r === "octave"; }).length;
 	var octaves = s.results.filter(function(r) { return r === "octave"; }).length;
 	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
@@ -4014,6 +4058,8 @@ function showSongNote() {
 	view.setAttribute("data-step", "song");
 	var box = document.querySelector("#practice-body > .practice-fingering");
 	if (box) box.remove();
+	removeSongFingerings();
+	s.tapped = null;
 	var help = document.getElementById("song-help");
 	if (help) {
 		help.textContent = "Help";
@@ -4239,12 +4285,13 @@ function drawSongLine(pos) {
 		var bad = styles.getPropertyValue("--danger").trim() || "#e11d48";
 		var byEvent = {};
 		s.notes.forEach(function(n, i) { byEvent[n.event] = s.results[i]; });
+		var tapped = styles.getPropertyValue("--accent").trim() || "#4f46e5";
 		var at = Math.min(pos, s.notes.length - 1);
-		renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
+		s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 			s.done || pos === 0 ? -1 : songLineOf(at), s.measures, { end: true, whole: true, ahead: true },
 			function(i) {
 				var r = byEvent[i];
-				return r === "right" || r === "octave" ? good : s.done && r ? bad : null;
+				return r === "right" || r === "octave" ? good : s.done && r ? bad : i === s.tapped ? tapped : null;
 			});
 		return;
 	}
@@ -4270,12 +4317,14 @@ function drawSongEvent(hl, arrow, ghost) {
 	// Play along: the notes played right green, not just the ones gone by
 	var byEvent = {};
 	if (s.along) s.notes.forEach(function(n, j) { byEvent[n.event] = s.results[j]; });
-	renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
+	var tapped = styles.getPropertyValue("--warning").trim() || "#d97706";
+	s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
 		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null, whole: !!s.free, ahead: true },
 		function(i) {
 			if (inPart && (i < inPart.start || i >= inPart.end)) return muted;
 			if (i === hl) return accent;
+			if (i === s.tapped) return tapped;
 			if (s.along) return byEvent[i] === "right" || byEvent[i] === "octave" ? done : null;
 			return i < hl ? done : null;
 		});
@@ -4674,7 +4723,10 @@ function playSongEvents(events, show, opts) {
 // Hear the song: play the whole tune, the staff and the fingering chart
 // following along
 function playSong() {
-	if (practice.song.free && practice.song.pos > 0) resetFollow();
+	if (practice.song.free && (practice.song.pos > 0 || practice.song.follow.listening)) {
+		resetFollow();
+		songMicOff();
+	}
 	var hear = document.getElementById("song-hear");
 	if (hear) hear.textContent = "\u25a0 Stop";
 	// A part plays just its measures
@@ -4700,7 +4752,8 @@ function playSong() {
 function playAlong() {
 	var s = practice.song;
 	clearTimeout(practiceAdvanceTimer);
-	if (s.pos > 0) resetFollow();
+	if (s.pos > 0 || s.follow.listening) resetFollow();
+	songMicOn();
 	var speed = ALONG_SPEEDS[alongSpeedIndex()];
 	// times: when each event started; bleed: the count-in's loudest level
 	var a = s.along = { speed: speed, times: [], played: 0, bleed: 0, ended: false, done: false };
@@ -4711,6 +4764,27 @@ function playAlong() {
 	var time = s.song.time || "4/4";
 	var pulse = time.split("/")[1] === "8" ? 1.5 : 1;
 	var pulses = Math.round(measureBeats(time) / pulse);
+	// The count-in measures the piano at the mic, so the mic has to be on
+	// first
+	if (!listenActive && listenStarting) {
+		setPracticeFeedback("Get ready\u2026", " ");
+		var waited = 0;
+		(function wait() {
+			setTimeout(function() {
+				if (practice.mode !== "song" || practice.song !== s || s.along !== a) return;
+				waited += 50;
+				if (listenStarting && waited < 5000) wait(); else countInAlong(s, a, pulse, pulses);
+			}, 50);
+		})();
+	} else {
+		countInAlong(s, a, pulse, pulses);
+	}
+	updateSpeedPicker();
+}
+
+// Play along's count-in, then the piano part with the staff and fingering
+// following the tune
+function countInAlong(s, a, pulse, pulses) {
 	var showFingering = showSongFingerings(s.events);
 	playSongEvents(s.events, function(i) {
 		if (i === 0) setPracticeFeedback("Play!", "Play along with the piano");
@@ -4718,7 +4792,7 @@ function playAlong() {
 		drawSongEvent(i);
 		showFingering(i);
 	}, {
-		tempo: speed.tempo, piano: songAccompaniment(s.song, s.events), silent: true,
+		tempo: a.speed.tempo, piano: songAccompaniment(s.song, s.events), silent: true,
 		// Short measures count two
 		countIn: pulses < 3 ? pulses * 2 : pulses, pulse: pulse,
 		onCount: function(n) { setPracticeFeedback(String((n - 1) % pulses + 1), "Get ready\u2026"); },
@@ -4728,7 +4802,6 @@ function playAlong() {
 			practiceAdvanceTimer = setTimeout(function() { finishAlong(false); }, ALONG_LATE_MS + 100);
 		}
 	});
-	updateSpeedPicker();
 }
 
 // Play along again at a speed
@@ -5134,6 +5207,7 @@ function stopAccompaniment() {
 // Any Help chart steps aside meanwhile. Returns show(i) for event i.
 function showSongFingerings(events) {
 	removeSongFingerings();
+	if (practice.song) practice.song.tapped = null;
 	var body = document.getElementById("practice-body");
 	var wrap = document.createElement("div");
 	wrap.className = "song-fingering";
@@ -5186,9 +5260,70 @@ function removeSongFingerings() {
 	wrap.remove();
 }
 
+// A tap on a note of a song (not while it plays or a part is being picked):
+// that note's fingering, in the chart area Hear the song uses, and the note
+// marked. A tap on it again, or off the notes, puts it away. In note by
+// note, the note being waited for gets Help instead (so it no longer scores).
+function songNoteTap(event) {
+	if (!practiceOpen || !practice || practice.mode !== "song" || !practice.song || practice.song.pick) return;
+	if (songPlayTimer !== null) return;
+	var s = practice.song;
+	if (!s.layouts) return;
+	var lineEl = event.target.closest ? event.target.closest(".song-line") : null;
+	var keys = Object.keys(s.layouts);
+	var r = lineEl ? s.layouts[lineEl.getAttribute("data-line")] : keys.length === 1 ? s.layouts[keys[0]] : null;
+	var hit = null;
+	if (r && r.svg) {
+		var pt = r.svg.createSVGPoint();
+		pt.x = event.clientX;
+		pt.y = event.clientY;
+		var x = pt.matrixTransform(r.svg.getScreenCTM().inverse()).x;
+		var best = SONG_TAP_REACH;
+		Object.keys(r.xs).forEach(function(k) {
+			var i = parseInt(k, 10);
+			if (s.events[i].midi === null) return;
+			var d = Math.abs(r.xs[k] - x);
+			if (d < best) {
+				best = d;
+				hit = i;
+			}
+		});
+	}
+	if (!s.free && hit !== null && practice.step === 3 && s.pos < songEnd(s) && hit === s.notes[s.pos].event) {
+		if (!s.helped) showSongHelp();
+		return;
+	}
+	if (hit === null || hit === s.tapped) {
+		if (s.tapped === null || s.tapped === undefined) return;
+		removeSongFingerings();
+		s.tapped = null;
+	} else {
+		showSongFingerings([s.events[hit]]);
+		s.tapped = hit;
+		var wrap = document.getElementById("song-fingering");
+		if (wrap && !hasFingeringData(practice.instrument)) {
+			// The keyboard names its key itself
+			wrap.removeAttribute("aria-hidden");
+			wrap.innerHTML = "";
+			wrap.appendChild(practiceFingeringBox(false, s.events[hit].midi));
+		} else if (wrap) {
+			wrap.removeAttribute("aria-hidden");
+			var name = document.createElement("div");
+			name.className = "song-fingering-name";
+			name.textContent = songNoteName(s.events[hit]);
+			wrap.appendChild(name);
+		}
+	}
+	drawSongLine(s.pos);
+}
+
+// How far from a note's center a tap still picks it (SVG units)
+var SONG_TAP_REACH = 28;
+
 // Stop Hear the song (if playing) and return the staff to the student's note
 function stopSongPlayback() {
-	if (songPlayTimer === null) return;
+	// (Play along may be waiting for the mic, not playing yet)
+	if (songPlayTimer === null && !songPlayAlong) return;
 	clearTimeout(songPlayTimer);
 	songPlayTimer = null;
 	stopNote();
@@ -5220,6 +5355,7 @@ function stopSongPlayback() {
 	if (along && s.along && !s.along.ended) {
 		s.along = null;
 		s.results = s.notes.map(function() { return null; });
+		songMicOff();
 	}
 	practice.ignoreUntil = performance.now() + 400;
 	resetPracticeHold();
@@ -5227,7 +5363,7 @@ function stopSongPlayback() {
 	if (hear) hear.textContent = songHearLabel();
 	var alongButton = document.getElementById("song-along");
 	if (alongButton) alongButton.textContent = PLAY_ALONG_LABEL;
-	if (along && s.free && !s.done && !s.along) setPracticeFeedback("Play it all the way through!", " ");
+	if (along && s.free && !s.done && !s.along) setPracticeFeedback("Play it all the way through!", "Tap a note to see how to play it");
 	drawSongLine(s.pos);
 	updateSpeedPicker();
 }
@@ -6117,6 +6253,7 @@ function editorKeyDown(event) {
 
 document.getElementById("practice-staff-output").addEventListener("click", editorStaffTap);
 document.getElementById("practice-staff-output").addEventListener("click", songPickerTap);
+document.getElementById("practice-staff-output").addEventListener("click", songNoteTap);
 
 // ---------------------------------------------------------------------------
 // Sharing songs: the whole song rides in a link (#song=…), so there's no
