@@ -434,8 +434,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `#song-fingering` area Hear the song uses (`showSongFingerings()` with
   that one event, plus `.song-fingering-name`; the piano labels its own
   key), the note marked (`practice.song.tapped`; layouts in
-  `practice.song.layouts`); tapping it again or off the notes puts it
-  away. In note by note, tapping the note being waited for is Help.
+  `practice.song.layouts`); tapping it again, off the notes or on the chart
+  (`closeTappedFingering()`) puts it away. Below 1000px wide the chart
+  (`.song-fingering.tapped`) floats over the buttons with a × instead of
+  taking the staff's room, so the music and the tapped note don't move. In note by note, tapping the note being waited for is Help.
   Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
   dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
   playable ones, each with its `event` index. `renderSongLine()` draws a
@@ -879,7 +881,8 @@ B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops; a song listens only after Listen to me,
-and a tapped note shows its fingering; Play along scores
+and a tapped note shows its fingering (on a phone without moving the
+music); Play along scores
 notes in time over the piano and opens the next speed; a long
 song scrolls the next line into view before it's reached. Add a
 check there when adding something a broken change would silently lose.

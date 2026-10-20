@@ -5295,8 +5295,8 @@ function songNoteTap(event) {
 	}
 	if (hit === null || hit === s.tapped) {
 		if (s.tapped === null || s.tapped === undefined) return;
-		removeSongFingerings();
-		s.tapped = null;
+		closeTappedFingering();
+		return;
 	} else {
 		showSongFingerings([s.events[hit]]);
 		s.tapped = hit;
@@ -5313,7 +5313,27 @@ function songNoteTap(event) {
 			name.textContent = songNoteName(s.events[hit]);
 			wrap.appendChild(name);
 		}
+		if (wrap) {
+			// On a phone it floats over the buttons (see the CSS), so the
+			// music, and the note tapped, stay where they are; a tap puts it away
+			wrap.classList.add("tapped");
+			wrap.onclick = closeTappedFingering;
+			var close = document.createElement("button");
+			close.className = "song-fingering-close";
+			close.textContent = "\u00d7";
+			close.setAttribute("aria-label", "Close");
+			wrap.appendChild(close);
+		}
 	}
+	drawSongLine(s.pos);
+}
+
+// Put away a tapped note's fingering
+function closeTappedFingering() {
+	var s = practice.song;
+	removeSongFingerings();
+	if (!s) return;
+	s.tapped = null;
 	drawSongLine(s.pos);
 }
 

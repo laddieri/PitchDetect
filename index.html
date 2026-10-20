@@ -4170,6 +4170,57 @@
 				pointer-events: none;
 			}
 
+			.song-fingering-close {
+				display: none;
+			}
+
+			/* Short of the side-by-side layout, a tapped note's chart floats
+			   over the buttons instead of taking the music's room: the staff
+			   doesn't move, so the note tapped stays in sight */
+			@media (max-width: 999px) {
+				#practice-body .song-fingering.tapped {
+					position: absolute;
+					left: 0;
+					right: 0;
+					bottom: 0;
+					z-index: 6;
+					height: min(var(--fingering-h, 180px), 34vh);
+					padding: 10px 12px;
+					box-sizing: border-box;
+					background: var(--surface);
+					border: 1px solid var(--border);
+					border-radius: var(--radius);
+					box-shadow: var(--shadow-md);
+					cursor: pointer;
+				}
+
+				body.kid-mode #practice-body .song-fingering.tapped {
+					border: var(--cartoon-border);
+					box-shadow: var(--cartoon-shadow);
+				}
+
+				#practice-body .song-fingering.tapped .song-fingering-name {
+					top: 8px;
+					left: 12px;
+				}
+
+				#practice-body .song-fingering.tapped .song-fingering-close {
+					display: block;
+					position: absolute;
+					top: 4px;
+					right: 6px;
+					width: 36px;
+					height: 36px;
+					border: none;
+					background: none;
+					font: inherit;
+					font-size: 1.6rem;
+					line-height: 1;
+					color: var(--text-muted, #64748b);
+					cursor: pointer;
+				}
+			}
+
 			/* A song's notes can be tapped for their fingering */
 			.practice-view[data-mode="song"]:not([data-step="song-pick"]) #practice-staff-output {
 				cursor: pointer;

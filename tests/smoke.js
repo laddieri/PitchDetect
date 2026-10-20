@@ -253,6 +253,21 @@ async function run() {
 		await page.mouse.click(spot.x, spot.y);
 		check(await page.evaluate(function() { return !document.getElementById("song-fingering") && practice.song.tapped === null; }),
 			"tapping the note again puts its fingering away");
+		// On a phone the chart floats over the buttons: the music doesn't move
+		var desk = page.viewportSize();
+		await page.setViewportSize({ width: 390, height: 844 });
+		await page.evaluate(function() { playThroughSong("mary"); });
+		var before = await page.evaluate(function() { return document.getElementById("practice-staff-output").getBoundingClientRect().height; });
+		spot = await page.evaluate(noteSpot);
+		await page.mouse.click(spot.x, spot.y);
+		var phone = await page.evaluate(function() {
+			return { h: document.getElementById("practice-staff-output").getBoundingClientRect().height,
+				tapped: practice.song.tapped };
+		});
+		check(phone.tapped === spot.event && Math.abs(phone.h - before) < 1,
+			"on a phone a tapped note's chart leaves the music where it was (" + before + " \u2192 " + phone.h + ")");
+		await page.click(".song-fingering-close");
+		await page.setViewportSize(desk);
 
 		// Play along scores each note in time, over the piano: a note no
 		// louder than the piano doesn't count, and passing a speed opens the
