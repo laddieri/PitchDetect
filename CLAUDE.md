@@ -400,7 +400,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   practice path, behind **Note by note** and **Practice the red notes**, and
   its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
   (`data-step="song-free"`, `practice.song.free`), no arrow and no waiting
-  on each note. The mic follows along instead (`updateFollowListen()`, run
+  on each note. The mic stays off until **Listen to me** (`#song-listen`,
+  `startFollow()`, `follow.listening`; it then turns into **Stop and
+  score**) or Play along (which waits for the mic before its count-in, so
+  the count-in hears the piano); `songMicOn()` / `songMicOff()` handle a mic
+  still starting up. It then follows along (`updateFollowListen()`, run
   from `updateSongListen()`): the sound is cut into notes (a new semitone,
   or the same pitch re-tongued: a loudness dip below `SONG_RETONGUE_DIP`
   then a rise), each counting after `FOLLOW_NOTE_MS`; `followNote()`
@@ -425,6 +429,13 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   per measure, the rest of the song grayed out, Hear plays only the part,
   `songPart()` / `partLabel()`); no best saved, the result offers Play
   again, Pick another part and Play it through.
+  **Tap a note** (`songNoteTap()`, Play it through and note by note, not
+  while a song plays or a part is picked): its fingering in the
+  `#song-fingering` area Hear the song uses (`showSongFingerings()` with
+  that one event, plus `.song-fingering-name`; the piano labels its own
+  key), the note marked (`practice.song.tapped`; layouts in
+  `practice.song.layouts`); tapping it again or off the notes puts it
+  away. In note by note, tapping the note being waited for is Help.
   Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
   dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
   playable ones, each with its `event` index. `renderSongLine()` draws a
@@ -867,7 +878,8 @@ and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
 B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 song has piano chords and Play along counts in (on a desktop with the chart
-beside the staff), plays and stops, scores
+beside the staff), plays and stops; a song listens only after Listen to me,
+and a tapped note shows its fingering; Play along scores
 notes in time over the piano and opens the next speed; a long
 song scrolls the next line into view before it's reached. Add a
 check there when adding something a broken change would silently lose.

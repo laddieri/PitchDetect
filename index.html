@@ -4155,6 +4155,26 @@
 				height: 100%;
 			}
 
+			/* A note tapped on the song: its name over its chart */
+			#practice-body .song-fingering {
+				position: relative;
+			}
+
+			.song-fingering-name {
+				position: absolute;
+				top: 4px;
+				left: 8px;
+				font-size: 1.4rem;
+				font-weight: 700;
+				color: var(--accent);
+				pointer-events: none;
+			}
+
+			/* A song's notes can be tapped for their fingering */
+			.practice-view[data-mode="song"]:not([data-step="song-pick"]) #practice-staff-output {
+				cursor: pointer;
+			}
+
 			#practice-body .practice-fingering[hidden] {
 				display: none;
 			}
