@@ -3253,7 +3253,21 @@ function songNotes(song, events) {
 	return (events || songEvents(song)).map(function(e, i) {
 		e.event = i;
 		return e;
-	}).filter(function(e) { return e.midi !== null; });
+	}).filter(function(e) { return e.midi !== null && !e.tied; });
+}
+
+// The first note of the tied notes event i is in (i if it isn't tied on)
+function tieStart(events, i) {
+	while (i > 0 && events[i].tied && events[i - 1].tie) i--;
+	return i;
+}
+
+// Ties: a note with tie sounds on through the next (tied), one sound. How
+// long event i sounds, in beats, with the notes tied on to it
+function tiedBeats(events, i) {
+	var beats = eventBeats(events[i]);
+	for (var k = i + 1; k < events.length && events[k].tied && events[k - 1].tie; k++) beats += eventBeats(events[k]);
+	return beats;
 }
 
 // A note or rest's length in quarter notes
@@ -4464,6 +4478,8 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 	var x = 5 + (opts.left ? 0 : (perLine - count) * SONG_MEASURE_WIDTH / 2);
 	var result = { svg: null, stave: null, xs: {}, measureX: {} };
 	var arrowAt = null;
+	var drawn = {};  // event index → its StaveNote, for the ties
+	var restated = {};  // tied notes starting a line with their accidental
 	// Lines without the time signature share out its room, so every line of
 	// a whole line's width ends at the same place
 	var slack = count === perLine ? (widest - startWidth(first === 0)) / count : 0;
@@ -4496,13 +4512,20 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 				var shown;
 				var place = name + e.octave;
 				var current = place in inEffect ? inEffect[place] : keyAlter(key, e.letter);
-				if (e.alter !== current || (!keySig && e.alter)) shown = e.alter;
-				inEffect[place] = e.alter;
+				// A note tied over the bar line keeps its accidental unwritten
+				// (at the start of a line it's written again)
+				var held = e.tied && drawn[i - 1];
+				if (!held && (e.alter !== current || (!keySig && e.alter))) shown = e.alter;
+				if (!held) inEffect[place] = e.alter;
 				if (shown !== undefined) note.addAccidental(0, new VF.Accidental(shown < 0 ? "b" : shown > 0 ? "#" : "n"));
+				if (shown !== undefined && e.tied) restated[i] = true;
 			}
 			if (e.dots) note.addDotToAll();
+			// A tied-over note colored like the note it holds on from
 			var c = color(i);
+			if (!c && e.tied) c = color(tieStart(events, i));
 			if (c) note.setStyle({ fillStyle: c, strokeStyle: c });
+			drawn[i] = note;
 			tickables.push(note);
 			indexes.push(i);
 			if (e.tuplet) {
@@ -4558,6 +4581,20 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 			console.log("Could not render song measure:", m, err.message);
 		}
 	}
+
+	// Ties, from a line's end or to its start when they cross lines
+	events.forEach(function(e, i) {
+		if (!e.tie || !events[i + 1] || !events[i + 1].tied) return;
+		var first = drawn[i] || null, last = drawn[i + 1] || null;
+		// (no tie into a line's first note over its accidental)
+		if (!first && (!last || restated[i + 1])) return;
+		try {
+			new VF.StaveTie({ first_note: first, last_note: last, first_indices: [0], last_indices: [0] })
+				.setContext(context).draw();
+		} catch (err) {
+			console.log("Could not draw a tie:", i, err.message);
+		}
+	});
 
 	var svg = out.querySelector("svg");
 	if (svg && result.stave) {
@@ -4723,9 +4760,10 @@ function playSongEvents(events, show, opts) {
 		show(i);
 		// End each note just before the next (a tongued gap, which also
 		// keeps repeated notes distinct) so nothing is cut off mid-sound.
-		if (e.midi !== null && !opts.silent) {
+		// (a tied note sounds on from the one before)
+		if (e.midi !== null && !opts.silent && !(e.tied && i > 0)) {
 			playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false,
-				null, Math.max(0.1, ms / 1000 - TONE_RELEASE));
+				null, Math.max(0.1, tiedBeats(events, i) * beatMs / 1000 - TONE_RELEASE));
 		}
 		// The piano's chords during this note, timed on the audio clock
 		for (; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
@@ -4865,7 +4903,7 @@ function alongNote(pitch, onset) {
 	a.played++;
 	for (var j = 0; j < s.notes.length; j++) {
 		var start = alongEventTime(s, s.notes[j].event, beatMs);
-		var len = eventBeats(s.notes[j]) * beatMs;
+		var len = tiedBeats(s.events, s.notes[j].event) * beatMs;
 		if (start === null || onset < start - Math.min(ALONG_EARLY_MS, len / 2)) break;
 		var r = s.results[j];
 		if (onset > start + len + ALONG_LATE_MS || r === "right" || r === "octave") continue;
@@ -4894,7 +4932,7 @@ function finishAlong(partway) {
 	var now = performance.now(), beatMs = 60000 / a.speed.tempo;
 	s.notes.forEach(function(n, j) {
 		var start = alongEventTime(s, n.event, beatMs);
-		var gone = start !== null && start + eventBeats(n) * beatMs + ALONG_LATE_MS < now;
+		var gone = start !== null && start + tiedBeats(s.events, n.event) * beatMs + ALONG_LATE_MS < now;
 		if (!s.results[j] && (!partway || gone)) s.results[j] = "missed";
 	});
 	var total = s.notes.length;
@@ -5319,7 +5357,7 @@ function songNoteTap(event) {
 			}
 		});
 	}
-	if (!s.free && hit !== null && practice.step === 3 && s.pos < songEnd(s) && hit === s.notes[s.pos].event) {
+	if (!s.free && hit !== null && practice.step === 3 && s.pos < songEnd(s) && tieStart(s.events, hit) === s.notes[s.pos].event) {
 		if (!s.helped) showSongHelp();
 		return;
 	}
@@ -5412,13 +5450,15 @@ var NATURAL_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
 function customSongEvents(song) {
 	var cap = measureBeats(song.time);
 	var filled = 0, measure = 0;
-	return song.notes.map(function(n) {
+	return song.notes.map(function(n, k) {
 		if (filled >= cap - 1e-6) {
 			measure++;
 			filled = 0;
 		}
 		var e = { midi: null, dur: n.d, dots: n.dot ? 1 : 0, measure: measure };
 		if (n.t) e.tuplet = 1;
+		if (n.tie) e.tie = 1;
+		if (k > 0 && song.notes[k - 1].tie && !n.r) e.tied = 1;
 		if (!n.r) {
 			e.letter = n.s % 7;
 			e.octave = Math.floor(n.s / 7);
@@ -5825,6 +5865,7 @@ function saveEditorSong(notesChanged) {
 }
 
 function editorChanged(notesChanged) {
+	dropBrokenTies(practice.editor.song.notes);
 	stopSongPlayback();
 	practice.editor.deleteArmed = false;
 	practice.editor.showEnd = false;
@@ -5921,14 +5962,15 @@ function drawEditor(playing) {
 	var chosenNote = ed.sel < n ? song.notes[ed.sel] : null;
 	var shown = chosenNote ? { d: chosenNote.d, dot: chosenNote.dot ? 1 : 0 } : editorNextLength();
 	var room = editorRoomAtEnd();
+	var locked = chosenNote && editorLengthLock(ed.sel);
 	function lengthFits(d, dot) {
-		if (chosenNote && chosenNote.t) return false;
+		if (locked) return false;
 		return chosenNote ? !!editorNotesWithLength(ed.sel, d, dot) : noteBeats({ d: d, dot: dot }) <= room + 1e-6;
 	}
 	document.querySelectorAll("#editor-lengths [data-dur]").forEach(function(b) {
 		var d = b.getAttribute("data-dur");
 		b.setAttribute("aria-pressed", d === shown.d ? "true" : "false");
-		b.disabled = !isPlaying && !((d === shown.d && !(chosenNote && chosenNote.t)) || lengthFits(d, chosenNote ? shown.dot : 0));
+		b.disabled = !isPlaying && !((d === shown.d && !locked) || lengthFits(d, chosenNote ? shown.dot : 0));
 	});
 	var dot = document.getElementById("editor-dot");
 	dot.setAttribute("aria-pressed", shown.dot ? "true" : "false");
@@ -6016,6 +6058,10 @@ function insertEditorNote(note, atEnd) {
 		showToast("Add it before or after the triplet.");
 		return;
 	}
+	if (pos > 0 && pos < n && ed.song.notes[pos - 1].tie) {
+		showToast("Add it before or after the tied notes.");
+		return;
+	}
 	if (!editorInLastMeasure(pos) || !editorNotesFit(notes, ed.song.time, pos)) {
 		showToast("That measure is full. Make a note shorter, or add it at the end.");
 		return;
@@ -6028,6 +6074,37 @@ function insertEditorNote(note, atEnd) {
 }
 
 var TRIPLET_TOAST = "Triplets keep their length. Change their notes with \u25b2\u25bc.";
+
+// Why note i's length can't change (a triplet, or tied), or null
+function editorLengthLock(i) {
+	var notes = practice.editor.song.notes;
+	if (notes[i].t) return TRIPLET_TOAST;
+	if (notes[i].tie || (i > 0 && notes[i - 1].tie)) return "Tied notes keep their length. Change their notes with \u25b2\u25bc.";
+	return null;
+}
+
+// Tied notes are one sound: a new pitch for note i goes to the notes tied
+// to it too
+function editorSyncTie(i) {
+	var notes = practice.editor.song.notes;
+	var n = notes[i], k;
+	for (k = i; k > 0 && notes[k - 1].tie; k--) {
+		notes[k - 1].s = n.s;
+		notes[k - 1].a = n.a;
+	}
+	for (k = i; notes[k].tie && notes[k + 1] && !notes[k + 1].r; k++) {
+		notes[k + 1].s = n.s;
+		notes[k + 1].a = n.a;
+	}
+}
+
+// A tie whose next note is gone, a rest or another pitch is dropped
+function dropBrokenTies(notes) {
+	notes.forEach(function(n, k) {
+		var next = notes[k + 1];
+		if (n.tie && (n.r || !next || next.r || next.s !== n.s || next.a !== n.a)) delete n.tie;
+	});
+}
 
 // A note or rest rebuilt from old stays in old's triplet
 function keepTriplet(old, note) {
@@ -6079,6 +6156,8 @@ function setEditorThreeNote(k) {
 	if (ed.sel < n) {
 		var note = ed.song.notes[ed.sel];
 		ed.song.notes[ed.sel] = keepTriplet(note, { s: n3.s, a: n3.alter, d: note.d, dot: note.dot ? 1 : 0 });
+		if (note.tie) ed.song.notes[ed.sel].tie = 1;
+		editorSyncTie(ed.sel);
 		editorChanged(true);
 		previewEditorNote(ed.sel);
 	} else {
@@ -6117,8 +6196,8 @@ function insertEditorLetter(letter) {
 // A new length for the selected note (if it fits) or for the next note
 function setEditorLength(d, dot) {
 	var ed = practice.editor;
-	if (ed.sel < ed.song.notes.length && ed.song.notes[ed.sel].t) {
-		showToast(TRIPLET_TOAST);
+	if (ed.sel < ed.song.notes.length && editorLengthLock(ed.sel)) {
+		showToast(editorLengthLock(ed.sel));
 		return;
 	}
 	if (ed.sel < ed.song.notes.length) {
@@ -6156,6 +6235,7 @@ function setEditorAccidental(alter) {
 	var i = editorTargetIndex();
 	if (i < 0) return;
 	ed.song.notes[i].a = alter;
+	editorSyncTie(i);
 	editorChanged(true);
 	previewEditorNote(i);
 }
@@ -6174,12 +6254,14 @@ function nudgeEditorNote(dir) {
 		if (to.s === note.s && to.alter === (note.a || 0)) return;
 		note.s = to.s;
 		note.a = to.alter;
+		editorSyncTie(i);
 		editorChanged(true);
 		previewEditorNote(i);
 		return;
 	}
 	note.s = clampEditorStep(note.s + dir);
 	note.a = editorAlterAt(i, note.s, ed.events[i].measure);
+	editorSyncTie(i);
 	editorChanged(true);
 	previewEditorNote(i);
 }
@@ -6193,6 +6275,7 @@ function deleteEditorNote() {
 	if (!n) return;
 	var at = ed.sel >= n ? n - 1 : ed.sel;
 	var picked = ed.song.notes[at];
+	if (at > 0 && !picked.r) delete ed.song.notes[at - 1].tie;
 	if (picked.t && ed.sel >= n) {
 		var places = tripletPlaces(ed.song.notes, ed.song.time);
 		ed.song.notes.splice(n - 1 - (places ? places[n - 1] : 0));
@@ -6304,6 +6387,7 @@ function editorStaffTap(event) {
 		} else if (nearest === editorTargetIndex() && nearestDist < 16 && note.s !== s) {
 			note.s = s;
 			note.a = three ? three.alter : editorAlterAt(nearest, s, ed.events[nearest].measure);
+			editorSyncTie(nearest);
 			editorChanged(true);
 		} else {
 			selectEditorEvent(nearest);
@@ -6347,7 +6431,7 @@ document.getElementById("practice-staff-output").addEventListener("click", songN
 // k: key, m: time, n: notes }, notes a string of tokens: length (w h q e),
 // an optional "." for a dot, an optional "t" for a triplet eighth (in
 // groups of 3: "etF3 etG3 etF3"), then "r" for a rest or the written note
-// ("Bb4", "C5"). A friend on another instrument gets it rewritten for
+// ("Bb4", "C5"), a note ending in "~" if it's tied to the next ("hF4~ qF4"). A friend on another instrument gets it rewritten for
 // theirs (transposeSharedSong()), sounding the same.
 // ---------------------------------------------------------------------------
 
@@ -6358,7 +6442,7 @@ function encodeSongShare(song, instrument) {
 	var notes = song.notes.map(function(n) {
 		var token = (n.d === "8" ? "e" : n.d) + (n.dot ? "." : "") + (n.t ? "t" : "");
 		if (n.r) return token + "r";
-		return token + "CDEFGAB".charAt(n.s % 7) + (n.a < 0 ? "b" : n.a > 0 ? "#" : "") + Math.floor(n.s / 7);
+		return token + "CDEFGAB".charAt(n.s % 7) + (n.a < 0 ? "b" : n.a > 0 ? "#" : "") + Math.floor(n.s / 7) + (n.tie ? "~" : "");
 	}).join(" ");
 	var json = JSON.stringify({ v: 1, t: song.title.trim() || "My song", i: instrument, k: song.key || "C", m: song.time || "4/4", n: notes });
 	var bytes = new TextEncoder().encode(json);
@@ -6381,7 +6465,7 @@ function decodeSongShare(payload) {
 		if (!tokens.length || tokens.length > SHARE_MAX_NOTES) return null;
 		var notes = [];
 		for (var j = 0; j < tokens.length; j++) {
-			var m = /^([whqe])(\.?)(t?)(?:(r)|([A-G])([b#]?)([0-8]))$/.exec(tokens[j]);
+			var m = /^([whqe])(\.?)(t?)(?:(r)|([A-G])([b#]?)([0-8])(~?))$/.exec(tokens[j]);
 			if (!m) return null;
 			var note = { d: m[1] === "e" ? "8" : m[1], dot: m[2] ? 1 : 0 };
 			if (m[3]) {
@@ -6394,9 +6478,16 @@ function decodeSongShare(payload) {
 			} else {
 				note.s = parseInt(m[7], 10) * 7 + "CDEFGAB".indexOf(m[5]);
 				note.a = m[6] === "b" ? -1 : m[6] === "#" ? 1 : 0;
+				if (m[8]) note.tie = 1;
 			}
 			notes.push(note);
 		}
+		// A tie holds a note on into the same note
+		var tieOk = notes.every(function(n, k) {
+			var next = notes[k + 1];
+			return !n.tie || (next && !next.r && next.s === n.s && next.a === n.a);
+		});
+		if (!tieOk) return null;
 		if (!notes.some(function(n) { return !n.r; })) return null;
 		if (!tripletPlaces(notes, data.m)) return null;
 		return {

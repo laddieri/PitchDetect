@@ -344,6 +344,28 @@ async function run() {
 		check(triplet.measures === 1 && triplet.drawn === 1 && triplet.short === null,
 			"a shared triplet fits one beat and is drawn with its 3; a short triplet is refused");
 
+		// Tied notes across a bar line are one sound: one note to play, held
+		// for both, drawn with a tie; a tie to another pitch is refused
+		var tie = await page.evaluate(function() {
+			var n = function(s, d, tie) { return { s: s, a: 0, d: d, dot: 0, tie: tie ? 1 : 0 }; };
+			var notes = [n(28, "h"), n(29, "h", true), n(29, "q"), n(30, "q"), n(28, "h")];
+			var shared = decodeSongShare(encodeSongShare({ title: "Ties", key: "C", time: "4/4", notes: notes }, "trumpet"));
+			var wrong = decodeSongShare(encodeSongShare({ title: "Wrong", key: "C", time: "4/4", notes: [n(28, "h", true), n(29, "h")] }, "trumpet"));
+			var song = shared.song;
+			song.custom = true;
+			var events = customSongEvents(song);
+			var drawn = 0, draw = Vex.Flow.StaveTie.prototype.draw;
+			Vex.Flow.StaveTie.prototype.draw = function() { drawn++; return draw.apply(this, arguments); };
+			var out = document.createElement("div");
+			document.body.appendChild(out);
+			renderSongLine(out, song, events, 0, 2, {}, function() { return null; });
+			out.remove();
+			Vex.Flow.StaveTie.prototype.draw = draw;
+			return { notes: songNotes(song, events).length, held: tiedBeats(events, 1), drawn: drawn, wrong: wrong };
+		});
+		check(tie.notes === 4 && tie.held === 3 && tie.drawn === 1 && tie.wrong === null,
+			"tied notes are one sound held for both and drawn with a tie; a tie to another note is refused");
+
 		// A good result leads straight on to the next step of the path
 		await page.evaluate(function() {
 			practice.firstSoundsBest = 3;

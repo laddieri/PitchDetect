@@ -461,7 +461,17 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `VF.Tuplet` and their own beam (a bracket if one is a rest). Only share
   links make them: the editor keeps them (▲▼ and accidentals work; lengths,
   dots and inserting inside a group are refused with `TRIPLET_TOAST`;
-  delete turns one into a triplet rest, or from the end drops the group); a 3- or 5-note song (`openSongEditor(null, set)`,
+  delete turns one into a triplet rest, or from the end drops the group);
+  `tie: 1` ties a note to the next, which must be the same pitch (events
+  carry `tie` / `tied`): one sound, so `songNotes()` leaves out the tied-on
+  notes, `tiedBeats()` gives how long a note sounds (Hear the song plays
+  one tone for it, Play along's window spans it), a tied-on note is colored
+  like its first (`tieStart()`) and keeps its accidental unwritten unless it
+  starts a line; `renderSongLine()` draws `VF.StaveTie`s, half a tie where
+  one crosses lines. Like triplets, only share links make them: the editor
+  locks tied notes' lengths (`editorLengthLock()`), moves the whole tie on
+  a pitch change (`editorSyncTie()`), refuses inserting between them, and
+  `dropBrokenTies()` (in `editorChanged()`) drops a tie left dangling; a 3- or 5-note song (`openSongEditor(null, set)`,
   set `practice.threeSet` or `"first5"`) also stores `three` (its lesson
   set): the editor then has no key picker, one button per note in place of ♭♮♯ (`setEditorThreeNote()`: adds at
   the end, or changes the selected note), and taps, ▲▼ and letters snap to
@@ -511,7 +521,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 - **Sharing songs** (no server): the editor's share button
   (`shareEditorSong()`) makes a link `#song=<payload>` — base64url JSON
   `{ v, t, i (instrument), k, m, n }`, notes as tokens like `q.Bb4` / `hr`
-  / `etF3` (a triplet eighth; decoding refuses a short group)
+  / `etF3` (a triplet eighth; decoding refuses a short group) / `hF4~` (tied
+  to the next note, which must be the same pitch)
   (`encodeSongShare()` / `decodeSongShare()`, which validates everything) —
   and hands it to `navigator.share`, else copies it. Opening a link
   (`checkSongLink()` on load and `hashchange`) strips the hash, picks the
@@ -884,6 +895,7 @@ Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
 B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
+shared triplet and tie are timed and drawn; a
 song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops; a song listens only after Listen to me,
 and a tapped note shows its fingering; Play along scores
