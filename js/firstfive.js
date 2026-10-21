@@ -3593,8 +3593,8 @@ function resetFollow() {
 }
 
 // A "⋯" button opening a small menu of the less used ways to practice
-// a song (Play it through keeps one row of buttons). Taps elsewhere and
-// Escape close it.
+// a song (Play it through and its scores keep one row of buttons). Taps
+// elsewhere and Escape close it.
 function songMoreMenu(items) {
 	var wrap = document.createElement("div");
 	wrap.className = "song-more";
@@ -3879,10 +3879,6 @@ function finishFollow() {
 			startSong(s.id, songLineStart(firstMiss));
 		}));
 	}
-	actions.appendChild(practiceButton("Pick a part", "secondary", function() {
-		var m = firstMiss >= 0 ? s.notes[firstMiss].measure : null;
-		showSongPicker(s.id, function() { playThroughSong(s.id); }, m === null ? null : { a: m, b: m });
-	}));
 	actions.appendChild(practiceButton("Play again", right === total ? "secondary" : "primary", resetFollow));
 	// Played it all right: the next song waits beside Play again
 	var songs = s.song.custom
@@ -3893,6 +3889,13 @@ function finishFollow() {
 	if (right === total && next) {
 		actions.appendChild(practiceButton("Next song \u2192", "primary", function() { playThroughSong(next.id); }));
 	}
+	actions.appendChild(songMoreMenu([
+		["Pick a part", function() {
+			var m = firstMiss >= 0 ? s.notes[firstMiss].measure : null;
+			showSongPicker(s.id, function() { playThroughSong(s.id); }, m === null ? null : { a: m, b: m });
+		}],
+		["Note by note", function() { startSong(s.id); }]
+	]));
 	if (stars > 0) addPathNextButton(actions);
 	if (right === total) launchFireworks(document.getElementById("practice-stage"));
 	if (s.follow.heard.length) {
@@ -5104,21 +5107,30 @@ function finishAlong(partway) {
 
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.innerHTML = "";
-	if (firstMiss >= 0) {
-		actions.appendChild(practiceButton("Practice the red notes", "secondary", function() {
-			startSong(s.id, songLineStart(firstMiss));
-		}));
-	}
+	// Two buttons at most in the row; the rest wait behind the \u22ef menu
 	var faster = scored && nextOpen && stars >= ALONG_PASS_STARS;
-	actions.appendChild(practiceButton(PLAY_ALONG_LABEL + " again", faster ? "secondary" : "primary", function() {
-		startAlong(speed.id);
-	}));
+	var more = [["Play it through", resetFollow]];
+	if (firstMiss >= 0) {
+		var red = ["Practice the red notes", function() { startSong(s.id, songLineStart(firstMiss)); }];
+		if (faster) more.push(red);
+		else actions.appendChild(practiceButton(red[0], "secondary", red[1]));
+	}
+	var again = [PLAY_ALONG_LABEL + " again", function() { startAlong(speed.id); }];
 	if (faster) {
+		// The next speed is the step to take; this one again can wait
+		more.unshift(again);
 		actions.appendChild(practiceButton("Try " + next.icon + " " + next.name + " speed \u2192", "primary", function() {
 			startAlong(next.id);
 		}));
+	} else {
+		actions.appendChild(practiceButton(again[0], "primary", again[1]));
 	}
-	actions.appendChild(practiceButton("Play it through", "secondary", resetFollow));
+	more.push(["Pick a part", function() {
+		var m = firstMiss >= 0 ? s.notes[firstMiss].measure : null;
+		showSongPicker(s.id, function() { playThroughSong(s.id); }, m === null ? null : { a: m, b: m });
+	}]);
+	more.push(["Note by note", function() { startSong(s.id); }]);
+	actions.appendChild(songMoreMenu(more));
 	if (scored && stars > 0) addPathNextButton(actions);
 	updateSpeedPicker();
 	if (right === total && scored) launchFireworks(document.getElementById("practice-stage"));

@@ -4304,8 +4304,8 @@
 				gap: 10px;
 			}
 
-			/* Play it through: one row of smaller buttons; Note by note and
-			   Pick a part wait behind the ⋯ menu (songMoreMenu()) */
+			/* Play it through and its scores: one row of smaller buttons;
+			   the rest wait behind the ⋯ menu (songMoreMenu()) */
 			.song-free-actions {
 				gap: 8px;
 			}
@@ -4356,17 +4356,37 @@
 				box-shadow: 4px 4px 0 var(--ink);
 			}
 
-			/* Phones: Listen to me on top, the rest in one row under it */
+			/* Phones: one row, Listen to me on a row of its own above it
+			   (the ::after breaks the line); a path step stays below */
 			@media (max-width: 700px) {
 				.song-free-actions {
-					display: grid;
-					grid-template-columns: 1fr 1fr auto;
+					flex-wrap: nowrap;
+				}
+
+				.song-free-actions:has(#song-listen),
+				.song-free-actions:has(.path-next) {
+					flex-wrap: wrap;
+				}
+
+				.song-free-actions > * {
+					order: 2;
+					min-width: 0;
 				}
 
 				.song-free-actions > #song-listen {
-					grid-column: 1 / -1;
-					justify-self: center;
+					order: 0;
 					padding: 9px 22px;
+				}
+
+				.song-free-actions:has(#song-listen)::after {
+					content: "";
+					order: 1;
+					flex-basis: 100%;
+					margin-top: -8px;
+				}
+
+				.song-free-actions > .practice-btn.path-next {
+					order: 3;
 				}
 
 				.song-free-actions > .practice-btn,

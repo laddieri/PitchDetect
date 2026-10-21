@@ -411,7 +411,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`data-step="song-free"`, `practice.song.free`), no arrow and no waiting
   on each note. Its buttons are one row (on phones Listen to me above
   the rest): Listen to me, Hear the song, Play along and a ⋯ menu
-  (`songMoreMenu()`) holding Note by note and Pick a part. The mic stays off until **Listen to me** (`#song-listen`,
+  (`songMoreMenu()`) holding Note by note and Pick a part; its score screens
+  (`finishFollow()`, `finishAlong()`) keep the same row: the next step
+  (Practice the red notes, Play again, Next song, the next speed, which then
+  puts Play along again in the menu) beside a ⋯ menu with the rest. The mic stays off until **Listen to me** (`#song-listen`,
   `startFollow()`, `follow.listening`; it then turns into **Stop and
   score**) or Play along (which waits for the mic before its count-in, so
   the count-in hears the piano); `songMicOn()` / `songMicOff()` handle a mic
