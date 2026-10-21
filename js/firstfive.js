@@ -3253,12 +3253,34 @@ function songNotes(song, events) {
 	return (events || songEvents(song)).map(function(e, i) {
 		e.event = i;
 		return e;
-	}).filter(function(e) { return e.midi !== null; });
+	}).filter(function(e) { return e.midi !== null && !e.tied; });
+}
+
+// How long event i sounds on, in beats, without a new attack: with the
+// notes tied or slurred on from it
+function soundBeats(events, i) {
+	var beats = eventBeats(events[i]);
+	for (var k = i + 1; k < events.length && (events[k].legato || (events[k].tied && events[k - 1].tie)); k++) beats += eventBeats(events[k]);
+	return beats;
+}
+
+// The first note of the tied notes event i is in (i if it isn't tied on)
+function tieStart(events, i) {
+	while (i > 0 && events[i].tied && events[i - 1].tie) i--;
+	return i;
+}
+
+// Ties: a note with tie sounds on through the next (tied), one sound. How
+// long event i sounds, in beats, with the notes tied on to it
+function tiedBeats(events, i) {
+	var beats = eventBeats(events[i]);
+	for (var k = i + 1; k < events.length && events[k].tied && events[k - 1].tie; k++) beats += eventBeats(events[k]);
+	return beats;
 }
 
 // A note or rest's length in quarter notes
 function eventBeats(e) {
-	return SONG_BEATS[e.dur] * (e.dots ? 1.5 : 1);
+	return SONG_BEATS[e.dur] * (e.dots ? 1.5 : 1) * (e.tuplet ? 2 / 3 : 1);
 }
 
 // "B♭"-style name of a song note as written
@@ -4464,6 +4486,8 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 	var x = 5 + (opts.left ? 0 : (perLine - count) * SONG_MEASURE_WIDTH / 2);
 	var result = { svg: null, stave: null, xs: {}, measureX: {} };
 	var arrowAt = null;
+	var drawn = {};  // event index → its StaveNote, for the ties
+	var restated = {};  // tied notes starting a line with their accidental
 	// Lines without the time signature share out its room, so every line of
 	// a whole line's width ends at the same place
 	var slack = count === perLine ? (widest - startWidth(first === 0)) / count : 0;
@@ -4482,6 +4506,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 		result.measureX[m] = [stave.getNoteStartX(), stave.getNoteEndX()];
 
 		var tickables = [], indexes = [];
+		var triplets = [], run = [];  // triplets: groups of 3 notes
 		var inEffect = {};  // accidentals carried through the measure
 		events.forEach(function(e, i) {
 			if (e.measure !== m) return;
@@ -4495,27 +4520,63 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 				var shown;
 				var place = name + e.octave;
 				var current = place in inEffect ? inEffect[place] : keyAlter(key, e.letter);
-				if (e.alter !== current || (!keySig && e.alter)) shown = e.alter;
-				inEffect[place] = e.alter;
+				// A note tied over the bar line keeps its accidental unwritten
+				// (at the start of a line it's written again)
+				var held = e.tied && drawn[i - 1];
+				if (!held && (e.alter !== current || (!keySig && e.alter))) shown = e.alter;
+				if (!held) inEffect[place] = e.alter;
 				if (shown !== undefined) note.addAccidental(0, new VF.Accidental(shown < 0 ? "b" : shown > 0 ? "#" : "n"));
+				if (shown !== undefined && e.tied) restated[i] = true;
 			}
 			if (e.dots) note.addDotToAll();
+			// A tied-over note colored like the note it holds on from
 			var c = color(i);
+			if (!c && e.tied) c = color(tieStart(events, i));
 			if (c) note.setStyle({ fillStyle: c, strokeStyle: c });
+			drawn[i] = note;
 			tickables.push(note);
 			indexes.push(i);
+			if (e.tuplet) {
+				run.push(note);
+				if (run.length === 3) {
+					triplets.push(run);
+					run = [];
+				}
+			} else {
+				run = [];
+			}
 		});
 		if (!tickables.length) continue;
 		try {
 			var beats = time ? time.split("/") : ["4", "4"];
 			var voice = new VF.Voice({ num_beats: parseInt(beats[0], 10), beat_value: parseInt(beats[1], 10) }).setStrict(false);
+			// Tuplets set their notes' ticks, so before the voice counts them;
+			// a triplet is beamed on its own, with a bracket if it has a rest
+			var tuplets = triplets.map(function(g) {
+				var rests = g.some(function(t) { return t.isRest(); });
+				return new VF.Tuplet(g, { num_notes: 3, notes_occupied: 2, bracketed: rests });
+			});
 			voice.addTickables(tickables);
-			var beams = VF.Beam.generateBeams(tickables, { groups: VF.Beam.getDefaultBeamGroups(beats.join("/")) });
+			var beamGroups = { groups: VF.Beam.getDefaultBeamGroups(beats.join("/")) };
+			var beams = [], plain = [];
+			var inTriplet = function(t) { return triplets.some(function(g) { return g.indexOf(t) >= 0; }); };
+			tickables.concat([null]).forEach(function(t) {
+				if (t && !inTriplet(t)) {
+					plain.push(t);
+					return;
+				}
+				if (plain.length) beams = beams.concat(VF.Beam.generateBeams(plain, beamGroups));
+				plain = [];
+			});
+			triplets.forEach(function(g) {
+				if (!g.some(function(t) { return t.isRest(); })) beams.push(new VF.Beam(g));
+			});
 			// A low softmax spaces notes by their length, so a measure reads
 			// like printed music instead of bunching at its start
 			new VF.Formatter({ softmaxFactor: 2 }).joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 10);
 			voice.draw(context, stave);
 			beams.forEach(function(b) { b.setContext(context).draw(); });
+			tuplets.forEach(function(t) { t.setContext(context).draw(); });
 			tickables.forEach(function(t, k) {
 				result.xs[indexes[k]] = t.getAbsoluteX() + t.getGlyphWidth() / 2;
 				if (indexes[k] === opts.arrow) {
@@ -4528,6 +4589,50 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 			console.log("Could not render song measure:", m, err.message);
 		}
 	}
+
+	// Ties, from a line's end or to its start when they cross lines
+	events.forEach(function(e, i) {
+		if (!e.tie || !events[i + 1] || !events[i + 1].tied) return;
+		var first = drawn[i] || null, last = drawn[i + 1] || null;
+		// (no tie into a line's first note over its accidental)
+		if (!first && (!last || restated[i + 1])) return;
+		try {
+			new VF.StaveTie({ first_note: first, last_note: last, first_indices: [0], last_indices: [0] })
+				.setContext(context).draw();
+		} catch (err) {
+			console.log("Could not draw a tie:", i, err.message);
+		}
+	});
+
+	// Slurs, from a line's end or to its start when they cross lines (one
+	// over a whole line between its ends isn't drawn)
+	var slurFrom = -1;
+	events.forEach(function(e, i) {
+		if (e.slurEnd && slurFrom >= 0) {
+			var from = drawn[slurFrom] || null, to = drawn[i] || null;
+			if (from || to) {
+				// Under the heads when every stem is up, else over the top
+				var above = false;
+				for (var k = slurFrom; k <= i; k++) {
+					if (drawn[k] && drawn[k].getStemDirection() < 0) above = true;
+				}
+				var end = function(k) {
+					return drawn[k] && above && drawn[k].getStemDirection() > 0 && events[k].dur !== "w" ? "nearTop" : "nearHead";
+				};
+				var dir = (to || from).getStemDirection();
+				try {
+					// (half a slur keeps one height to the line's edge)
+					var p0 = end(from ? slurFrom : i), p1 = end(to ? i : slurFrom);
+					new VF.Curve(from, to, { position: p0, position_end: p1, invert: above ? dir > 0 : dir < 0 })
+						.setContext(context).draw();
+				} catch (err) {
+					console.log("Could not draw a slur:", i, err.message);
+				}
+			}
+			slurFrom = -1;
+		}
+		if (e.slurStart) slurFrom = i;
+	});
 
 	var svg = out.querySelector("svg");
 	if (svg && result.stave) {
@@ -4693,9 +4798,11 @@ function playSongEvents(events, show, opts) {
 		show(i);
 		// End each note just before the next (a tongued gap, which also
 		// keeps repeated notes distinct) so nothing is cut off mid-sound.
-		if (e.midi !== null && !opts.silent) {
-			playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false,
-				null, Math.max(0.1, ms / 1000 - TONE_RELEASE));
+		// (a tied note sounds on from the one before; a slurred one glides
+		// from it, the one tone lasting to the slur's end)
+		var freq = e.midi === null ? 0 : frequencyFromNoteNumber(e.midi - getTransposition());
+		if (e.midi !== null && !opts.silent && !(e.tied && i > 0) && !(e.legato && i > 0 && retuneSustainedNote(freq))) {
+			playTone(freq, false, null, Math.max(0.1, soundBeats(events, i) * beatMs / 1000 - TONE_RELEASE));
 		}
 		// The piano's chords during this note, timed on the audio clock
 		for (; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
@@ -4835,7 +4942,7 @@ function alongNote(pitch, onset) {
 	a.played++;
 	for (var j = 0; j < s.notes.length; j++) {
 		var start = alongEventTime(s, s.notes[j].event, beatMs);
-		var len = eventBeats(s.notes[j]) * beatMs;
+		var len = tiedBeats(s.events, s.notes[j].event) * beatMs;
 		if (start === null || onset < start - Math.min(ALONG_EARLY_MS, len / 2)) break;
 		var r = s.results[j];
 		if (onset > start + len + ALONG_LATE_MS || r === "right" || r === "octave") continue;
@@ -4864,7 +4971,7 @@ function finishAlong(partway) {
 	var now = performance.now(), beatMs = 60000 / a.speed.tempo;
 	s.notes.forEach(function(n, j) {
 		var start = alongEventTime(s, n.event, beatMs);
-		var gone = start !== null && start + eventBeats(n) * beatMs + ALONG_LATE_MS < now;
+		var gone = start !== null && start + tiedBeats(s.events, n.event) * beatMs + ALONG_LATE_MS < now;
 		if (!s.results[j] && (!partway || gone)) s.results[j] = "missed";
 	});
 	var total = s.notes.length;
@@ -5289,7 +5396,7 @@ function songNoteTap(event) {
 			}
 		});
 	}
-	if (!s.free && hit !== null && practice.step === 3 && s.pos < songEnd(s) && hit === s.notes[s.pos].event) {
+	if (!s.free && hit !== null && practice.step === 3 && s.pos < songEnd(s) && tieStart(s.events, hit) === s.notes[s.pos].event) {
 		if (!s.helped) showSongHelp();
 		return;
 	}
@@ -5381,13 +5488,27 @@ var NATURAL_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
 // A custom song's events (see songEvents()), measures filled in order
 function customSongEvents(song) {
 	var cap = measureBeats(song.time);
-	var filled = 0, measure = 0;
-	return song.notes.map(function(n) {
+	var filled = 0, measure = 0, slurred = false;
+	return song.notes.map(function(n, k) {
 		if (filled >= cap - 1e-6) {
 			measure++;
 			filled = 0;
 		}
 		var e = { midi: null, dur: n.d, dots: n.dot ? 1 : 0, measure: measure };
+		if (n.t) e.tuplet = 1;
+		if (n.tie) e.tie = 1;
+		if (k > 0 && song.notes[k - 1].tie && !n.r) e.tied = 1;
+		// Slurs: so opens one, sc closes it; a note slurred from the note
+		// before it is legato (played without a new attack)
+		if (slurred && !n.r && k > 0 && !song.notes[k - 1].r) e.legato = 1;
+		if (n.sc) {
+			e.slurEnd = 1;
+			slurred = false;
+		}
+		if (n.so) {
+			e.slurStart = 1;
+			slurred = true;
+		}
 		if (!n.r) {
 			e.letter = n.s % 7;
 			e.octave = Math.floor(n.s / 7);
@@ -5419,7 +5540,30 @@ var EDITOR_LENGTHS = [  // longest first
 ];
 
 function noteBeats(n) {
-	return SONG_BEATS[n.d] * (n.dot ? 1.5 : 1);
+	return SONG_BEATS[n.d] * (n.dot ? 1.5 : 1) * (n.t ? 2 / 3 : 1);
+}
+
+// Triplets (t: three eighths in the time of two) come in groups of 3 in a
+// measure: each note's place in its group (0-2, -1 for no triplet), or
+// null if a group is left short. The editor can't make them, only keep them.
+function tripletPlaces(notes, time) {
+	var cap = measureBeats(time);
+	var filled = 0, run = 0, ok = true;
+	var places = notes.map(function(n) {
+		if (filled >= cap - 1e-6) {
+			filled = 0;
+			if (run % 3) ok = false;
+			run = 0;
+		}
+		filled += noteBeats(n);
+		if (!n.t) {
+			if (run % 3) ok = false;
+			run = 0;
+			return -1;
+		}
+		return run++ % 3;
+	});
+	return ok && !(run % 3) ? places : null;
 }
 
 // Which notes run past their measure's bar line
@@ -5503,7 +5647,7 @@ function editorNotesWithLength(i, d, dot) {
 		Array.prototype.splice.apply(notes, [i + 1, 0].concat(fill));
 	} else if (diff > 1e-6) {
 		// k walks the song as it was; the rests it uses come out at i + 1
-		for (var k = i + 1; diff > 1e-6 && k < events.length && events[k].measure === measure && ed.song.notes[k].r; k++) {
+		for (var k = i + 1; diff > 1e-6 && k < events.length && events[k].measure === measure && ed.song.notes[k].r && !ed.song.notes[k].t; k++) {
 			var b = noteBeats(ed.song.notes[k]);
 			if (b <= diff + 1e-6) {
 				notes.splice(i + 1, 1);
@@ -5771,6 +5915,8 @@ function saveEditorSong(notesChanged) {
 }
 
 function editorChanged(notesChanged) {
+	dropBrokenTies(practice.editor.song.notes);
+	dropBrokenSlurs(practice.editor.song.notes);
 	stopSongPlayback();
 	practice.editor.deleteArmed = false;
 	practice.editor.showEnd = false;
@@ -5867,13 +6013,15 @@ function drawEditor(playing) {
 	var chosenNote = ed.sel < n ? song.notes[ed.sel] : null;
 	var shown = chosenNote ? { d: chosenNote.d, dot: chosenNote.dot ? 1 : 0 } : editorNextLength();
 	var room = editorRoomAtEnd();
+	var locked = chosenNote && editorLengthLock(ed.sel);
 	function lengthFits(d, dot) {
+		if (locked) return false;
 		return chosenNote ? !!editorNotesWithLength(ed.sel, d, dot) : noteBeats({ d: d, dot: dot }) <= room + 1e-6;
 	}
 	document.querySelectorAll("#editor-lengths [data-dur]").forEach(function(b) {
 		var d = b.getAttribute("data-dur");
 		b.setAttribute("aria-pressed", d === shown.d ? "true" : "false");
-		b.disabled = !isPlaying && !(d === shown.d || lengthFits(d, chosenNote ? shown.dot : 0));
+		b.disabled = !isPlaying && !((d === shown.d && !locked) || lengthFits(d, chosenNote ? shown.dot : 0));
 	});
 	var dot = document.getElementById("editor-dot");
 	dot.setAttribute("aria-pressed", shown.dot ? "true" : "false");
@@ -5956,6 +6104,15 @@ function insertEditorNote(note, atEnd) {
 	var pos = atEnd || ed.sel >= n - 1 ? n : ed.sel + 1;
 	var notes = ed.song.notes.slice();
 	notes.splice(pos, 0, note);
+	var places = tripletPlaces(ed.song.notes, ed.song.time);
+	if (places && pos < n && places[pos] > 0) {
+		showToast("Add it before or after the triplet.");
+		return;
+	}
+	if (pos > 0 && pos < n && ed.song.notes[pos - 1].tie) {
+		showToast("Add it before or after the tied notes.");
+		return;
+	}
 	if (!editorInLastMeasure(pos) || !editorNotesFit(notes, ed.song.time, pos)) {
 		showToast("That measure is full. Make a note shorter, or add it at the end.");
 		return;
@@ -5965,6 +6122,68 @@ function insertEditorNote(note, atEnd) {
 	ed.showEnd = false;
 	editorChanged(true);
 	previewEditorNote(pos);
+}
+
+var TRIPLET_TOAST = "Triplets keep their length. Change their notes with \u25b2\u25bc.";
+
+// Why note i's length can't change (a triplet, or tied), or null
+function editorLengthLock(i) {
+	var notes = practice.editor.song.notes;
+	if (notes[i].t) return TRIPLET_TOAST;
+	if (notes[i].tie || (i > 0 && notes[i - 1].tie)) return "Tied notes keep their length. Change their notes with \u25b2\u25bc.";
+	return null;
+}
+
+// Tied notes are one sound: a new pitch for note i goes to the notes tied
+// to it too
+function editorSyncTie(i) {
+	var notes = practice.editor.song.notes;
+	var n = notes[i], k;
+	for (k = i; k > 0 && notes[k - 1].tie; k--) {
+		notes[k - 1].s = n.s;
+		notes[k - 1].a = n.a;
+	}
+	for (k = i; notes[k].tie && notes[k + 1] && !notes[k + 1].r; k++) {
+		notes[k + 1].s = n.s;
+		notes[k + 1].a = n.a;
+	}
+}
+
+// A slur that lost a note it started or ended on is dropped (a rest
+// can't hold one)
+function dropBrokenSlurs(notes) {
+	var open = -1;
+	notes.forEach(function(n, k) {
+		if (n.r) {
+			delete n.so;
+			delete n.sc;
+		}
+		if (n.sc) {
+			if (open < 0) delete n.sc;
+			open = -1;
+		}
+		if (n.so) {
+			if (open >= 0) delete notes[open].so;
+			open = k;
+		}
+	});
+	if (open >= 0) delete notes[open].so;
+}
+
+// A tie whose next note is gone, a rest or another pitch is dropped
+function dropBrokenTies(notes) {
+	notes.forEach(function(n, k) {
+		var next = notes[k + 1];
+		if (n.tie && (n.r || !next || next.r || next.s !== n.s || next.a !== n.a)) delete n.tie;
+	});
+}
+
+// A note or rest rebuilt from old keeps old's triplet, tie and slur marks
+function keepMarks(old, note) {
+	["t", "tie", "so", "sc"].forEach(function(k) {
+		if (old[k]) note[k] = 1;
+	});
+	return note;
 }
 
 // A new note for step s going in at pos, with the flat or sharp the key
@@ -6010,7 +6229,8 @@ function setEditorThreeNote(k) {
 	var n = ed.song.notes.length;
 	if (ed.sel < n) {
 		var note = ed.song.notes[ed.sel];
-		ed.song.notes[ed.sel] = { s: n3.s, a: n3.alter, d: note.d, dot: note.dot ? 1 : 0 };
+		ed.song.notes[ed.sel] = keepMarks(note, { s: n3.s, a: n3.alter, d: note.d, dot: note.dot ? 1 : 0 });
+		editorSyncTie(ed.sel);
 		editorChanged(true);
 		previewEditorNote(ed.sel);
 	} else {
@@ -6049,6 +6269,10 @@ function insertEditorLetter(letter) {
 // A new length for the selected note (if it fits) or for the next note
 function setEditorLength(d, dot) {
 	var ed = practice.editor;
+	if (ed.sel < ed.song.notes.length && editorLengthLock(ed.sel)) {
+		showToast(editorLengthLock(ed.sel));
+		return;
+	}
 	if (ed.sel < ed.song.notes.length) {
 		var notes = editorNotesWithLength(ed.sel, d, dot);
 		if (!notes) {
@@ -6084,6 +6308,7 @@ function setEditorAccidental(alter) {
 	var i = editorTargetIndex();
 	if (i < 0) return;
 	ed.song.notes[i].a = alter;
+	editorSyncTie(i);
 	editorChanged(true);
 	previewEditorNote(i);
 }
@@ -6102,22 +6327,39 @@ function nudgeEditorNote(dir) {
 		if (to.s === note.s && to.alter === (note.a || 0)) return;
 		note.s = to.s;
 		note.a = to.alter;
+		editorSyncTie(i);
 		editorChanged(true);
 		previewEditorNote(i);
 		return;
 	}
 	note.s = clampEditorStep(note.s + dir);
 	note.a = editorAlterAt(i, note.s, ed.events[i].measure);
+	editorSyncTie(i);
 	editorChanged(true);
 	previewEditorNote(i);
 }
 
-// Delete the selected note, or the last one from the end
+// Delete the selected note, or the last one from the end. A triplet's
+// notes become rests, so the group keeps its time, and from the end the
+// whole group goes.
 function deleteEditorNote() {
 	var ed = practice.editor;
 	var n = ed.song.notes.length;
 	if (!n) return;
-	if (ed.sel >= n) {
+	var at = ed.sel >= n ? n - 1 : ed.sel;
+	var picked = ed.song.notes[at];
+	if (at > 0 && !picked.r) delete ed.song.notes[at - 1].tie;
+	if (picked.t && ed.sel >= n) {
+		var places = tripletPlaces(ed.song.notes, ed.song.time);
+		ed.song.notes.splice(n - 1 - (places ? places[n - 1] : 0));
+		ed.sel = ed.song.notes.length;
+	} else if (picked.t) {
+		if (picked.r) {
+			showToast(TRIPLET_TOAST);
+			return;
+		}
+		ed.song.notes[at] = { r: 1, d: picked.d, dot: 0, t: 1 };
+	} else if (ed.sel >= n) {
 		ed.song.notes.pop();
 		ed.sel = n - 1;
 	} else {
@@ -6213,11 +6455,12 @@ function editorStaffTap(event) {
 		var note = ed.song.notes[nearest];
 		if (nearest === ed.sel && nearestDist < 16 && note.r) {
 			// The selected rest becomes a note where it was tapped
-			ed.song.notes[nearest] = { s: s, a: three ? three.alter : editorAlterAt(nearest, s, ed.events[nearest].measure), d: note.d, dot: note.dot ? 1 : 0 };
+			ed.song.notes[nearest] = keepMarks(note, { s: s, a: three ? three.alter : editorAlterAt(nearest, s, ed.events[nearest].measure), d: note.d, dot: note.dot ? 1 : 0 });
 			editorChanged(true);
 		} else if (nearest === editorTargetIndex() && nearestDist < 16 && note.s !== s) {
 			note.s = s;
 			note.a = three ? three.alter : editorAlterAt(nearest, s, ed.events[nearest].measure);
+			editorSyncTie(nearest);
 			editorChanged(true);
 		} else {
 			selectEditorEvent(nearest);
@@ -6259,8 +6502,11 @@ document.getElementById("practice-staff-output").addEventListener("click", songN
 // Sharing songs: the whole song rides in a link (#song=…), so there's no
 // server. The payload is base64url JSON: { v: 1, t: title, i: instrument,
 // k: key, m: time, n: notes }, notes a string of tokens: length (w h q e),
-// an optional "." for a dot, then "r" for a rest or the written note
-// ("Bb4", "C5"). A friend on another instrument gets it rewritten for
+// an optional "." for a dot, an optional "t" for a triplet eighth (in
+// groups of 3: "etF3 etG3 etF3"), then "r" for a rest or the written note
+// ("Bb4", "C5"), a note ending in "~" if it's tied to the next ("hF4~ qF4").
+// A slur opens with "(" before a note's token and closes with ")" after
+// one: "(qF4 eG4 eA4)". A friend on another instrument gets it rewritten for
 // theirs (transposeSharedSong()), sounding the same.
 // ---------------------------------------------------------------------------
 
@@ -6269,9 +6515,9 @@ var pendingSongImport = null;  // a shared song waiting on the import screen
 
 function encodeSongShare(song, instrument) {
 	var notes = song.notes.map(function(n) {
-		var token = (n.d === "8" ? "e" : n.d) + (n.dot ? "." : "");
+		var token = (n.so ? "(" : "") + (n.d === "8" ? "e" : n.d) + (n.dot ? "." : "") + (n.t ? "t" : "");
 		if (n.r) return token + "r";
-		return token + "CDEFGAB".charAt(n.s % 7) + (n.a < 0 ? "b" : n.a > 0 ? "#" : "") + Math.floor(n.s / 7);
+		return token + "CDEFGAB".charAt(n.s % 7) + (n.a < 0 ? "b" : n.a > 0 ? "#" : "") + Math.floor(n.s / 7) + (n.tie ? "~" : "") + (n.sc ? ")" : "");
 	}).join(" ");
 	var json = JSON.stringify({ v: 1, t: song.title.trim() || "My song", i: instrument, k: song.key || "C", m: song.time || "4/4", n: notes });
 	var bytes = new TextEncoder().encode(json);
@@ -6294,18 +6540,48 @@ function decodeSongShare(payload) {
 		if (!tokens.length || tokens.length > SHARE_MAX_NOTES) return null;
 		var notes = [];
 		for (var j = 0; j < tokens.length; j++) {
-			var m = /^([whqe])(\.?)(?:(r)|([A-G])([b#]?)([0-8]))$/.exec(tokens[j]);
+			var m = /^(\(?)([whqe])(\.?)(t?)(?:(r)|([A-G])([b#]?)([0-8])(~?)(\)?))$/.exec(tokens[j]);
 			if (!m) return null;
-			var note = { d: m[1] === "e" ? "8" : m[1], dot: m[2] ? 1 : 0 };
-			if (m[3]) {
+			var note = { d: m[2] === "e" ? "8" : m[2], dot: m[3] ? 1 : 0 };
+			if (m[4]) {
+				// Only plain eighths come in triplets
+				if (note.d !== "8" || note.dot) return null;
+				note.t = 1;
+			}
+			if (m[5]) {
+				if (m[1]) return null;  // a slur starts on a note
 				note.r = 1;
 			} else {
-				note.s = parseInt(m[6], 10) * 7 + "CDEFGAB".indexOf(m[4]);
-				note.a = m[5] === "b" ? -1 : m[5] === "#" ? 1 : 0;
+				note.s = parseInt(m[8], 10) * 7 + "CDEFGAB".indexOf(m[6]);
+				note.a = m[7] === "b" ? -1 : m[7] === "#" ? 1 : 0;
+				if (m[9]) note.tie = 1;
+				if (m[1]) note.so = 1;
+				if (m[10]) note.sc = 1;
 			}
 			notes.push(note);
 		}
+		// A tie holds a note on into the same note
+		var tieOk = notes.every(function(n, k) {
+			var next = notes[k + 1];
+			return !n.tie || (next && !next.r && next.s === n.s && next.a === n.a);
+		});
+		if (!tieOk) return null;
+		// Every slur closed on a later note, none inside another
+		var open = -1;
+		var slursOk = notes.every(function(n, k) {
+			if (n.sc) {
+				if (open < 0) return false;
+				open = -1;
+			}
+			if (n.so) {
+				if (open >= 0) return false;
+				open = k;
+			}
+			return true;
+		}) && open < 0;
+		if (!slursOk) return null;
 		if (!notes.some(function(n) { return !n.r; })) return null;
+		if (!tripletPlaces(notes, data.m)) return null;
 		return {
 			title: data.t.trim().slice(0, 40) || "Shared song",
 			instrument: data.i,
