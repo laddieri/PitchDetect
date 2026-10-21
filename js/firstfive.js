@@ -439,7 +439,7 @@ function setPracticeMode(mode) {
 	schedulePracticeHistorySync();
 	var back = document.getElementById("practice-close");
 	var label = mode === "menu" ? "Back to the app"
-		: mode === "song" || mode === "editor" || mode === "import" ? "Back to the songs" : "Back to the practice menu";
+		: mode === "song" || mode === "editor" ? "Back to the songs" : "Back to the practice menu";
 	back.setAttribute("aria-label", label);
 	back.title = label;
 }
@@ -1281,7 +1281,7 @@ function practiceBack() {
 		else showPracticeMenu();
 		return;
 	}
-	if (practice && (practice.mode === "song" || practice.mode === "editor" || practice.mode === "import")) {
+	if (practice && (practice.mode === "song" || practice.mode === "editor")) {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
@@ -1307,8 +1307,7 @@ function currentPracticeActivity() {
 	if (practice.mode === "drill") return practice.drillKind;
 	if (practice.mode === "firstsounds") return "firstsounds";
 	if (practice.mode === "profile" || practice.mode === "signin") return practice.mode;
-	if (practice.mode === "songs" || practice.mode === "song" || practice.mode === "editor" || practice.mode === "import") {
-		if (practice.mode === "import") return "songs";
+	if (practice.mode === "songs" || practice.mode === "song" || practice.mode === "editor") {
 		return practice.songList === "three" ? threeSetActivity("songs3", practice.threeSet)
 			: practice.songList === "five" ? "songs5" : "songs";
 	}
@@ -4413,7 +4412,6 @@ function setSongKeySignatures(on) {
 	try { localStorage.setItem(SONG_KEY_SIG_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
 	document.querySelectorAll(".song-key-toggle").forEach(updateSongKeyButton);
 	if (practice.mode === "song") drawSongLine(practice.song.pos);
-	else if (practice.mode === "import") drawImportPreview(-1);
 }
 
 // Key signatures offered for the student's own songs, counted the way they
@@ -4690,7 +4688,7 @@ function drawSongArrow(svg, at, viewTop) {
 }
 
 // The whole song at once (every line stacked, scrolling) or one line at a
-// time, for songs, the editor and a friend's song; remembered per browser
+// time, for songs and the editor; remembered per browser
 var SONG_WHOLE_STORAGE_KEY = "pitchdetect-song-whole";
 var SONG_WHOLE_LINE_HEIGHT = 100;  // tighter than a lone line; ledger notes may overhang
 var songWholeView = false;
@@ -4786,8 +4784,6 @@ function onWideSongChange(q) {
 	if (practice.mode === "song" && practice.song) {
 		if (practice.song.pick) drawSongPicker(-1);
 		else drawSongLine(practice.song.pos);
-	} else if (practice.mode === "import") {
-		drawImportPreview(-1);
 	}
 }
 if (WIDE_SONG_QUERY.addEventListener) WIDE_SONG_QUERY.addEventListener("change", onWideSongChange);
@@ -4802,7 +4798,6 @@ function toggleSongView() {
 	document.getElementById("practice-staff-output").scrollTop = 0;
 	if (practice.mode === "song") drawSongLine(practice.song.pos);
 	else if (practice.mode === "editor") drawEditor();
-	else if (practice.mode === "import") drawImportPreview(-1);
 }
 
 // Play a song's events (notes and rests) from the start at SONG_TEMPO with
@@ -5483,12 +5478,6 @@ function stopSongPlayback() {
 		var editorHear = document.getElementById("editor-hear");
 		if (editorHear) editorHear.textContent = "\u25b6 Hear it";
 		drawEditor();
-		return;
-	}
-	if (practice && practice.mode === "import") {
-		var importHear = document.getElementById("import-hear");
-		if (importHear) importHear.textContent = "\u25b6 Hear it";
-		drawImportPreview(-1);
 		return;
 	}
 	if (practice && practice.mode === "lesson" && practice.step === -1) {
@@ -6552,7 +6541,7 @@ document.getElementById("practice-staff-output").addEventListener("click", songN
 // ---------------------------------------------------------------------------
 
 var SHARE_MAX_NOTES = 400;
-var pendingSongImport = null;  // a shared song waiting on the import screen
+var pendingSongImport = null;  // a shared song waiting for Practice to open
 
 function encodeSongShare(song, instrument) {
 	var notes = song.notes.map(function(n) {
@@ -6707,92 +6696,11 @@ function instrumentLabel(instrument) {
 	return instrument;
 }
 
-// The import screen: a friend's song, rewritten for this instrument, with
-// its first line on the staff and Add to My songs
-function showSongImport() {
-	var shared = pendingSongImport;
-	if (!shared) {
-		showSongList();
-		return;
-	}
-	stopSongPlayback();
-	clearTimeout(practiceAdvanceTimer);
-	stopNote();
-	setPracticeMode("import");
-	practice.step = -1;
-	var song = transposeSharedSong(shared.song, shared.instrument, practice.instrument);
-	song.custom = true;
-	song.title = shared.title;
-	var events = customSongEvents(song);
-	practice.importSong = { song: song, events: events, measures: events[events.length - 1].measure + 1 };
-	document.getElementById("practice-view").setAttribute("data-step", "song-import");
-	var steps = document.getElementById("practice-steps");
-	steps.innerHTML = "";
-	steps.appendChild(songKeyButton(song));
-	document.getElementById("practice-prompt").textContent = "A friend shared \u201c" + song.title + "\u201d!";
-
-	var body = document.getElementById("practice-body");
-	body.innerHTML = '<div class="practice-feedback-sub" id="import-note"></div>';
-	var note = document.getElementById("import-note");
-	if (shared.instrument !== practice.instrument) {
-		note.textContent = "Written for " + instrumentLabel(shared.instrument) + ", changed for your " + instrumentLabel(practice.instrument) + ".";
-	} else {
-		var count = events.filter(function(e) { return e.midi !== null; }).length;
-		note.textContent = count + (count === 1 ? " note" : " notes");
-	}
-	var actions = document.createElement("div");
-	actions.className = "practice-actions";
-	var hear = practiceButton("\u25b6 Hear it", "secondary", function() {
-		if (songPlayTimer !== null) {
-			stopSongPlayback();
-		} else {
-			hear.textContent = "\u25a0 Stop";
-			playSongEvents(practice.importSong.events, drawImportPreview,
-				{ piano: songAccompaniment(practice.importSong.song, practice.importSong.events) });
-		}
-	});
-	hear.id = "import-hear";
-	actions.appendChild(hear);
-	actions.appendChild(practiceButton("No thanks", "secondary", function() {
-		pendingSongImport = null;
-		showSongList();
-	}));
-	actions.appendChild(practiceButton("Add to My songs", "primary", addImportedSong));
-	body.appendChild(actions);
-	if (practiceStartedMic && listenActive) stopListening();
-	practiceStartedMic = false;
-	drawImportPreview(-1);
-}
-
-// The import's staff: the first line (or the whole song), following event hl
-// as it plays
-function drawImportPreview(hl) {
-	var imp = practice.importSong;
-	var line = hl >= 0 ? Math.floor(imp.events[hl].measure / SONG_MEASURES_PER_LINE) : 0;
-	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
-	renderSongView(document.getElementById("practice-staff-output"), imp.song, imp.events, line, imp.measures,
-		{ end: true, whole: true, ahead: hl >= 0 }, function(i) { return i === hl ? accent : null; });
-}
-
-// Keep the friend's song (once: the same song again isn't added twice)
-function addImportedSong() {
-	var song = practice.importSong.song;
-	pendingSongImport = null;
-	var same = practice.customSongs.filter(function(s) {
-		return s.title === song.title && JSON.stringify(s.notes) === JSON.stringify(song.notes);
-	})[0];
-	if (!same) {
-		song.id = "my-" + Date.now().toString(36);
-		practice.customSongs.push(song);
-		saveCustomSongs(practice.instrument, practice.customSongs);
-	}
-	// Straight on to playing it (back goes to the song list)
-	playThroughSong(same ? same.id : song.id);
-	showToast("\u201c" + song.title + "\u201d is in My songs!");
-}
-
-// Open the import screen through the menu and song list, so back (and the
-// phone's back gesture) steps out the usual way
+// A shared song goes straight into My songs (rewritten for this instrument
+// if the friend plays another; an identical copy isn't added twice) and
+// opens in Play it through, every practice tool ready. Opened through the
+// menu and song list, so back (and the phone's back gesture) steps out the
+// usual way.
 function openSongImport() {
 	if (!practiceOpen) {
 		openPractice();  // which comes back here
@@ -6803,7 +6711,27 @@ function openSongImport() {
 	syncPracticeHistory();
 	showSongList();
 	syncPracticeHistory();
-	showSongImport();
+	addSharedSong();
+}
+
+function addSharedSong() {
+	var shared = pendingSongImport;
+	pendingSongImport = null;
+	if (!shared) return;
+	var song = transposeSharedSong(shared.song, shared.instrument, practice.instrument);
+	song.custom = true;
+	song.title = shared.title;
+	var same = practice.customSongs.filter(function(s) {
+		return s.title === song.title && JSON.stringify(s.notes) === JSON.stringify(song.notes);
+	})[0];
+	if (!same) {
+		song.id = "my-" + Date.now().toString(36);
+		practice.customSongs.push(song);
+		saveCustomSongs(practice.instrument, practice.customSongs);
+	}
+	playThroughSong(same ? same.id : song.id);
+	showInfoToast("\u201c" + song.title + "\u201d is in My songs" + (shared.instrument !== practice.instrument
+		? ", changed for your " + instrumentLabel(practice.instrument) + "." : "!"));
 }
 
 // A song link: take the song out of the address (so a reload doesn't bring
@@ -7900,7 +7828,6 @@ function practiceHistoryState() {
 	var depth = 3;
 	if (practice.mode === "song") return { practice: "song", song: practice.song.id, free: !!practice.song.free, depth: depth + 1 };
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
-	if (practice.mode === "import") return { practice: "import", depth: depth + 1 };
 	if (practice.mode === "songs") return { practice: "songs", depth: depth };
 	return { practice: activity, depth: depth };
 }
@@ -7977,7 +7904,6 @@ window.addEventListener("popstate", function(event) {
 		if (state.free) playThroughSong(state.song); else startSong(state.song);
 	}
 	else if (state.practice === "editor" && findSong(state.song)) openSongEditor(state.song);
-	else if (state.practice === "import" && pendingSongImport) showSongImport();
 	else if (state.practice !== "song" && state.practice !== "editor" && state.practice !== "import") startPracticeActivity(state.practice);
 	else showSongList();
 });

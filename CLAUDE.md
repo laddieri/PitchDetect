@@ -331,8 +331,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   the first note by `spellScale()` so alto sax gets F♯); a song may set `time` (e.g. `"6/8"`),
   which is then shown. `drawSongLine()`
   draws one line of `SONG_MEASURES_PER_LINE` measures (4 on screens 1000px+
-  wide, `WIDE_SONG_QUERY`, where the song's card, and the import screen's,
-  widens like Play it through's with charts; 2 below; crossing the width
+  wide, `WIDE_SONG_QUERY`, where the song's card widens like Play it
+  through's with charts; 2 below; crossing the width
   redraws, `onWideSongChange()`; the editor keeps `EDITOR_MEASURES_PER_LINE`)
   with real rhythms
   (eighths beamed by the beat they fall in, counted from the bar line, not
@@ -362,8 +362,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `#practice-view[data-song-charts]`: on screens 1000px+ wide, Play it
   through's card widens and the chart sits beside the staff, so the music
   keeps its room); `setPracticeMode()` and `closePractice()`
-  stop it. **Piano accompaniment:** Hear the song (and the editor's and
-  import screen's Hear it) plays an oom-pah piano part under the tune
+  stop it. **Piano accompaniment:** Hear the song (and the editor's Hear
+  it) plays an oom-pah piano part under the tune
   (`songAccompaniment(song, events)`: hits `{ beat, midis (concert), len,
   gain }`). Its chords are picked from the melody: I, IV, V (V7 when the
   tune has the seventh or it leads to the last chord), vi, ii of the song's
@@ -456,8 +456,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   written key (`songKey()`: a custom song's `key`, a built-in song's from
   its tonic as the song spells it) and accidentals last the measure as
   printed. Set in the song view by `songKeyButton()` →
-  `setSongKeySignatures()`: beside the whole song toggle in note by note and
-  the import screen, alone above the staff on Play it through and Pick a
+  `setSongKeySignatures()`: beside the whole song toggle in note by note,
+  alone above the staff on Play it through and Pick a
   part; not shown for a song in a key without sharps or flats. The editor always shows its key (`opts.keySig`).
 - **My songs** (`openSongEditor(id)`, mode `editor`, under "My songs" in the
   song list, with **Make a song** and a pencil per song): the student copies
@@ -528,14 +528,14 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   clear its best score); Delete takes two taps. Back returns to the list.
 - **Whole song view** (`songWholeView`, persisted as `pitchdetect-song-whole`,
   `#practice-view[data-whole]`): a toggle (`songViewButton()`, beside the
-  song's line dots, the editor's nav dots and on the import screen) stacks
+  song's line dots, and the editor's nav dots) stacks
   every line in `#practice-staff-output`, which becomes the scroller.
-  `renderSongView()` wraps `renderSongLine()` for all three screens: one
+  `renderSongView()` wraps `renderSongLine()` for both screens: one
   `.song-line` div per line (shorter viewBox, `SONG_WHOLE_LINE_HEIGHT`,
   ledger notes overhang), keeps the scroll position across redraws and
   scrolls the current line into view only as far as needed. Following along
   (`opts.ahead`: Hear the song, Play along, Play it through, note by note,
-  Pick a part's playback, the import's Hear it) the next line must show
+  Pick a part's playback) the next line must show
   too: once it doesn't, the current line goes to the top, like a page turn;
   lines are measured by their drawn ink (`songLineInk()`), not headroom. It returns layouts by line; the editor's tap handler
   uses the tapped `.song-line`'s layout.
@@ -548,14 +548,14 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`encodeSongShare()` / `decodeSongShare()`, which validates everything) —
   and hands it to `navigator.share`, else copies it. Opening a link
   (`checkSongLink()` on load and `hashchange`) strips the hash, picks the
-  sharer's instrument if none is chosen, and walks menu (Songs) → song list →
-  the import screen (mode `import`, `showSongImport()`, always the whole song)
-  so back steps out normally; a pending import survives until Practice opens
-  (`pendingSongImport`). A friend on another instrument gets
-  `transposeSharedSong()`: same sounding tune, in their octave (the two
-  instruments' first band notes line up), key moved round the circle of
-  fifths, notes respelled. **Add to My songs** skips an identical copy and
-  opens the song in Play it through (back goes to the song list).
+  sharer's instrument if none is chosen, and walks menu (Songs) → song list
+  (`openSongImport()`) so back steps out normally, then `addSharedSong()`
+  puts it straight into My songs (no import screen; an identical copy isn't
+  added twice) and opens it in Play it through, with a toast; a pending
+  link survives until Practice opens (`pendingSongImport`). A friend on
+  another instrument gets `transposeSharedSong()`: same sounding tune, in
+  their octave (the two instruments' first band notes line up), key moved
+  round the circle of fifths, notes respelled.
 - **Drills** (`startDrill(kind)`: `names` / `fingerings` and their `3`,
   `9`, `3bag` and `scale` kinds, no mic; `drillNotes(kind)`, held in
   `practice.drillNotes`: the first 5, the 3 notes of the kind's set, those
@@ -919,7 +919,8 @@ and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
 B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 shared triplet, tie and slur are timed and drawn; a shared song shows
-whole, 4 measures a line on a desktop, and Add to My songs opens it; a
+link goes straight into My songs (once) and opens in Play it through, 4
+measures a line on a desktop; a
 song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops; a song listens only after Listen to me,
 and a tapped note shows its fingering; Play along scores

@@ -3565,7 +3565,6 @@
 			/* The whole song: every line stacked in the staff's place, scrolling */
 			.practice-view[data-whole="1"][data-step="song"] .practice-staff,
 			.practice-view[data-whole="1"][data-step="song-editor"] .practice-staff,
-			.practice-view[data-step="song-import"] .practice-staff,
 			.practice-view[data-editor-stack="1"][data-step="song-editor"] .practice-staff,
 			.practice-view[data-step="song-free"] .practice-staff,
 			.practice-view[data-step="song-pick"] .practice-staff {
@@ -3575,7 +3574,6 @@
 			}
 
 			.practice-view[data-whole="1"] #practice-staff-output,
-			.practice-view[data-step="song-import"] #practice-staff-output,
 			.practice-view[data-editor-stack="1"][data-step="song-editor"] #practice-staff-output,
 			.practice-view[data-step="song-free"] #practice-staff-output,
 			.practice-view[data-step="song-pick"] #practice-staff-output {
@@ -4185,11 +4183,10 @@
 			   the song, Play along) the card widens and the chart goes beside
 			   the staff, the feedback and buttons below both */
 			@media (min-width: 1000px) {
-				/* A song (and a friend's song) gets the wide card too, four
-				   measures to a line (SONG_MEASURES_PER_LINE), so the music
-				   isn't drawn huge and more of it shows */
+				/* A song gets the wide card too, four measures to a line
+				   (SONG_MEASURES_PER_LINE), so the music isn't drawn huge and
+				   more of it shows */
 				.practice-view[data-mode="song"] .practice-card,
-				.practice-view[data-mode="import"] .practice-card,
 				.practice-view[data-step="song-free"][data-song-charts] .practice-card {
 					margin-inline: calc((760px - min(1180px, 100vw - 48px)) / 2);
 				}
