@@ -480,7 +480,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   glides it to each legato note with `retuneSustainedNote()` (a new tone
   where it can't: bells, piano); scoring is unchanged. `renderSongLine()`
   draws a `VF.Curve`, under the heads when every stem is up, else over,
-  half a slur where one crosses lines. The editor keeps slurs (`keepMarks()`
+  arching less when short, half a slur where one crosses lines (a
+  triplet's 3 goes on its beam's side, clear of a slur). The editor keeps slurs (`keepMarks()`
   when it rebuilds a note) and `dropBrokenSlurs()` drops one that lost an
   end note; a 3- or 5-note song (`openSongEditor(null, set)`,
   set `practice.threeSet` or `"first5"`) also stores `three` (its lesson

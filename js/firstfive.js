@@ -4571,6 +4571,10 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 			triplets.forEach(function(g) {
 				if (!g.some(function(t) { return t.isRest(); })) beams.push(new VF.Beam(g));
 			});
+			// The 3 on the beam's side, leaving the heads' side for a slur
+			tuplets.forEach(function(t, k) {
+				t.setTupletLocation(triplets[k][0].getStemDirection() < 0 ? VF.Tuplet.LOCATION_BOTTOM : VF.Tuplet.LOCATION_TOP);
+			});
 			// A low softmax spaces notes by their length, so a measure reads
 			// like printed music instead of bunching at its start
 			new VF.Formatter({ softmaxFactor: 2 }).joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 10);
@@ -4620,10 +4624,15 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 					return drawn[k] && above && drawn[k].getStemDirection() > 0 && events[k].dur !== "w" ? "nearTop" : "nearHead";
 				};
 				var dir = (to || from).getStemDirection();
+				// A short slur arches less, so it doesn't hook over its notes
+				var x0 = from ? from.getAbsoluteX() : to.getStave().getNoteStartX();
+				var x1 = to ? to.getAbsoluteX() : from.getStave().getNoteEndX();
+				var arch = Math.max(4, Math.min(10, (x1 - x0) / 8));
 				try {
 					// (half a slur keeps one height to the line's edge)
 					var p0 = end(from ? slurFrom : i), p1 = end(to ? i : slurFrom);
-					new VF.Curve(from, to, { position: p0, position_end: p1, invert: above ? dir > 0 : dir < 0 })
+					new VF.Curve(from, to, { position: p0, position_end: p1, invert: above ? dir > 0 : dir < 0,
+						cps: [{ x: 0, y: arch }, { x: 0, y: arch }] })
 						.setContext(context).draw();
 				} catch (err) {
 					console.log("Could not draw a slur:", i, err.message);
