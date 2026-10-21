@@ -547,8 +547,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `(` before its first note, `)` after its last; none open or nested)
   (`encodeSongShare()` / `decodeSongShare()`, which validates everything) —
   and hands it to `navigator.share`, else copies it. Opening a link
-  (`checkSongLink()` on load and `hashchange`) strips the hash, picks the
-  sharer's instrument if none is chosen, and walks menu (Songs) → song list
+  (`checkSongLink()` on load and `hashchange`) strips the hash (the
+  student's own instrument is used, asked at sign-in if none is saved; the
+  sharer's never shows), and walks menu (Songs) → song list
   (`openSongImport()`) so back steps out normally, then `addSharedSong()`
   puts it straight into My songs (no import screen; an identical copy isn't
   added twice) and opens it in Play it through, with a toast; a pending
@@ -920,7 +921,8 @@ B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 shared triplet, tie and slur are timed and drawn; a shared song shows
 link goes straight into My songs (once) and opens in Play it through, 4
-measures a line on a desktop; a
+measures a line on a desktop; in a fresh browser a song link shows no
+instrument until the student picks theirs; a
 song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops; a song listens only after Listen to me,
 and a tapped note shows its fingering; Play along scores

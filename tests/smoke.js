@@ -131,6 +131,29 @@ async function run() {
 		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
 		await context.close();
 
+		// --- A song link in a fresh browser ---
+		// No instrument shows (not the sharer's) until the student says what
+		// they play; then the song opens for theirs
+		console.log("Song link");
+		errors = [];
+		context = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: "block" });
+		page = await newPage(context, errors);
+		var linkSong = Buffer.from(JSON.stringify({ v: 1, t: "Link", i: "euphonium", k: "C", m: "4/4", n: "wC3 wD3" })).toString("base64url");
+		await page.goto(base + "#song=" + linkSong);
+		await page.waitForSelector('#practice-view[data-mode="signin"]');
+		var blank = await page.evaluate(function() {
+			return document.getElementById("practice-instrument").textContent.trim() + "|" + document.getElementById("instrument").value;
+		});
+		await page.fill("#student-name", "Link");
+		await page.press("#student-name", "Enter");
+		await page.click(".instrument-choice >> text=Trumpet");
+		await page.waitForSelector('#practice-view[data-mode="song"]');
+		var opened = await page.evaluate(function() { return practice.instrument + " " + practice.song.song.title; });
+		check(blank === "|" && opened === "trumpet Link",
+			"a song link shows no instrument until the student picks one, then opens for theirs (got \"" + blank + "\", " + opened + ")");
+		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
+		await context.close();
+
 		// --- Practice sign-in and saved progress ---
 		console.log("Practice progress");
 		errors = [];
