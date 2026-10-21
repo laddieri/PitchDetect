@@ -51,8 +51,10 @@ All state is module-global. The main clusters:
 | **Pitch detection** | `autoCorrelate()` — McLeod Pitch Method (NSDF); returns `{frequency, confidence}`; gated at confidence > 0.85. `updateListenPitch()` is the rAF loop with debouncing: a new note must hold `NOTE_CONFIRM_FRAMES` (3) frames; dropouts under `NOTE_CLEAR_HOLD_MS` (300) keep the last note displayed. |
 | **Tuner meter** | `updateTunerMeter()` — cents vs nearest semitone via `centsOffFromPitch()`, EMA-smoothed needle, in-tune/close/off color states. Kid mode's meter is calmer: it smooths the pitch itself more heavily (`KID_METER_SMOOTHING`, restarting on a jump to another note), "Just right!" has hysteresis (`KID_IN_TUNE_CENTS` / `KID_OUT_OF_TUNE_CENTS`, `kidJustRight`, also used by the celebration) and the needle holds through dropouts under `NOTE_CLEAR_HOLD_MS`. |
 | **Match/fireworks** | `commitDetectedNote()` fires `launchFireworks()` on target match; `reevaluateMatch()` re-checks whenever the *target* changes. |
-| **Synthesis** | `instrumentTimbres` (per-instrument harmonic stacks, vibrato, breath noise), `synthesizeWind()` / `synthesizeStruck()`, `playTone(freq, sustain, onStarted, length)` (shared by Play and practice; `length` gives a sequenced note its own `TONE_RELEASE` so it ends before the next), sustain mode with click-free portamento (`retuneSustainedNote()`; every wind
-voice is tracked for it until `stopNote()`, so a song's slurred notes glide too), fade-out teardown in `stopNote()`. The first `playTone()` of a visit shows `showSoundHint()` (an info toast: turn up your volume); `setAudioSessionType()` sets iOS's `navigator.audioSession` to `playback` (`play-and-record` while listening) so the silent switch doesn't mute the notes. |
+| **Synthesis** | `instrumentTimbres` (per-instrument harmonic stacks, vibrato, breath noise), `synthesizeWind()` / `synthesizeStruck()`, `playTone(freq, sustain, onStarted, length)` (shared by Play and practice; `length` gives a sequenced note its own `TONE_RELEASE` so it ends before the next), sustain mode with click-free portamento (`retuneSustainedNote()`),
+`playTone()`'s `legato` (a song's slurred note: `stopNote(fade, delay)` fades the
+sounding note over `LEGATO_FADE` from the new note's start, `TONE_LOOKAHEAD`, holding
+its level until then, so there's no gap), fade-out teardown in `stopNote()`. The first `playTone()` of a visit shows `showSoundHint()` (an info toast: turn up your volume); `setAudioSessionType()` sets iOS's `navigator.audioSession` to `playback` (`play-and-record` while listening) so the silent switch doesn't mute the notes. |
 | **UI state sync** | `updateControlStates()` (enable/disable), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updatePanePager()` (mobile fingering/piano pages), `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast(message, duration)` (inline errors — never use `alert()`;
 mic failures go through `micErrorMessage()`, which says what to do next). |
 
@@ -477,10 +479,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `dropBrokenTies()` (in `editorChanged()`) drops a tie left dangling;
   `so: 1` / `sc: 1` open and close a slur on notes (events carry
   `slurStart` / `slurEnd`, and `legato` on a note slurred from the note
-  just before it): `playSongEvents()` gives a slur's first note one tone
-  as long as `soundBeats()` (the notes slurred and tied on from it) and
-  glides it to each legato note with `retuneSustainedNote()` (a new tone
-  where it can't: bells, piano); scoring is unchanged. `renderSongLine()`
+  just before it): `playSongEvents()` holds a note slurred into the next
+  `LEGATO_OVERLAP` past its end, and plays the legato note with
+  `playTone()`'s `legato`, crossfading from it with no tongued gap (a
+  glide by retuning the sounding voice went near-silent on some browsers);
+  scoring is unchanged. `renderSongLine()`
   draws a `VF.Curve`, under the heads when every stem is up, else over,
   arching less when short, half a slur where one crosses lines (a
   triplet's 3 goes on its beam's side, clear of a slur). The editor keeps slurs (`keepMarks()`

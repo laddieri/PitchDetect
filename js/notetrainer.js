@@ -1393,15 +1393,15 @@ function synthesizeWind(freq, timbre, t, dest, sustain) {
 		osc.start(t);
 		activeAudioNodes.push(osc);
 
-		// Track the oscillator so its pitch can be glided (sustain mode, or
-		// a song's slurred notes while this one sounds)
-		sustainVoiceOscillators.push({ osc: osc, ratio: harmonicNum });
 		if (!sustain) {
 			gain.gain.setValueAtTime(amplitude, sustainEnd);
 			gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 			osc.stop(t + duration);
+		} else {
+			// In sustain mode: hold at amplitude indefinitely (stopped via
+			// stopNote). Track the oscillator so its pitch can be glided.
+			sustainVoiceOscillators.push({ osc: osc, ratio: harmonicNum });
 		}
-		// (In sustain mode it holds at amplitude until stopNote())
 	});
 
 	// Breath noise: sustained filtered noise following the note envelope
@@ -1434,14 +1434,15 @@ function synthesizeWind(freq, timbre, t, dest, sustain) {
 		noiseSrc.start(t);
 		activeAudioNodes.push(noiseSrc);
 
-		// Track the filter so its center frequency follows a glide
-		sustainVoiceNoiseFilter = noiseFilter;
 		if (!sustain) {
 			noiseGain.gain.setValueAtTime(timbre.breathNoise, sustainEnd);
 			noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 			noiseSrc.stop(t + duration + 0.01);
+		} else {
+			// In sustain mode: hold at breathNoise level (stopped via stopNote).
+			// Track the filter so its center frequency tracks pitch changes.
+			sustainVoiceNoiseFilter = noiseFilter;
 		}
-		// (In sustain mode it holds at breathNoise level until stopNote())
 	}
 }
 
@@ -1580,20 +1581,25 @@ function playNote() {
 }
 
 var TONE_RELEASE = 0.08; // seconds; playTone()'s release for a given length
+var TONE_LOOKAHEAD = 0.05;  // seconds; playTone() starts a note this far ahead
+var LEGATO_FADE = 0.06;     // seconds; a legato note's crossfade with the last
 
 // Play a concert-pitch frequency with the selected instrument's timbre,
 // replacing whatever is sounding. onStarted(timbre) runs once the sound is
 // scheduled (after any AudioContext resume). length (seconds, optional) gives
 // the note its own release so it has died away by then: notes played in
 // sequence (Hear the song) end smoothly instead of being cut off by the next.
-function playTone(freq, sustain, onStarted, length) {
+function playTone(freq, sustain, onStarted, length, legato) {
 	if (!freq) return;
 
 	setAudioSessionType("playback");
 	showSoundHint();
 
-	// Stop any currently playing note
-	stopNote();
+	// Stop any currently playing note; a legato (slurred) note instead
+	// crossfades with it, the old one fading out over the new one's attack
+	// from the moment it starts, so there's no gap and no re-tongued edge
+	if (legato) stopNote(LEGATO_FADE, TONE_LOOKAHEAD);
+	else stopNote();
 	sustainPlaying = false;
 
 	// Create (or recreate) audio context if needed
@@ -1620,7 +1626,7 @@ function playTone(freq, sustain, onStarted, length) {
 	function startAudio() {
 		try {
 			// Small lookahead ensures scheduled events are always in the future
-			var t = audioContext.currentTime + 0.05;
+			var t = audioContext.currentTime + TONE_LOOKAHEAD;
 
 			// Master gain for overall volume control
 			var masterGain = audioContext.createGain();
@@ -1721,7 +1727,9 @@ function rampGainToZero(param, now, fade) {
 // leaves a waveform discontinuity the speakers reproduce as a "pop"), fade
 // the master gain to zero over a few milliseconds, then stop and disconnect
 // the nodes once the fade has completed.
-function stopNote() {
+// fade: the release (20 ms when left out); delay: when it starts, from now
+// (a legato note's crossfade begins when the next note does)
+function stopNote(fade, delay) {
 	if (activeAudioNodes.length === 0) return;
 
 	// Hand ownership of the current nodes to this stop operation so that a
@@ -1734,7 +1742,7 @@ function stopNote() {
 	sustainVoiceOscillators = [];
 	sustainVoiceNoiseFilter = null;
 
-	var FADE = 0.02; // 20 ms release — inaudible but enough to kill clicks
+	var FADE = fade || 0.02; // 20 ms release — inaudible but enough to kill clicks
 
 	// If we have no usable audio clock, fall back to an immediate teardown.
 	if (!audioContext || audioContext.state === "closed") {
@@ -1749,13 +1757,23 @@ function stopNote() {
 		return;
 	}
 
-	var now = audioContext.currentTime;
+	var now = audioContext.currentTime + (delay || 0);
 	var stopTime = now + FADE + 0.005;
 
 	// Fade every gain node (the master gain routes all sound, so this
 	// silences the output smoothly) before anything is stopped.
 	nodesToStop.forEach(function(node) {
-		if (node.gain) {
+		if (node.gain && delay) {
+			// A fade that starts later holds the level until then (a
+			// cancelAndHoldAtTime() in the future drops it at once)
+			try {
+				node.gain.cancelScheduledValues(now);
+				node.gain.setValueAtTime(node.gain.value, now);
+				node.gain.linearRampToValueAtTime(0, now + FADE);
+			} catch (e) {
+				rampGainToZero(node.gain, now, FADE);
+			}
+		} else if (node.gain) {
 			rampGainToZero(node.gain, now, FADE);
 		}
 	});
@@ -1776,7 +1794,7 @@ function stopNote() {
 		nodesToStop.forEach(function(node) {
 			try { node.disconnect(); } catch (e) { /* already disconnected */ }
 		});
-	}, (FADE + 0.02) * 1000);
+	}, ((delay || 0) + FADE + 0.02) * 1000);
 }
 
 // Launch fireworks celebration on the staff canvas when user plays the correct
