@@ -385,7 +385,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   counted in, then just the piano with the staff and fingering following,
   for the student to play the tune over, at the speed picked in the song's
   settings (`ALONG_SPEEDS`: Turtle 60, Walk 80, Bunny 100, Rocket 120;
-  `alongSpeedPicker()` / `updateSpeedPicker()`, `songSpeed` for the visit).
+  `alongSpeedPicker()` / `updateSpeedPicker()`, `songSpeed` for the visit;
+  the button shows the speed's icon in place of ♫, `playAlongLabel()`).
   **Song settings** (`songSettingsButton(song, speed)`): a gear at the card's
   top right on Play it through and Pick a part (`#practice-steps` there takes
   no height), beside the whole song button in note by note, opening a panel
