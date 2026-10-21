@@ -3258,7 +3258,7 @@ function songNotes(song, events) {
 
 // A note or rest's length in quarter notes
 function eventBeats(e) {
-	return SONG_BEATS[e.dur] * (e.dots ? 1.5 : 1);
+	return SONG_BEATS[e.dur] * (e.dots ? 1.5 : 1) * (e.tuplet ? 2 / 3 : 1);
 }
 
 // "B♭"-style name of a song note as written
@@ -4482,6 +4482,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 		result.measureX[m] = [stave.getNoteStartX(), stave.getNoteEndX()];
 
 		var tickables = [], indexes = [];
+		var triplets = [], run = [];  // triplets: groups of 3 notes
 		var inEffect = {};  // accidentals carried through the measure
 		events.forEach(function(e, i) {
 			if (e.measure !== m) return;
@@ -4504,18 +4505,47 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 			if (c) note.setStyle({ fillStyle: c, strokeStyle: c });
 			tickables.push(note);
 			indexes.push(i);
+			if (e.tuplet) {
+				run.push(note);
+				if (run.length === 3) {
+					triplets.push(run);
+					run = [];
+				}
+			} else {
+				run = [];
+			}
 		});
 		if (!tickables.length) continue;
 		try {
 			var beats = time ? time.split("/") : ["4", "4"];
 			var voice = new VF.Voice({ num_beats: parseInt(beats[0], 10), beat_value: parseInt(beats[1], 10) }).setStrict(false);
+			// Tuplets set their notes' ticks, so before the voice counts them;
+			// a triplet is beamed on its own, with a bracket if it has a rest
+			var tuplets = triplets.map(function(g) {
+				var rests = g.some(function(t) { return t.isRest(); });
+				return new VF.Tuplet(g, { num_notes: 3, notes_occupied: 2, bracketed: rests });
+			});
 			voice.addTickables(tickables);
-			var beams = VF.Beam.generateBeams(tickables, { groups: VF.Beam.getDefaultBeamGroups(beats.join("/")) });
+			var beamGroups = { groups: VF.Beam.getDefaultBeamGroups(beats.join("/")) };
+			var beams = [], plain = [];
+			var inTriplet = function(t) { return triplets.some(function(g) { return g.indexOf(t) >= 0; }); };
+			tickables.concat([null]).forEach(function(t) {
+				if (t && !inTriplet(t)) {
+					plain.push(t);
+					return;
+				}
+				if (plain.length) beams = beams.concat(VF.Beam.generateBeams(plain, beamGroups));
+				plain = [];
+			});
+			triplets.forEach(function(g) {
+				if (!g.some(function(t) { return t.isRest(); })) beams.push(new VF.Beam(g));
+			});
 			// A low softmax spaces notes by their length, so a measure reads
 			// like printed music instead of bunching at its start
 			new VF.Formatter({ softmaxFactor: 2 }).joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 10);
 			voice.draw(context, stave);
 			beams.forEach(function(b) { b.setContext(context).draw(); });
+			tuplets.forEach(function(t) { t.setContext(context).draw(); });
 			tickables.forEach(function(t, k) {
 				result.xs[indexes[k]] = t.getAbsoluteX() + t.getGlyphWidth() / 2;
 				if (indexes[k] === opts.arrow) {
@@ -5388,6 +5418,7 @@ function customSongEvents(song) {
 			filled = 0;
 		}
 		var e = { midi: null, dur: n.d, dots: n.dot ? 1 : 0, measure: measure };
+		if (n.t) e.tuplet = 1;
 		if (!n.r) {
 			e.letter = n.s % 7;
 			e.octave = Math.floor(n.s / 7);
@@ -5419,7 +5450,30 @@ var EDITOR_LENGTHS = [  // longest first
 ];
 
 function noteBeats(n) {
-	return SONG_BEATS[n.d] * (n.dot ? 1.5 : 1);
+	return SONG_BEATS[n.d] * (n.dot ? 1.5 : 1) * (n.t ? 2 / 3 : 1);
+}
+
+// Triplets (t: three eighths in the time of two) come in groups of 3 in a
+// measure: each note's place in its group (0-2, -1 for no triplet), or
+// null if a group is left short. The editor can't make them, only keep them.
+function tripletPlaces(notes, time) {
+	var cap = measureBeats(time);
+	var filled = 0, run = 0, ok = true;
+	var places = notes.map(function(n) {
+		if (filled >= cap - 1e-6) {
+			filled = 0;
+			if (run % 3) ok = false;
+			run = 0;
+		}
+		filled += noteBeats(n);
+		if (!n.t) {
+			if (run % 3) ok = false;
+			run = 0;
+			return -1;
+		}
+		return run++ % 3;
+	});
+	return ok && !(run % 3) ? places : null;
 }
 
 // Which notes run past their measure's bar line
@@ -5503,7 +5557,7 @@ function editorNotesWithLength(i, d, dot) {
 		Array.prototype.splice.apply(notes, [i + 1, 0].concat(fill));
 	} else if (diff > 1e-6) {
 		// k walks the song as it was; the rests it uses come out at i + 1
-		for (var k = i + 1; diff > 1e-6 && k < events.length && events[k].measure === measure && ed.song.notes[k].r; k++) {
+		for (var k = i + 1; diff > 1e-6 && k < events.length && events[k].measure === measure && ed.song.notes[k].r && !ed.song.notes[k].t; k++) {
 			var b = noteBeats(ed.song.notes[k]);
 			if (b <= diff + 1e-6) {
 				notes.splice(i + 1, 1);
@@ -5868,12 +5922,13 @@ function drawEditor(playing) {
 	var shown = chosenNote ? { d: chosenNote.d, dot: chosenNote.dot ? 1 : 0 } : editorNextLength();
 	var room = editorRoomAtEnd();
 	function lengthFits(d, dot) {
+		if (chosenNote && chosenNote.t) return false;
 		return chosenNote ? !!editorNotesWithLength(ed.sel, d, dot) : noteBeats({ d: d, dot: dot }) <= room + 1e-6;
 	}
 	document.querySelectorAll("#editor-lengths [data-dur]").forEach(function(b) {
 		var d = b.getAttribute("data-dur");
 		b.setAttribute("aria-pressed", d === shown.d ? "true" : "false");
-		b.disabled = !isPlaying && !(d === shown.d || lengthFits(d, chosenNote ? shown.dot : 0));
+		b.disabled = !isPlaying && !((d === shown.d && !(chosenNote && chosenNote.t)) || lengthFits(d, chosenNote ? shown.dot : 0));
 	});
 	var dot = document.getElementById("editor-dot");
 	dot.setAttribute("aria-pressed", shown.dot ? "true" : "false");
@@ -5956,6 +6011,11 @@ function insertEditorNote(note, atEnd) {
 	var pos = atEnd || ed.sel >= n - 1 ? n : ed.sel + 1;
 	var notes = ed.song.notes.slice();
 	notes.splice(pos, 0, note);
+	var places = tripletPlaces(ed.song.notes, ed.song.time);
+	if (places && pos < n && places[pos] > 0) {
+		showToast("Add it before or after the triplet.");
+		return;
+	}
 	if (!editorInLastMeasure(pos) || !editorNotesFit(notes, ed.song.time, pos)) {
 		showToast("That measure is full. Make a note shorter, or add it at the end.");
 		return;
@@ -5965,6 +6025,14 @@ function insertEditorNote(note, atEnd) {
 	ed.showEnd = false;
 	editorChanged(true);
 	previewEditorNote(pos);
+}
+
+var TRIPLET_TOAST = "Triplets keep their length. Change their notes with \u25b2\u25bc.";
+
+// A note or rest rebuilt from old stays in old's triplet
+function keepTriplet(old, note) {
+	if (old.t) note.t = 1;
+	return note;
 }
 
 // A new note for step s going in at pos, with the flat or sharp the key
@@ -6010,7 +6078,7 @@ function setEditorThreeNote(k) {
 	var n = ed.song.notes.length;
 	if (ed.sel < n) {
 		var note = ed.song.notes[ed.sel];
-		ed.song.notes[ed.sel] = { s: n3.s, a: n3.alter, d: note.d, dot: note.dot ? 1 : 0 };
+		ed.song.notes[ed.sel] = keepTriplet(note, { s: n3.s, a: n3.alter, d: note.d, dot: note.dot ? 1 : 0 });
 		editorChanged(true);
 		previewEditorNote(ed.sel);
 	} else {
@@ -6049,6 +6117,10 @@ function insertEditorLetter(letter) {
 // A new length for the selected note (if it fits) or for the next note
 function setEditorLength(d, dot) {
 	var ed = practice.editor;
+	if (ed.sel < ed.song.notes.length && ed.song.notes[ed.sel].t) {
+		showToast(TRIPLET_TOAST);
+		return;
+	}
 	if (ed.sel < ed.song.notes.length) {
 		var notes = editorNotesWithLength(ed.sel, d, dot);
 		if (!notes) {
@@ -6112,12 +6184,26 @@ function nudgeEditorNote(dir) {
 	previewEditorNote(i);
 }
 
-// Delete the selected note, or the last one from the end
+// Delete the selected note, or the last one from the end. A triplet's
+// notes become rests, so the group keeps its time, and from the end the
+// whole group goes.
 function deleteEditorNote() {
 	var ed = practice.editor;
 	var n = ed.song.notes.length;
 	if (!n) return;
-	if (ed.sel >= n) {
+	var at = ed.sel >= n ? n - 1 : ed.sel;
+	var picked = ed.song.notes[at];
+	if (picked.t && ed.sel >= n) {
+		var places = tripletPlaces(ed.song.notes, ed.song.time);
+		ed.song.notes.splice(n - 1 - (places ? places[n - 1] : 0));
+		ed.sel = ed.song.notes.length;
+	} else if (picked.t) {
+		if (picked.r) {
+			showToast(TRIPLET_TOAST);
+			return;
+		}
+		ed.song.notes[at] = { r: 1, d: picked.d, dot: 0, t: 1 };
+	} else if (ed.sel >= n) {
 		ed.song.notes.pop();
 		ed.sel = n - 1;
 	} else {
@@ -6213,7 +6299,7 @@ function editorStaffTap(event) {
 		var note = ed.song.notes[nearest];
 		if (nearest === ed.sel && nearestDist < 16 && note.r) {
 			// The selected rest becomes a note where it was tapped
-			ed.song.notes[nearest] = { s: s, a: three ? three.alter : editorAlterAt(nearest, s, ed.events[nearest].measure), d: note.d, dot: note.dot ? 1 : 0 };
+			ed.song.notes[nearest] = keepTriplet(note, { s: s, a: three ? three.alter : editorAlterAt(nearest, s, ed.events[nearest].measure), d: note.d, dot: note.dot ? 1 : 0 });
 			editorChanged(true);
 		} else if (nearest === editorTargetIndex() && nearestDist < 16 && note.s !== s) {
 			note.s = s;
@@ -6259,7 +6345,8 @@ document.getElementById("practice-staff-output").addEventListener("click", songN
 // Sharing songs: the whole song rides in a link (#song=…), so there's no
 // server. The payload is base64url JSON: { v: 1, t: title, i: instrument,
 // k: key, m: time, n: notes }, notes a string of tokens: length (w h q e),
-// an optional "." for a dot, then "r" for a rest or the written note
+// an optional "." for a dot, an optional "t" for a triplet eighth (in
+// groups of 3: "etF3 etG3 etF3"), then "r" for a rest or the written note
 // ("Bb4", "C5"). A friend on another instrument gets it rewritten for
 // theirs (transposeSharedSong()), sounding the same.
 // ---------------------------------------------------------------------------
@@ -6269,7 +6356,7 @@ var pendingSongImport = null;  // a shared song waiting on the import screen
 
 function encodeSongShare(song, instrument) {
 	var notes = song.notes.map(function(n) {
-		var token = (n.d === "8" ? "e" : n.d) + (n.dot ? "." : "");
+		var token = (n.d === "8" ? "e" : n.d) + (n.dot ? "." : "") + (n.t ? "t" : "");
 		if (n.r) return token + "r";
 		return token + "CDEFGAB".charAt(n.s % 7) + (n.a < 0 ? "b" : n.a > 0 ? "#" : "") + Math.floor(n.s / 7);
 	}).join(" ");
@@ -6294,18 +6381,24 @@ function decodeSongShare(payload) {
 		if (!tokens.length || tokens.length > SHARE_MAX_NOTES) return null;
 		var notes = [];
 		for (var j = 0; j < tokens.length; j++) {
-			var m = /^([whqe])(\.?)(?:(r)|([A-G])([b#]?)([0-8]))$/.exec(tokens[j]);
+			var m = /^([whqe])(\.?)(t?)(?:(r)|([A-G])([b#]?)([0-8]))$/.exec(tokens[j]);
 			if (!m) return null;
 			var note = { d: m[1] === "e" ? "8" : m[1], dot: m[2] ? 1 : 0 };
 			if (m[3]) {
+				// Only plain eighths come in triplets
+				if (note.d !== "8" || note.dot) return null;
+				note.t = 1;
+			}
+			if (m[4]) {
 				note.r = 1;
 			} else {
-				note.s = parseInt(m[6], 10) * 7 + "CDEFGAB".indexOf(m[4]);
-				note.a = m[5] === "b" ? -1 : m[5] === "#" ? 1 : 0;
+				note.s = parseInt(m[7], 10) * 7 + "CDEFGAB".indexOf(m[5]);
+				note.a = m[6] === "b" ? -1 : m[6] === "#" ? 1 : 0;
 			}
 			notes.push(note);
 		}
 		if (!notes.some(function(n) { return !n.r; })) return null;
+		if (!tripletPlaces(notes, data.m)) return null;
 		return {
 			title: data.t.trim().slice(0, 40) || "Shared song",
 			instrument: data.i,

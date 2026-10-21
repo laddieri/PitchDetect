@@ -455,7 +455,13 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   a tune from their own printed part. Stored per instrument, in written pitch,
   in `pitchdetect-my-songs` as `{ id, title, time, key, notes }`, a note being
   `{ s: diatonic step (octave × 7 + letter), a: −1/0/1, d: w|h|q|8, dot }` or
-  a rest `{ r: 1, d, dot }`; a 3- or 5-note song (`openSongEditor(null, set)`,
+  a rest `{ r: 1, d, dot }`; `t: 1` marks a triplet eighth (⅔ its length in
+  `noteBeats()` / `eventBeats()`, events carry `tuplet`), in groups of 3
+  within a measure (`tripletPlaces()`), drawn by `renderSongLine()` with a
+  `VF.Tuplet` and their own beam (a bracket if one is a rest). Only share
+  links make them: the editor keeps them (▲▼ and accidentals work; lengths,
+  dots and inserting inside a group are refused with `TRIPLET_TOAST`;
+  delete turns one into a triplet rest, or from the end drops the group); a 3- or 5-note song (`openSongEditor(null, set)`,
   set `practice.threeSet` or `"first5"`) also stores `three` (its lesson
   set): the editor then has no key picker, one button per note in place of ♭♮♯ (`setEditorThreeNote()`: adds at
   the end, or changes the selected note), and taps, ▲▼ and letters snap to
@@ -505,6 +511,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
 - **Sharing songs** (no server): the editor's share button
   (`shareEditorSong()`) makes a link `#song=<payload>` — base64url JSON
   `{ v, t, i (instrument), k, m, n }`, notes as tokens like `q.Bb4` / `hr`
+  / `etF3` (a triplet eighth; decoding refuses a short group)
   (`encodeSongShare()` / `decodeSongShare()`, which validates everything) —
   and hands it to `navigator.share`, else copies it. Opening a link
   (`checkSongLink()` on load and `hashchange`) strips the hash, picks the
