@@ -3568,7 +3568,7 @@ function resetFollow() {
 		'<div class="practice-feedback" id="practice-feedback" aria-live="polite">Play it all the way through!</div>' +
 		'<div class="practice-feedback-sub" id="practice-feedback-sub">Tap a note to see how to play it</div>';
 	var actions = document.createElement("div");
-	actions.className = "practice-actions";
+	actions.className = "practice-actions song-free-actions";
 	var listen = practiceButton(LISTEN_TO_ME_LABEL, "primary", startFollow);
 	listen.id = "song-listen";
 	actions.appendChild(listen);
@@ -3584,12 +3584,62 @@ function resetFollow() {
 	});
 	along.id = "song-along";
 	actions.appendChild(along);
-	actions.appendChild(practiceButton("Note by note", "secondary", function() { startSong(s.id); }));
-	actions.appendChild(practiceButton("Pick a part", "secondary", function() {
-		showSongPicker(s.id, function() { playThroughSong(s.id); });
-	}));
+	actions.appendChild(songMoreMenu([
+		["Note by note", function() { startSong(s.id); }],
+		["Pick a part", function() { showSongPicker(s.id, function() { playThroughSong(s.id); }); }]
+	]));
 	body.appendChild(actions);
 	drawSongLine(0);
+}
+
+// A "⋯" button opening a small menu of the less used ways to practice
+// a song (Play it through keeps one row of buttons). Taps elsewhere and
+// Escape close it.
+function songMoreMenu(items) {
+	var wrap = document.createElement("div");
+	wrap.className = "song-more";
+	var button = practiceButton("\u22ef", "secondary song-more-button", function() {
+		if (menu.hidden) open(); else close();
+	});
+	button.setAttribute("aria-label", "More ways to practice");
+	button.setAttribute("aria-haspopup", "true");
+	button.setAttribute("aria-expanded", "false");
+	var menu = document.createElement("div");
+	menu.className = "song-more-menu";
+	menu.setAttribute("role", "menu");
+	menu.hidden = true;
+	items.forEach(function(item) {
+		var b = practiceButton(item[0], "secondary", function() {
+			close();
+			item[1]();
+		});
+		b.setAttribute("role", "menuitem");
+		menu.appendChild(b);
+	});
+	function outside(event) {
+		if (!wrap.contains(event.target)) close();
+	}
+	function open() {
+		menu.hidden = false;
+		button.setAttribute("aria-expanded", "true");
+		document.addEventListener("pointerdown", outside, true);
+		menu.firstChild.focus();
+	}
+	function close() {
+		menu.hidden = true;
+		button.setAttribute("aria-expanded", "false");
+		document.removeEventListener("pointerdown", outside, true);
+	}
+	wrap.addEventListener("keydown", function(event) {
+		if (event.key === "Escape" && !menu.hidden) {
+			event.stopPropagation();
+			close();
+			button.focus();
+		}
+	});
+	wrap.appendChild(button);
+	wrap.appendChild(menu);
+	return wrap;
 }
 
 var LISTEN_TO_ME_LABEL = "\ud83c\udfa4 Listen to me";

@@ -4304,6 +4304,82 @@
 				gap: 10px;
 			}
 
+			/* Play it through: one row of smaller buttons; Note by note and
+			   Pick a part wait behind the ⋯ menu (songMoreMenu()) */
+			.song-free-actions {
+				gap: 8px;
+			}
+
+			.song-free-actions > .practice-btn,
+			.song-more-button {
+				padding: 9px 14px;
+				font-size: 0.95rem;
+				white-space: nowrap;
+			}
+
+			.song-more {
+				position: relative;
+			}
+
+			.song-more-button {
+				min-width: 44px;
+				font-size: 1.15rem;
+				line-height: 1.1;
+			}
+
+			.song-more-menu {
+				position: absolute;
+				right: 0;
+				bottom: calc(100% + 8px);
+				z-index: 5;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				padding: 8px;
+				background: var(--surface);
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+			}
+
+			.song-more-menu[hidden] {
+				display: none;
+			}
+
+			.song-more-menu .practice-btn {
+				white-space: nowrap;
+			}
+
+			body.kid-mode .song-more-menu {
+				border: var(--cartoon-border);
+				border-radius: 14px;
+				box-shadow: 4px 4px 0 var(--ink);
+			}
+
+			/* Phones: Listen to me on top, the rest in one row under it */
+			@media (max-width: 700px) {
+				.song-free-actions {
+					display: grid;
+					grid-template-columns: 1fr 1fr auto;
+				}
+
+				.song-free-actions > #song-listen {
+					grid-column: 1 / -1;
+					justify-self: center;
+					padding: 9px 22px;
+				}
+
+				.song-free-actions > .practice-btn,
+				.song-more-button {
+					padding: 8px 10px;
+					font-size: 0.88rem;
+				}
+
+				.song-more-button {
+					font-size: 1.05rem;
+				}
+			}
+
 			/* On to the next step of the path (addPathNextButton()), in a row
 			   of its own under the result's buttons */
 			.practice-actions .practice-btn.path-next {

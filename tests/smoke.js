@@ -276,6 +276,12 @@ async function run() {
 		await page.mouse.click(spot.x, spot.y);
 		check(await page.evaluate(function() { return !document.getElementById("song-fingering") && practice.song.tapped === null; }),
 			"tapping the note again puts its fingering away");
+		// Note by note and Pick a part wait behind Play it through's \u22ef menu
+		await page.evaluate(function() { playThroughSong("mary"); });
+		await page.click(".song-more-button");
+		await page.click(".song-more-menu >> text=Note by note");
+		check(await page.evaluate(function() { return practice.mode === "song" && !practice.song.free; }),
+			"Play it through's \u22ef menu opens note by note");
 
 		// Play along scores each note in time, over the piano: a note no
 		// louder than the piano doesn't count, and passing a speed opens the
