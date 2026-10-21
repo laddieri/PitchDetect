@@ -3148,7 +3148,10 @@ MORE_SCALES.forEach(function(scale) {
 });
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
-var PLAY_ALONG_LABEL = "\u266b Play along";
+// Play along's button names its speed (picked in the song's settings)
+function playAlongLabel(speed) {
+	return (speed || ALONG_SPEEDS[alongSpeedIndex()]).icon + " Play along";
+}
 var songLevelsOpen = {};   // song list levels shown open, by level id
 
 // Every note and rest of a song for this instrument, in order:
@@ -3576,7 +3579,7 @@ function resetFollow() {
 	});
 	hear.id = "song-hear";
 	actions.appendChild(hear);
-	var along = practiceButton(PLAY_ALONG_LABEL, "secondary", function() {
+	var along = practiceButton(playAlongLabel(), "secondary", function() {
 		var playing = songPlayAlong;
 		stopSongPlayback();
 		if (!playing) playAlong();
@@ -5163,7 +5166,7 @@ function finishAlong(partway) {
 		if (faster) more.push(red);
 		else actions.appendChild(practiceButton(red[0], "secondary", red[1]));
 	}
-	var again = [PLAY_ALONG_LABEL + " again", function() { startAlong(speed.id); }];
+	var again = [playAlongLabel(speed) + " again", function() { startAlong(speed.id); }];
 	if (faster) {
 		// The next speed is the step to take; this one again can wait
 		more.unshift(again);
@@ -5214,6 +5217,8 @@ function updateSpeedPicker() {
 	while (k > 0 && !alongSpeedOpen(s.song, k)) k--;
 	songSpeed = ALONG_SPEEDS[k].id;
 	var playing = songPlayTimer !== null || (s.along && !s.along.done);
+	var along = document.getElementById("song-along");
+	if (along && !songPlayAlong) along.textContent = playAlongLabel();
 	row.querySelectorAll(".speed-choice").forEach(function(b, i) {
 		var speed = ALONG_SPEEDS[i], open = alongSpeedOpen(s.song, i);
 		b.querySelector(".speed-icon").textContent = open ? speed.icon : "\ud83d\udd12";
@@ -5609,7 +5614,7 @@ function stopSongPlayback() {
 	var hear = document.getElementById("song-hear");
 	if (hear) hear.textContent = songHearLabel();
 	var alongButton = document.getElementById("song-along");
-	if (alongButton) alongButton.textContent = PLAY_ALONG_LABEL;
+	if (alongButton) alongButton.textContent = playAlongLabel();
 	if (along && s.free && !s.done && !s.along) setPracticeFeedback("Play it all the way through!", "Tap a note to see how to play it");
 	drawSongLine(s.pos);
 	updateSpeedPicker();
