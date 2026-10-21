@@ -6746,13 +6746,9 @@ function checkSongLink() {
 		showToast("That song link didn\u2019t work. Ask your friend to share it again.");
 		return;
 	}
+	// (The student's own instrument, asked for at sign-in if need be, not
+	// the sharer's: it would show in the header as if it were theirs)
 	pendingSongImport = shared;
-	var select = document.getElementById("instrument");
-	if (!select.value) {
-		select.value = shared.instrument;
-		if (select.value === shared.instrument) select.dispatchEvent(new Event("change"));
-		else select.value = "";
-	}
 	openSongImport();
 }
 
