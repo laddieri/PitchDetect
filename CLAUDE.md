@@ -330,7 +330,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `"rq"` a rest; degrees 1–8 index the B♭ scale, spelled up the letters from
   the first note by `spellScale()` so alto sax gets F♯); a song may set `time` (e.g. `"6/8"`),
   which is then shown. `drawSongLine()`
-  draws one line of `SONG_MEASURES_PER_LINE` measures with real rhythms
+  draws one line of `SONG_MEASURES_PER_LINE` measures (4 on screens 1000px+
+  wide, `WIDE_SONG_QUERY`, where the song's card, and the import screen's,
+  widens like Play it through's with charts; 2 below; crossing the width
+  redraws, `onWideSongChange()`; the editor keeps `EDITOR_MEASURES_PER_LINE`)
+  with real rhythms
   (eighths beamed by the beat they fall in, counted from the bar line, not
   by VexFlow's `generateBeams()`, which loses count after a dotted quarter)
   (played notes green, the current one in the accent color with a bobbing
@@ -545,12 +549,13 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   and hands it to `navigator.share`, else copies it. Opening a link
   (`checkSongLink()` on load and `hashchange`) strips the hash, picks the
   sharer's instrument if none is chosen, and walks menu (Songs) → song list →
-  the import screen (mode `import`, `showSongImport()`) so back steps out
-  normally; a pending import survives until Practice opens
+  the import screen (mode `import`, `showSongImport()`, always the whole song)
+  so back steps out normally; a pending import survives until Practice opens
   (`pendingSongImport`). A friend on another instrument gets
   `transposeSharedSong()`: same sounding tune, in their octave (the two
   instruments' first band notes line up), key moved round the circle of
-  fifths, notes respelled. **Add to My songs** skips an identical copy.
+  fifths, notes respelled. **Add to My songs** skips an identical copy and
+  opens the song in Play it through (back goes to the song list).
 - **Drills** (`startDrill(kind)`: `names` / `fingerings` and their `3`,
   `9`, `3bag` and `scale` kinds, no mic; `drillNotes(kind)`, held in
   `practice.drillNotes`: the first 5, the 3 notes of the kind's set, those
@@ -913,7 +918,8 @@ Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
 B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
-shared triplet, tie and slur are timed and drawn; a
+shared triplet, tie and slur are timed and drawn; a shared song shows
+whole, 4 measures a line on a desktop, and Add to My songs opens it; a
 song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops; a song listens only after Listen to me,
 and a tapped note shows its fingering; Play along scores
