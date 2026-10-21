@@ -366,6 +366,28 @@ async function run() {
 		check(tie.notes === 4 && tie.held === 3 && tie.drawn === 1 && tie.wrong === null,
 			"tied notes are one sound held for both and drawn with a tie; a tie to another note is refused");
 
+		// Slurred notes play as one tone gliding between them, drawn with a
+		// slur; a slur left open is refused
+		var slur = await page.evaluate(function() {
+			var n = function(s, mark) { var note = { s: s, a: 0, d: "q", dot: 0 }; if (mark) note[mark] = 1; return note; };
+			var notes = [n(28, "so"), n(29), n(30, "sc"), n(31)];
+			var shared = decodeSongShare(encodeSongShare({ title: "Slur", key: "C", time: "4/4", notes: notes }, "trumpet"));
+			var open = decodeSongShare(encodeSongShare({ title: "Open", key: "C", time: "4/4", notes: [n(28, "so"), n(29)] }, "trumpet"));
+			var song = shared.song;
+			song.custom = true;
+			var events = customSongEvents(song);
+			var drawn = 0, draw = Vex.Flow.Curve.prototype.draw;
+			Vex.Flow.Curve.prototype.draw = function() { drawn++; return draw.apply(this, arguments); };
+			var out = document.createElement("div");
+			document.body.appendChild(out);
+			renderSongLine(out, song, events, 0, 1, {}, function() { return null; });
+			out.remove();
+			Vex.Flow.Curve.prototype.draw = draw;
+			return { legato: events.map(function(e) { return e.legato ? 1 : 0; }).join(""), run: soundBeats(events, 0), drawn: drawn, open: open };
+		});
+		check(slur.legato === "0110" && slur.run === 3 && slur.drawn === 1 && slur.open === null,
+			"slurred notes sound as one tone and are drawn with a slur; an open slur is refused");
+
 		// A good result leads straight on to the next step of the path
 		await page.evaluate(function() {
 			practice.firstSoundsBest = 3;

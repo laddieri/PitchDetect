@@ -3256,6 +3256,14 @@ function songNotes(song, events) {
 	}).filter(function(e) { return e.midi !== null && !e.tied; });
 }
 
+// How long event i sounds on, in beats, without a new attack: with the
+// notes tied or slurred on from it
+function soundBeats(events, i) {
+	var beats = eventBeats(events[i]);
+	for (var k = i + 1; k < events.length && (events[k].legato || (events[k].tied && events[k - 1].tie)); k++) beats += eventBeats(events[k]);
+	return beats;
+}
+
 // The first note of the tied notes event i is in (i if it isn't tied on)
 function tieStart(events, i) {
 	while (i > 0 && events[i].tied && events[i - 1].tie) i--;
@@ -4596,6 +4604,36 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 		}
 	});
 
+	// Slurs, from a line's end or to its start when they cross lines (one
+	// over a whole line between its ends isn't drawn)
+	var slurFrom = -1;
+	events.forEach(function(e, i) {
+		if (e.slurEnd && slurFrom >= 0) {
+			var from = drawn[slurFrom] || null, to = drawn[i] || null;
+			if (from || to) {
+				// Under the heads when every stem is up, else over the top
+				var above = false;
+				for (var k = slurFrom; k <= i; k++) {
+					if (drawn[k] && drawn[k].getStemDirection() < 0) above = true;
+				}
+				var end = function(k) {
+					return drawn[k] && above && drawn[k].getStemDirection() > 0 && events[k].dur !== "w" ? "nearTop" : "nearHead";
+				};
+				var dir = (to || from).getStemDirection();
+				try {
+					// (half a slur keeps one height to the line's edge)
+					var p0 = end(from ? slurFrom : i), p1 = end(to ? i : slurFrom);
+					new VF.Curve(from, to, { position: p0, position_end: p1, invert: above ? dir > 0 : dir < 0 })
+						.setContext(context).draw();
+				} catch (err) {
+					console.log("Could not draw a slur:", i, err.message);
+				}
+			}
+			slurFrom = -1;
+		}
+		if (e.slurStart) slurFrom = i;
+	});
+
 	var svg = out.querySelector("svg");
 	if (svg && result.stave) {
 		var center = (result.stave.getYForLine(0) + result.stave.getYForLine(4)) / 2;
@@ -4760,10 +4798,11 @@ function playSongEvents(events, show, opts) {
 		show(i);
 		// End each note just before the next (a tongued gap, which also
 		// keeps repeated notes distinct) so nothing is cut off mid-sound.
-		// (a tied note sounds on from the one before)
-		if (e.midi !== null && !opts.silent && !(e.tied && i > 0)) {
-			playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false,
-				null, Math.max(0.1, tiedBeats(events, i) * beatMs / 1000 - TONE_RELEASE));
+		// (a tied note sounds on from the one before; a slurred one glides
+		// from it, the one tone lasting to the slur's end)
+		var freq = e.midi === null ? 0 : frequencyFromNoteNumber(e.midi - getTransposition());
+		if (e.midi !== null && !opts.silent && !(e.tied && i > 0) && !(e.legato && i > 0 && retuneSustainedNote(freq))) {
+			playTone(freq, false, null, Math.max(0.1, soundBeats(events, i) * beatMs / 1000 - TONE_RELEASE));
 		}
 		// The piano's chords during this note, timed on the audio clock
 		for (; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
@@ -5449,7 +5488,7 @@ var NATURAL_SEMITONES = [0, 2, 4, 5, 7, 9, 11];
 // A custom song's events (see songEvents()), measures filled in order
 function customSongEvents(song) {
 	var cap = measureBeats(song.time);
-	var filled = 0, measure = 0;
+	var filled = 0, measure = 0, slurred = false;
 	return song.notes.map(function(n, k) {
 		if (filled >= cap - 1e-6) {
 			measure++;
@@ -5459,6 +5498,17 @@ function customSongEvents(song) {
 		if (n.t) e.tuplet = 1;
 		if (n.tie) e.tie = 1;
 		if (k > 0 && song.notes[k - 1].tie && !n.r) e.tied = 1;
+		// Slurs: so opens one, sc closes it; a note slurred from the note
+		// before it is legato (played without a new attack)
+		if (slurred && !n.r && k > 0 && !song.notes[k - 1].r) e.legato = 1;
+		if (n.sc) {
+			e.slurEnd = 1;
+			slurred = false;
+		}
+		if (n.so) {
+			e.slurStart = 1;
+			slurred = true;
+		}
 		if (!n.r) {
 			e.letter = n.s % 7;
 			e.octave = Math.floor(n.s / 7);
@@ -5866,6 +5916,7 @@ function saveEditorSong(notesChanged) {
 
 function editorChanged(notesChanged) {
 	dropBrokenTies(practice.editor.song.notes);
+	dropBrokenSlurs(practice.editor.song.notes);
 	stopSongPlayback();
 	practice.editor.deleteArmed = false;
 	practice.editor.showEnd = false;
@@ -6098,6 +6149,27 @@ function editorSyncTie(i) {
 	}
 }
 
+// A slur that lost a note it started or ended on is dropped (a rest
+// can't hold one)
+function dropBrokenSlurs(notes) {
+	var open = -1;
+	notes.forEach(function(n, k) {
+		if (n.r) {
+			delete n.so;
+			delete n.sc;
+		}
+		if (n.sc) {
+			if (open < 0) delete n.sc;
+			open = -1;
+		}
+		if (n.so) {
+			if (open >= 0) delete notes[open].so;
+			open = k;
+		}
+	});
+	if (open >= 0) delete notes[open].so;
+}
+
 // A tie whose next note is gone, a rest or another pitch is dropped
 function dropBrokenTies(notes) {
 	notes.forEach(function(n, k) {
@@ -6106,9 +6178,11 @@ function dropBrokenTies(notes) {
 	});
 }
 
-// A note or rest rebuilt from old stays in old's triplet
-function keepTriplet(old, note) {
-	if (old.t) note.t = 1;
+// A note or rest rebuilt from old keeps old's triplet, tie and slur marks
+function keepMarks(old, note) {
+	["t", "tie", "so", "sc"].forEach(function(k) {
+		if (old[k]) note[k] = 1;
+	});
 	return note;
 }
 
@@ -6155,8 +6229,7 @@ function setEditorThreeNote(k) {
 	var n = ed.song.notes.length;
 	if (ed.sel < n) {
 		var note = ed.song.notes[ed.sel];
-		ed.song.notes[ed.sel] = keepTriplet(note, { s: n3.s, a: n3.alter, d: note.d, dot: note.dot ? 1 : 0 });
-		if (note.tie) ed.song.notes[ed.sel].tie = 1;
+		ed.song.notes[ed.sel] = keepMarks(note, { s: n3.s, a: n3.alter, d: note.d, dot: note.dot ? 1 : 0 });
 		editorSyncTie(ed.sel);
 		editorChanged(true);
 		previewEditorNote(ed.sel);
@@ -6382,7 +6455,7 @@ function editorStaffTap(event) {
 		var note = ed.song.notes[nearest];
 		if (nearest === ed.sel && nearestDist < 16 && note.r) {
 			// The selected rest becomes a note where it was tapped
-			ed.song.notes[nearest] = keepTriplet(note, { s: s, a: three ? three.alter : editorAlterAt(nearest, s, ed.events[nearest].measure), d: note.d, dot: note.dot ? 1 : 0 });
+			ed.song.notes[nearest] = keepMarks(note, { s: s, a: three ? three.alter : editorAlterAt(nearest, s, ed.events[nearest].measure), d: note.d, dot: note.dot ? 1 : 0 });
 			editorChanged(true);
 		} else if (nearest === editorTargetIndex() && nearestDist < 16 && note.s !== s) {
 			note.s = s;
@@ -6431,7 +6504,9 @@ document.getElementById("practice-staff-output").addEventListener("click", songN
 // k: key, m: time, n: notes }, notes a string of tokens: length (w h q e),
 // an optional "." for a dot, an optional "t" for a triplet eighth (in
 // groups of 3: "etF3 etG3 etF3"), then "r" for a rest or the written note
-// ("Bb4", "C5"), a note ending in "~" if it's tied to the next ("hF4~ qF4"). A friend on another instrument gets it rewritten for
+// ("Bb4", "C5"), a note ending in "~" if it's tied to the next ("hF4~ qF4").
+// A slur opens with "(" before a note's token and closes with ")" after
+// one: "(qF4 eG4 eA4)". A friend on another instrument gets it rewritten for
 // theirs (transposeSharedSong()), sounding the same.
 // ---------------------------------------------------------------------------
 
@@ -6440,9 +6515,9 @@ var pendingSongImport = null;  // a shared song waiting on the import screen
 
 function encodeSongShare(song, instrument) {
 	var notes = song.notes.map(function(n) {
-		var token = (n.d === "8" ? "e" : n.d) + (n.dot ? "." : "") + (n.t ? "t" : "");
+		var token = (n.so ? "(" : "") + (n.d === "8" ? "e" : n.d) + (n.dot ? "." : "") + (n.t ? "t" : "");
 		if (n.r) return token + "r";
-		return token + "CDEFGAB".charAt(n.s % 7) + (n.a < 0 ? "b" : n.a > 0 ? "#" : "") + Math.floor(n.s / 7) + (n.tie ? "~" : "");
+		return token + "CDEFGAB".charAt(n.s % 7) + (n.a < 0 ? "b" : n.a > 0 ? "#" : "") + Math.floor(n.s / 7) + (n.tie ? "~" : "") + (n.sc ? ")" : "");
 	}).join(" ");
 	var json = JSON.stringify({ v: 1, t: song.title.trim() || "My song", i: instrument, k: song.key || "C", m: song.time || "4/4", n: notes });
 	var bytes = new TextEncoder().encode(json);
@@ -6465,20 +6540,23 @@ function decodeSongShare(payload) {
 		if (!tokens.length || tokens.length > SHARE_MAX_NOTES) return null;
 		var notes = [];
 		for (var j = 0; j < tokens.length; j++) {
-			var m = /^([whqe])(\.?)(t?)(?:(r)|([A-G])([b#]?)([0-8])(~?))$/.exec(tokens[j]);
+			var m = /^(\(?)([whqe])(\.?)(t?)(?:(r)|([A-G])([b#]?)([0-8])(~?)(\)?))$/.exec(tokens[j]);
 			if (!m) return null;
-			var note = { d: m[1] === "e" ? "8" : m[1], dot: m[2] ? 1 : 0 };
-			if (m[3]) {
+			var note = { d: m[2] === "e" ? "8" : m[2], dot: m[3] ? 1 : 0 };
+			if (m[4]) {
 				// Only plain eighths come in triplets
 				if (note.d !== "8" || note.dot) return null;
 				note.t = 1;
 			}
-			if (m[4]) {
+			if (m[5]) {
+				if (m[1]) return null;  // a slur starts on a note
 				note.r = 1;
 			} else {
-				note.s = parseInt(m[7], 10) * 7 + "CDEFGAB".indexOf(m[5]);
-				note.a = m[6] === "b" ? -1 : m[6] === "#" ? 1 : 0;
-				if (m[8]) note.tie = 1;
+				note.s = parseInt(m[8], 10) * 7 + "CDEFGAB".indexOf(m[6]);
+				note.a = m[7] === "b" ? -1 : m[7] === "#" ? 1 : 0;
+				if (m[9]) note.tie = 1;
+				if (m[1]) note.so = 1;
+				if (m[10]) note.sc = 1;
 			}
 			notes.push(note);
 		}
@@ -6488,6 +6566,20 @@ function decodeSongShare(payload) {
 			return !n.tie || (next && !next.r && next.s === n.s && next.a === n.a);
 		});
 		if (!tieOk) return null;
+		// Every slur closed on a later note, none inside another
+		var open = -1;
+		var slursOk = notes.every(function(n, k) {
+			if (n.sc) {
+				if (open < 0) return false;
+				open = -1;
+			}
+			if (n.so) {
+				if (open >= 0) return false;
+				open = k;
+			}
+			return true;
+		}) && open < 0;
+		if (!slursOk) return null;
 		if (!notes.some(function(n) { return !n.r; })) return null;
 		if (!tripletPlaces(notes, data.m)) return null;
 		return {

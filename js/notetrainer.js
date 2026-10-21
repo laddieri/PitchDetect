@@ -1393,15 +1393,15 @@ function synthesizeWind(freq, timbre, t, dest, sustain) {
 		osc.start(t);
 		activeAudioNodes.push(osc);
 
+		// Track the oscillator so its pitch can be glided (sustain mode, or
+		// a song's slurred notes while this one sounds)
+		sustainVoiceOscillators.push({ osc: osc, ratio: harmonicNum });
 		if (!sustain) {
 			gain.gain.setValueAtTime(amplitude, sustainEnd);
 			gain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 			osc.stop(t + duration);
-		} else {
-			// In sustain mode: hold at amplitude indefinitely (stopped via
-			// stopNote). Track the oscillator so its pitch can be glided.
-			sustainVoiceOscillators.push({ osc: osc, ratio: harmonicNum });
 		}
+		// (In sustain mode it holds at amplitude until stopNote())
 	});
 
 	// Breath noise: sustained filtered noise following the note envelope
@@ -1434,15 +1434,14 @@ function synthesizeWind(freq, timbre, t, dest, sustain) {
 		noiseSrc.start(t);
 		activeAudioNodes.push(noiseSrc);
 
+		// Track the filter so its center frequency follows a glide
+		sustainVoiceNoiseFilter = noiseFilter;
 		if (!sustain) {
 			noiseGain.gain.setValueAtTime(timbre.breathNoise, sustainEnd);
 			noiseGain.gain.exponentialRampToValueAtTime(0.001, t + duration);
 			noiseSrc.stop(t + duration + 0.01);
-		} else {
-			// In sustain mode: hold at breathNoise level (stopped via stopNote).
-			// Track the filter so its center frequency tracks pitch changes.
-			sustainVoiceNoiseFilter = noiseFilter;
 		}
+		// (In sustain mode it holds at breathNoise level until stopNote())
 	}
 }
 
