@@ -344,6 +344,29 @@ async function run() {
 		check(triplet.measures === 1 && triplet.drawn === 1 && triplet.short === null,
 			"a shared triplet fits one beat and is drawn with its 3; a short triplet is refused");
 
+		// Eighths are beamed by beat: after a dotted quarter in 3/4 the
+		// offbeat eighth stands alone and beat 3's pair is beamed
+		var beamed = await page.evaluate(function() {
+			var n = function(d, dot) { return { s: 30, a: 0, d: d, dot: dot ? 1 : 0 }; };
+			var song = { custom: true, key: "C", time: "3/4", notes: [n("q", true), n("8"), n("8"), n("8")] };
+			var events = customSongEvents(song);
+			var groups = [], draw = Vex.Flow.Beam.prototype.draw;
+			Vex.Flow.Beam.prototype.draw = function() { groups.push(this.notes); return draw.apply(this, arguments); };
+			var out = document.createElement("div");
+			document.body.appendChild(out);
+			var layout = renderSongLine(out, song, events, 0, 1, {}, function() { return null; });
+			out.remove();
+			Vex.Flow.Beam.prototype.draw = draw;
+			// Which events each beam holds, by their x on the staff
+			return groups.map(function(notes) {
+				return notes.map(function(t) {
+					var x = t.getAbsoluteX() + t.getGlyphWidth() / 2;
+					return Object.keys(layout.xs).filter(function(i) { return Math.abs(layout.xs[i] - x) < 0.5; })[0];
+				}).join("+");
+			}).join(",");
+		});
+		check(beamed === "2+3", "after a dotted quarter, beat 3's eighths are beamed and the offbeat one isn't (got " + beamed + ")");
+
 		// Tied notes across a bar line are one sound: one note to play, held
 		// for both, drawn with a tie; a tie to another pitch is refused
 		var tie = await page.evaluate(function() {

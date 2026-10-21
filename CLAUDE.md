@@ -329,6 +329,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   the first note by `spellScale()` so alto sax gets F♯); a song may set `time` (e.g. `"6/8"`),
   which is then shown. `drawSongLine()`
   draws one line of `SONG_MEASURES_PER_LINE` measures with real rhythms
+  (eighths beamed by the beat they fall in, counted from the bar line, not
+  by VexFlow's `generateBeams()`, which loses count after a dotted quarter)
   (played notes green, the current one in the accent color with a bobbing
   arrow above it, `opts.arrow` → `drawSongArrow()`; not during playback);
   `renderSongProgress()` shows one dot per line. `updateSongListen()` takes

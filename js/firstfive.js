@@ -4557,19 +4557,33 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 				return new VF.Tuplet(g, { num_notes: 3, notes_occupied: 2, bracketed: rests });
 			});
 			voice.addTickables(tickables);
-			var beamGroups = { groups: VF.Beam.getDefaultBeamGroups(beats.join("/")) };
-			var beams = [], plain = [];
+			// Eighths are beamed by the beat (a dotted quarter's in 6/8)
+			// they fall in, counted from the bar line, so after a dotted
+			// quarter the offbeat eighth stands alone and the next beat's
+			// pair is beamed (VexFlow's own beaming loses count there)
+			var group = VF.Beam.getDefaultBeamGroups(beats.join("/"))[0];
+			var groupBeats = 4 * group.numerator / group.denominator;
+			var beams = [], beamRun = [], runGroup = -1, at = 0;
 			var inTriplet = function(t) { return triplets.some(function(g) { return g.indexOf(t) >= 0; }); };
-			tickables.concat([null]).forEach(function(t) {
-				if (t && !inTriplet(t)) {
-					plain.push(t);
-					return;
+			var endRun = function() {
+				if (beamRun.length > 1) beams.push(new VF.Beam(beamRun, true));
+				beamRun = [];
+			};
+			tickables.forEach(function(t, k) {
+				var e = events[indexes[k]];
+				var len = eventBeats(e);
+				var g = Math.floor(at / groupBeats + 1e-6);
+				var beamable = !inTriplet(t) && e.midi !== null && SONG_BEATS[e.dur] < 1 && at + len <= (g + 1) * groupBeats + 1e-6;
+				if (!beamable || g !== runGroup) endRun();
+				if (beamable) {
+					beamRun.push(t);
+					runGroup = g;
 				}
-				if (plain.length) beams = beams.concat(VF.Beam.generateBeams(plain, beamGroups));
-				plain = [];
+				at += len;
 			});
+			endRun();
 			triplets.forEach(function(g) {
-				if (!g.some(function(t) { return t.isRest(); })) beams.push(new VF.Beam(g));
+				if (!g.some(function(t) { return t.isRest(); })) beams.push(new VF.Beam(g, true));
 			});
 			// The 3 on the beam's side, leaving the heads' side for a slur
 			tuplets.forEach(function(t, k) {
