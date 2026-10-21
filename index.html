@@ -3621,7 +3621,7 @@
 			}
 
 			.editor-tool.song-view-toggle,
-			.editor-tool.song-key-toggle {
+			.editor-tool.song-settings-toggle {
 				width: 36px;
 				height: 36px;
 				flex-shrink: 0;
@@ -3631,11 +3631,86 @@
 				margin-left: 10px;
 			}
 
-			.practice-steps .song-view-toggle + .song-key-toggle {
+			.practice-steps .song-view-toggle + .song-settings {
 				margin: 0 10px 0 6px;
 			}
 
-			/* Play along's speeds (alongSpeedPicker()), above Play it through */
+			/* The song's settings (songSettingsButton()): a gear opening Play
+			   along's speed and key signature or accidentals. Above Play it
+			   through and Pick a part it takes no row of its own: it sits at
+			   the top right, beside the title */
+			.song-settings {
+				position: relative;
+				flex-shrink: 0;
+			}
+
+			.editor-tool.song-settings-toggle[aria-expanded="true"] {
+				border-color: var(--accent);
+				color: var(--accent);
+			}
+
+			.practice-view[data-step="song-free"] .practice-steps,
+			.practice-view[data-step="song-pick"] .practice-steps {
+				position: relative;
+				z-index: 6;
+				height: 0;
+				margin-bottom: -12px;
+				justify-content: flex-end;
+			}
+
+			.practice-view[data-step="song-free"] .practice-prompt,
+			.practice-view[data-step="song-pick"] .practice-prompt {
+				padding-inline: 44px;
+			}
+
+			.song-settings-panel {
+				position: absolute;
+				top: calc(100% + 8px);
+				right: 0;
+				z-index: 6;
+				display: flex;
+				flex-direction: column;
+				align-items: flex-start;
+				gap: 6px;
+				width: max-content;
+				max-width: calc(100vw - 48px);
+				padding: 12px;
+				background: var(--surface);
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+			}
+
+			.song-settings-panel[hidden] {
+				display: none;
+			}
+
+			.song-settings-title {
+				font-size: 0.85rem;
+				font-weight: 700;
+				color: var(--text-muted);
+			}
+
+			.song-settings-title:not(:first-child) {
+				margin-top: 6px;
+			}
+
+			.song-settings-panel .speed-picker {
+				flex-wrap: wrap;
+			}
+
+			.song-settings-panel .speed-choice {
+				padding: 6px 11px;
+				font-size: 0.9rem;
+			}
+
+			body.kid-mode .song-settings-panel {
+				border: var(--cartoon-border);
+				border-radius: 14px;
+				box-shadow: 4px 4px 0 var(--ink);
+			}
+
+			/* Play along's speeds (alongSpeedPicker()), in the song's settings */
 			.speed-picker {
 				display: flex;
 				gap: 2px;
@@ -3679,16 +3754,6 @@
 				line-height: 1;
 			}
 
-			.practice-steps .speed-picker + .song-key-toggle {
-				margin-left: 8px;
-			}
-
-			/* Phones: only the speed picked keeps its name */
-			@media (max-width: 420px) {
-				.speed-choice:not([aria-pressed="true"]) .speed-name {
-					display: none;
-				}
-			}
 
 			/* Up and down beside the staff (overlapping its end a little) */
 			.practice-view[data-step="song-editor"] .practice-staff {

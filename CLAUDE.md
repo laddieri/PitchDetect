@@ -383,9 +383,15 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `ACCOMP_RING_MS` with the mic still ignoring it. **Play along** (Play it
   through's `#song-along`, `playAlong()`, `songPlayAlong`): a measure
   counted in, then just the piano with the staff and fingering following,
-  for the student to play the tune over, at the speed picked above the
-  staff (`ALONG_SPEEDS`: Turtle 60, Walk 80, Bunny 100, Rocket 120;
+  for the student to play the tune over, at the speed picked in the song's
+  settings (`ALONG_SPEEDS`: Turtle 60, Walk 80, Bunny 100, Rocket 120;
   `alongSpeedPicker()` / `updateSpeedPicker()`, `songSpeed` for the visit).
+  **Song settings** (`songSettingsButton(song, speed)`): a gear at the card's
+  top right on Play it through and Pick a part (`#practice-steps` there takes
+  no height), beside the whole song button in note by note, opening a panel
+  (`songPopover()`, shared with the ⋯ menu; kept on screen) with Play along's
+  speeds (Play it through only) and "Sharps and flats": in the key signature
+  or on each note; no gear when there's nothing to set.
   It's scored in time (`practice.song.along`, `alongNote()`): the follow
   mic's notes each count for a song note they fall on, from
   `ALONG_EARLY_MS` before it to `ALONG_LATE_MS` after it ends (event start
@@ -460,10 +466,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   note (how the built-in songs always read); on, each song shows its
   written key (`songKey()`: a custom song's `key`, a built-in song's from
   its tonic as the song spells it) and accidentals last the measure as
-  printed. Set in the song view by `songKeyButton()` →
-  `setSongKeySignatures()`: beside the whole song toggle in note by note,
-  alone above the staff on Play it through and Pick a
-  part; not shown for a song in a key without sharps or flats. The editor always shows its key (`opts.keySig`).
+  printed. Set in the song settings (`.song-key-picker` →
+  `setSongKeySignatures()`); not offered for a song in a key without sharps
+  or flats. The editor always shows its key (`opts.keySig`).
 - **My songs** (`openSongEditor(id)`, mode `editor`, under "My songs" in the
   song list, with **Make a song** and a pencil per song): the student copies
   a tune from their own printed part. Stored per instrument, in written pitch,

@@ -278,6 +278,15 @@ async function run() {
 			"tapping the note again puts its fingering away");
 		// Note by note and Pick a part wait behind Play it through's \u22ef menu
 		await page.evaluate(function() { playThroughSong("mary"); });
+		// Play along's speeds wait behind the song's settings gear
+		var speedsHidden = await page.evaluate(function() {
+			return !document.querySelector("#practice-steps .speed-picker").offsetParent;
+		});
+		await page.click(".song-settings-toggle");
+		check(speedsHidden && await page.evaluate(function() {
+			return !!document.querySelector("#practice-steps .speed-picker").offsetParent;
+		}), "Play along's speeds show only from the song's settings gear");
+		await page.keyboard.press("Escape");
 		await page.click(".song-more-button");
 		await page.click(".song-more-menu >> text=Note by note");
 		check(await page.evaluate(function() { return practice.mode === "song" && !practice.song.free; }),

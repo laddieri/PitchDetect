@@ -3540,8 +3540,7 @@ function playThroughSong(id) {
 	document.getElementById("practice-view").setAttribute("data-step", "song-free");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
 	document.getElementById("practice-steps").innerHTML = "";
-	document.getElementById("practice-steps").appendChild(alongSpeedPicker());
-	document.getElementById("practice-steps").appendChild(songKeyButton(song));
+	document.getElementById("practice-steps").appendChild(songSettingsButton(song, true));
 	document.getElementById("practice-staff-output").scrollTop = 0;
 	resetFollow();
 	// The mic waits for Listen to me (or Play along)
@@ -3596,50 +3595,65 @@ function resetFollow() {
 // a song (Play it through and its scores keep one row of buttons). Taps
 // elsewhere and Escape close it.
 function songMoreMenu(items) {
-	var wrap = document.createElement("div");
-	wrap.className = "song-more";
-	var button = practiceButton("\u22ef", "secondary song-more-button", function() {
-		if (menu.hidden) open(); else close();
-	});
+	var button = practiceButton("\u22ef", "secondary song-more-button", null);
 	button.setAttribute("aria-label", "More ways to practice");
-	button.setAttribute("aria-haspopup", "true");
-	button.setAttribute("aria-expanded", "false");
 	var menu = document.createElement("div");
 	menu.className = "song-more-menu";
 	menu.setAttribute("role", "menu");
-	menu.hidden = true;
+	var pop = songPopover("song-more", button, menu);
 	items.forEach(function(item) {
 		var b = practiceButton(item[0], "secondary", function() {
-			close();
+			pop.close();
 			item[1]();
 		});
 		b.setAttribute("role", "menuitem");
 		menu.appendChild(b);
 	});
+	return pop.wrap;
+}
+
+// A button and the panel it opens under (or over) it: taps elsewhere and
+// Escape close it. Returns { wrap, close }.
+function songPopover(className, button, panel) {
+	var wrap = document.createElement("div");
+	wrap.className = className;
+	button.setAttribute("aria-haspopup", "true");
+	button.setAttribute("aria-expanded", "false");
+	button.onclick = function() {
+		if (panel.hidden) open(); else close();
+	};
+	panel.hidden = true;
 	function outside(event) {
 		if (!wrap.contains(event.target)) close();
 	}
 	function open() {
-		menu.hidden = false;
+		panel.hidden = false;
+		// Kept on screen, clear of its edges
+		panel.style.translate = "";
+		var r = panel.getBoundingClientRect(), edge = 12;
+		var shift = r.left < edge ? edge - r.left
+			: r.right > window.innerWidth - edge ? window.innerWidth - edge - r.right : 0;
+		if (shift) panel.style.translate = shift + "px 0";
 		button.setAttribute("aria-expanded", "true");
 		document.addEventListener("pointerdown", outside, true);
-		menu.firstChild.focus();
+		var first = panel.querySelector("button:not(:disabled)");
+		if (first) first.focus();
 	}
 	function close() {
-		menu.hidden = true;
+		panel.hidden = true;
 		button.setAttribute("aria-expanded", "false");
 		document.removeEventListener("pointerdown", outside, true);
 	}
 	wrap.addEventListener("keydown", function(event) {
-		if (event.key === "Escape" && !menu.hidden) {
+		if (event.key === "Escape" && !panel.hidden) {
 			event.stopPropagation();
 			close();
 			button.focus();
 		}
 	});
 	wrap.appendChild(button);
-	wrap.appendChild(menu);
-	return wrap;
+	wrap.appendChild(panel);
+	return { wrap: wrap, close: close };
 }
 
 var LISTEN_TO_ME_LABEL = "\ud83c\udfa4 Listen to me";
@@ -3936,7 +3950,7 @@ function showSongPicker(id, back, pick) {
 	document.getElementById("practice-view").setAttribute("data-step", "song-pick");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
 	document.getElementById("practice-steps").innerHTML = "";
-	document.getElementById("practice-steps").appendChild(songKeyButton(song));
+	document.getElementById("practice-steps").appendChild(songSettingsButton(song, false));
 	document.getElementById("practice-staff-output").scrollTop = 0;
 
 	var body = document.getElementById("practice-body");
@@ -4328,7 +4342,7 @@ function renderSongProgress() {
 	var current = s.pos < songEnd(s) ? unitOf(s.pos) : last + 1;
 	row.setAttribute("aria-label", (part ? "Measure " : "Line ") + (Math.min(current, last) - first + 1) + " of " + (last - first + 1));
 	list.appendChild(songViewButton());
-	list.appendChild(songKeyButton(s.song));
+	list.appendChild(songSettingsButton(s.song, false));
 	for (var u = first; u <= last; u++) {
 		var dot = document.createElement("span");
 		var helped = s.results.some(function(own, i) { return !own && unitOf(i) === u; });
@@ -4437,33 +4451,67 @@ function songTonic(song) {
 	return spelled[song.tonic ? song.tonic - 1 : song.steps ? Math.max(0, song.steps.indexOf(0)) : 0] || null;
 }
 
-var KEY_SIG_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">' +
-	'<path d="M7 3v15M7 18c3-1.5 6-3.5 5-6.5-.7-2-3.5-1.5-5 .5"/><path d="M15.5 6v15M19.5 5v15M14 11.5l7-2M14 16.5l7-2"/></svg>';
+var SETTINGS_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+	'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
 
-// The button that turns key signatures on and off (beside the whole song
-// button, and alone on Play it through and Pick a part); nothing for a song
-// whose key has no sharps or flats, where it would change nothing
-function songKeyButton(song) {
-	if (songKey(song) === "C") return document.createDocumentFragment();
-	var b = document.createElement("button");
-	b.className = "editor-tool song-key-toggle";
-	b.innerHTML = KEY_SIG_SVG;
-	b.onclick = function() { setSongKeySignatures(!songKeySignatures); };
-	updateSongKeyButton(b);
-	return b;
+// The song's settings, behind a gear (above Play it through and Pick a
+// part, beside the whole song button in note by note): Play along's speed
+// (speed: Play it through) and key signature or accidentals, the latter
+// only for a song whose key has sharps or flats, where it changes something.
+// Nothing at all when there's nothing to set.
+function songSettingsButton(song, speed) {
+	var key = songKey(song) !== "C";
+	if (!speed && !key) return document.createDocumentFragment();
+	var button = document.createElement("button");
+	button.className = "editor-tool song-settings-toggle";
+	button.innerHTML = SETTINGS_SVG;
+	button.setAttribute("aria-label", "Song settings");
+	button.title = "Song settings";
+	var panel = document.createElement("div");
+	panel.className = "song-settings-panel";
+	panel.setAttribute("role", "dialog");
+	panel.setAttribute("aria-label", "Song settings");
+	if (speed) {
+		panel.appendChild(songSettingsTitle("Play along speed"));
+		panel.appendChild(alongSpeedPicker());
+	}
+	if (key) {
+		panel.appendChild(songSettingsTitle("Sharps and flats"));
+		var row = document.createElement("div");
+		row.className = "speed-picker song-key-picker";
+		row.setAttribute("role", "group");
+		row.setAttribute("aria-label", "Sharps and flats");
+		[[true, "In the key signature"], [false, "On each note"]].forEach(function(choice) {
+			var b = document.createElement("button");
+			b.className = "speed-choice song-key-choice";
+			b.textContent = choice[1];
+			b.setAttribute("data-on", choice[0] ? "1" : "0");
+			b.onclick = function() { setSongKeySignatures(choice[0]); };
+			row.appendChild(b);
+		});
+		panel.appendChild(row);
+		updateSongKeyChoices(row);
+	}
+	return songPopover("song-settings", button, panel).wrap;
 }
 
-function updateSongKeyButton(b) {
-	var label = songKeySignatures ? "Show sharps and flats on the notes" : "Show the key signature";
-	b.setAttribute("aria-label", label);
-	b.title = label;
-	b.setAttribute("aria-pressed", songKeySignatures ? "true" : "false");
+function songSettingsTitle(text) {
+	var t = document.createElement("div");
+	t.className = "song-settings-title";
+	t.textContent = text;
+	return t;
+}
+
+function updateSongKeyChoices(row) {
+	row.querySelectorAll(".song-key-choice").forEach(function(b) {
+		b.setAttribute("aria-pressed", (b.getAttribute("data-on") === "1") === songKeySignatures ? "true" : "false");
+	});
 }
 
 function setSongKeySignatures(on) {
 	songKeySignatures = on;
 	try { localStorage.setItem(SONG_KEY_SIG_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
-	document.querySelectorAll(".song-key-toggle").forEach(updateSongKeyButton);
+	document.querySelectorAll(".song-key-picker").forEach(updateSongKeyChoices);
 	if (practice.mode === "song") drawSongLine(practice.song.pos);
 }
 
@@ -5137,7 +5185,7 @@ function finishAlong(partway) {
 	if (scored) recordProgress(10 + 2 * right + (right === total ? 15 : 0) + speed.xp + (newBest && right > 0 ? NEW_BEST_XP : 0));
 }
 
-// Play along's speed picker (above Play it through): a button per speed,
+// Play along's speed picker (in Play it through's settings): a button per speed,
 // a lock on the ones not open yet on this song (updateSpeedPicker())
 function alongSpeedPicker() {
 	var row = document.createElement("div");
