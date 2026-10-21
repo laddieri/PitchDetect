@@ -420,6 +420,20 @@ async function run() {
 		check(slur.legato === "0110" && slur.tones === "0110" && slur.drawn === 1 && slur.open === null,
 			"slurred notes play legato and are drawn with a slur; an open slur is refused (got " + slur.tones + ")");
 
+		// A friend's song shows whole, four measures to a line on a desktop,
+		// and adding it opens it to play
+		var imported = await page.evaluate(function() {
+			var n = function(s) { return { s: s, a: 0, d: "w", dot: 0 }; };
+			var notes = [28, 29, 30, 31, 32, 33, 34, 35, 34].map(n);
+			pendingSongImport = decodeSongShare(encodeSongShare({ title: "Shared", key: "C", time: "4/4", notes: notes }, "trumpet"));
+			showSongImport();
+			var lines = document.querySelectorAll("#practice-staff-output .song-line").length;
+			addImportedSong();
+			return { lines: lines, mode: practice.mode, free: !!(practice.song && practice.song.free), title: practice.song && practice.song.song.title };
+		});
+		check(imported.lines === 3 && imported.mode === "song" && imported.free && imported.title === "Shared",
+			"a shared song shows whole, 4 measures a line, and Add to My songs opens it (got " + JSON.stringify(imported) + ")");
+
 		// A good result leads straight on to the next step of the path
 		await page.evaluate(function() {
 			practice.firstSoundsBest = 3;

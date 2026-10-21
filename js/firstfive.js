@@ -2998,7 +2998,11 @@ var SONGS_STORAGE_KEY = "pitchdetect-songs";
 var SONG_HOLD_MS = 300;            // short, so the tune keeps moving
 var SONG_TEMPO = 100;              // quarter notes per minute for Hear the song
 var SONG_RETONGUE_DIP = 0.75;      // loudness this far below the note = re-tongued
-var SONG_MEASURES_PER_LINE = 2;
+// Measures on a line of a song: 4 on a wide screen, where the song's card
+// widens (index.html), else 2; the editor keeps 2, big enough to tap
+var WIDE_SONG_QUERY = window.matchMedia("(min-width: 1000px)");
+var SONG_MEASURES_PER_LINE = WIDE_SONG_QUERY.matches ? 4 : 2;
+var EDITOR_MEASURES_PER_LINE = 2;
 // Play it through: the mic follows along without waiting on each note
 var FOLLOW_NOTE_MS = 100;          // a steady pitch this long counts as a note played
 var FOLLOW_GAP_MS = 60;            // silence this long ends a note
@@ -4775,6 +4779,20 @@ function updateSongViewButton(b) {
 	b.setAttribute("aria-pressed", songWholeView ? "true" : "false");
 }
 
+// Crossing the wide screen's width redraws the song on its new lines
+function onWideSongChange(q) {
+	SONG_MEASURES_PER_LINE = q.matches ? 4 : 2;
+	if (!practiceOpen || !practice) return;
+	if (practice.mode === "song" && practice.song) {
+		if (practice.song.pick) drawSongPicker(-1);
+		else drawSongLine(practice.song.pos);
+	} else if (practice.mode === "import") {
+		drawImportPreview(-1);
+	}
+}
+if (WIDE_SONG_QUERY.addEventListener) WIDE_SONG_QUERY.addEventListener("change", onWideSongChange);
+else if (WIDE_SONG_QUERY.addListener) WIDE_SONG_QUERY.addListener(onWideSongChange);
+
 function toggleSongView() {
 	songWholeView = !songWholeView;
 	try { localStorage.setItem(SONG_WHOLE_STORAGE_KEY, songWholeView ? "1" : "0"); } catch (e) {}
@@ -5967,7 +5985,7 @@ function drawEditor(playing) {
 		: n && ed.endMeasure > lastMeasure && !ed.showEnd ? lastMeasure : ed.endMeasure;
 	var target = isPlaying ? -1 : editorTargetIndex();
 	// A phone gets one measure per line, big enough to tap a line or space
-	ed.perLine = window.matchMedia("(max-width: 700px)").matches ? 1 : SONG_MEASURES_PER_LINE;
+	ed.perLine = window.matchMedia("(max-width: 700px)").matches ? 1 : EDITOR_MEASURES_PER_LINE;
 	ed.line = Math.floor(focusMeasure / ed.perLine);
 	// That's one measure in view, so the measures before it stack above it
 	// (scrolling), and a full measure doesn't vanish from sight
@@ -6710,7 +6728,6 @@ function showSongImport() {
 	document.getElementById("practice-view").setAttribute("data-step", "song-import");
 	var steps = document.getElementById("practice-steps");
 	steps.innerHTML = "";
-	steps.appendChild(songViewButton());
 	steps.appendChild(songKeyButton(song));
 	document.getElementById("practice-prompt").textContent = "A friend shared \u201c" + song.title + "\u201d!";
 
@@ -6754,7 +6771,7 @@ function drawImportPreview(hl) {
 	var line = hl >= 0 ? Math.floor(imp.events[hl].measure / SONG_MEASURES_PER_LINE) : 0;
 	var accent = getComputedStyle(document.body).getPropertyValue("--accent").trim() || "#4f46e5";
 	renderSongView(document.getElementById("practice-staff-output"), imp.song, imp.events, line, imp.measures,
-		{ end: true, ahead: hl >= 0 }, function(i) { return i === hl ? accent : null; });
+		{ end: true, whole: true, ahead: hl >= 0 }, function(i) { return i === hl ? accent : null; });
 }
 
 // Keep the friend's song (once: the same song again isn't added twice)
@@ -6769,7 +6786,8 @@ function addImportedSong() {
 		practice.customSongs.push(song);
 		saveCustomSongs(practice.instrument, practice.customSongs);
 	}
-	showSongList();
+	// Straight on to playing it (back goes to the song list)
+	playThroughSong(same ? same.id : song.id);
 	showToast("\u201c" + song.title + "\u201d is in My songs!");
 }
 
