@@ -329,6 +329,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   the first note by `spellScale()` so alto sax gets F♯); a song may set `time` (e.g. `"6/8"`),
   which is then shown. `drawSongLine()`
   draws one line of `SONG_MEASURES_PER_LINE` measures with real rhythms
+  (eighths beamed by the beat they fall in, counted from the bar line, not
+  by VexFlow's `generateBeams()`, which loses count after a dotted quarter)
   (played notes green, the current one in the accent color with a bobbing
   arrow above it, `opts.arrow` → `drawSongArrow()`; not during playback);
   `renderSongProgress()` shows one dot per line. `updateSongListen()` takes
@@ -480,7 +482,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   glides it to each legato note with `retuneSustainedNote()` (a new tone
   where it can't: bells, piano); scoring is unchanged. `renderSongLine()`
   draws a `VF.Curve`, under the heads when every stem is up, else over,
-  half a slur where one crosses lines. The editor keeps slurs (`keepMarks()`
+  arching less when short, half a slur where one crosses lines (a
+  triplet's 3 goes on its beam's side, clear of a slur). The editor keeps slurs (`keepMarks()`
   when it rebuilds a note) and `dropBrokenSlurs()` drops one that lost an
   end note; a 3- or 5-note song (`openSongEditor(null, set)`,
   set `practice.threeSet` or `"first5"`) also stores `three` (its lesson

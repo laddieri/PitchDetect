@@ -4557,19 +4557,37 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 				return new VF.Tuplet(g, { num_notes: 3, notes_occupied: 2, bracketed: rests });
 			});
 			voice.addTickables(tickables);
-			var beamGroups = { groups: VF.Beam.getDefaultBeamGroups(beats.join("/")) };
-			var beams = [], plain = [];
+			// Eighths are beamed by the beat (a dotted quarter's in 6/8)
+			// they fall in, counted from the bar line, so after a dotted
+			// quarter the offbeat eighth stands alone and the next beat's
+			// pair is beamed (VexFlow's own beaming loses count there)
+			var group = VF.Beam.getDefaultBeamGroups(beats.join("/"))[0];
+			var groupBeats = 4 * group.numerator / group.denominator;
+			var beams = [], beamRun = [], runGroup = -1, at = 0;
 			var inTriplet = function(t) { return triplets.some(function(g) { return g.indexOf(t) >= 0; }); };
-			tickables.concat([null]).forEach(function(t) {
-				if (t && !inTriplet(t)) {
-					plain.push(t);
-					return;
+			var endRun = function() {
+				if (beamRun.length > 1) beams.push(new VF.Beam(beamRun, true));
+				beamRun = [];
+			};
+			tickables.forEach(function(t, k) {
+				var e = events[indexes[k]];
+				var len = eventBeats(e);
+				var g = Math.floor(at / groupBeats + 1e-6);
+				var beamable = !inTriplet(t) && e.midi !== null && SONG_BEATS[e.dur] < 1 && at + len <= (g + 1) * groupBeats + 1e-6;
+				if (!beamable || g !== runGroup) endRun();
+				if (beamable) {
+					beamRun.push(t);
+					runGroup = g;
 				}
-				if (plain.length) beams = beams.concat(VF.Beam.generateBeams(plain, beamGroups));
-				plain = [];
+				at += len;
 			});
+			endRun();
 			triplets.forEach(function(g) {
-				if (!g.some(function(t) { return t.isRest(); })) beams.push(new VF.Beam(g));
+				if (!g.some(function(t) { return t.isRest(); })) beams.push(new VF.Beam(g, true));
+			});
+			// The 3 on the beam's side, leaving the heads' side for a slur
+			tuplets.forEach(function(t, k) {
+				t.setTupletLocation(triplets[k][0].getStemDirection() < 0 ? VF.Tuplet.LOCATION_BOTTOM : VF.Tuplet.LOCATION_TOP);
 			});
 			// A low softmax spaces notes by their length, so a measure reads
 			// like printed music instead of bunching at its start
@@ -4620,10 +4638,15 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 					return drawn[k] && above && drawn[k].getStemDirection() > 0 && events[k].dur !== "w" ? "nearTop" : "nearHead";
 				};
 				var dir = (to || from).getStemDirection();
+				// A short slur arches less, so it doesn't hook over its notes
+				var x0 = from ? from.getAbsoluteX() : to.getStave().getNoteStartX();
+				var x1 = to ? to.getAbsoluteX() : from.getStave().getNoteEndX();
+				var arch = Math.max(4, Math.min(10, (x1 - x0) / 8));
 				try {
 					// (half a slur keeps one height to the line's edge)
 					var p0 = end(from ? slurFrom : i), p1 = end(to ? i : slurFrom);
-					new VF.Curve(from, to, { position: p0, position_end: p1, invert: above ? dir > 0 : dir < 0 })
+					new VF.Curve(from, to, { position: p0, position_end: p1, invert: above ? dir > 0 : dir < 0,
+						cps: [{ x: 0, y: arch }, { x: 0, y: arch }] })
 						.setContext(context).draw();
 				} catch (err) {
 					console.log("Could not draw a slur:", i, err.message);
