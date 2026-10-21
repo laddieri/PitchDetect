@@ -3256,13 +3256,9 @@ function songNotes(song, events) {
 	}).filter(function(e) { return e.midi !== null && !e.tied; });
 }
 
-// How long event i sounds on, in beats, without a new attack: with the
-// notes tied or slurred on from it
-function soundBeats(events, i) {
-	var beats = eventBeats(events[i]);
-	for (var k = i + 1; k < events.length && (events[k].legato || (events[k].tied && events[k - 1].tie)); k++) beats += eventBeats(events[k]);
-	return beats;
-}
+// A note slurred into the next sounds this long past its end (seconds),
+// so it's still sounding however late the next note's timer fires
+var LEGATO_OVERLAP = 0.15;
 
 // The first note of the tied notes event i is in (i if it isn't tied on)
 function tieStart(events, i) {
@@ -4821,11 +4817,15 @@ function playSongEvents(events, show, opts) {
 		show(i);
 		// End each note just before the next (a tongued gap, which also
 		// keeps repeated notes distinct) so nothing is cut off mid-sound.
-		// (a tied note sounds on from the one before; a slurred one glides
-		// from it, the one tone lasting to the slur's end)
-		var freq = e.midi === null ? 0 : frequencyFromNoteNumber(e.midi - getTransposition());
-		if (e.midi !== null && !opts.silent && !(e.tied && i > 0) && !(e.legato && i > 0 && retuneSustainedNote(freq))) {
-			playTone(freq, false, null, Math.max(0.1, soundBeats(events, i) * beatMs / 1000 - TONE_RELEASE));
+		// (a tied note sounds on from the one before; a note slurred into
+		// the next is held right up to it, and the next crossfades from it)
+		if (e.midi !== null && !opts.silent && !(e.tied && i > 0)) {
+			var secs = tiedBeats(events, i) * beatMs / 1000;
+			var after = i + 1;
+			while (after < events.length && events[after].tied && events[after - 1].tie) after++;
+			var slurOn = after < events.length && events[after].legato;
+			playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false, null,
+				slurOn ? secs + LEGATO_OVERLAP : Math.max(0.1, secs - TONE_RELEASE), e.legato && i > 0);
 		}
 		// The piano's chords during this note, timed on the audio clock
 		for (; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
