@@ -3006,6 +3006,8 @@ var EDITOR_MEASURES_PER_LINE = 2;
 var FOLLOW_NOTE_MS = 100;          // a steady pitch this long counts as a note played
 var FOLLOW_GAP_MS = 60;            // silence this long ends a note
 var FOLLOW_END_SILENCE_MS = 5000;  // quiet this long after starting ends the run
+var FOLLOW_SAME_NOTE = 0.5;        // semitones from a note's pitch so far that are still that note
+var HEARD_CLOSE_CENTS = 75;        // this near a note (past PRACTICE_PASS_CENTS + 15): it, out of tune
 var SONG_MEASURE_WIDTH = 170;      // staff units per measure
 var SONG_BEATS = { w: 4, h: 2, q: 1, "8": 0.5 };  // in quarter notes
 var MY_SONGS_STORAGE_KEY = "pitchdetect-my-songs";
@@ -3561,6 +3563,8 @@ function resetFollow() {
 	s.results = s.notes.map(function() { return null; });
 	s.follow = { seg: null, silentMs: 0, heard: [], started: false, lastSound: 0, listening: false };
 	s.along = null;
+	s.check = null;
+	s.played = s.notes.map(function() { return null; });
 	s.done = false;
 	removeSongFingerings();
 	s.tapped = null;
@@ -3588,7 +3592,8 @@ function resetFollow() {
 	actions.appendChild(along);
 	actions.appendChild(songMoreMenu([
 		["Note by note", function() { startSong(s.id); }],
-		["Pick a part", function() { showSongPicker(s.id, function() { playThroughSong(s.id); }); }]
+		["Pick a part", function() { showSongPicker(s.id, function() { playThroughSong(s.id); }); }],
+		[TIMING_CHECK_LABEL, startTimingCheck]
 	]));
 	body.appendChild(actions);
 	drawSongLine(0);
@@ -3704,20 +3709,28 @@ function songMicOff() {
 }
 
 // Mic frames during Play it through. The sound is cut into notes: a new note
-// starts when the pitch moves to another semitone or the same pitch is
-// tongued again (a dip in loudness, then a rise), and counts once it has
-// held FOLLOW_NOTE_MS. Each note played goes to followNote().
+// starts when the pitch moves FOLLOW_SAME_NOTE from the note's pitch so far
+// or the same pitch is tongued again (a dip in loudness, then a rise), and
+// counts once it has held FOLLOW_NOTE_MS. Each note played (its average
+// pitch, written, in fractional semitones, so one out of tune can be told
+// apart) goes to followNote(), alongNote() or timingCheckNote().
 function updateFollowListen(now, freq, level) {
-	var s = practice.song, f = s.follow, a = s.along;
+	var s = practice.song, f = s.follow, a = s.along, check = s.check;
 	if (practice.step !== 3) return;
 	var dt = practice.lastFrame === null ? 0 : Math.min(now - practice.lastFrame, 100);
 	practice.lastFrame = now;
-	if (a) {
+	if (check) {
+		// The timing check's clicks are high: not the student's notes
+		if (check.done) return;
+		if (freq && 69 + 12 * Math.log(freq / 440) / Math.LN2 >= TIMING_CHECK_IGNORE_MIDI) freq = null;
+	} else if (a) {
 		// Play along: the mic listens over the piano (see alongNote())
 		if (a.done) return;
 		if (!a.times.length) {
-			// The count-in: how loud the speakers are at the mic
+			// The count-in: how loud the speakers are at the mic, and how
+			// long their clicks take to reach it
 			a.bleed = Math.max(a.bleed, level);
+			alongClickRise(a, now, level);
 			f.seg = null;
 			return;
 		}
@@ -3738,7 +3751,7 @@ function updateFollowListen(now, freq, level) {
 	if (!freq) {
 		f.silentMs += dt;
 		if (f.silentMs >= FOLLOW_GAP_MS) f.seg = null;
-		if (a) return;
+		if (a || check) return;
 		// Stopped: soon after reaching the last note, or after a long quiet
 		var quiet = s.pos >= s.notes.length ? 1500 : FOLLOW_END_SILENCE_MS;
 		if (f.started && now - f.lastSound > quiet) finishFollow();
@@ -3747,12 +3760,9 @@ function updateFollowListen(now, freq, level) {
 	f.silentMs = 0;
 	f.lastSound = now;
 	var written = 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition();
-	var pitch = Math.round(written);
-	// Between two semitones: too far out of tune to say which note it is
-	if (Math.abs(written - pitch) * 100 > PRACTICE_PASS_CENTS + 15) return;
 
 	var seg = f.seg;
-	if (seg && seg.pitch === pitch) {
+	if (seg && Math.abs(written - seg.pitch) <= FOLLOW_SAME_NOTE) {
 		if (!seg.dipped) {
 			if (level < seg.peak * SONG_RETONGUE_DIP) {
 				seg.dipped = true;
@@ -3768,14 +3778,36 @@ function updateFollowListen(now, freq, level) {
 	} else {
 		seg = null;
 	}
-	if (!seg) seg = f.seg = { pitch: pitch, ms: 0, peak: level, dipped: false, low: 0, counted: false };
+	if (!seg) seg = f.seg = { pitch: written, sum: 0, frames: 0, ms: 0, peak: level, dipped: false, low: 0, counted: false };
+	// Its pitch: the average so far (a note held a bit out of tune is one note)
+	seg.sum += written;
+	seg.frames++;
+	seg.pitch = seg.sum / seg.frames;
 	seg.ms += dt;
 	if (!seg.counted && seg.ms >= FOLLOW_NOTE_MS) {
 		seg.counted = true;
 		f.started = true;
-		if (a) alongNote(pitch, now - seg.ms); else followNote(pitch);
+		if (check) timingCheckNote(now - seg.ms);
+		else if (a) alongNote(seg.pitch, now - seg.ms);
+		else followNote(seg.pitch);
 	}
 }
+
+// What a note played (written, fractional semitones) was, against a song
+// note: "right" (within PRACTICE_PASS_CENTS + 15, as the mic has always
+// allowed), "octave" (that, an octave off), "low" / "high" (out of tune,
+// within HEARD_CLOSE_CENTS) or "wrong"
+function heardAs(played, midi) {
+	var cents = (played - midi) * 100, near = PRACTICE_PASS_CENTS + 15;
+	if (Math.abs(cents) <= near) return "right";
+	if (Math.abs(Math.abs(cents) - 1200) <= near) return "octave";
+	if (Math.abs(cents) <= HEARD_CLOSE_CENTS) return cents < 0 ? "low" : "high";
+	return "wrong";
+}
+
+// How far apart, for lining notes up: an octave or out of tune costs less
+// than a wrong note
+var HEARD_COST = { right: 0, octave: 0.2, low: 0.3, high: 0.3, wrong: 1 };
 
 // A note was played: line up everything heard so far with the song
 // (alignFollow) and color what it says was played right. The run ends once
@@ -3785,25 +3817,26 @@ function followNote(pitch) {
 	f.heard.push(pitch);
 	var a = alignFollow(f.heard, s.notes, false);
 	s.results = a.results;
+	s.played = a.played;
 	s.pos = a.end;
 	drawSongLine(a.end);
-	if (a.end >= s.notes.length && (a.results[a.end - 1] === "right" || a.results[a.end - 1] === "octave")) {
+	if (a.end >= s.notes.length && a.results[a.end - 1] !== "wrong" && a.results[a.end - 1] !== "missed") {
 		practice.step = 4;
 		practiceAdvanceTimer = setTimeout(finishFollow, 700);
 	}
 }
 
 // Line up the notes heard with the song's notes (edit distance): each heard
-// note matches a song note (right, or an octave off), replaces one (wrong)
-// or is extra; song notes nothing lines up with were missed. The whole run
-// is weighed at once, so a wrong note and a skipped one aren't mixed up.
-// Unless toEnd, the song may stop partway (the student isn't done):
-// results past end stay null.
+// note matches a song note (right, an octave off, or low or high: heardAs()),
+// replaces one (wrong) or is extra; song notes nothing lines up with were
+// missed. The whole run is weighed at once, so a wrong note and a skipped
+// one aren't mixed up. Unless toEnd, the song may stop partway (the student
+// isn't done): results past end stay null. played: song note → the pitch
+// heard for it.
 function alignFollow(heard, notes, toEnd) {
 	var m = heard.length, n = notes.length, i, j;
 	function cost(h, e) {
-		var d = Math.abs(h - e);
-		return d === 0 ? 0 : d === 12 ? 0.2 : 1;
+		return HEARD_COST[heardAs(h, e)];
 	}
 	var D = [];
 	for (i = 0; i <= m; i++) {
@@ -3822,6 +3855,7 @@ function alignFollow(heard, notes, toEnd) {
 		for (j = 1; j <= n; j++) if (D[m][j] < D[m][end] + 1e-6) end = j;
 	}
 	var results = notes.map(function() { return null; });
+	var played = notes.map(function() { return null; });
 	i = m;
 	j = end;
 	// Walk back from the end. Where skipping a note costs the same as
@@ -3834,14 +3868,15 @@ function alignFollow(heard, notes, toEnd) {
 			results[j - 1] = "missed";
 			j--;
 		} else if (i > 0 && same(D[i][j], D[i - 1][j - 1] + c)) {
-			results[j - 1] = c === 0 ? "right" : c < 1 ? "octave" : "wrong";
+			results[j - 1] = heardAs(heard[i - 1], notes[j - 1].midi);
+			played[j - 1] = heard[i - 1];
 			i--;
 			j--;
 		} else {
 			i--;  // an extra note
 		}
 	}
-	return { results: results, end: end };
+	return { results: results, end: end, played: played };
 }
 
 // The end of a run (the last note, or the student stopped): the whole song
@@ -3864,6 +3899,7 @@ function finishFollow() {
 	var partway = a.end < total - 1;
 	if (!partway) a = alignFollow(s.follow.heard, s.notes, true);
 	s.results = a.results;
+	s.played = a.played;
 	s.pos = total;
 	s.follow.listening = false;
 	drawSongLine(s.pos);
@@ -3871,6 +3907,7 @@ function finishFollow() {
 	var right = s.results.filter(function(r) { return r === "right" || r === "octave"; }).length;
 	var octaves = s.results.filter(function(r) { return r === "octave"; }).length;
 	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
+	var offText = songOffText(s);
 	var stars = challengeStars(right, total);
 	var prev = practice.songBest[songBestKey(s.song)];
 	var newBest = s.follow.heard.length > 0 && (typeof prev !== "number" || right > prev);
@@ -3885,6 +3922,8 @@ function finishFollow() {
 			right === total ? "Perfect! " + starText(stars) : right + " of " + total + " notes right " + starText(stars),
 			octaves ? octaves + (octaves === 1 ? " note was" : " notes were") + " an octave off"
 				: partway ? "You stopped partway through"
+				: offText ? "Orange notes: " + offText
+				: s.results.indexOf("wrong") >= 0 ? "Tap a red note to see what you played"
 				: firstMiss >= 0 ? "The red notes need practice" : "\u00a0",
 			right === total ? "good" : "close");
 	}
@@ -4377,12 +4416,13 @@ function drawSongLine(pos) {
 		var off = styles.getPropertyValue("--warning").trim() || "#d97706";
 		var byEvent = {};
 		s.notes.forEach(function(n, i) { byEvent[n.event] = s.results[i]; });
-		var marks = alongTimingMarks(s);
+		var marks = songOffMarks(s);
 		var tapped = styles.getPropertyValue("--accent").trim() || "#4f46e5";
 		var at = Math.min(pos, s.notes.length - 1);
+		var ghost = songTappedGhost(s);
 		s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 			s.done || pos === 0 ? -1 : songLineOf(at), s.measures,
-			{ end: true, whole: true, ahead: true, marks: s.done ? marks : null },
+			{ end: true, whole: true, ahead: true, marks: s.done ? marks : null, ghost: ghost, ghostAt: ghost === null ? null : s.tapped },
 			function(i) {
 				var r = byEvent[i];
 				if (marks[i]) return off;
@@ -4412,7 +4452,7 @@ function drawSongEvent(hl, arrow, ghost) {
 	// Play along: the notes played right green, not just the ones gone by
 	var byEvent = {};
 	if (s.along) s.notes.forEach(function(n, j) { byEvent[n.event] = s.results[j]; });
-	var marks = alongTimingMarks(s);
+	var marks = s.along ? songOffMarks(s) : {};
 	var tapped = styles.getPropertyValue("--warning").trim() || "#d97706";
 	s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
@@ -4421,7 +4461,7 @@ function drawSongEvent(hl, arrow, ghost) {
 			if (inPart && (i < inPart.start || i >= inPart.end)) return muted;
 			if (i === hl) return accent;
 			if (i === s.tapped) return tapped;
-			if (marks[i]) return tapped;  // early or late: the same orange
+			if (marks[i]) return tapped;  // out of tune, early or late: the same orange
 			if (s.along) return byEvent[i] === "right" || byEvent[i] === "octave" ? done : null;
 			return i < hl ? done : null;
 		});
@@ -4603,7 +4643,8 @@ function measureBeats(time) {
 // printed; off, there's no key signature and every sharp and flat is
 // written on its note. Custom songs follow their time signature. opts.arrow: an event index to mark with an arrow
 // above it (the note the mic is listening for); opts.ghost: a written MIDI
-// note to show faintly beside that one (the wrong note being played);
+// note to show faintly beside that one (the wrong note being played), or
+// beside opts.ghostAt;
 // opts.marks: event index → a word to write above it (Play along's "early" /
 // "late"). Returns { svg, stave, xs (event index → x), measureX
 // (measure → [start, end] of its note area) }, in SVG units.
@@ -4758,8 +4799,9 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 				if (indexes[k] === opts.arrow) {
 					var box = t.getBoundingBox();
 					arrowAt = { x: result.xs[indexes[k]], top: Math.min(box ? box.getY() : Infinity, stave.getYForLine(0)), color: color(indexes[k]) };
-					if (opts.ghost) drawPracticeGhost(context, stave, clef, opts.ghost, t);
 				}
+				var ghostAt = opts.ghostAt === undefined || opts.ghostAt === null ? opts.arrow : opts.ghostAt;
+				if (opts.ghost && indexes[k] === ghostAt) drawPracticeGhost(context, stave, clef, opts.ghost, t);
 			});
 		} catch (err) {
 			console.log("Could not render song measure:", m, err.message);
@@ -5077,6 +5119,12 @@ function playAlong() {
 	var a = s.along = { speed: speed, times: [], played: 0, bleed: 0, ended: false, done: false };
 	s.results = s.notes.map(function() { return null; });
 	s.timing = s.notes.map(function() { return null; });
+	s.played = s.notes.map(function() { return null; });
+	// The count-in's clicks (when each was played) and how long each took
+	// to reach the mic (alongClickRise())
+	a.clicks = [];
+	a.quiet = [];
+	a.rise = [];
 	songPlayAlong = true;
 	var along = document.getElementById("song-along");
 	if (along) along.textContent = "\u25a0 Stop";
@@ -5106,7 +5154,10 @@ function playAlong() {
 function countInAlong(s, a, pulse, pulses) {
 	var showFingering = showSongFingerings(s.events);
 	playSongEvents(s.events, function(i) {
-		if (i === 0) setPracticeFeedback("Play!", "Play along with the piano");
+		if (i === 0) {
+			setPracticeFeedback("Play!", "Play along with the piano");
+			alongStartLag(a);
+		}
 		a.times[i] = performance.now();
 		drawSongEvent(i);
 		showFingering(i);
@@ -5114,12 +5165,15 @@ function countInAlong(s, a, pulse, pulses) {
 		tempo: a.speed.tempo, piano: songBacking(s.song, s.events), silent: true,
 		// Short measures count two
 		countIn: pulses < 3 ? pulses * 2 : pulses, pulse: pulse,
-		onCount: function(n) { setPracticeFeedback(String((n - 1) % pulses + 1), "Get ready\u2026"); },
+		onCount: function(n) {
+			a.clicks.push(performance.now());
+			setPracticeFeedback(String((n - 1) % pulses + 1), "Get ready\u2026");
+		},
 		// The last note may still be sounding: listen a moment longer
 		onEnd: function() {
 			a.ended = true;
 			var beatMs = 60000 / a.speed.tempo;
-			practiceAdvanceTimer = setTimeout(function() { finishAlong(false); }, 2 * alongTolerance(beatMs) + alongLag() + 100);
+			practiceAdvanceTimer = setTimeout(function() { finishAlong(false); }, 2 * alongTolerance(beatMs) + alongLag(a) + 100);
 		}
 	});
 }
@@ -5150,10 +5204,12 @@ function alongTolerance(beatMs) {
 	return Math.max(ALONG_ON_TIME_MIN_MS, beatMs / 4);
 }
 
-// How long after an event is shown a note played right on it is heard:
-// the piano sounds 50 ms later (playPianoHit()), then the speakers' own
-// delay, then the mic's
-function alongLag() {
+// How long after an event is shown a note played right on it is heard
+// (a.lag, from alongStartLag()): measured from the count-in's clicks, else
+// the timing check's, else a guess: the piano sounds 50 ms later
+// (playPianoHit()), then the speakers' own delay, then the mic's
+function alongLag(a) {
+	if (a && a.lag) return a.lag;
 	var out = 0;
 	try {
 		out = audioContext ? audioContext.outputLatency || audioContext.baseLatency || 0 : 0;
@@ -5163,16 +5219,17 @@ function alongLag() {
 
 // A note played during Play along, starting at onset: of the song notes
 // not yet played whose window (alongTolerance() × 2 either side of their
-// start) holds it, it counts for the nearest of its pitch (or an octave
-// off): right, and early or late (s.timing) when off by more than the
-// tolerance. Else it's wrong on the nearest. Right notes turn green as they
-// go, early and late ones orange.
+// start) holds it, it counts for the one it sounds most like (heardAs():
+// right, an octave off, then low or high), the nearest of those: early or
+// late (s.timing) when off by more than the tolerance. Else it's wrong on
+// the nearest. Right notes on time turn green as they go, the rest orange.
 function alongNote(pitch, onset) {
 	var s = practice.song, a = s.along;
 	var beatMs = 60000 / a.speed.tempo;
 	var tol = alongTolerance(beatMs);
-	var lag = alongLag();
-	var match = -1, matchOff = 0, wrong = -1, wrongOff = Infinity;
+	var lag = alongLag(a);
+	var RANK = { right: 0, octave: 1, low: 2, high: 2 };
+	var match = -1, matchRank = 0, matchOff = 0, wrong = -1, wrongOff = Infinity;
 	a.played++;
 	for (var j = 0; j < s.notes.length; j++) {
 		var start = alongEventTime(s, s.notes[j].event, beatMs);
@@ -5180,11 +5237,13 @@ function alongNote(pitch, onset) {
 		var off = onset - start - lag;
 		if (off < -2 * tol) break;
 		var r = s.results[j];
-		if (off > 2 * tol || r === "right" || r === "octave") continue;
-		var d = Math.abs(pitch - s.notes[j].midi);
-		if (d === 0 || d === 12) {
-			if (match < 0 || Math.abs(off) < Math.abs(matchOff)) {
+		if (off > 2 * tol || (r && r !== "wrong")) continue;
+		var heard = heardAs(pitch, s.notes[j].midi);
+		if (heard !== "wrong") {
+			var rank = RANK[heard];
+			if (match < 0 || rank < matchRank || (rank === matchRank && Math.abs(off) < Math.abs(matchOff))) {
 				match = j;
+				matchRank = rank;
 				matchOff = off;
 			}
 		} else if (Math.abs(off) < wrongOff) {
@@ -5193,21 +5252,193 @@ function alongNote(pitch, onset) {
 		}
 	}
 	if (match >= 0) {
-		s.results[match] = pitch === s.notes[match].midi ? "right" : "octave";
+		s.results[match] = heardAs(pitch, s.notes[match].midi);
+		s.played[match] = pitch;
 		s.timing[match] = matchOff < -tol ? "early" : matchOff > tol ? "late" : null;
 	} else if (wrong >= 0) {
 		s.results[wrong] = "wrong";
+		s.played[wrong] = pitch;
 	}
 	if (!a.ended) drawSongEvent(a.times.length - 1);
 }
 
-// Play along's early and late notes, by event (for renderSongLine()'s marks)
-function alongTimingMarks(s) {
+// The count-in's clicks: how long each takes to reach the mic. Before the
+// click can sound (it plays 50 ms late) the mic's level is the quiet; the
+// first frame clearly louder is the click heard. Energy in the analysis
+// window grows in step with the time since the sound arrived, so the next
+// frame's level, extrapolated back, says when it did.
+function alongClickRise(a, now, level) {
+	var k = a.clicks.length - 1;
+	var prev = a.lastFrame;
+	a.lastFrame = now;
+	if (k < 0 || a.rise[k] !== undefined) return;
+	var since = now - a.clicks[k];
+	if (a.quiet[k] === undefined) {
+		if (since < 40) a.quiet[k] = level; else a.rise[k] = null;
+		return;
+	}
+	var q = a.quiet[k], up = a.up;
+	if (up && up.k === k) {
+		var e1 = up.level * up.level - q * q, e2 = level * level - q * q;
+		var at = e2 > e1 ? up.at - e1 * (now - up.at) / (e2 - e1) : up.at;
+		a.rise[k] = Math.max(up.prev, Math.min(up.at, at)) - a.clicks[k];
+		a.up = null;
+	} else if (since > ALONG_MAX_LAG_MS) {
+		a.rise[k] = null;
+	} else if (level > Math.max(q * ALONG_CLICK_RISE, q + ALONG_CLICK_MIN_RISE)) {
+		a.up = { k: k, at: now, prev: prev === undefined ? now : prev, level: level };
+	}
+}
+
+// Play along's delay (alongLag()), set as the count-in ends: from its clicks
+// if the mic heard them alike (speakers), else the last timing check on
+// this device, else a guess. a.lagFrom says which.
+function alongStartLag(a) {
+	var rises = a.rise.filter(function(r) { return typeof r === "number"; }).sort(function(x, y) { return x - y; });
+	var mid = rises.length ? rises[Math.floor(rises.length / 2)] : null;
+	var agree = rises.filter(function(r) { return Math.abs(r - mid) <= ALONG_CLICK_AGREE_MS; }).length;
+	var checked = storedTimingCheck();
+	if (mid !== null && agree >= Math.max(2, a.clicks.length / 2)) {
+		a.lag = mid + ALONG_PITCH_DELAY_MS;
+		a.lagFrom = "clicks";
+	} else if (checked) {
+		a.lag = checked;
+		a.lagFrom = "check";
+	} else {
+		a.lag = alongLag(null);
+		a.lagFrom = "guess";
+	}
+}
+
+// The timing check's delay on this device (ms), or null
+function storedTimingCheck() {
+	var lag = null;
+	try { lag = parseFloat(localStorage.getItem(TIMING_CHECK_STORAGE_KEY)); } catch (e) {}
+	return lag > 0 && lag <= ALONG_MAX_LAG_MS ? lag : null;
+}
+
+// The timing check (for headphones, whose clicks the mic can't hear): a few
+// clicks to listen to, then a short note on each of TIMING_CHECK_CLICKS.
+// How long after each click the note is heard is the whole delay Play
+// along has to allow: speakers, the student hearing and playing, the mic.
+function startTimingCheck() {
+	var s = practice.song;
+	stopSongPlayback();
+	resetFollow();
+	var c = s.check = { clicks: [], onsets: [], done: false };
+	var beatMs = 60000 / TIMING_CHECK_TEMPO;
+	songMicOn();
+	setPracticeFeedback(TIMING_CHECK_LABEL, "Get ready…");
+	var actions = document.querySelector("#practice-body .practice-actions");
+	actions.innerHTML = "";
+	actions.appendChild(practiceButton("■ Stop", "secondary", stopTimingCheck));
+	var n = 0, waited = 0;
+	(function tick() {
+		if (practice.mode !== "song" || practice.song !== s || s.check !== c) return;
+		// The mic first
+		if (listenStarting && waited < 5000) {
+			waited += 50;
+			songPlayTimer = setTimeout(tick, 50);
+			return;
+		}
+		if (n === 0) startAccompaniment();
+		if (n >= TIMING_CHECK_COUNT_IN + TIMING_CHECK_CLICKS) {
+			songPlayTimer = setTimeout(finishTimingCheck, beatMs);
+			return;
+		}
+		n++;
+		var play = n > TIMING_CHECK_COUNT_IN;
+		if (play) c.clicks.push(performance.now());
+		setPracticeFeedback(play ? "Play!" : String(n), play ? "One short note on each click" : "Listen to the clicks…");
+		playPianoHit({ midis: [(n - 1) % 4 === 0 ? 96 : 91], len: 0.2, gain: ACCOMP_CLICK_GAIN }, 0, beatMs / 1000);
+		songPlayTimer = setTimeout(tick, beatMs);
+	})();
+}
+
+function timingCheckNote(onset) {
+	var c = practice.song.check;
+	if (c && c.clicks.length) c.onsets.push(onset);
+}
+
+function stopTimingCheck() {
+	practice.song.check = null;
+	stopSongPlayback();
+	songMicOff();
+	resetFollow();
+}
+
+// The timing check's result: the middle of the delays from each click to
+// the note played on it, kept for this device if they agree
+function finishTimingCheck() {
+	var s = practice.song, c = s.check;
+	songPlayTimer = null;
+	if (!c || c.done) return;
+	c.done = true;
+	stopAccompaniment();
+	songMicOff();
+	var beatMs = 60000 / TIMING_CHECK_TEMPO, offs = [];
+	c.clicks.forEach(function(t) {
+		var o = c.onsets.find(function(x) { return x - t >= -TIMING_CHECK_EARLY_MS && x - t < beatMs - TIMING_CHECK_EARLY_MS; });
+		if (o !== undefined) offs.push(o - t);
+	});
+	offs.sort(function(x, y) { return x - y; });
+	var n = offs.length, lag = n ? offs[Math.floor(n / 2)] : null;
+	var ok = n > TIMING_CHECK_CLICKS / 2 && lag > 0 && lag <= ALONG_MAX_LAG_MS &&
+		offs[Math.ceil(n * 3 / 4) - 1] - offs[Math.floor(n / 4)] <= TIMING_CHECK_SPREAD_MS;
+	resetFollow();
+	if (ok) {
+		try { localStorage.setItem(TIMING_CHECK_STORAGE_KEY, String(Math.round(lag))); } catch (e) {}
+		setPracticeFeedback("Timing set ✓", "Play along now allows " + Math.round(lag) + " ms for your speakers and mic", "good");
+	} else {
+		setPracticeFeedback("I couldn’t tell", c.onsets.length ? "Play one short note right on each click" : "No notes heard: play one short note on each click", "close");
+		var actions = document.querySelector("#practice-body .practice-actions");
+		actions.insertBefore(practiceButton("Try again", "primary", startTimingCheck), actions.firstChild);
+	}
+}
+
+// What the mic heard for song note j, for its tapped name: "You played
+// E♭", "A bit low", "Not heard", "A bit late"...; "" if it was right
+function songHeardText(s, j) {
+	var r = s.results[j], played = s.played ? s.played[j] : null, midi = s.notes[j].midi;
+	var words = [];
+	if (r === "wrong" && played !== null) words.push("You played " + practiceNoteName(Math.round(played)));
+	else if (r === "octave" && played !== null) words.push("An octave " + (played > midi ? "up" : "down"));
+	else if (r === "low" || r === "high") words.push("A bit " + r);
+	else if (r === "missed") words.push("Not heard");
+	var t = s.along && s.timing ? s.timing[j] : null;
+	if (t) words.push((words.length ? "a bit " : "A bit ") + t);
+	return words.join(", ");
+}
+
+// A tapped wrong (or octave) note's ghost: what was played, beside it
+function songTappedGhost(s) {
+	if (!s.done || s.tapped === null || s.tapped === undefined || !s.played) return null;
+	var j = s.notes.findIndex(function(n) { return n.event === tieStart(s.events, s.tapped); });
+	var r = j >= 0 ? s.results[j] : null;
+	return (r === "wrong" || r === "octave") && s.played[j] !== null ? Math.round(s.played[j]) : null;
+}
+
+// The words over a song's orange notes, by event (renderSongLine()'s
+// marks): "low" / "high" (out of tune), Play along's "early" / "late"
+function songOffMarks(s) {
 	var marks = {};
-	if (s.along && s.timing) s.notes.forEach(function(n, j) {
-		if (s.timing[j]) marks[n.event] = s.timing[j];
+	s.notes.forEach(function(n, j) {
+		var r = s.results[j], t = s.along && s.timing ? s.timing[j] : null;
+		var words = [r === "low" || r === "high" ? r : null, t].filter(Boolean);
+		if (words.length) marks[n.event] = words.join(" \u00b7 ");
 	});
 	return marks;
+}
+
+// The orange notes counted: "2 low, 1 late", or "" for none
+function songOffText(s) {
+	var counts = { low: 0, high: 0, early: 0, late: 0 };
+	s.notes.forEach(function(n, j) {
+		if (s.results[j] === "low" || s.results[j] === "high") counts[s.results[j]]++;
+		if (s.along && s.timing && s.timing[j]) counts[s.timing[j]]++;
+	});
+	return Object.keys(counts).filter(function(k) { return counts[k]; })
+		.map(function(k) { return counts[k] + " " + k; }).join(", ");
 }
 
 // The end of Play along: the song in green and red, a score at that speed
@@ -5221,7 +5452,7 @@ function finishAlong(partway) {
 	clearTimeout(practiceAdvanceTimer);
 	stopSongPlayback();
 	var now = performance.now(), beatMs = 60000 / a.speed.tempo;
-	var late = 2 * alongTolerance(beatMs) + alongLag();
+	var late = 2 * alongTolerance(beatMs) + alongLag(a);
 	s.notes.forEach(function(n, j) {
 		var start = alongEventTime(s, n.event, beatMs);
 		var gone = start !== null && start + late < now;
@@ -5236,12 +5467,16 @@ function finishAlong(partway) {
 	practiceStartedMic = false;
 
 	var speed = a.speed, k = ALONG_SPEEDS.indexOf(speed), next = ALONG_SPEEDS[k + 1];
-	// Early and late notes have the right pitch but don't score
-	var early = s.timing.filter(function(t) { return t === "early"; }).length;
-	var lateNotes = s.timing.filter(function(t) { return t === "late"; }).length;
+	// Early, late, low and high notes (orange) don't score
 	var right = s.results.filter(function(r, j) { return (r === "right" || r === "octave") && !s.timing[j]; }).length;
 	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
-	var timingText = [early ? early + " early" : "", lateNotes ? lateNotes + " late" : ""].filter(Boolean).join(", ");
+	var offText = songOffText(s);
+	// Most notes late (or early) by a guessed delay: the speakers' delay
+	// may be off, which the timing check measures
+	var timed = s.timing.filter(function(t, j) { return s.results[j] && s.results[j] !== "wrong" && s.results[j] !== "missed"; });
+	var skewed = a.lagFrom === "guess" && timed.length >= 4 && ["early", "late"].some(function(w) {
+		return timed.filter(function(t) { return t === w; }).length >= timed.length / 2;
+	});
 	var stars = challengeStars(right, total);
 	var scored = !partway && a.played > 0;
 	var key = songBestKey(s.song);
@@ -5268,9 +5503,11 @@ function finishAlong(partway) {
 			speed.icon + " " + (right === total ? "Perfect! " : right + " of " + total + " notes right ") + starText(stars),
 			partway ? "You stopped partway through"
 				: nextOpen && !wasOpen ? "You unlocked " + next.icon + " " + next.name + " speed!"
-				: firstMiss >= 0 && timingText ? "Red: missed or wrong \u00b7 orange: " + timingText
+				: skewed ? "Lots of notes off the beat? Try the timing check in \u22ef"
+				: firstMiss >= 0 && offText ? "Red: missed or wrong \u00b7 orange: " + offText
+				: offText ? "Orange notes: " + offText
+				: s.results.indexOf("wrong") >= 0 ? "Tap a red note to see what you played"
 				: firstMiss >= 0 ? "The red notes were missed or wrong"
-				: timingText ? "Right notes, but " + timingText + " (orange)"
 				: !next ? "Top speed!" : "\u00a0",
 			right === total ? "good" : "close");
 	}
@@ -5300,6 +5537,7 @@ function finishAlong(partway) {
 		showSongPicker(s.id, function() { playThroughSong(s.id); }, m === null ? null : { a: m, b: m });
 	}]);
 	more.push(["Note by note", function() { startSong(s.id); }]);
+	more.push([TIMING_CHECK_LABEL, startTimingCheck]);
 	actions.appendChild(songMoreMenu(more));
 	if (scored && stars > 0) addPathNextButton(actions);
 	updateSpeedPicker();
@@ -5408,6 +5646,19 @@ var ALONG_SPEEDS = [
 var ALONG_PASS_STARS = 2;
 var ALONG_ON_TIME_MIN_MS = 100;  // on time: within a sixteenth of the beat, never tighter than this
 var ALONG_LATENCY_MS = 60;     // a note reaches the pitch detector about this long after it starts
+var ALONG_PITCH_DELAY_MS = 25;  // a note's pitch is found about this long after its loudness rises
+var ALONG_CLICK_RISE = 2;       // the mic's level this many times the quiet before a click: it's heard
+var ALONG_CLICK_MIN_RISE = 0.002;  // ...and up by at least this much
+var ALONG_CLICK_AGREE_MS = 30;  // the count-in's clicks measured within this of each other
+var ALONG_MAX_LAG_MS = 600;     // a longer delay than this isn't believed
+var TIMING_CHECK_TEMPO = 80;
+var TIMING_CHECK_COUNT_IN = 4;  // clicks to listen to, then...
+var TIMING_CHECK_CLICKS = 8;    // ...clicks to play a note on
+var TIMING_CHECK_EARLY_MS = 150;   // a note this early still counts for a click
+var TIMING_CHECK_SPREAD_MS = 120;  // the middle half of the notes within this, or try again
+var TIMING_CHECK_IGNORE_MIDI = 88; // concert; the clicks (91, 96) aren't the student's notes
+var TIMING_CHECK_STORAGE_KEY = "pitchdetect-along-lag";  // per device: its speakers and mic
+var TIMING_CHECK_LABEL = "\u23f1 Timing check";
 var ALONG_BLEED_FACTOR = 2.5;  // the piano's chords at the mic, against the count-in's click
 var ALONG_GATE_MAX = 0.04;     // never ask for a level (RMS) above this to beat the piano
 var SONG_SPEED_STORAGE_KEY = "pitchdetect-song-speeds";
@@ -5715,6 +5966,11 @@ function songNoteTap(event) {
 		showSongFingerings([s.events[hit]]);
 		s.tapped = hit;
 		var wrap = document.getElementById("song-fingering");
+		// After a run, what was heard for it, if it wasn't right
+		var j = s.notes.findIndex(function(n) { return n.event === tieStart(s.events, hit); });
+		var heard = s.free && s.done && j >= 0 ? songHeardText(s, j) : "";
+		var name = document.createElement("div");
+		name.className = "song-fingering-name";
 		if (wrap && !hasFingeringData(practice.instrument)) {
 			// The keyboard names its key itself
 			wrap.removeAttribute("aria-hidden");
@@ -5722,11 +5978,15 @@ function songNoteTap(event) {
 			wrap.appendChild(practiceFingeringBox(false, s.events[hit].midi));
 		} else if (wrap) {
 			wrap.removeAttribute("aria-hidden");
-			var name = document.createElement("div");
-			name.className = "song-fingering-name";
 			name.textContent = songNoteName(s.events[hit]);
-			wrap.appendChild(name);
 		}
+		if (wrap && heard) {
+			var said = document.createElement("div");
+			said.className = "song-fingering-heard";
+			said.textContent = heard;
+			name.appendChild(said);
+		}
+		if (wrap && (name.firstChild)) wrap.appendChild(name);
 	}
 	drawSongLine(s.pos);
 }

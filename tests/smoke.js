@@ -311,18 +311,24 @@ async function run() {
 		// late and doesn't score, and passing a speed opens the next. The mic
 		// is replaced by frames playing each note as it comes, heard after
 		// alongLag() (skip: a note played only as loud as the piano; late: a
-		// note started past its on-time window).
+		// note started past its on-time window). The count-in's clicks reach
+		// the mic 150 ms after they're played (clickLag), which sets the delay.
 		await page.evaluate(function() {
 			window.realPracticeListen = updatePracticeListen;
 			updatePracticeListen = function() {};
 			ALONG_SPEEDS[1].tempo = 120;  // a late note needs room in its beat
-			window.alongSim = { skip: -1, late: -1 };
+			window.alongSim = { skip: -1, late: -1, clickLag: 150 };
 			window.alongSimTimer = setInterval(function() {
 				var s = practice.song, a = s && s.along;
 				if (!a || a.done) return;
 				var now = performance.now();
 				if (!a.times.length) {
-					updateFollowListen(now, null, 0.01);  // the count-in click
+					// The count-in's clicks, heard from clickLag on: the level
+					// over the mic's 85 ms window rises as the click fills it
+					var since = a.clicks && a.clicks.length ? now - a.clicks[a.clicks.length - 1] : -1;
+					var t = alongSim.clickLag === null ? -1 : since - alongSim.clickLag;
+					var fill = t < 0 || t > 300 ? 0 : Math.min(t, 85) / 85;
+					updateFollowListen(now, null, Math.sqrt(0.001 * 0.001 + 0.02 * 0.02 * fill));
 					return;
 				}
 				var i = a.times.length - 1, e = s.events[i];
@@ -331,7 +337,7 @@ async function run() {
 				// A tongued gap at the start of each note, as long as the
 				// app allows for the speakers and the mic (at least one frame,
 				// should the timer run late); a late note's is longer
-				var gap = alongLag() + (j === alongSim.late ? 1.5 * alongTolerance(60000 / a.speed.tempo) : 0);
+				var gap = alongLag(a) + (j === alongSim.late ? 1.5 * alongTolerance(60000 / a.speed.tempo) : 0);
 				var level = !freq || a.ended || now - a.times[i] < gap || alongSim.last !== i ? 0.001 : j === alongSim.skip ? 0.015 : 0.2;
 				alongSim.last = i;
 				updateFollowListen(now, freq, level);
@@ -346,6 +352,7 @@ async function run() {
 		var missed = await page.evaluate(function() {
 			var s = practice.song;
 			return { results: s.results.slice(), timing: s.timing.slice(), text: document.getElementById("practice-feedback").textContent,
+				lag: s.along.lag, lagFrom: s.along.lagFrom,
 				marks: Array.prototype.map.call(document.querySelectorAll("#practice-staff-output .song-mark"), function(t) { return t.textContent; }) };
 		});
 		check(missed.results[2] === "missed" && missed.results.filter(function(r) { return r === "right"; }).length === missed.results.length - 1,
@@ -353,9 +360,11 @@ async function run() {
 		check(missed.timing[4] === "late" && missed.timing.filter(Boolean).length === 1 &&
 			missed.marks.join() === "late" && missed.text.indexOf(missed.results.length - 2 + " of ") >= 0,
 			"Play along marks a late note late, and it doesn't score (got " + missed.text + ")");
+		check(missed.lagFrom === "clicks" && Math.abs(missed.lag - 150 - 25) <= 20,
+			"Play along measures the delay from its count-in's clicks (got " + missed.lagFrom + ", " + Math.round(missed.lag) + " ms)");
 		await page.evaluate(function() {
 			alongSim.skip = alongSim.late = -1;
-			ALONG_SPEEDS[1].tempo = 240;  // quick, for the test
+			ALONG_SPEEDS[1].tempo = 160;  // quick, for the test (room for the delay)
 			startAlong("walk");
 		});
 		await page.waitForFunction(function() { return practice.song.done; }, null, { timeout: 15000 });
@@ -366,6 +375,78 @@ async function run() {
 		});
 		check(/Perfect/.test(passed.text) && passed.bunnyOpen && passed.best && passed.best.walk === passed.total,
 			"a perfect Play along is saved and opens the next speed");
+		// Without the clicks (headphones) the timing check's delay is used:
+		// eight notes played 180 ms after their clicks
+		await page.evaluate(function() {
+			try { localStorage.removeItem(TIMING_CHECK_STORAGE_KEY); } catch (e) {}
+			startTimingCheck();
+			window.checkSim = setInterval(function() {
+				var c = practice.song.check;
+				if (!c || c.done || !c.clicks.length) return;
+				var since = performance.now() - c.clicks[c.clicks.length - 1];
+				updateFollowListen(performance.now(), since >= 80 && since < 400 ? 233 : null, 0.2);
+			}, 16);
+		});
+		await page.waitForFunction(function() { return !practice.song.check; }, null, { timeout: 20000 });
+		var checked = await page.evaluate(function() {
+			clearInterval(checkSim);
+			return { lag: storedTimingCheck(), text: document.getElementById("practice-feedback").textContent };
+		});
+		check(checked.lag && Math.abs(checked.lag - 80) <= 40 && /Timing set/.test(checked.text),
+			"the timing check measures the delay from click to note (got " + checked.lag + " ms)");
+		await page.evaluate(function() {
+			alongSim.clickLag = null;
+			startAlong("walk");
+		});
+		await page.waitForFunction(function() { return practice.song.along && practice.song.along.lag; }, null, { timeout: 15000 });
+		var fromCheck = await page.evaluate(function() {
+			var a = practice.song.along;
+			stopSongPlayback();
+			return { lag: a.lag, from: a.lagFrom };
+		});
+		check(fromCheck.from === "check" && fromCheck.lag === checked.lag,
+			"Play along uses the timing check's delay when it can't hear its clicks (got " + fromCheck.from + ")");
+
+		// Play it through: a note held 60 cents flat is that note, low; a
+		// wrong note can be tapped to see what was played
+		await page.evaluate(function() {
+			playThroughSong("auclair");
+			startFollow();
+			practice.ignoreUntil = 0;
+			var s = practice.song, t = performance.now();
+			s.notes.forEach(function(n, j) {
+				var midi = n.midi + (j === 1 ? -0.6 : j === 3 ? 2 : 0);
+				var freq = frequencyFromNoteNumber(midi - getTransposition());
+				for (var k = 0; k < 10; k++) updateFollowListen(t += 16, freq, 0.2);
+				for (k = 0; k < 6; k++) updateFollowListen(t += 16, null, 0.001);
+			});
+			if (!s.done) finishFollow();
+			closeLevelUp();  // the run's XP may have leveled up
+		});
+		var heardRun = await page.evaluate(function() {
+			var s = practice.song, i = s.notes[3].event;
+			var line = Object.keys(s.layouts).find(function(l) { return s.layouts[l].xs[i] !== undefined; });
+			var r = s.layouts[line], pt = r.svg.createSVGPoint();
+			pt.x = r.xs[i];
+			pt.y = r.stave.getYForLine(2);
+			var p = pt.matrixTransform(r.svg.getScreenCTM());
+			return { results: s.results.slice(), x: p.x, y: p.y,
+				marks: Array.prototype.map.call(document.querySelectorAll("#practice-staff-output .song-mark"), function(t) { return t.textContent; }),
+				sub: document.getElementById("practice-feedback-sub").textContent };
+		});
+		check(heardRun.results[1] === "low" && heardRun.results[3] === "wrong" && heardRun.marks.join() === "low" &&
+			heardRun.results.filter(function(r) { return r === "right"; }).length === heardRun.results.length - 2 &&
+			/1 low/.test(heardRun.sub),
+			"Play it through marks a note played out of tune low, not missed (got " + heardRun.sub + ")");
+		await page.mouse.click(heardRun.x, heardRun.y);
+		var heardTap = await page.evaluate(function() {
+			var s = practice.song, el = document.querySelector("#song-fingering .song-fingering-heard");
+			return { text: el ? el.textContent : "", ghost: !!document.querySelector("#practice-staff-output .vf-practice-ghost"),
+				want: "You played " + practiceNoteName(s.notes[3].midi + 2) };
+		});
+		check(heardTap.text === heardTap.want && heardTap.ghost,
+			"a tapped wrong note shows what was played (got " + heardTap.text + ")");
+
 		await page.evaluate(function() {
 			clearInterval(alongSimTimer);
 			updatePracticeListen = realPracticeListen;
