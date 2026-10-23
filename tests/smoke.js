@@ -286,6 +286,20 @@ async function run() {
 		check(speedsHidden && await page.evaluate(function() {
 			return !!document.querySelector("#practice-steps .speed-picker").offsetParent;
 		}), "Play along's speeds show only from the song's settings gear");
+		// The settings turn the piano off and a metronome on: a click a beat
+		await page.click(".song-click-picker >> text=On");
+		await page.click(".song-piano-picker >> text=Off");
+		var backing = await page.evaluate(function() {
+			var hits = songBacking(practice.song.song, practice.song.events);
+			var beats = practice.song.events.reduce(function(n, e) { return n + eventBeats(e); }, 0);
+			var r = { hits: hits.length, beats: Math.round(beats), clicksOnly: hits.every(function(h) { return h.midis.length === 1 && h.len === 0.2; }),
+				saved: localStorage.getItem("pitchdetect-song-piano") + localStorage.getItem("pitchdetect-song-click") };
+			setSongPiano(true);
+			setSongClick(false);
+			return r;
+		});
+		check(backing.clicksOnly && backing.hits === backing.beats && backing.saved === "01",
+			"the song's settings turn the piano off and the metronome on (" + backing.hits + " clicks, " + backing.beats + " beats)");
 		await page.keyboard.press("Escape");
 		await page.click(".song-more-button");
 		await page.click(".song-more-menu >> text=Note by note");
