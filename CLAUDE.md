@@ -406,14 +406,20 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   shortens the next wait) and puts piano and clicks on the audio clock from
   one anchor (`hitOffset()`), so they keep steady time.
   It's scored in time (`practice.song.along`, `alongNote()`): the follow
-  mic's notes each count for a song note they fall on, from
-  `ALONG_EARLY_MS` before it to `ALONG_LATE_MS` after it ends (event start
-  times from `alongEventTime()`). The mic hears the piano too
+  mic's notes each count for the nearest unplayed song note of their pitch
+  whose window holds them: on time within `alongTolerance()` (a sixteenth
+  of the beat, at least `ALONG_ON_TIME_MIN_MS`) of its start, else early or
+  late (`practice.song.timing`) up to twice that (event start times from
+  `alongEventTime()`, plus `alongLag()`: the piano's 50 ms head start, the
+  speakers' `outputLatency` and `ALONG_LATENCY_MS` for the mic). Early and
+  late notes have the right pitch but don't score; they turn orange, with
+  "early" / "late" over them at the end (`renderSongLine()`'s `opts.marks`,
+  `alongTimingMarks()`, `drawSongMark()`). The mic hears the piano too
   (`echoCancellation` is off), so the count-in measures the speakers'
   level at the mic (`bleed`) and frames under `ALONG_BLEED_FACTOR` × that
   (at most `ALONG_GATE_MAX`) count as silence, and as a re-tongue.
   `finishAlong()` (the end, or Stop and score: partway, nothing saved)
-  marks red and green, saves the best per song per speed in
+  marks red, orange and green, saves the best per song per speed in
   `pitchdetect-song-speeds` (`practice.songSpeedBest`, keyed by
   `songBestKey()`) and in the song's best, and offers the next speed.
   Turtle and Walk are always open; each faster speed opens on a song once
@@ -949,7 +955,7 @@ instrument until the student picks theirs; a
 song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops; a song listens only after Listen to me,
 and a tapped note shows its fingering; Play along scores
-notes in time over the piano and opens the next speed; a long
+notes in time over the piano, marks a late note late, and opens the next speed; a long
 song scrolls the next line into view before it's reached. Add a
 check there when adding something a broken change would silently lose.
 
