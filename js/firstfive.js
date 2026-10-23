@@ -3225,10 +3225,12 @@ function threeNoteSongs() {
 }
 
 // The built-in songs on song list list: "three" (Play 3-note songs),
-// "five" (the beginner songs, Play 5-note songs) or "all" (More
-// songs: every level but the beginner songs)
+// "five" (the beginner songs, Play 5-note songs), "all" (More
+// songs: every level but the beginner songs) or "every" (the header's
+// Songs button: every song)
 function listSongs(list) {
 	if (list === "three") return threeNoteSongs();
+	if (list === "every") return SONGS;
 	return SONGS.filter(function(song) { return (song.level === "beginner") === (list === "five"); });
 }
 
@@ -3369,7 +3371,8 @@ function songListLabel() {
 // 3-note songs) shows just the 3-note songs and the student's
 // songs with their first 3 notes; "five" (Play 5-note songs) the beginner
 // songs and the student's songs with their first 5 notes; "all" (More songs) the other levels and the student's
-// songs. Without one, the list shown last.
+// songs; "every" (the header's Songs button) every level and all the
+// student's songs. Without one, the list shown last.
 function showSongList(list) {
 	if (list) practice.songList = list;
 	var three = practice.songList === "three";
@@ -3407,7 +3410,9 @@ function showSongList(list) {
 	if (three || five) {
 		listSongs(practice.songList).forEach(function(song) { list.appendChild(songButton(song)); });
 	}
-	SONG_LEVELS.filter(function(level) { return !three && !five && level.id !== "beginner"; }).forEach(function(level) {
+	SONG_LEVELS.filter(function(level) {
+		return !three && !five && (level.id !== "beginner" || practice.songList === "every");
+	}).forEach(function(level) {
 		var songs = SONGS.filter(function(song) { return song.level === level.id; });
 		var earned = songs.reduce(function(t, song) { return t + songStars(song); }, 0);
 		var toggle = document.createElement("button");
@@ -3470,6 +3475,13 @@ function showSongList(list) {
 	// Nothing here listens; the mic starts with the song
 	if (practiceStartedMic && listenActive) stopListening();
 	practiceStartedMic = false;
+}
+
+// The header's Songs button: every song, from wherever the student is
+function showAllSongs() {
+	if (!practice || practice.mode === "signin") return;
+	closeUnitSummary();
+	showSongList("every");
 }
 
 // from: start partway (Practice the red notes), notes before it counted done;

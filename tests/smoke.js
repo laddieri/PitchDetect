@@ -197,6 +197,15 @@ async function run() {
 		await page.waitForFunction(function() { return practice.menuPage === "map"; });
 		check(opened === "unit2" && await page.isHidden("#unit-summary"),
 			"back closes the summary, and its button opens the unit, then back to the map");
+		// The header's Songs button lists every song, Beginner included; back returns to the map
+		await page.click("#practice-songs");
+		var songList = await page.evaluate(function() {
+			return { mode: practice.mode, levels: document.querySelectorAll("#practice-body .song-level").length, all: SONG_LEVELS.length };
+		});
+		await page.goBack();
+		await page.waitForFunction(function() { return practice.menuPage === "map" && practice.mode === "menu"; });
+		check(songList.mode === "songs" && songList.levels === songList.all,
+			"the header's Songs button shows every level of songs (got " + songList.levels + "), and back returns to the map");
 		await page.evaluate(function() { recordProgress(25); saveProfile(); });
 		var saved = await page.evaluate(function() {
 			var id = localStorage.getItem("pitchdetect-student");

@@ -174,6 +174,10 @@ list's built-in songs, `listCustomSongs(list)` its own songs), **Write a
 5-note song** (`write5`: the editor on the first 5 notes, `song.three =
 "first5"`, `fiveNoteCustomSongs()`) and **More songs** (`songs`:
 `showSongList("all")`, every level but Beginner, and all the student's songs).
+The header's **Songs** button (`#practice-songs`, top right, styled like
+the app's Practice button; hidden while signing in) opens `showAllSongs()`:
+`showSongList("every")`, every level including Beginner and all the
+student's songs, from any screen.
 `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
@@ -987,6 +991,7 @@ It serves the repo itself and checks: no errors or page scroll at desktop and
 phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload;
 Practice opens on the map and back from its Next step goes to the unit, then the map;
+the header's Songs button lists every level of songs;
 a unit's stop shows its summary (activities passed, stars), which back closes; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
