@@ -292,7 +292,7 @@ async function run() {
 		var backing = await page.evaluate(function() {
 			var hits = songBacking(practice.song.song, practice.song.events);
 			var beats = practice.song.events.reduce(function(n, e) { return n + eventBeats(e); }, 0);
-			var r = { hits: hits.length, beats: Math.round(beats), clicksOnly: hits.every(function(h) { return h.midis.length === 1 && h.len === 0.2; }),
+			var r = { hits: hits.length, beats: Math.round(beats), clicksOnly: hits.every(function(h) { return h.click; }),
 				saved: localStorage.getItem("pitchdetect-song-piano") + localStorage.getItem("pitchdetect-song-click") };
 			setSongPiano(true);
 			setSongClick(false);

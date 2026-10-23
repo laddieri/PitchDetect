@@ -399,8 +399,12 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `updateSongSettings()` refreshes them. Hear the song, Play along and the
   editor's Hear it play `songBacking(song, events)`: the piano part if on,
   plus `songClicks()` if on (a click per beat, a dotted quarter in 6/8, higher
-  on the downbeat, a short first measure counted back as a pickup), so the
-  settings take effect the next time a song plays.
+  on the downbeat, a short first measure counted back as a pickup; hits with
+  `click` sound as `playClick()`'s woodblock tock, as does Play along's
+  count-in), so the settings take effect the next time a song plays.
+  `playSongEvents()` times every event from the start (a late timer
+  shortens the next wait) and puts piano and clicks on the audio clock from
+  one anchor (`hitOffset()`), so they keep steady time.
   It's scored in time (`practice.song.along`, `alongNote()`): the follow
   mic's notes each count for the nearest unplayed song note of their pitch
   whose window holds them: on time within `alongTolerance()` (a sixteenth
