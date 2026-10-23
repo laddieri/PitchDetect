@@ -300,6 +300,34 @@ async function run() {
 		});
 		check(backing.clicksOnly && backing.hits === backing.beats && backing.saved === "01",
 			"the song's settings turn the piano off and the metronome on (" + backing.hits + " clicks, " + backing.beats + " beats)");
+		// Hear the song plays the tune with its metronome: each note on the
+		// audio clock at the same time as the click on its beat
+		var together = await page.evaluate(async function() {
+			var times = { note: [], click: [] }, wind = synthesizeWind, struck = synthesizeStruck, click = playClick;
+			synthesizeWind = function(freq, timbre, t) { times.note.push(t); return wind.apply(this, arguments); };
+			synthesizeStruck = function(freq, timbre, t, dest, sustain, nodes) {
+				if (!nodes) times.note.push(t);  // (not the piano's)
+				return struck.apply(this, arguments);
+			};
+			playClick = function(hit, t) { times.click.push(t); return click.apply(this, arguments); };
+			setSongPiano(false);
+			setSongClick(true);
+			playSong();
+			await new Promise(function(r) { setTimeout(r, 3000); });
+			stopSongPlayback();
+			synthesizeWind = wind;
+			synthesizeStruck = struck;
+			playClick = click;
+			setSongPiano(true);
+			setSongClick(false);
+			// Mary's first notes are quarters, one a beat
+			var n = Math.min(times.note.length, times.click.length);
+			var worst = 0;
+			for (var i = 0; i < n; i++) worst = Math.max(worst, Math.abs(times.note[i] - times.click[i]));
+			return { n: n, worst: Math.round(worst * 1000) };
+		});
+		check(together.n >= 3 && together.worst <= 2,
+			"Hear the song's notes sound with the metronome's clicks (" + together.n + " beats, " + together.worst + " ms apart at most)");
 		await page.keyboard.press("Escape");
 		await page.click(".song-more-button");
 		await page.click(".song-more-menu >> text=Note by note");

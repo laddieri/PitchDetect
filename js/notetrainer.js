@@ -1589,8 +1589,11 @@ var LEGATO_FADE = 0.06;     // seconds; a legato note's crossfade with the last
 // scheduled (after any AudioContext resume). length (seconds, optional) gives
 // the note its own release so it has died away by then: notes played in
 // sequence (Hear the song) end smoothly instead of being cut off by the next.
-function playTone(freq, sustain, onStarted, length, legato) {
+function playTone(freq, sustain, onStarted, length, legato, at) {
 	if (!freq) return;
+	// at: when the note starts on the audio clock (a song's note, with its
+	// piano and metronome); else just ahead
+	var lead = at !== undefined && audioContext ? Math.max(0, at - audioContext.currentTime) : TONE_LOOKAHEAD;
 
 	setAudioSessionType("playback");
 	showSoundHint();
@@ -1598,7 +1601,7 @@ function playTone(freq, sustain, onStarted, length, legato) {
 	// Stop any currently playing note; a legato (slurred) note instead
 	// crossfades with it, the old one fading out over the new one's attack
 	// from the moment it starts, so there's no gap and no re-tongued edge
-	if (legato) stopNote(LEGATO_FADE, TONE_LOOKAHEAD);
+	if (legato) stopNote(LEGATO_FADE, lead);
 	else stopNote();
 	sustainPlaying = false;
 
@@ -1626,7 +1629,7 @@ function playTone(freq, sustain, onStarted, length, legato) {
 	function startAudio() {
 		try {
 			// Small lookahead ensures scheduled events are always in the future
-			var t = audioContext.currentTime + TONE_LOOKAHEAD;
+			var t = at !== undefined ? Math.max(audioContext.currentTime, at) : audioContext.currentTime + TONE_LOOKAHEAD;
 
 			// Master gain for overall volume control
 			var masterGain = audioContext.createGain();

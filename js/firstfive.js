@@ -5032,13 +5032,16 @@ function playSongEvents(events, show, opts) {
 	if (piano.length || opts.countIn) startAccompaniment();
 	// Everything is timed from the start, not from the last timer, which
 	// can fire late: a late timer then shortens the wait for the next. The
-	// piano and metronome go on the audio clock, at the start's audio time
-	// (audioStart, read once the audio is running) plus their beat, so they
-	// keep steady time whenever their note's timer fires.
+	// tune, piano and metronome go on the audio clock, at the start's audio
+	// time (audioStart, read once the audio is running) plus their beat, so
+	// they keep steady time, and together, whenever their note's timer
+	// fires. The timers follow the audio clock too (the page's clock and the
+	// audio's can disagree, by as much as a tenth of a second as the audio
+	// starts), so each fires as its note is due.
 	var startMs = performance.now(), elapsed = 0, audioStart = null;
 	function wait(beats, fn) {
 		elapsed += beats;
-		songPlayTimer = setTimeout(fn, Math.max(0, startMs + elapsed * beatMs - performance.now()));
+		songPlayTimer = setTimeout(fn, Math.max(0, hitOffset(0) * 1000));
 	}
 	// Seconds from now until a hit at beats past the start (elapsed so far
 	// plus ahead), as playPianoHit() takes it
@@ -5049,6 +5052,15 @@ function playSongEvents(events, show, opts) {
 		}
 		if (audioStart === null) return at - (performance.now() - startMs) / 1000;
 		return audioStart + at - audioContext.currentTime;
+	}
+	// When a hit (or the tune's note) at beats past the start sounds, on the
+	// audio clock: playPianoHit()'s 50 ms head start, from the anchor itself
+	// (the audio clock moves on between two reads of it), or undefined
+	function hitTime(ahead) {
+		var offset = hitOffset(ahead);
+		if (!audioContext) return undefined;
+		if (audioStart === null) return audioContext.currentTime + Math.max(0, 0.05 + offset);
+		return audioStart + (elapsed + ahead) * beatMs / 1000 + 0.05;
 	}
 	function next() {
 		if (i >= events.length) {
@@ -5064,8 +5076,10 @@ function playSongEvents(events, show, opts) {
 		var beats = eventBeats(e);
 		var ms = beats * beatMs;
 		practice.ignoreUntil = performance.now() + ms + 600;
-		// (with when it's meant to start, which a late timer is past)
-		show(i, startMs + elapsed * beatMs);
+		// (with when it's meant to start, on the page's clock, which a late
+		// timer is past)
+		var due = hitOffset(0);
+		show(i, performance.now() + due * 1000);
 		// End each note just before the next (a tongued gap, which also
 		// keeps repeated notes distinct) so nothing is cut off mid-sound.
 		// (a tied note sounds on from the one before; a note slurred into
@@ -5076,11 +5090,12 @@ function playSongEvents(events, show, opts) {
 			while (after < events.length && events[after].tied && events[after - 1].tie) after++;
 			var slurOn = after < events.length && events[after].legato;
 			playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false, null,
-				slurOn ? secs + LEGATO_OVERLAP : Math.max(0.1, secs - TONE_RELEASE), e.legato && i > 0);
+				slurOn ? secs + LEGATO_OVERLAP : Math.max(0.1, secs - TONE_RELEASE), e.legato && i > 0,
+				hitTime(0));  // with the piano and metronome
 		}
 		// The piano's chords during this note, timed on the audio clock
 		for (; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
-			playPianoHit(piano[h], hitOffset(piano[h].beat - beat), beatMs / 1000);
+			playPianoHit(piano[h], 0, beatMs / 1000, hitTime(piano[h].beat - beat));
 		}
 		beat += beats;
 		i++;
@@ -5094,8 +5109,8 @@ function playSongEvents(events, show, opts) {
 		var ms = opts.pulse * beatMs;
 		practice.ignoreUntil = performance.now() + ms + 600;
 		count++;
-		opts.onCount(count, startMs + elapsed * beatMs);
-		playPianoHit({ click: true, accent: count === 1, len: 0.2, gain: ACCOMP_CLICK_GAIN }, hitOffset(0), beatMs / 1000);
+		opts.onCount(count, performance.now() + hitOffset(0) * 1000);
+		playPianoHit({ click: true, accent: count === 1, len: 0.2, gain: ACCOMP_CLICK_GAIN }, 0, beatMs / 1000, hitTime(0));
 		wait(opts.pulse, countIn);
 	}
 	if (opts.countIn) countIn(); else next();
@@ -5863,11 +5878,11 @@ function startAccompaniment() {
 }
 
 // One piano hit (or a metronome click, hit.click), offset seconds from now
-// (from a moment ago if negative); beatSec sets its length
-function playPianoHit(hit, offset, beatSec) {
+// (from a moment ago if negative), or at audio time at; beatSec sets its length
+function playPianoHit(hit, offset, beatSec, at) {
 	if (!audioContext || audioContext.state === "closed") return;
 	try {
-		var t = audioContext.currentTime + Math.max(0, 0.05 + offset);
+		var t = at !== undefined ? Math.max(audioContext.currentTime, at) : audioContext.currentTime + Math.max(0, 0.05 + offset);
 		if (hit.click) {
 			playClick(hit, t);
 			return;
