@@ -1965,7 +1965,8 @@
 			/* ---------- First 5 Notes practice ---------- */
 			/* Entry: an outline button in the header, beside the Advanced mode
 			   switch */
-			#practiceButton {
+			#practiceButton,
+			#practice-songs {
 				padding: 11px 22px;
 				font-size: 0.95rem;
 				font-weight: 500;
@@ -1981,16 +1982,19 @@
 				transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
 			}
 
-			#practiceButton svg {
+			#practiceButton svg,
+			#practice-songs svg {
 				flex-shrink: 0;
 			}
 
-			#practiceButton:hover {
+			#practiceButton:hover,
+			#practice-songs:hover {
 				border-color: var(--accent);
 				background-color: var(--accent-soft);
 			}
 
-			#practiceButton:focus-visible {
+			#practiceButton:focus-visible,
+			#practice-songs:focus-visible {
 				outline: none;
 				box-shadow: var(--ring);
 			}
@@ -2035,6 +2039,15 @@
 				gap: 12px;
 			}
 
+			/* The sides grow alike from nothing, so the heading stays centered
+			   between the back arrow and the Songs button */
+			.practice-header-side,
+			.practice-header-spacer {
+				flex: 1 0 0;
+				display: flex;
+				align-items: center;
+			}
+
 			.practice-close {
 				flex: 0 0 44px;
 				width: 44px;
@@ -2057,7 +2070,7 @@
 			/* Title as a small kicker over the instrument, which is the big,
 			   tappable heading (a native select, so it works everywhere) */
 			.practice-heading {
-				flex: 1;
+				flex: 0 1 auto;
 				min-width: 0;
 				display: flex;
 				flex-direction: column;
@@ -2066,9 +2079,14 @@
 			}
 
 			.practice-header-spacer {
-				flex: 0 0 44px;
-				display: flex;
-				justify-content: center;
+				justify-content: flex-end;
+				gap: 10px;
+			}
+
+			/* Songs: straight to the song list, like the app's Practice button
+			   (not while signing in) */
+			.practice-view[data-mode="signin"] #practice-songs {
+				visibility: hidden;
 			}
 
 			/* The mic is on: a badge where the header's right side is kept
@@ -5683,7 +5701,8 @@
 			}
 
 			/* Kid mode: the cartoon look */
-			body.kid-mode #practiceButton {
+			body.kid-mode #practiceButton,
+			body.kid-mode #practice-songs {
 				font-size: 1.2rem;
 				font-weight: 700;
 				padding: 11px 24px;
@@ -5695,6 +5714,7 @@
 			}
 
 			body.kid-mode #practiceButton:active,
+			body.kid-mode #practice-songs:active,
 			body.kid-mode .practice-btn:active,
 			body.kid-mode .practice-answer:active:not(:disabled) {
 				transform: translate(3px, 3px);
@@ -5982,17 +6002,21 @@
 			@media (max-width: 700px) {
 				/* Header-sized: the star goes, the label stays */
 				#practiceButton,
-				body.kid-mode #practiceButton {
+				body.kid-mode #practiceButton,
+				#practice-songs,
+				body.kid-mode #practice-songs {
 					padding: 6px 12px;
 					font-size: 0.9rem;
 				}
 
-				body.kid-mode #practiceButton {
+				body.kid-mode #practiceButton,
+				body.kid-mode #practice-songs {
 					border-radius: 12px;
 					box-shadow: 3px 3px 0 var(--ink);
 				}
 
-				#practiceButton svg {
+				#practiceButton svg,
+				#practice-songs svg {
 					display: none;
 				}
 
@@ -6593,9 +6617,11 @@
 		<div id="practice-view" class="practice-view" role="dialog" aria-modal="true" aria-labelledby="practice-title" hidden>
 			<div class="practice-inner">
 				<div class="practice-header">
-					<button id="practice-close" class="practice-close" onclick="practiceBack()" aria-label="Back to the app" title="Back to the app">
-						<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-					</button>
+					<span class="practice-header-side">
+						<button id="practice-close" class="practice-close" onclick="practiceBack()" aria-label="Back to the app" title="Back to the app">
+							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+						</button>
+					</span>
 					<div class="practice-heading">
 						<h2 id="practice-title">Practice</h2>
 						<span class="practice-instrument">
@@ -6609,6 +6635,10 @@
 							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
 							<span class="visually-hidden-mic">Listening</span>
 						</span>
+						<button id="practice-songs" onclick="showAllSongs()" title="All the songs to practice" aria-label="Songs">
+							<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 3v12.3A3.5 3.5 0 1 0 11 18.5V8h8v7.3a3.5 3.5 0 1 0 2 3.2V3z"/></svg>
+							<span class="btn-label">Songs</span>
+						</button>
 					</span>
 				</div>
 				<button id="player-bar" class="player-bar" onclick="showProfile()">
