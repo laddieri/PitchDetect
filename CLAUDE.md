@@ -410,11 +410,24 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   whose window holds them: on time within `alongTolerance()` (a sixteenth
   of the beat, at least `ALONG_ON_TIME_MIN_MS`) of its start, else early or
   late (`practice.song.timing`) up to twice that (event start times from
-  `alongEventTime()`, plus `alongLag()`: the piano's 50 ms head start, the
-  speakers' `outputLatency` and `ALONG_LATENCY_MS` for the mic). Early and
-  late notes have the right pitch but don't score; they turn orange, with
-  "early" / "late" over them at the end (`renderSongLine()`'s `opts.marks`,
-  `alongTimingMarks()`, `drawSongMark()`). The mic hears the piano too
+  `alongEventTime()`: when `playSongEvents()` scheduled them, passed to
+  `show(i, at)` and `onCount(n, at)`, not when their timer fired; plus `alongLag(a)`, set as the count-in ends by
+  `alongStartLag()`, `a.lagFrom`: "clicks", how long the count-in's clicks
+  took to reach the mic (`alongClickRise()`: the first frame
+  `ALONG_CLICK_RISE` × louder than just before the click, extrapolated back
+  by the window's energy growth) plus `ALONG_PITCH_DELAY_MS`, if they agree
+  within `ALONG_CLICK_AGREE_MS`; else "check", the **timing check**'s
+  (`startTimingCheck()`, in Play it through's ⋯ menus, for headphones: 4
+  clicks, then a short note on each of 8, `practice.song.check`,
+  `timingCheckNote()`; `finishTimingCheck()` keeps the median click → note
+  delay if the middle half agree, device-wide in `pitchdetect-along-lag`,
+  `storedTimingCheck()`); else "guess": the piano's 50 ms head start, the
+  speakers' `outputLatency` and `ALONG_LATENCY_MS`. A result with most
+  notes late (or early) on a guess suggests the timing check. Early, late
+  and out-of-tune notes don't score; they turn orange with a word over them
+  at the end (`songOffMarks()`: "low" / "high" / "early" / "late",
+  `renderSongLine()`'s `opts.marks`, `drawSongMark()`; counted by
+  `songOffText()`). The mic hears the piano too
   (`echoCancellation` is off), so the count-in measures the speakers'
   level at the mic (`bleed`) and frames under `ALONG_BLEED_FACTOR` × that
   (at most `ALONG_GATE_MAX`) count as silence, and as a re-tongue.
@@ -446,10 +459,20 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   still starting up. It then follows along (`updateFollowListen()`, run
   from `updateSongListen()`): the sound is cut into notes (a new semitone,
   or the same pitch re-tongued: a loudness dip below `SONG_RETONGUE_DIP`
-  then a rise), each counting after `FOLLOW_NOTE_MS`; `followNote()`
+  then a rise), each counting after `FOLLOW_NOTE_MS`. A note is its frames'
+  average pitch (fractional semitones; frames within `FOLLOW_SAME_NOTE` of
+  it are the same note), so one out of tune isn't lost: `heardAs(played,
+  midi)` makes it right (within `PRACTICE_PASS_CENTS` + 15), octave, low /
+  high (within `HEARD_CLOSE_CENTS`: orange, not scored) or wrong, for both
+  Play it through and Play along. `followNote()`
   re-aligns everything heard with the song by edit distance
-  (`alignFollow()`: right / octave / wrong / missed, extra notes free, a
-  skip in a run of repeats marked on the last). Right notes turn green as
+  (`alignFollow()`, costs `HEARD_COST`: right / octave / low / high / wrong /
+  missed, extra notes free, a skip in a run of repeats marked on the last;
+  `played` keeps the pitch heard for each song note, `practice.song.played`).
+  After a run, a tapped note says what was heard for it under its name
+  (`songHeardText()`: "You played E♭", "A bit low", "Not heard", "a bit
+  late"), and a wrong or octave note gets a gray ghost of what was played
+  beside it (`songTappedGhost()`, `renderSongLine()`'s `opts.ghostAt`). Right notes turn green as
   they're played; `finishFollow()` (last note right, **Stop and score**, or
   `FOLLOW_END_SILENCE_MS` quiet; stopped partway, unreached notes stay
   black) turns the mic off and marks mistakes red with a score and stars
@@ -954,8 +977,10 @@ measures a line on a desktop; in a fresh browser a song link shows no
 instrument until the student picks theirs; a
 song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops; a song listens only after Listen to me,
-and a tapped note shows its fingering; Play along scores
-notes in time over the piano, marks a late note late, and opens the next speed; a long
+and a tapped note shows its fingering; Play it through marks a note
+played flat "low" and a tapped wrong note shows what was played; Play along scores
+notes in time over the piano, marks a late note late, measures the
+delay from its count-in's clicks (or the timing check's), and opens the next speed; a long
 song scrolls the next line into view before it's reached. Add a
 check there when adding something a broken change would silently lose.
 
