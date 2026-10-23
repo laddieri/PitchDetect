@@ -391,8 +391,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   top right on Play it through and Pick a part (`#practice-steps` there takes
   no height), beside the whole song button in note by note, opening a panel
   (`songPopover()`, shared with the ⋯ menu; kept on screen) with Play along's
-  speeds (Play it through only) and "Sharps and flats": in the key signature
-  or on each note; no gear when there's nothing to set.
+  speeds (Play it through only), **Piano** on/off (`songPiano`, persisted
+  device-wide as `pitchdetect-song-piano`, on by default), **Metronome**
+  on/off (`songClick`, `pitchdetect-song-click`, off by default) and
+  "Sharps and flats": in the key signature or on each note (only for a key
+  with sharps or flats). The rows come from `songSettingsChoices()`;
+  `updateSongSettings()` refreshes them. Hear the song, Play along and the
+  editor's Hear it play `songBacking(song, events)`: the piano part if on,
+  plus `songClicks()` if on (a click per beat, a dotted quarter in 6/8, higher
+  on the downbeat, a short first measure counted back as a pickup), so the
+  settings take effect the next time a song plays.
   It's scored in time (`practice.song.along`, `alongNote()`): the follow
   mic's notes each count for a song note they fall on, from
   `ALONG_EARLY_MS` before it to `ALONG_LATE_MS` after it ends (event start

@@ -4428,6 +4428,17 @@ var SONG_KEY_SIG_STORAGE_KEY = "pitchdetect-song-key-signature";
 var songKeySignatures = false;
 try { songKeySignatures = localStorage.getItem(SONG_KEY_SIG_STORAGE_KEY) === "1"; } catch (e) {}
 
+// What plays with Hear the song and Play along: the piano part (on by
+// default) and a metronome click on each beat (off by default); remembered
+// per browser
+var SONG_PIANO_STORAGE_KEY = "pitchdetect-song-piano";
+var SONG_CLICK_STORAGE_KEY = "pitchdetect-song-click";
+var songPiano = true, songClick = false;
+try {
+	songPiano = localStorage.getItem(SONG_PIANO_STORAGE_KEY) !== "0";
+	songClick = localStorage.getItem(SONG_CLICK_STORAGE_KEY) === "1";
+} catch (e) {}
+
 // A song's written key (VexFlow key name): a custom song's own; a built-in
 // song's from its tonic as the song spells it (degree 1, the song's tonic,
 // or the concert B♭ of a song with steps). "C" if that isn't a key with a
@@ -4459,12 +4470,11 @@ var SETTINGS_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" 
 
 // The song's settings, behind a gear (above Play it through and Pick a
 // part, beside the whole song button in note by note): Play along's speed
-// (speed: Play it through) and key signature or accidentals, the latter
-// only for a song whose key has sharps or flats, where it changes something.
-// Nothing at all when there's nothing to set.
+// (speed: Play it through), the piano and the metronome, and key signature
+// or accidentals, the last only for a song whose key has sharps or flats,
+// where it changes something
 function songSettingsButton(song, speed) {
 	var key = songKey(song) !== "C";
-	if (!speed && !key) return document.createDocumentFragment();
 	var button = document.createElement("button");
 	button.className = "editor-tool song-settings-toggle";
 	button.innerHTML = SETTINGS_SVG;
@@ -4478,22 +4488,17 @@ function songSettingsButton(song, speed) {
 		panel.appendChild(songSettingsTitle("Play along speed"));
 		panel.appendChild(alongSpeedPicker());
 	}
+	panel.appendChild(songSettingsTitle("Piano"));
+	panel.appendChild(songSettingsChoices("song-piano-picker", "Piano",
+		[[true, "On"], [false, "Off"]], function() { return songPiano; }, setSongPiano));
+	panel.appendChild(songSettingsTitle("Metronome"));
+	panel.appendChild(songSettingsChoices("song-click-picker", "Metronome",
+		[[true, "On"], [false, "Off"]], function() { return songClick; }, setSongClick));
 	if (key) {
 		panel.appendChild(songSettingsTitle("Sharps and flats"));
-		var row = document.createElement("div");
-		row.className = "speed-picker song-key-picker";
-		row.setAttribute("role", "group");
-		row.setAttribute("aria-label", "Sharps and flats");
-		[[true, "In the key signature"], [false, "On each note"]].forEach(function(choice) {
-			var b = document.createElement("button");
-			b.className = "speed-choice song-key-choice";
-			b.textContent = choice[1];
-			b.setAttribute("data-on", choice[0] ? "1" : "0");
-			b.onclick = function() { setSongKeySignatures(choice[0]); };
-			row.appendChild(b);
-		});
-		panel.appendChild(row);
-		updateSongKeyChoices(row);
+		panel.appendChild(songSettingsChoices("song-key-picker", "Sharps and flats",
+			[[true, "In the key signature"], [false, "On each note"]],
+			function() { return songKeySignatures; }, setSongKeySignatures));
 	}
 	return songPopover("song-settings", button, panel).wrap;
 }
@@ -4505,16 +4510,53 @@ function songSettingsTitle(text) {
 	return t;
 }
 
-function updateSongKeyChoices(row) {
-	row.querySelectorAll(".song-key-choice").forEach(function(b) {
-		b.setAttribute("aria-pressed", (b.getAttribute("data-on") === "1") === songKeySignatures ? "true" : "false");
+// A row of on/off choices in the song's settings: choices [[value, text]],
+// value() the setting now, set(value) changes it. Every row shows the
+// setting's current value (updateSongSettings()).
+function songSettingsChoices(className, label, choices, value, set) {
+	var row = document.createElement("div");
+	row.className = "speed-picker song-setting-picker " + className;
+	row.setAttribute("role", "group");
+	row.setAttribute("aria-label", label);
+	choices.forEach(function(choice) {
+		var b = document.createElement("button");
+		b.className = "speed-choice song-setting-choice";
+		b.textContent = choice[1];
+		b.onclick = function() { set(choice[0]); };
+		row.appendChild(b);
 	});
+	row.update = function() {
+		row.querySelectorAll(".song-setting-choice").forEach(function(b, i) {
+			b.setAttribute("aria-pressed", choices[i][0] === value() ? "true" : "false");
+		});
+	};
+	row.update();
+	return row;
+}
+
+function updateSongSettings() {
+	document.querySelectorAll(".song-setting-picker").forEach(function(row) {
+		if (row.update) row.update();
+	});
+}
+
+// The piano and metronome change what plays next time
+function setSongPiano(on) {
+	songPiano = on;
+	try { localStorage.setItem(SONG_PIANO_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
+	updateSongSettings();
+}
+
+function setSongClick(on) {
+	songClick = on;
+	try { localStorage.setItem(SONG_CLICK_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
+	updateSongSettings();
 }
 
 function setSongKeySignatures(on) {
 	songKeySignatures = on;
 	try { localStorage.setItem(SONG_KEY_SIG_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
-	document.querySelectorAll(".song-key-picker").forEach(updateSongKeyChoices);
+	updateSongSettings();
 	if (practice.mode === "song") drawSongLine(practice.song.pos);
 }
 
@@ -4907,7 +4949,7 @@ function toggleSongView() {
 // Play a song's events (notes and rests) from the start at SONG_TEMPO with
 // the instrument's sound, calling show(i) as each begins. The mic ignores it
 // while it plays; stopSongPlayback() ends it. opts (optional): tempo; piano,
-// a piano part to play along (songAccompaniment()); silent, no tune (Play
+// a piano part and metronome to play along (songBacking()); silent, no tune (Play
 // along); countIn, pulses (opts.pulse beats each) to count first, calling
 // onCount(n) on each; onEnd, called once the last event has played (not
 // when stopped).
@@ -4989,7 +5031,7 @@ function playSong() {
 		if (practice.song.pick) drawSongPicker(start + i);
 		else drawSongEvent(start + i);
 		showFingering(i);
-	}, { piano: songAccompaniment(practice.song.song, events) });
+	}, { piano: songBacking(practice.song.song, events) });
 }
 
 // Play along: just the piano, at the speed picked (songSpeed) and after a
@@ -5039,7 +5081,7 @@ function countInAlong(s, a, pulse, pulses) {
 		drawSongEvent(i);
 		showFingering(i);
 	}, {
-		tempo: a.speed.tempo, piano: songAccompaniment(s.song, s.events), silent: true,
+		tempo: a.speed.tempo, piano: songBacking(s.song, s.events), silent: true,
 		// Short measures count two
 		countIn: pulses < 3 ? pulses * 2 : pulses, pulse: pulse,
 		onCount: function(n) { setPracticeFeedback(String((n - 1) % pulses + 1), "Get ready\u2026"); },
@@ -5275,7 +5317,7 @@ var ACCOMP_CHORDS = [  // semitones above the tonic; bias: how readily it's pick
 ];
 var ACCOMP_CHORD_GAIN = 0.05;   // per chord note; the tune plays at ~0.2
 var ACCOMP_BASS_GAIN = 0.09;
-var ACCOMP_CLICK_GAIN = 0.06;   // Play along's count-in
+var ACCOMP_CLICK_GAIN = 0.06;   // Play along's count-in and the metronome
 var ACCOMP_RING_MS = 1500;      // the last chord's ring after the tune ends
 // Play along's speeds (quarter notes per minute; Walk is the old one).
 // Turtle and Walk are always open; each faster one opens on a song once the
@@ -5403,6 +5445,43 @@ function songAccompaniment(song, events) {
 		for (var beat = a; beat < end - 1e-6; beat += pulse) {
 			if (beat === a && !bassless) hits.push({ beat: beat, midis: [bass], len: pulse * 1.5, gain: ACCOMP_BASS_GAIN });
 			else hits.push({ beat: beat, midis: chord, len: pulse * 0.75, gain: ACCOMP_CHORD_GAIN });
+		}
+	});
+	return hits;
+}
+
+// What plays under a song's events (all of them, or a part's): the piano
+// part if it's on (songPiano), and the metronome if it's on (songClick),
+// as hits like songAccompaniment()'s, in order
+function songBacking(song, events) {
+	var hits = songPiano ? songAccompaniment(song, events) : [];
+	if (songClick) {
+		hits = hits.concat(songClicks(song, events)).sort(function(a, b) { return a.beat - b.beat; });
+	}
+	return hits;
+}
+
+// The metronome for a song's events: a click on each beat (a dotted
+// quarter in 6/8), higher on each measure's first. A short first measure
+// is a pickup, counted back from its bar line.
+function songClicks(song, events) {
+	var time = song.time || "4/4";
+	var measure = measureBeats(time);
+	var pulse = time.split("/")[1] === "8" ? 1.5 : 1;
+	// Each measure's start and end, in beats from the first event
+	var bars = [], beat = 0;
+	events.forEach(function(e) {
+		var last = bars[bars.length - 1];
+		if (!last || last.measure !== e.measure) bars.push(last = { measure: e.measure, start: beat });
+		beat += eventBeats(e);
+		last.end = beat;
+	});
+	var hits = [];
+	bars.forEach(function(bar, k) {
+		var first = k === 0 && bar.end - bar.start < measure - 1e-6 ? bar.end - measure : bar.start;
+		for (var t = first; t < bar.end - 1e-6; t += pulse) {
+			if (t < bar.start - 1e-6) continue;
+			hits.push({ beat: t, midis: [t === first ? 96 : 91], len: 0.2, gain: ACCOMP_CLICK_GAIN });
 		}
 	});
 	return hits;
@@ -6003,7 +6082,7 @@ function openSongEditor(id, set) {
 		} else {
 			hear.textContent = "\u25a0 Stop";
 			playSongEvents(practice.editor.events, function(i) { drawEditor(i); },
-				{ piano: songAccompaniment(practice.editor.song, practice.editor.events) });
+				{ piano: songBacking(practice.editor.song, practice.editor.events) });
 		}
 	});
 	hear.id = "editor-hear";
