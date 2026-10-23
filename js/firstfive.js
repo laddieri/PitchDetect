@@ -5064,7 +5064,8 @@ function playSongEvents(events, show, opts) {
 		var beats = eventBeats(e);
 		var ms = beats * beatMs;
 		practice.ignoreUntil = performance.now() + ms + 600;
-		show(i);
+		// (with when it's meant to start, which a late timer is past)
+		show(i, startMs + elapsed * beatMs);
 		// End each note just before the next (a tongued gap, which also
 		// keeps repeated notes distinct) so nothing is cut off mid-sound.
 		// (a tied note sounds on from the one before; a note slurred into
@@ -5093,7 +5094,7 @@ function playSongEvents(events, show, opts) {
 		var ms = opts.pulse * beatMs;
 		practice.ignoreUntil = performance.now() + ms + 600;
 		count++;
-		opts.onCount(count);
+		opts.onCount(count, startMs + elapsed * beatMs);
 		playPianoHit({ click: true, accent: count === 1, len: 0.2, gain: ACCOMP_CLICK_GAIN }, hitOffset(0), beatMs / 1000);
 		wait(opts.pulse, countIn);
 	}
@@ -5173,20 +5174,21 @@ function playAlong() {
 // following the tune
 function countInAlong(s, a, pulse, pulses) {
 	var showFingering = showSongFingerings(s.events);
-	playSongEvents(s.events, function(i) {
+	playSongEvents(s.events, function(i, at) {
 		if (i === 0) {
 			setPracticeFeedback("Play!", "Play along with the piano");
 			alongStartLag(a);
 		}
-		a.times[i] = performance.now();
+		a.times[i] = at;
 		drawSongEvent(i);
 		showFingering(i);
 	}, {
 		tempo: a.speed.tempo, piano: songBacking(s.song, s.events), silent: true,
 		// Short measures count two
 		countIn: pulses < 3 ? pulses * 2 : pulses, pulse: pulse,
-		onCount: function(n) {
-			a.clicks.push(performance.now());
+		onCount: function(n, at) {
+			// (a timer later than the piano's 50 ms head start delays the click)
+			a.clicks.push(Math.max(at, performance.now() - 50));
 			setPracticeFeedback(String((n - 1) % pulses + 1), "Get ready\u2026");
 		},
 		// The last note may still be sounding: listen a moment longer
@@ -5282,20 +5284,29 @@ function alongNote(pitch, onset) {
 	if (!a.ended) drawSongEvent(a.times.length - 1);
 }
 
-// The count-in's clicks: how long each takes to reach the mic. Before the
-// click can sound (it plays 50 ms late) the mic's level is the quiet; the
-// first frame clearly louder is the click heard. Energy in the analysis
+// The count-in's clicks: how long each takes to reach the mic. The last
+// frame before the click can sound (it plays 50 ms late) gives the quiet;
+// the first frame clearly louder is the click heard. Energy in the analysis
 // window grows in step with the time since the sound arrived, so the next
 // frame's level, extrapolated back, says when it did.
 function alongClickRise(a, now, level) {
 	var k = a.clicks.length - 1;
-	var prev = a.lastFrame;
+	var prev = a.lastFrame, prevLevel = a.lastLevel;
 	a.lastFrame = now;
+	a.lastLevel = level;
 	if (k < 0 || a.rise[k] !== undefined) return;
 	var since = now - a.clicks[k];
-	if (a.quiet[k] === undefined) {
-		if (since < 40) a.quiet[k] = level; else a.rise[k] = null;
+	if (since < 50) {
+		a.quiet[k] = level;
 		return;
+	}
+	if (a.quiet[k] === undefined) {
+		// (a frame from well before the click is no use)
+		if (prev === undefined || prev - a.clicks[k] >= 50 || a.clicks[k] - prev > 100) {
+			a.rise[k] = null;
+			return;
+		}
+		a.quiet[k] = prevLevel;
 	}
 	var q = a.quiet[k], up = a.up;
 	if (up && up.k === k) {
@@ -5369,6 +5380,8 @@ function startTimingCheck() {
 		n++;
 		var play = n > TIMING_CHECK_COUNT_IN;
 		if (play) c.clicks.push(performance.now());
+		// High piano notes, not the metronome's woodblock: their pitch is
+		// above TIMING_CHECK_IGNORE_MIDI, so the mic can't take them for notes
 		setPracticeFeedback(play ? "Play!" : String(n), play ? "One short note on each click" : "Listen to the clicks…");
 		playPianoHit({ midis: [(n - 1) % 4 === 0 ? 96 : 91], len: 0.2, gain: ACCOMP_CLICK_GAIN }, 0, beatMs / 1000);
 		songPlayTimer = setTimeout(tick, beatMs);

@@ -410,7 +410,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   whose window holds them: on time within `alongTolerance()` (a sixteenth
   of the beat, at least `ALONG_ON_TIME_MIN_MS`) of its start, else early or
   late (`practice.song.timing`) up to twice that (event start times from
-  `alongEventTime()`, plus `alongLag(a)`, set as the count-in ends by
+  `alongEventTime()`: when `playSongEvents()` scheduled them, passed to
+  `show(i, at)` and `onCount(n, at)`, not when their timer fired; plus `alongLag(a)`, set as the count-in ends by
   `alongStartLag()`, `a.lagFrom`: "clicks", how long the count-in's clicks
   took to reach the mic (`alongClickRise()`: the first frame
   `ALONG_CLICK_RISE` × louder than just before the click, extrapolated back
