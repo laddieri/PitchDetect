@@ -219,7 +219,9 @@ async function run() {
 			return songAccompaniment(practice.song.song, practice.song.events).filter(function(h) { return h.midis.length > 2; }).length;
 		});
 		check(chords > 0, "a song has piano chords");
-		await page.click("#song-along");
+		// Play it starts Play along at a speed picked in the settings
+		await page.evaluate(function() { songSpeed = "walk"; updateSpeedPicker(); });
+		await page.click("#song-listen");
 		// (once the mic is on: the count-in measures the piano at the mic)
 		var counted = await page.waitForFunction(function() {
 			return /^\d$/.test(document.getElementById("practice-feedback").textContent) && listenActive
@@ -227,7 +229,7 @@ async function run() {
 		}).then(function(h) { return h.jsonValue(); });
 		await page.waitForTimeout(3200);
 		var along = await page.evaluate(function() {
-			return { piano: accompNodes.length, label: document.getElementById("song-along").textContent };
+			return { piano: accompNodes.length, label: document.getElementById("song-listen").textContent };
 		});
 		check(counted === "1" && along.piano > 0 && /Stop/.test(along.label), "Play along counts in and plays the piano");
 		// On a desktop the chart goes beside the music, not under it
@@ -237,21 +239,26 @@ async function run() {
 			return { beside: chart.left >= staff.right, h: Math.round(staff.height) };
 		});
 		check(side.beside && side.h >= 300, "on a desktop the song's chart goes beside the staff (staff " + side.h + "px tall)");
-		await page.click("#song-along");
+		await page.click("#song-listen");
 		check(await page.evaluate(function() { return songPlayTimer === null && accompNodes.length === 0; }), "Play along stops");
 
 		// A song doesn't listen until asked; a tapped note shows its fingering
 		var quiet = await page.evaluate(function() {
+			songSpeed = "mine";
 			playThroughSong("mary");
 			return listenActive;
 		});
+		var buttons = await page.evaluate(function() {
+			return Array.prototype.map.call(document.querySelectorAll("#practice-body .practice-actions > *"), function(b) { return b.id; }).join();
+		});
+		check(buttons === "song-hear,song-listen", "Play it through has just Hear it and Play it (got " + buttons + ")");
 		await page.click("#song-listen");
 		await page.waitForFunction(function() { return listenActive; }, null, { timeout: 5000 }).catch(function() {});
 		var listening = await page.evaluate(function() {
 			return { on: listenActive, label: document.getElementById("song-listen").textContent };
 		});
 		check(!quiet && listening.on && /Stop and score/.test(listening.label),
-			"a song listens only after Listen to me");
+			"a song listens only after Play it");
 		await page.click("#song-listen");
 		function noteSpot() {
 			var s = practice.song, i = s.notes[2].event;
@@ -276,6 +283,55 @@ async function run() {
 		await page.mouse.click(spot.x, spot.y);
 		check(await page.evaluate(function() { return !document.getElementById("song-fingering") && practice.song.tapped === null; }),
 			"tapping the note again puts its fingering away");
+		// Before a run, a tapped note is where Hear it and Play it start
+		await page.evaluate(function() { playThroughSong("mary"); });
+		spot = await page.evaluate(noteSpot);
+		await page.mouse.click(spot.x, spot.y);
+		var fromNote = await page.evaluate(async function() {
+			var real = playSongEvents, first = null;
+			playSongEvents = function(events) { first = events[0]; };
+			document.getElementById("song-hear").click();
+			playSongEvents = real;
+			var s = practice.song, heard = first === s.events[s.notes[2].event];
+			startFollow();
+			var r = { heard: heard, runFrom: s.runFrom, start: songStartNote(s) };
+			finishFollow();
+			return r;
+		});
+		check(fromNote.heard && fromNote.start === 2 && fromNote.runFrom === 2,
+			"Hear it and Play it start from a tapped note (got " + JSON.stringify(fromNote) + ")");
+		await page.evaluate(function() { closeLevelUp(); });
+		// Sliding across measures picks a part; Play it practices it note by note
+		await page.evaluate(function() { playThroughSong("mary"); });
+		var slide = await page.evaluate(function() {
+			var r = practice.song.layouts[Object.keys(practice.song.layouts)[0]];
+			function at(m) {
+				var pt = r.svg.createSVGPoint();
+				pt.x = (r.measureX[m][0] + r.measureX[m][1]) / 2;
+				pt.y = r.stave.getYForLine(2);
+				return pt.matrixTransform(r.svg.getScreenCTM());
+			}
+			var a = at(0), b = at(1);
+			return { ax: a.x, ay: a.y, bx: b.x, by: b.y };
+		});
+		await page.mouse.move(slide.ax, slide.ay);
+		await page.mouse.down();
+		await page.mouse.move(slide.ax + 30, slide.ay, { steps: 3 });
+		await page.mouse.move(slide.bx, slide.by, { steps: 5 });
+		await page.mouse.up();
+		var picked = await page.evaluate(function() {
+			var p = practice.song.part;
+			return { part: p ? p.a + "-" + p.b : null, label: document.getElementById("song-listen").textContent,
+				shaded: document.querySelectorAll("#practice-staff-output .song-pick-shade").length };
+		});
+		await page.click("#song-listen");
+		var practicing = await page.evaluate(function() {
+			var s = practice.song;
+			return { free: !!s.free, from: s.from || 0, to: s.to, measures: s.to !== undefined ? s.notes[s.to - 1].measure : null };
+		});
+		check(picked.part === "0-1" && picked.shaded === 2 && /Practice it/.test(picked.label) &&
+			!practicing.free && practicing.from === 0 && practicing.measures === 1,
+			"sliding across measures picks a part, and Play it practices it note by note (got " + JSON.stringify(picked) + ", " + JSON.stringify(practicing) + ")");
 		// Note by note and Pick a part wait behind Play it through's \u22ef menu
 		await page.evaluate(function() { playThroughSong("mary"); });
 		// Play along's speeds wait behind the song's settings gear
@@ -329,10 +385,10 @@ async function run() {
 		check(together.n >= 3 && together.worst <= 2,
 			"Hear the song's notes sound with the metronome's clicks (" + together.n + " beats, " + together.worst + " ms apart at most)");
 		await page.keyboard.press("Escape");
-		await page.click(".song-more-button");
-		await page.click(".song-more-menu >> text=Note by note");
+		await page.click(".song-settings-toggle");
+		await page.click(".song-settings-more >> text=Note by note");
 		check(await page.evaluate(function() { return practice.mode === "song" && !practice.song.free; }),
-			"Play it through's \u22ef menu opens note by note");
+			"Play it through's settings open note by note");
 
 		// Play along scores each note in time, over the piano: a note no
 		// louder than the piano doesn't count, one played late is marked
@@ -397,7 +453,7 @@ async function run() {
 		});
 		await page.waitForFunction(function() { return practice.song.done; }, null, { timeout: 15000 });
 		var passed = await page.evaluate(function() {
-			var bunny = document.querySelectorAll("#practice-steps .speed-choice")[2];
+			var bunny = document.querySelectorAll("#practice-steps .speed-along")[2];
 			return { text: document.getElementById("practice-feedback").textContent, bunnyOpen: !bunny.disabled,
 				best: practice.songSpeedBest.auclair, total: practice.song.notes.length };
 		});
