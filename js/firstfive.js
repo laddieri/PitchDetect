@@ -4959,6 +4959,26 @@ function playSongEvents(events, show, opts) {
 	var piano = opts.piano || [];
 	var i = 0, beat = 0, h = 0, count = 0;
 	if (piano.length || opts.countIn) startAccompaniment();
+	// Everything is timed from the start, not from the last timer, which
+	// can fire late: a late timer then shortens the wait for the next. The
+	// piano and metronome go on the audio clock, at the start's audio time
+	// (audioStart, read once the audio is running) plus their beat, so they
+	// keep steady time whenever their note's timer fires.
+	var startMs = performance.now(), elapsed = 0, audioStart = null;
+	function wait(beats, fn) {
+		elapsed += beats;
+		songPlayTimer = setTimeout(fn, Math.max(0, startMs + elapsed * beatMs - performance.now()));
+	}
+	// Seconds from now until a hit at beats past the start (elapsed so far
+	// plus ahead), as playPianoHit() takes it
+	function hitOffset(ahead) {
+		var at = (elapsed + ahead) * beatMs / 1000;
+		if (audioStart === null && audioContext && audioContext.state === "running") {
+			audioStart = audioContext.currentTime - (performance.now() - startMs) / 1000;
+		}
+		if (audioStart === null) return at - (performance.now() - startMs) / 1000;
+		return audioStart + at - audioContext.currentTime;
+	}
 	function next() {
 		if (i >= events.length) {
 			// The last chord rings on; the mic waits it out
@@ -4988,11 +5008,11 @@ function playSongEvents(events, show, opts) {
 		}
 		// The piano's chords during this note, timed on the audio clock
 		for (; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
-			playPianoHit(piano[h], (piano[h].beat - beat) * beatMs / 1000, beatMs / 1000);
+			playPianoHit(piano[h], hitOffset(piano[h].beat - beat), beatMs / 1000);
 		}
 		beat += beats;
 		i++;
-		songPlayTimer = setTimeout(next, ms);
+		wait(beats, next);
 	}
 	function countIn() {
 		if (count >= opts.countIn) {
@@ -5003,8 +5023,8 @@ function playSongEvents(events, show, opts) {
 		practice.ignoreUntil = performance.now() + ms + 600;
 		count++;
 		opts.onCount(count);
-		playPianoHit({ midis: [count === 1 ? 96 : 91], len: 0.2, gain: ACCOMP_CLICK_GAIN }, 0, beatMs / 1000);
-		songPlayTimer = setTimeout(countIn, ms);
+		playPianoHit({ click: true, accent: count === 1, len: 0.2, gain: ACCOMP_CLICK_GAIN }, hitOffset(0), beatMs / 1000);
+		wait(opts.pulse, countIn);
 	}
 	if (opts.countIn) countIn(); else next();
 }
@@ -5317,7 +5337,7 @@ var ACCOMP_CHORDS = [  // semitones above the tonic; bias: how readily it's pick
 ];
 var ACCOMP_CHORD_GAIN = 0.05;   // per chord note; the tune plays at ~0.2
 var ACCOMP_BASS_GAIN = 0.09;
-var ACCOMP_CLICK_GAIN = 0.06;   // Play along's count-in and the metronome
+var ACCOMP_CLICK_GAIN = 0.12;   // Play along's count-in and the metronome
 var ACCOMP_RING_MS = 1500;      // the last chord's ring after the tune ends
 // Play along's speeds (quarter notes per minute; Walk is the old one).
 // Turtle and Walk are always open; each faster one opens on a song once the
@@ -5481,7 +5501,7 @@ function songClicks(song, events) {
 		var first = k === 0 && bar.end - bar.start < measure - 1e-6 ? bar.end - measure : bar.start;
 		for (var t = first; t < bar.end - 1e-6; t += pulse) {
 			if (t < bar.start - 1e-6) continue;
-			hits.push({ beat: t, midis: [t === first ? 96 : 91], len: 0.2, gain: ACCOMP_CLICK_GAIN });
+			hits.push({ beat: t, click: true, accent: t === first, len: 0.2, gain: ACCOMP_CLICK_GAIN });
 		}
 	});
 	return hits;
@@ -5501,11 +5521,16 @@ function startAccompaniment() {
 	}
 }
 
-// One piano hit, offset seconds from now; beatSec sets its length
+// One piano hit (or a metronome click, hit.click), offset seconds from now
+// (from a moment ago if negative); beatSec sets its length
 function playPianoHit(hit, offset, beatSec) {
 	if (!audioContext || audioContext.state === "closed") return;
 	try {
-		var t = audioContext.currentTime + 0.05 + offset;
+		var t = audioContext.currentTime + Math.max(0, 0.05 + offset);
+		if (hit.click) {
+			playClick(hit, t);
+			return;
+		}
 		var duration = Math.min(ACCOMP_TIMBRE.duration, hit.len * beatSec + 0.3);
 		var timbre = Object.assign({}, ACCOMP_TIMBRE, { duration: duration });
 		var gain = audioContext.createGain();
@@ -5521,6 +5546,27 @@ function playPianoHit(hit, offset, beatSec) {
 	} catch (e) {
 		// No audio available
 	}
+}
+
+// A metronome click at audio time t: a short wooden tock, higher on the
+// downbeat (hit.accent), dropping in pitch as it fades like a woodblock
+function playClick(hit, t) {
+	var freq = hit.accent ? 880 : 660;
+	var osc = audioContext.createOscillator();
+	var gain = audioContext.createGain();
+	osc.type = "triangle";
+	osc.frequency.setValueAtTime(freq * 1.25, t);
+	osc.frequency.exponentialRampToValueAtTime(freq, t + 0.02);
+	gain.gain.setValueAtTime(0.0001, t);
+	gain.gain.exponentialRampToValueAtTime(hit.gain * (hit.accent ? 1.2 : 1), t + 0.002);
+	gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.08);
+	osc.connect(gain);
+	gain.connect(audioContext.destination);
+	osc.start(t);
+	osc.stop(t + 0.1);
+	var now = audioContext.currentTime;
+	accompNodes = accompNodes.filter(function(n) { return n.end > now; });
+	accompNodes.push({ gain: gain, end: t + 0.1 });
 }
 
 // Fade out the piano (Hear the song or Play along stopped)
