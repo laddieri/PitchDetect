@@ -4374,14 +4374,18 @@ function drawSongLine(pos) {
 		var styles = getComputedStyle(document.body);
 		var good = styles.getPropertyValue("--success").trim() || "#16a34a";
 		var bad = styles.getPropertyValue("--danger").trim() || "#e11d48";
+		var off = styles.getPropertyValue("--warning").trim() || "#d97706";
 		var byEvent = {};
 		s.notes.forEach(function(n, i) { byEvent[n.event] = s.results[i]; });
+		var marks = alongTimingMarks(s);
 		var tapped = styles.getPropertyValue("--accent").trim() || "#4f46e5";
 		var at = Math.min(pos, s.notes.length - 1);
 		s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
-			s.done || pos === 0 ? -1 : songLineOf(at), s.measures, { end: true, whole: true, ahead: true },
+			s.done || pos === 0 ? -1 : songLineOf(at), s.measures,
+			{ end: true, whole: true, ahead: true, marks: s.done ? marks : null },
 			function(i) {
 				var r = byEvent[i];
+				if (marks[i]) return off;
 				return r === "right" || r === "octave" ? good : s.done && r ? bad : i === s.tapped ? tapped : null;
 			});
 		return;
@@ -4408,6 +4412,7 @@ function drawSongEvent(hl, arrow, ghost) {
 	// Play along: the notes played right green, not just the ones gone by
 	var byEvent = {};
 	if (s.along) s.notes.forEach(function(n, j) { byEvent[n.event] = s.results[j]; });
+	var marks = alongTimingMarks(s);
 	var tapped = styles.getPropertyValue("--warning").trim() || "#d97706";
 	s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
@@ -4416,6 +4421,7 @@ function drawSongEvent(hl, arrow, ghost) {
 			if (inPart && (i < inPart.start || i >= inPart.end)) return muted;
 			if (i === hl) return accent;
 			if (i === s.tapped) return tapped;
+			if (marks[i]) return tapped;  // early or late: the same orange
 			if (s.along) return byEvent[i] === "right" || byEvent[i] === "octave" ? done : null;
 			return i < hl ? done : null;
 		});
@@ -4597,7 +4603,9 @@ function measureBeats(time) {
 // printed; off, there's no key signature and every sharp and flat is
 // written on its note. Custom songs follow their time signature. opts.arrow: an event index to mark with an arrow
 // above it (the note the mic is listening for); opts.ghost: a written MIDI
-// note to show faintly beside that one (the wrong note being played). Returns { svg, stave, xs (event index → x), measureX
+// note to show faintly beside that one (the wrong note being played);
+// opts.marks: event index → a word to write above it (Play along's "early" /
+// "late"). Returns { svg, stave, xs (event index → x), measureX
 // (measure → [start, end] of its note area) }, in SVG units.
 function renderSongLine(out, song, events, line, measures, opts, color) {
 	out.innerHTML = "";
@@ -4630,6 +4638,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 	var x = 5 + (opts.left ? 0 : (perLine - count) * SONG_MEASURE_WIDTH / 2);
 	var result = { svg: null, stave: null, xs: {}, measureX: {} };
 	var arrowAt = null;
+	var marksAt = [];  // opts.marks: words over notes ("early", "late")
 	var drawn = {};  // event index → its StaveNote, for the ties
 	var restated = {};  // tied notes starting a line with their accidental
 	// Lines without the time signature share out its room, so every line of
@@ -4741,6 +4750,11 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 			tuplets.forEach(function(t) { t.setContext(context).draw(); });
 			tickables.forEach(function(t, k) {
 				result.xs[indexes[k]] = t.getAbsoluteX() + t.getGlyphWidth() / 2;
+				if (opts.marks && opts.marks[indexes[k]]) {
+					var mbox = t.getBoundingBox();
+					marksAt.push({ x: result.xs[indexes[k]], top: Math.min(mbox ? mbox.getY() : Infinity, stave.getYForLine(0)),
+						text: opts.marks[indexes[k]], color: color(indexes[k]) });
+				}
 				if (indexes[k] === opts.arrow) {
 					var box = t.getBoundingBox();
 					arrowAt = { x: result.xs[indexes[k]], top: Math.min(box ? box.getY() : Infinity, stave.getYForLine(0)), color: color(indexes[k]) };
@@ -4809,6 +4823,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 		svg.style.width = "100%";
 		svg.style.height = "100%";
 		if (arrowAt) drawSongArrow(svg, arrowAt, center - H / 2);
+		marksAt.forEach(function(at) { drawSongMark(svg, at, center - H / 2); });
 	}
 	result.svg = svg;
 	result.width = W;
@@ -4831,6 +4846,20 @@ function drawSongArrow(svg, at, viewTop) {
 	path.setAttribute("stroke-linejoin", "round");
 	g.appendChild(path);
 	svg.appendChild(g);
+}
+
+// A word just above a note (or the staff), kept inside the viewBox
+function drawSongMark(svg, at, viewTop) {
+	var text = document.createElementNS("http://www.w3.org/2000/svg", "text");
+	text.setAttribute("class", "song-mark");
+	text.setAttribute("x", at.x);
+	text.setAttribute("y", Math.max(at.top - 4, viewTop + 11));
+	text.setAttribute("text-anchor", "middle");
+	text.setAttribute("font-size", "11");
+	text.setAttribute("font-weight", "700");
+	text.setAttribute("fill", at.color || "currentColor");
+	text.textContent = at.text;
+	svg.appendChild(text);
 }
 
 // The whole song at once (every line stacked, scrolling) or one line at a
@@ -5047,6 +5076,7 @@ function playAlong() {
 	// times: when each event started; bleed: the count-in's loudest level
 	var a = s.along = { speed: speed, times: [], played: 0, bleed: 0, ended: false, done: false };
 	s.results = s.notes.map(function() { return null; });
+	s.timing = s.notes.map(function() { return null; });
 	songPlayAlong = true;
 	var along = document.getElementById("song-along");
 	if (along) along.textContent = "\u25a0 Stop";
@@ -5088,7 +5118,8 @@ function countInAlong(s, a, pulse, pulses) {
 		// The last note may still be sounding: listen a moment longer
 		onEnd: function() {
 			a.ended = true;
-			practiceAdvanceTimer = setTimeout(function() { finishAlong(false); }, ALONG_LATE_MS + 100);
+			var beatMs = 60000 / a.speed.tempo;
+			practiceAdvanceTimer = setTimeout(function() { finishAlong(false); }, 2 * alongTolerance(beatMs) + alongLag() + 100);
 		}
 	});
 }
@@ -5112,32 +5143,71 @@ function alongEventTime(s, ev, beatMs) {
 	return t;
 }
 
-// A note played during Play along, starting at onset: it counts for a
-// song note it falls on (from ALONG_EARLY_MS before the note starts to
-// ALONG_LATE_MS after it ends) that isn't played yet, right if any of those
-// is its pitch (or an octave off), else wrong on the first. Right notes
-// turn green as they go.
+// Play along's timing at a tempo: a note is on time within a sixteenth of
+// the beat (at least ALONG_ON_TIME_MIN_MS) of its start, and still counts,
+// as early or late, within twice that
+function alongTolerance(beatMs) {
+	return Math.max(ALONG_ON_TIME_MIN_MS, beatMs / 4);
+}
+
+// How long after an event is shown a note played right on it is heard:
+// the piano sounds 50 ms later (playPianoHit()), then the speakers' own
+// delay, then the mic's
+function alongLag() {
+	var out = 0;
+	try {
+		out = audioContext ? audioContext.outputLatency || audioContext.baseLatency || 0 : 0;
+	} catch (e) {}
+	return 50 + out * 1000 + ALONG_LATENCY_MS;
+}
+
+// A note played during Play along, starting at onset: of the song notes
+// not yet played whose window (alongTolerance() × 2 either side of their
+// start) holds it, it counts for the nearest of its pitch (or an octave
+// off): right, and early or late (s.timing) when off by more than the
+// tolerance. Else it's wrong on the nearest. Right notes turn green as they
+// go, early and late ones orange.
 function alongNote(pitch, onset) {
 	var s = practice.song, a = s.along;
 	var beatMs = 60000 / a.speed.tempo;
-	var wrong = -1;
+	var tol = alongTolerance(beatMs);
+	var lag = alongLag();
+	var match = -1, matchOff = 0, wrong = -1, wrongOff = Infinity;
 	a.played++;
 	for (var j = 0; j < s.notes.length; j++) {
 		var start = alongEventTime(s, s.notes[j].event, beatMs);
-		var len = tiedBeats(s.events, s.notes[j].event) * beatMs;
-		if (start === null || onset < start - Math.min(ALONG_EARLY_MS, len / 2)) break;
+		if (start === null) break;
+		var off = onset - start - lag;
+		if (off < -2 * tol) break;
 		var r = s.results[j];
-		if (onset > start + len + ALONG_LATE_MS || r === "right" || r === "octave") continue;
+		if (off > 2 * tol || r === "right" || r === "octave") continue;
 		var d = Math.abs(pitch - s.notes[j].midi);
 		if (d === 0 || d === 12) {
-			s.results[j] = d ? "octave" : "right";
-			wrong = -1;
-			break;
+			if (match < 0 || Math.abs(off) < Math.abs(matchOff)) {
+				match = j;
+				matchOff = off;
+			}
+		} else if (Math.abs(off) < wrongOff) {
+			wrong = j;
+			wrongOff = Math.abs(off);
 		}
-		if (wrong < 0) wrong = j;
 	}
-	if (wrong >= 0) s.results[wrong] = "wrong";
+	if (match >= 0) {
+		s.results[match] = pitch === s.notes[match].midi ? "right" : "octave";
+		s.timing[match] = matchOff < -tol ? "early" : matchOff > tol ? "late" : null;
+	} else if (wrong >= 0) {
+		s.results[wrong] = "wrong";
+	}
 	if (!a.ended) drawSongEvent(a.times.length - 1);
+}
+
+// Play along's early and late notes, by event (for renderSongLine()'s marks)
+function alongTimingMarks(s) {
+	var marks = {};
+	if (s.along && s.timing) s.notes.forEach(function(n, j) {
+		if (s.timing[j]) marks[n.event] = s.timing[j];
+	});
+	return marks;
 }
 
 // The end of Play along: the song in green and red, a score at that speed
@@ -5151,9 +5221,10 @@ function finishAlong(partway) {
 	clearTimeout(practiceAdvanceTimer);
 	stopSongPlayback();
 	var now = performance.now(), beatMs = 60000 / a.speed.tempo;
+	var late = 2 * alongTolerance(beatMs) + alongLag();
 	s.notes.forEach(function(n, j) {
 		var start = alongEventTime(s, n.event, beatMs);
-		var gone = start !== null && start + tiedBeats(s.events, n.event) * beatMs + ALONG_LATE_MS < now;
+		var gone = start !== null && start + late < now;
 		if (!s.results[j] && (!partway || gone)) s.results[j] = "missed";
 	});
 	var total = s.notes.length;
@@ -5165,8 +5236,12 @@ function finishAlong(partway) {
 	practiceStartedMic = false;
 
 	var speed = a.speed, k = ALONG_SPEEDS.indexOf(speed), next = ALONG_SPEEDS[k + 1];
-	var right = s.results.filter(function(r) { return r === "right" || r === "octave"; }).length;
+	// Early and late notes have the right pitch but don't score
+	var early = s.timing.filter(function(t) { return t === "early"; }).length;
+	var lateNotes = s.timing.filter(function(t) { return t === "late"; }).length;
+	var right = s.results.filter(function(r, j) { return (r === "right" || r === "octave") && !s.timing[j]; }).length;
 	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
+	var timingText = [early ? early + " early" : "", lateNotes ? lateNotes + " late" : ""].filter(Boolean).join(", ");
 	var stars = challengeStars(right, total);
 	var scored = !partway && a.played > 0;
 	var key = songBestKey(s.song);
@@ -5193,7 +5268,9 @@ function finishAlong(partway) {
 			speed.icon + " " + (right === total ? "Perfect! " : right + " of " + total + " notes right ") + starText(stars),
 			partway ? "You stopped partway through"
 				: nextOpen && !wasOpen ? "You unlocked " + next.icon + " " + next.name + " speed!"
+				: firstMiss >= 0 && timingText ? "Red: missed or wrong \u00b7 orange: " + timingText
 				: firstMiss >= 0 ? "The red notes were missed or wrong"
+				: timingText ? "Right notes, but " + timingText + " (orange)"
 				: !next ? "Top speed!" : "\u00a0",
 			right === total ? "good" : "close");
 	}
@@ -5329,8 +5406,8 @@ var ALONG_SPEEDS = [
 	{ id: "rocket", name: "Rocket", icon: "\ud83d\ude80", tempo: 120, xp: 10 }
 ];
 var ALONG_PASS_STARS = 2;
-var ALONG_EARLY_MS = 200;      // a note played this early (at most half its length)...
-var ALONG_LATE_MS = 200;       // ...or this late past its end (speakers lag) still counts
+var ALONG_ON_TIME_MIN_MS = 100;  // on time: within a sixteenth of the beat, never tighter than this
+var ALONG_LATENCY_MS = 60;     // a note reaches the pitch detector about this long after it starts
 var ALONG_BLEED_FACTOR = 2.5;  // the piano's chords at the mic, against the count-in's click
 var ALONG_GATE_MAX = 0.04;     // never ask for a level (RMS) above this to beat the piano
 var SONG_SPEED_STORAGE_KEY = "pitchdetect-song-speeds";

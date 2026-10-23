@@ -307,14 +307,16 @@ async function run() {
 			"Play it through's \u22ef menu opens note by note");
 
 		// Play along scores each note in time, over the piano: a note no
-		// louder than the piano doesn't count, and passing a speed opens the
-		// next. The mic is replaced by frames playing each note as it comes
-		// (skip: a note played only as loud as the piano).
+		// louder than the piano doesn't count, one played late is marked
+		// late and doesn't score, and passing a speed opens the next. The mic
+		// is replaced by frames playing each note as it comes, heard after
+		// alongLag() (skip: a note played only as loud as the piano; late: a
+		// note started past its on-time window).
 		await page.evaluate(function() {
 			window.realPracticeListen = updatePracticeListen;
 			updatePracticeListen = function() {};
-			ALONG_SPEEDS[1].tempo = 240;  // quick, for the test
-			window.alongSim = { skip: -1 };
+			ALONG_SPEEDS[1].tempo = 120;  // a late note needs room in its beat
+			window.alongSim = { skip: -1, late: -1 };
 			window.alongSimTimer = setInterval(function() {
 				var s = practice.song, a = s && s.along;
 				if (!a || a.done) return;
@@ -326,25 +328,34 @@ async function run() {
 				var i = a.times.length - 1, e = s.events[i];
 				var j = s.notes.findIndex(function(n) { return n.event === i; });
 				var freq = e && e.midi !== null ? frequencyFromNoteNumber(e.midi - getTransposition()) : null;
-				// A short tongued gap at the start of each note (at least one
-				// frame, should the timer run late)
-				var level = !freq || a.ended || now - a.times[i] < 40 || alongSim.last !== i ? 0.001 : j === alongSim.skip ? 0.015 : 0.2;
+				// A tongued gap at the start of each note, as long as the
+				// app allows for the speakers and the mic (at least one frame,
+				// should the timer run late); a late note's is longer
+				var gap = alongLag() + (j === alongSim.late ? 1.5 * alongTolerance(60000 / a.speed.tempo) : 0);
+				var level = !freq || a.ended || now - a.times[i] < gap || alongSim.last !== i ? 0.001 : j === alongSim.skip ? 0.015 : 0.2;
 				alongSim.last = i;
 				updateFollowListen(now, freq, level);
 			}, 16);
 			playThroughSong("auclair");
 			songSpeed = "walk";
 			alongSim.skip = 2;
+			alongSim.late = 4;
 			playAlong();
 		});
-		await page.waitForFunction(function() { return practice.song.done; }, null, { timeout: 15000 });
+		await page.waitForFunction(function() { return practice.song.done; }, null, { timeout: 30000 });
 		var missed = await page.evaluate(function() {
-			return { results: practice.song.results.slice(), text: document.getElementById("practice-feedback").textContent };
+			var s = practice.song;
+			return { results: s.results.slice(), timing: s.timing.slice(), text: document.getElementById("practice-feedback").textContent,
+				marks: Array.prototype.map.call(document.querySelectorAll("#practice-staff-output .song-mark"), function(t) { return t.textContent; }) };
 		});
 		check(missed.results[2] === "missed" && missed.results.filter(function(r) { return r === "right"; }).length === missed.results.length - 1,
 			"Play along scores notes in time, and not one as quiet as the piano");
+		check(missed.timing[4] === "late" && missed.timing.filter(Boolean).length === 1 &&
+			missed.marks.join() === "late" && missed.text.indexOf(missed.results.length - 2 + " of ") >= 0,
+			"Play along marks a late note late, and it doesn't score (got " + missed.text + ")");
 		await page.evaluate(function() {
-			alongSim.skip = -1;
+			alongSim.skip = alongSim.late = -1;
+			ALONG_SPEEDS[1].tempo = 240;  // quick, for the test
 			startAlong("walk");
 		});
 		await page.waitForFunction(function() { return practice.song.done; }, null, { timeout: 15000 });
