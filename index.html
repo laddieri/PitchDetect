@@ -3566,8 +3566,7 @@
 			.practice-view[data-whole="1"][data-step="song"] .practice-staff,
 			.practice-view[data-whole="1"][data-step="song-editor"] .practice-staff,
 			.practice-view[data-editor-stack="1"][data-step="song-editor"] .practice-staff,
-			.practice-view[data-step="song-free"] .practice-staff,
-			.practice-view[data-step="song-pick"] .practice-staff {
+			.practice-view[data-step="song-free"] .practice-staff {
 				flex: 1 1 0;
 				height: auto;
 				min-height: 120px;
@@ -3575,8 +3574,7 @@
 
 			.practice-view[data-whole="1"] #practice-staff-output,
 			.practice-view[data-editor-stack="1"][data-step="song-editor"] #practice-staff-output,
-			.practice-view[data-step="song-free"] #practice-staff-output,
-			.practice-view[data-step="song-pick"] #practice-staff-output {
+			.practice-view[data-step="song-free"] #practice-staff-output {
 				position: relative;
 				overflow-y: auto;
 				overscroll-behavior: contain;
@@ -3607,9 +3605,10 @@
 				width: 100%;
 			}
 
-			/* Pick a part: tap the measures to practice */
-			.practice-view[data-step="song-pick"] #practice-staff-output {
-				cursor: pointer;
+			/* Play it through: a sideways slide across measures picks a part
+			   (songDragMove()), so only up and down scroll */
+			.practice-view[data-step="song-free"] #practice-staff-output {
+				touch-action: pan-y;
 			}
 
 			.song-line + .song-line {
@@ -3649,8 +3648,7 @@
 				color: var(--accent);
 			}
 
-			.practice-view[data-step="song-free"] .practice-steps,
-			.practice-view[data-step="song-pick"] .practice-steps {
+			.practice-view[data-step="song-free"] .practice-steps {
 				position: relative;
 				z-index: 6;
 				height: 0;
@@ -3658,8 +3656,7 @@
 				justify-content: flex-end;
 			}
 
-			.practice-view[data-step="song-free"] .practice-prompt,
-			.practice-view[data-step="song-pick"] .practice-prompt {
+			.practice-view[data-step="song-free"] .practice-prompt {
 				padding-inline: 44px;
 			}
 
@@ -3704,13 +3701,31 @@
 				font-size: 0.9rem;
 			}
 
+			/* My speed, apart from Play along's speeds after it */
+			.speed-choice.speed-mine {
+				margin-right: 4px;
+			}
+
+			/* Note by note and the timing check, under the settings */
+			.song-settings-more {
+				display: flex;
+				flex-wrap: wrap;
+				gap: 6px;
+			}
+
+			.song-settings-more .practice-btn {
+				padding: 6px 12px;
+				font-size: 0.9rem;
+				white-space: nowrap;
+			}
+
 			body.kid-mode .song-settings-panel {
 				border: var(--cartoon-border);
 				border-radius: 14px;
 				box-shadow: 4px 4px 0 var(--ink);
 			}
 
-			/* Play along's speeds (alongSpeedPicker()), in the song's settings */
+			/* Play it's speeds (alongSpeedPicker()), in the song's settings */
 			.speed-picker {
 				display: flex;
 				gap: 2px;
@@ -4242,7 +4257,7 @@
 			}
 
 			/* A song's notes can be tapped for their fingering */
-			.practice-view[data-mode="song"]:not([data-step="song-pick"]) #practice-staff-output {
+			.practice-view[data-mode="song"] #practice-staff-output {
 				cursor: pointer;
 			}
 
@@ -4376,8 +4391,8 @@
 				gap: 10px;
 			}
 
-			/* Play it through and its scores: one row of smaller buttons;
-			   the rest wait behind the ⋯ menu (songMoreMenu()) */
+			/* Play it through: Hear it and Play it; its scores: one row of
+			   smaller buttons, the rest behind the ⋯ menu (songMoreMenu()) */
 			.song-free-actions {
 				gap: 8px;
 			}
@@ -4428,37 +4443,38 @@
 				box-shadow: 4px 4px 0 var(--ink);
 			}
 
-			/* Phones: one row, Listen to me on a row of its own above it
-			   (the ::after breaks the line); a path step stays below */
+			/* Hear it and Play it: the two big buttons */
+			.song-free-actions > #song-hear,
+			.song-free-actions > #song-listen {
+				min-width: 9.5em;
+				padding: 11px 20px;
+				font-size: 1.05rem;
+			}
+
+			/* Phones: one row; a path step stays below */
 			@media (max-width: 700px) {
 				.song-free-actions {
 					flex-wrap: nowrap;
 				}
 
-				.song-free-actions:has(#song-listen),
 				.song-free-actions:has(.path-next) {
 					flex-wrap: wrap;
 				}
 
 				.song-free-actions > * {
-					order: 2;
 					min-width: 0;
-				}
-
-				.song-free-actions > #song-listen {
-					order: 0;
-					padding: 9px 22px;
-				}
-
-				.song-free-actions:has(#song-listen)::after {
-					content: "";
-					order: 1;
-					flex-basis: 100%;
-					margin-top: -8px;
 				}
 
 				.song-free-actions > .practice-btn.path-next {
 					order: 3;
+				}
+
+				.song-free-actions > #song-hear,
+				.song-free-actions > #song-listen {
+					flex: 1 1 0;
+					min-width: 0;
+					padding: 10px 12px;
+					font-size: 0.98rem;
 				}
 
 				.song-free-actions > .practice-btn,

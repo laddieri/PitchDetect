@@ -381,21 +381,25 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `playTone()` leaves them ringing; `stopAccompaniment()` (from
   `stopSongPlayback()`) fades them, and the last chord rings
   `ACCOMP_RING_MS` with the mic still ignoring it. **Play along** (Play it
-  through's `#song-along`, `playAlong()`, `songPlayAlong`): a measure
+  through's Play it at a speed, `playAlong()`, `songPlayAlong`): a measure
   counted in, then just the piano with the staff and fingering following,
   for the student to play the tune over, at the speed picked in the song's
   settings (`ALONG_SPEEDS`: Turtle 60, Walk 80, Bunny 100, Rocket 120;
   `alongSpeedPicker()` / `updateSpeedPicker()`, `songSpeed` for the visit;
-  the button shows the speed's icon in place of ♫, `playAlongLabel()`).
+  Play it shows the speed's icon, `playAlongLabel()`). The picker's first
+  choice, **My speed** (`songSpeed = "mine"`, `songOwnSpeed()`, the
+  default), makes Play it Listen to me instead; the piano and metronome
+  only decide what's heard, never which of the two runs.
   **Song settings** (`songSettingsButton(song, speed)`): a gear at the card's
-  top right on Play it through and Pick a part (`#practice-steps` there takes
+  top right on Play it through (`#practice-steps` there takes
   no height), beside the whole song button in note by note, opening a panel
-  (`songPopover()`, shared with the ⋯ menu; kept on screen) with Play along's
+  (`songPopover()`, shared with the ⋯ menu; kept on screen) with the
   speeds (Play it through only), **Piano** on/off (`songPiano`, persisted
   device-wide as `pitchdetect-song-piano`, on by default), **Metronome**
   on/off (`songClick`, `pitchdetect-song-click`, off by default) and
   "Sharps and flats": in the key signature or on each note (only for a key
-  with sharps or flats). The rows come from `songSettingsChoices()`;
+  with sharps or flats), then on Play it through **More**
+  (`.song-settings-more`): Note by note and the timing check. The rows come from `songSettingsChoices()`;
   `updateSongSettings()` refreshes them. Hear the song, Play along and the
   editor's Hear it play `songBacking(song, events)`: the piano part if on,
   plus `songClicks()` if on (a click per beat, a dotted quarter in 6/8, higher
@@ -451,15 +455,32 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   practice path, behind **Note by note** and **Practice the red notes**, and
   its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
   (`data-step="song-free"`, `practice.song.free`), no arrow and no waiting
-  on each note. Its buttons are one row (on phones Listen to me above
-  the rest): Listen to me, Hear the song, Play along and a ⋯ menu
-  (`songMoreMenu()`) holding Note by note and Pick a part; its score screens
-  (`finishFollow()`, `finishAlong()`) keep the same row: the next step
+  on each note. It has two buttons (`resetFollow()`): **Hear it**
+  (`#song-hear`, `playSong()`) and **Play it** (`#song-listen`,
+  `startSongRecord()`), their labels and the prompt from what's selected
+  (`showSongSelection()`, `updateSongButtons()`, `songHearLabel()` /
+  `songRecordLabel()`): nothing, the whole song; a **tapped note**
+  (`practice.song.startNote`, an event, `songStartNote()` its note), both
+  start from it, marked in the accent color (Hear it's piano and clicks
+  are the whole song's from there, `songBackingFrom()`; a run from it,
+  `practice.song.runFrom`, scores just those notes and saves no best:
+  `alignFollowFrom()`, `finishAlong()`); a **part**, picked by sliding
+  sideways across measures (`songDragStart()` / `songDragMove()` /
+  `songDragStop()`, `SONG_DRAG_PX`, `songMeasureAt()`; the staff is
+  `touch-action: pan-y`, and the click ending a slide isn't a tap,
+  `songDragEnd`; `practice.song.part` `{ a, b }` measures, shaded by
+  `shadeSongPart()`), Hear it plays it and Play it ("Practice it")
+  practices it note by note. A tap puts a part away; tapping the note again
+  or off the notes clears it. Nothing is selectable while a song plays or
+  the mic follows (`songSelectable()`). Play it is Listen to me at My speed,
+  else Play along. Its score screens
+  (`finishFollow()`, `finishAlong()`) keep one row: the next step
   (Practice the red notes, Play again, Next song, the next speed, which then
-  puts Play along again in the menu) beside a ⋯ menu with the rest. The mic stays off until **Listen to me** (`#song-listen`,
-  `startFollow()`, `follow.listening`; it then turns into **Stop and
+  puts Play along again in the menu) beside a ⋯ menu (`songMoreMenu()`)
+  with the rest. The mic stays off until Play it: **Listen to me**
+  (`startFollow()`, `follow.listening`; the button then turns into **Stop and
   score**) or Play along (which waits for the mic before its count-in, so
-  the count-in hears the piano); `songMicOn()` / `songMicOff()` handle a mic
+  the count-in hears the piano; the button turns into Stop); `songMicOn()` / `songMicOff()` handle a mic
   still starting up. It then follows along (`updateFollowListen()`, run
   from `updateSongListen()`): the sound is cut into notes (a new semitone,
   or the same pitch re-tongued: a loudness dip below `SONG_RETONGUE_DIP`
@@ -485,18 +506,15 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   of the first red note's line (`startSong(id, from)`: earlier notes count
   done, no best saved, the result offers Play it through again). Hear the
   song restarts the run; **Note by note** returns to `startSong()`.
-  **Pick a part** (on Play it through, its result and note by note):
-  `showSongPicker(id, back, pick)` (mode `song`, `data-step="song-pick"`,
-  `practice.song.pick` `{ a, b }` measures, mic off) shows the whole song;
-  a tap (`songPickerTap()`) picks a measure, a second tap the part's last
-  measure, a third starts over (the result's preselects the first red
-  note's measure). **Practice it** runs `startSong(id, from, to)` over just
+  **A part** picked on Play it through: Practice it runs
+  `startSong(id, from, to)` over just
   those notes (`songPartNotes()`; `songEnd()` stops there, one progress dot
   per measure, the rest of the song grayed out, Hear plays only the part,
   `songPart()` / `partLabel()`); no best saved, the result offers Play
-  again, Pick another part and Play it through.
+  again, Pick another part (`playThroughSong(id, part)`, the part still
+  picked) and Play it through.
   **Tap a note** (`songNoteTap()`, Play it through and note by note, not
-  while a song plays or a part is picked): its fingering in the
+  while a song plays): its fingering in the
   `#song-fingering` area Hear the song uses (`showSongFingerings()` with
   that one event, plus `.song-fingering-name`; the piano labels its own
   key), the note marked (`practice.song.tapped`; layouts in
@@ -590,8 +608,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `.song-line` div per line (shorter viewBox, `SONG_WHOLE_LINE_HEIGHT`,
   ledger notes overhang), keeps the scroll position across redraws and
   scrolls the current line into view only as far as needed. Following along
-  (`opts.ahead`: Hear the song, Play along, Play it through, note by note,
-  Pick a part's playback) the next line must show
+  (`opts.ahead`: Hear the song, Play along, Play it through, note by note)
+  the next line must show
   too: once it doesn't, the current line goes to the top, like a page turn;
   lines are measured by their drawn ink (`songLineInk()`), not headroom. It returns layouts by line; the editor's tap handler
   uses the tapped `.song-line`'s layout.
@@ -980,8 +998,10 @@ link goes straight into My songs (once) and opens in Play it through, 4
 measures a line on a desktop; in a fresh browser a song link shows no
 instrument until the student picks theirs; a
 song has piano chords and Play along counts in (on a desktop with the chart
-beside the staff), plays and stops; a song listens only after Listen to me,
-and a tapped note shows its fingering; Hear the song's notes sound with
+beside the staff), plays and stops; Play it through has just Hear it and
+Play it, listens only after Play it, a tapped note shows its fingering and
+is where Hear it and Play it start, and sliding across measures picks a
+part that Play it practices note by note; Hear the song's notes sound with
 the metronome's clicks; Play it through marks a note
 played flat "low" and a tapped wrong note shows what was played; Play along scores
 notes in time over the piano, marks a late note late, measures the
