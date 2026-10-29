@@ -2067,8 +2067,8 @@
 				color: var(--accent);
 			}
 
-			/* Breadcrumbs (renderPracticeCrumbs()): where the screen sits, from
-			   the map down, each step above it a link back there. One line:
+			/* Breadcrumbs (renderPracticeCrumbs()): where the screen sits under
+			   the menu's tabs, each step above it a link back there. One line:
 			   the steps above shrink first, so the current screen stays
 			   readable. */
 			.practice-crumbs {
@@ -2371,15 +2371,13 @@
 			.practice-view[data-mode="menu"] .practice-card,
 			.practice-view:not([data-mode="menu"]) .practice-menu,
 			.practice-view:not([data-mode="menu"]) .practice-tabs,
-			.practice-view:not([data-mode="menu"]) .practice-units,
-			.practice-view[data-menu-unit] .practice-tabs,
 			.practice-view[data-step="overview"] .practice-map,
 			.practice-view:not([data-mode="lesson"]) .practice-map {
 				display: none;
 			}
 
-			/* Menu: one big button per activity, on three pages (tabs):
-			   lessons, practice drills and songs */
+			/* Menu: one big button per activity, on four pages (tabs):
+			   notes, keys, songs and games */
 			.practice-menu {
 				flex: 1;
 				min-height: 0;
@@ -2461,7 +2459,7 @@
 				grid-column: 1 / -1;
 			}
 
-			/* Practice drills: the cards grouped under headings (note names,
+			/* Games: the cards grouped under headings (note names,
 			   fingerings, playing notes); the page scrolls if it must */
 			.practice-menu[data-grouped] {
 				display: flex;
@@ -2553,421 +2551,17 @@
 				min-width: 0;
 			}
 
-			/* A unit's cards in path order: the menu takes the screen's
-			   height, its rows stay card-sized (a short unit leaves room
-			   below rather than stretching its cards), and it scrolls if
-			   there are more than fit */
-			.practice-menu[data-unit] {
-				grid-auto-rows: minmax(min-content, 110px);
-				align-content: start;
-				max-height: none;
-				overflow-y: auto;
-				/* room for the cards' shadows inside the scroller */
-				padding: 0 8px 8px 0;
-				margin-right: -8px;
-			}
-
-			/* So do the Lessons and Songs tabs of Every activity (more cards
-			   in teacher mode, and on flute and oboe): no squeezing them, and
-			   like a unit, they take the screen's height with card-sized rows */
-			.practice-view[data-menu-page="lessons"] .practice-menu,
-			.practice-view[data-menu-page="songs"] .practice-menu {
+			/* The tabs without group headings (Notes, Keys, Songs): no
+			   squeezing their cards (more in teacher mode, and on flute and
+			   oboe); they take the screen's height with card-sized rows and
+			   scroll if there are more than fit */
+			.practice-menu:not([data-grouped]) {
 				grid-auto-rows: minmax(min-content, 110px);
 				align-content: start;
 				max-height: none;
 				overflow-y: auto;
 				padding: 0 8px 8px 0;
 				margin-right: -8px;
-			}
-
-			/* The card at the end of a unit, on to the next */
-			.practice-choice.unit-next {
-				border-style: dashed;
-				box-shadow: none;
-				background: transparent;
-			}
-
-			.practice-choice.unit-next .practice-choice-icon {
-				background: var(--surface-2);
-				color: var(--text-muted);
-			}
-
-			/* The unit bar above the menu: the unit on show, with arrows to
-			   the ones either side */
-			.practice-units {
-				flex-shrink: 0;
-				display: flex;
-				align-items: center;
-				gap: 8px;
-				padding: 6px;
-				border: 1px solid var(--border);
-				border-radius: var(--radius);
-				background: var(--surface);
-				box-shadow: var(--shadow-md);
-			}
-
-			.unit-arrow {
-				position: relative;
-				flex: 0 0 44px;
-				height: 44px;
-				border: none;
-				border-radius: 50%;
-				background: var(--accent-soft);
-				color: var(--accent);
-				font-family: var(--font);
-				font-size: 1.9rem;
-				font-weight: 700;
-				line-height: 1;
-				padding: 0 0 4px;
-				cursor: pointer;
-			}
-
-			.unit-arrow:hover:not(:disabled) {
-				background: var(--accent);
-				color: #fff;
-			}
-
-			.unit-arrow:focus-visible {
-				outline: none;
-				box-shadow: var(--ring);
-			}
-
-			.unit-arrow:disabled {
-				background: transparent;
-				color: var(--border-strong);
-				cursor: default;
-			}
-
-			/* The next step on the path is in that direction */
-			.unit-arrow.next-up::after {
-				content: "";
-				position: absolute;
-				top: -2px;
-				right: -2px;
-				width: 11px;
-				height: 11px;
-				border: 2px solid var(--surface);
-				border-radius: 50%;
-				background: var(--accent);
-				animation: next-up-bob 1.6s ease-in-out infinite;
-			}
-
-			.unit-info {
-				flex: 1;
-				min-width: 0;
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				gap: 3px;
-				text-align: center;
-			}
-
-			.unit-kicker {
-				color: var(--text-muted);
-				font-size: 0.8rem;
-				font-weight: 700;
-				text-transform: uppercase;
-				letter-spacing: 0.04em;
-			}
-
-			.unit-title {
-				max-width: 100%;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-				font-size: 1.15rem;
-				font-weight: 700;
-			}
-
-			.unit-meter {
-				width: min(220px, 80%);
-				height: 6px;
-				border-radius: 3px;
-				background: var(--surface-2);
-				overflow: hidden;
-			}
-
-			.unit-meter-fill {
-				display: block;
-				height: 100%;
-				border-radius: 3px;
-				background: var(--success);
-			}
-
-			/* The map Practice opens on (showPracticeMap()): every unit as a
-			   stop on a winding trail, and a button on to the next step. It
-			   has no unit bar or tabs; the player bar shows only here. */
-			.practice-view[data-menu-page="map"] .practice-units,
-			.practice-view[data-menu-page="map"] .practice-tabs,
-			.practice-view:not([data-menu-page="map"]) .player-bar {
-				display: none;
-			}
-
-			.practice-menu[data-world] {
-				display: flex;
-				flex-direction: column;
-				gap: 12px;
-				max-height: none;
-			}
-
-			.world-scroll {
-				position: relative;
-				flex: 1;
-				min-height: 0;
-				overflow-y: auto;
-				border: 1px solid var(--border);
-				border-radius: var(--radius);
-				background: var(--surface);
-				box-shadow: var(--shadow-md);
-			}
-
-			/* Scenery that scrolls with the trail */
-			.world-trail {
-				position: relative;
-				background:
-					radial-gradient(circle at 12% 30%, rgba(22, 163, 74, 0.08) 0 50px, transparent 51px),
-					radial-gradient(circle at 88% 75%, rgba(79, 70, 229, 0.07) 0 70px, transparent 71px);
-				background-size: 100% 420px;
-				padding: 18px 0 8px;
-				--world-row-h: 104px;
-				--world-node: 64px;
-			}
-
-			.world-row {
-				position: relative;
-				height: var(--world-row-h);
-			}
-
-			/* The trail from this stop's node to the next one's */
-			.world-path {
-				position: absolute;
-				left: 0;
-				top: calc(var(--world-node) / 2);
-				width: 100%;
-				height: 100%;
-				overflow: visible;
-				pointer-events: none;
-			}
-
-			.world-path path {
-				fill: none;
-				stroke: var(--border-strong);
-				stroke-width: 6;
-				stroke-dasharray: 2 12;
-				stroke-linecap: round;
-			}
-
-			.world-path.walked path {
-				stroke: #f5b301;
-				stroke-dasharray: none;
-			}
-
-			.world-stop {
-				position: absolute;
-				inset: 0;
-				border: none;
-				background: transparent;
-				color: var(--text);
-				font-family: var(--font);
-				cursor: pointer;
-			}
-
-			.world-stop:focus-visible {
-				outline: none;
-			}
-
-			.world-stop:focus-visible .world-node {
-				box-shadow: var(--ring);
-			}
-
-			.world-node {
-				position: absolute;
-				top: 0;
-				left: calc(25% - var(--world-node) / 2);
-				width: var(--world-node);
-				height: var(--world-node);
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border: 3px solid var(--border-strong);
-				border-radius: 50%;
-				background: var(--surface);
-				color: var(--text-muted);
-				font-size: 1.6rem;
-				font-weight: 700;
-				line-height: 1;
-				box-shadow: 0 4px 0 var(--border-strong);
-				transition: transform 0.15s ease;
-			}
-
-			.world-row.right .world-node {
-				left: calc(75% - var(--world-node) / 2);
-			}
-
-			.world-stop:hover .world-node {
-				transform: translateY(-2px);
-			}
-
-			.world-row[data-state="started"] .world-node {
-				border-color: var(--accent);
-				background: var(--accent-soft);
-				color: var(--accent);
-				box-shadow: 0 4px 0 var(--accent);
-			}
-
-			.world-row[data-state="current"] .world-node {
-				border-color: var(--accent-active);
-				background: var(--accent);
-				color: #fff;
-				box-shadow: 0 4px 0 var(--accent-active), 0 0 0 8px var(--accent-ring);
-			}
-
-			.world-row[data-state="done"] .world-node {
-				border-color: #c98f00;
-				background: #f5b301;
-				color: #fff;
-				box-shadow: 0 4px 0 #c98f00;
-			}
-
-			.world-row[data-state="all"] .world-node {
-				border-style: dashed;
-				box-shadow: none;
-				font-size: 1.4rem;
-			}
-
-			/* The student, standing on their unit */
-			.world-avatar {
-				position: absolute;
-				top: -18px;
-				right: -16px;
-				width: 34px;
-				height: 34px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border: 2px solid var(--accent);
-				border-radius: 50%;
-				background: var(--surface);
-				font-size: 1.25rem;
-				animation: next-up-bob 1.6s ease-in-out infinite;
-			}
-
-			.world-info {
-				position: absolute;
-				top: 0;
-				left: calc(25% + var(--world-node) / 2 + 14px);
-				right: 12px;
-				display: flex;
-				flex-direction: column;
-				align-items: flex-start;
-				gap: 2px;
-				text-align: left;
-			}
-
-			.world-row.right .world-info {
-				left: 12px;
-				right: calc(25% + var(--world-node) / 2 + 14px);
-				align-items: flex-end;
-				text-align: right;
-			}
-
-			.world-kicker {
-				color: var(--text-muted);
-				font-size: 0.75rem;
-				font-weight: 700;
-				text-transform: uppercase;
-				letter-spacing: 0.04em;
-			}
-
-			.world-row[data-state="current"] .world-kicker {
-				color: var(--accent);
-			}
-
-			.world-title {
-				max-width: 100%;
-				font-size: 1.08rem;
-				font-weight: 700;
-				line-height: 1.2;
-			}
-
-			.world-sub {
-				max-width: 100%;
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-				color: var(--text-muted);
-				font-size: 0.85rem;
-			}
-
-			.world-meter {
-				width: min(140px, 100%);
-				margin-top: 3px;
-			}
-
-			/* On to the next step on the path */
-			.world-continue {
-				flex-shrink: 0;
-				display: flex;
-				align-items: center;
-				gap: 14px;
-				width: 100%;
-				padding: 10px 18px;
-				background: var(--accent);
-				color: #fff;
-				text-align: left;
-				box-shadow: var(--shadow-md);
-			}
-
-			.world-continue:hover {
-				background: var(--accent-hover);
-			}
-
-			.world-continue:focus-visible {
-				outline: none;
-				box-shadow: var(--ring);
-			}
-
-			.world-continue-play {
-				flex: 0 0 40px;
-				height: 40px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border-radius: 50%;
-				background: rgba(255, 255, 255, 0.22);
-				font-size: 1rem;
-				padding-left: 3px;
-			}
-
-			.world-continue-text {
-				flex: 1;
-				min-width: 0;
-				display: flex;
-				flex-direction: column;
-			}
-
-			.world-continue-title,
-			.world-continue-sub {
-				overflow: hidden;
-				text-overflow: ellipsis;
-				white-space: nowrap;
-			}
-
-			.world-continue-title {
-				font-size: 1.1rem;
-				font-weight: 700;
-			}
-
-			.world-continue-sub {
-				font-size: 0.85rem;
-				font-weight: 600;
-				opacity: 0.85;
-			}
-
-			@media (prefers-reduced-motion: reduce) {
-				.world-avatar {
-					animation: none;
-				}
 			}
 
 			/* The page tabs above the menu */
@@ -3870,7 +3464,6 @@
 				font-size: 1rem;
 				line-height: 1;
 			}
-
 
 			/* Up and down beside the staff (overlapping its end a little) */
 			.practice-view[data-step="song-editor"] .practice-staff {
@@ -5522,184 +5115,6 @@
 				margin-top: 10px;
 			}
 
-			/* A unit's card on the map (showUnitSummary()) */
-			.unit-summary-card {
-				width: 360px;
-				gap: 4px;
-			}
-
-			.unit-summary-card .unit-summary-close {
-				position: absolute;
-				top: 8px;
-				right: 8px;
-				width: 40px;
-				height: 40px;
-				border: none;
-				border-radius: 50%;
-				background: transparent;
-				color: var(--text-muted);
-				font-family: var(--font);
-				font-size: 1.8rem;
-				line-height: 1;
-				cursor: pointer;
-			}
-
-			.unit-summary-close:hover {
-				background: var(--surface-2);
-				color: var(--text);
-			}
-
-			.unit-summary-close:focus-visible {
-				outline: none;
-				box-shadow: var(--ring);
-			}
-
-			.unit-summary-badge {
-				width: 72px;
-				height: 72px;
-				margin-bottom: 6px;
-				display: flex;
-				align-items: center;
-				justify-content: center;
-				border: 3px solid var(--border-strong);
-				border-radius: 50%;
-				background: var(--surface);
-				color: var(--text-muted);
-				font-size: 2rem;
-				font-weight: 700;
-				box-shadow: 0 4px 0 var(--border-strong);
-			}
-
-			.unit-summary[data-state="started"] .unit-summary-badge {
-				border-color: var(--accent-active);
-				background: var(--accent);
-				color: #fff;
-				box-shadow: 0 4px 0 var(--accent-active);
-			}
-
-			.unit-summary[data-state="done"] .unit-summary-badge {
-				border-color: #c98f00;
-				background: #f5b301;
-				color: #fff;
-				box-shadow: 0 4px 0 #c98f00;
-			}
-
-			.unit-summary-kicker {
-				color: var(--accent);
-				font-size: 0.8rem;
-				font-weight: 700;
-				letter-spacing: 0.06em;
-				text-transform: uppercase;
-			}
-
-			.unit-summary-title {
-				font-size: 1.4rem;
-				font-weight: 700;
-				line-height: 1.2;
-			}
-
-			.unit-summary-sub {
-				color: var(--text-muted);
-				font-size: 0.95rem;
-			}
-
-			.unit-summary-stats {
-				align-self: stretch;
-				display: grid;
-				grid-template-columns: 1fr 1fr;
-				gap: 10px;
-				margin-top: 12px;
-			}
-
-			.unit-summary-stat {
-				display: flex;
-				flex-direction: column;
-				align-items: center;
-				gap: 4px;
-				padding: 12px 8px;
-				border-radius: var(--radius-sm);
-				background: var(--surface-2);
-			}
-
-			.unit-summary-label {
-				color: var(--text-muted);
-				font-size: 0.78rem;
-				font-weight: 700;
-				text-transform: uppercase;
-				letter-spacing: 0.04em;
-			}
-
-			.unit-summary-count {
-				white-space: nowrap;
-			}
-
-			.unit-summary-icon {
-				margin-right: 4px;
-				font-size: 1.2rem;
-			}
-
-			.unit-summary-stat.passed .unit-summary-icon {
-				color: var(--success);
-			}
-
-			.unit-summary-stat.stars .unit-summary-icon {
-				color: #f5b301;
-			}
-
-			.unit-summary-value {
-				font-size: 1.6rem;
-				font-weight: 800;
-			}
-
-			.unit-summary-of {
-				color: var(--text-muted);
-				font-size: 0.95rem;
-				font-weight: 600;
-			}
-
-			.unit-summary-stat .unit-meter {
-				width: 100%;
-				background: var(--border);
-			}
-
-			.unit-summary-stat.stars .unit-meter-fill {
-				background: #f5b301;
-			}
-
-			.unit-summary-next {
-				min-height: 1.3em;
-				margin-top: 8px;
-				font-weight: 600;
-			}
-
-			.unit-summary-next:empty {
-				display: none;
-			}
-
-			.unit-summary-go {
-				align-self: stretch;
-			}
-
-			body.kid-mode .unit-summary-badge {
-				border: var(--cartoon-border);
-				box-shadow: 0 4px 0 var(--ink);
-				color: var(--ink);
-			}
-
-			body.kid-mode .unit-summary[data-state="started"] .unit-summary-badge {
-				background: var(--accent);
-				color: #fff;
-			}
-
-			body.kid-mode .unit-summary[data-state="done"] .unit-summary-badge {
-				background: #ffd23f;
-			}
-
-			body.kid-mode .unit-summary-stat {
-				border: var(--cartoon-border);
-				background: #fffdf5;
-			}
-
 			/* Tuning tip: a student whose notes all lean flat or sharp */
 			.tuning-tip-card {
 				width: 340px;
@@ -5776,7 +5191,6 @@
 			@media (prefers-reduced-motion: reduce) {
 				.next-up-tag,
 				.practice-tab.next-up::after,
-				.unit-arrow.next-up::after,
 				.practice-group-name::after,
 				.level-up-burst,
 				.level-up-card {
@@ -5819,7 +5233,6 @@
 			body.kid-mode .practice-map-note,
 			body.kid-mode .practice-close,
 			body.kid-mode .practice-tabs,
-			body.kid-mode .practice-units,
 			body.kid-mode .practice-instrument {
 				border: var(--cartoon-border);
 				box-shadow: 4px 4px 0 var(--ink);
@@ -5847,64 +5260,6 @@
 			body.kid-mode .practice-choice {
 				border: var(--cartoon-border);
 				box-shadow: var(--cartoon-shadow);
-			}
-
-			body.kid-mode .practice-choice.unit-next {
-				border-style: dashed;
-				box-shadow: none;
-			}
-
-			body.kid-mode .world-scroll {
-				border: var(--cartoon-border);
-				box-shadow: var(--cartoon-shadow);
-				background: #fffdf5;
-			}
-
-			body.kid-mode .world-trail {
-				background-image:
-					radial-gradient(circle at 12% 30%, rgba(126, 224, 129, 0.25) 0 50px, transparent 51px),
-					radial-gradient(circle at 88% 75%, rgba(143, 211, 255, 0.3) 0 70px, transparent 71px);
-			}
-
-			body.kid-mode .world-node {
-				border: var(--cartoon-border);
-				box-shadow: 0 4px 0 var(--ink);
-				color: var(--ink);
-			}
-
-			body.kid-mode .world-row[data-state="started"] .world-node { background: #ffe9a8; }
-			body.kid-mode .world-row[data-state="current"] .world-node {
-				background: var(--accent);
-				color: #fff;
-				box-shadow: 0 4px 0 var(--ink), 0 0 0 8px var(--accent-ring);
-			}
-			body.kid-mode .world-row[data-state="done"] .world-node { background: #ffd23f; }
-			body.kid-mode .world-row[data-state="all"] .world-node {
-				border-style: dashed;
-				box-shadow: none;
-			}
-
-			body.kid-mode .world-path path {
-				stroke: #c9bfa8;
-			}
-
-			body.kid-mode .world-path.walked path {
-				stroke: #ffb300;
-			}
-
-			body.kid-mode .world-avatar {
-				border: var(--cartoon-border);
-				background: #ffd23f;
-			}
-
-			body.kid-mode .world-continue {
-				border: var(--cartoon-border);
-				box-shadow: var(--cartoon-shadow);
-			}
-
-			body.kid-mode .world-continue:active {
-				transform: translate(3px, 3px);
-				box-shadow: 2px 2px 0 var(--ink);
 			}
 
 			body.kid-mode .practice-choice:active {
@@ -6234,73 +5589,9 @@
 					right: 5px;
 				}
 
-				.practice-units {
-					padding: 4px;
-				}
-
-				.unit-arrow {
-					flex-basis: 40px;
-					height: 40px;
-				}
-
-				.unit-kicker {
-					font-size: 0.72rem;
-				}
-
-				.unit-title {
-					font-size: 1rem;
-				}
-
-				.practice-menu[data-unit] {
-					grid-auto-rows: minmax(min-content, auto);
-					align-content: normal;
-					padding-bottom: 5px;
-				}
-
-				.practice-menu[data-world] {
-					gap: 10px;
-				}
-
-				.world-trail {
-					--world-row-h: 96px;
-					--world-node: 56px;
-				}
-
-				.world-node {
-					font-size: 1.4rem;
-				}
-
-				.world-info {
-					left: calc(25% + var(--world-node) / 2 + 10px);
-					right: 8px;
-				}
-
-				.world-row.right .world-info {
-					left: 8px;
-					right: calc(25% + var(--world-node) / 2 + 10px);
-				}
-
-				.world-title {
-					font-size: 1rem;
-				}
-
-				.world-sub {
-					font-size: 0.78rem;
-				}
-
-				.world-continue {
-					padding: 8px 14px;
-					gap: 12px;
-				}
-
-				.world-continue-title {
-					font-size: 1rem;
-				}
-
-				/* The Lessons and Songs tabs scroll like a unit rather than
-				   squeeze their cards */
-				.practice-view[data-menu-page="lessons"] .practice-menu,
-				.practice-view[data-menu-page="songs"] .practice-menu {
+				/* The tabs without group headings scroll rather than squeeze
+				   their cards */
+				.practice-menu:not([data-grouped]) {
 					grid-auto-rows: minmax(min-content, auto);
 					align-content: normal;
 					overflow-y: auto;
@@ -6750,7 +6041,6 @@
 					</span>
 					<button type="button" class="practice-btn secondary teacher-bar-leave" onclick="leaveTeacherMode()">Leave</button>
 				</div>
-				<div id="practice-units" class="practice-units" role="group" aria-label="Units"></div>
 				<div id="practice-tabs" class="practice-tabs" role="tablist" aria-label="Practice"></div>
 				<div id="practice-menu" class="practice-menu"></div>
 				<div id="practice-hub" class="practice-hub"></div>
@@ -6775,29 +6065,6 @@
 						<div class="tuning-tip-teacher">Not sure how? Ask your teacher to help.</div>
 					</div>
 					<button class="practice-btn primary" onclick="closeTuningTip()">I&rsquo;ll try it!</button>
-				</div>
-			</div>
-			<div id="unit-summary" class="level-up unit-summary" role="dialog" aria-modal="true" aria-labelledby="unit-summary-title" hidden onclick="if (event.target === this) practiceBack()">
-				<div class="level-up-card unit-summary-card">
-					<button type="button" class="unit-summary-close" onclick="practiceBack()" aria-label="Close" title="Close">&times;</button>
-					<div class="unit-summary-badge" aria-hidden="true"></div>
-					<div class="unit-summary-kicker"></div>
-					<div id="unit-summary-title" class="unit-summary-title"></div>
-					<div class="unit-summary-sub"></div>
-					<div class="unit-summary-stats">
-						<div class="unit-summary-stat passed">
-							<span class="unit-summary-label">Activities passed</span>
-							<span class="unit-summary-count"><span class="unit-summary-icon" aria-hidden="true">&#10003;</span><span class="unit-summary-value"></span> <span class="unit-summary-of"></span></span>
-							<span class="unit-meter"><span class="unit-meter-fill"></span></span>
-						</div>
-						<div class="unit-summary-stat stars">
-							<span class="unit-summary-label">Stars earned</span>
-							<span class="unit-summary-count"><span class="unit-summary-icon" aria-hidden="true">&#9733;</span><span class="unit-summary-value"></span> <span class="unit-summary-of"></span></span>
-							<span class="unit-meter"><span class="unit-meter-fill"></span></span>
-						</div>
-					</div>
-					<div class="unit-summary-next"></div>
-					<button type="button" class="practice-btn primary unit-summary-go"></button>
 				</div>
 			</div>
 			<div id="level-up" class="level-up" role="alertdialog" aria-labelledby="level-up-heading" hidden>

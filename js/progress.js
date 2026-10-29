@@ -359,8 +359,7 @@ function loadProfile() {
 		badges: p.badges && typeof p.badges === "object" ? p.badges : {},
 		instrument: typeof p.instrument === "string" ? p.instrument : null,
 		name: cleanStudentName(p.name),
-		initial: cleanInitial(p.initial),
-		menuAll: typeof p.menuAll === "boolean" ? p.menuAll : null  // practice menu: every activity, not a unit
+		initial: cleanInitial(p.initial)
 	};
 }
 
@@ -709,19 +708,13 @@ function nextPathNode(nodes) {
 
 function startPathNode(node) {
 	if (node.level) songLevelsOpen[node.level] = true;
-	// Back from it lands on its unit (then the map): from the profile, the
-	// unit takes the profile's place in history first
-	if (practice.mode === "profile") {
-		showPracticeMenu(node.unit);
-		syncPracticeHistory();
-	} else if (!practice.menuAll) {
-		practice.menuPage = node.unit;
-	}
+	// Back from it lands on its tab
+	practice.menuPage = activityPage(node.activity) || practice.menuPage;
 	startPracticeActivity(node.activity);
 }
 
 // On a result screen: a button straight on to the next step of the path,
-// so a student needn't go back to the map for it. None when the step is the
+// so a student needn't go back to the menu for it. None when the step is the
 // activity just done (Play again, Next note and Next song cover that). It
 // takes over as the screen's main button, in a row of its own. Returns
 // whether it was added.
@@ -744,19 +737,9 @@ function addPathNextButton(actions) {
 function markNextUp(menu, page) {
 	if (!progressCounts()) return;
 	var next = nextPathNode();
-	// The map marks the student's unit itself (showPracticeMap())
-	if (!next || page === "map") return;
-	// On a unit, only a card for the step's own unit; else the arrow (and the
-	// card at the end) that leads toward it
-	var unit = practiceUnit(page);
-	var card = !unit || unit.id === next.unit ? menu.querySelector('[data-activity="' + next.activity + '"]') : null;
-	if (unit && !card) {
-		var ahead = PRACTICE_UNITS.indexOf(practiceUnit(next.unit)) > PRACTICE_UNITS.indexOf(unit);
-		var arrow = document.querySelector("#practice-units .unit-arrow." + (ahead ? "next" : "prev"));
-		if (arrow) arrow.classList.add("next-up");
-		var lead = menu.querySelector(".unit-next");
-		if (ahead && lead && lead.getAttribute("data-page") === next.unit) lead.classList.add("next-up");
-	} else if (card) {
+	if (!next) return;
+	var card = menu.querySelector('[data-activity="' + next.activity + '"]');
+	if (card) {
 		card.classList.add("next-up");
 		var tag = document.createElement("span");
 		tag.className = "next-up-tag";
@@ -1022,7 +1005,7 @@ function enterTeacherMode() {
 		showInstrumentStep("open");
 		return;
 	}
-	showPracticeMenu("lessons");
+	showPracticeMenu("notes");
 	showProgressPop("Teacher mode", "goal");
 	if (pendingSongImport) openSongImport();
 }

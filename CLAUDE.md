@@ -62,51 +62,27 @@ mic failures go through `micErrorMessage()`, which says what to do next). |
 
 A full-screen practice view (`#practice-view`, opened by the toolbar's
 **Practice** button → `openPractice()`; the app behind it is made `inert`).
-It opens on the **map** (menu page `map`, `showPracticeMap()`), a game-style
-overworld: every unit as a numbered stop on a winding trail
-(`.world-row`, one SVG curve per gap to the next stop, gold up to the
-student's unit), each with its title, notes (`practiceUnitSub()`) and steps
-done; finished units turn gold, the unit with the next path step
-(`practiceCurrentUnit()`) carries the student's avatar and is scrolled into
-view, and the last stop is **Every activity**. A **Next:** button under the
-trail starts the next path step (its unit goes into history first). A
-unit's stop first shows its **summary** (`showUnitSummary(id)`, the
-`#unit-summary` card over the map, styled like the level-up card;
-`practice.mapSummary`, its own history entry at depth 2, so back or Escape
-closes it via `closeUnitSummary()`): activities passed and stars earned out
-of the possible (`practiceUnitSummary()` over `practiceActivityResult(id,
-unit, nodes)`: the menu card's stars, none for song writing, a unit's More
-songs counted over `unitSongs(unit)`; passed means its path steps in the
-unit are done, else every lesson note learned / all of first sounds / a song
-written / any star), the next step if it's there, and a button into the
-unit. Every activity opens straight away. A unit's button
-opens that unit's page of the **menu** (`showPracticeMenu(page)`,
-`PRACTICE_ACTIVITIES`) of activities, each card showing its best result.
-Students see one **unit** at a time (`PRACTICE_UNITS`: Your first notes, The first 5 notes, Notes 6 and
-beyond, The B♭ scale, then one unit per concert scale: The E♭ / A♭ / F / C
-scale, then The chromatic scale; menu pages `unit1`–`unit9`, `practiceUnit()`): the
-unit's cards in path order (a half card left unpaired goes wide), a unit
-bar above (`#practice-units`, `renderPracticeUnits()`: "Unit n of 9", steps
-done, ‹ › arrows, a dot on the arrow toward the next path step) and a
-dashed card at the end leading on (`practiceUnitNextCard()`). Past the last
-unit is **Every activity**: the old tabbed pages below, where teachers
-start. Which of the two a student uses sticks (`practice.menuAll`, saved as
-`profile.menuAll`); `menuPageFor(id)` is the page to return to from an
-activity, `defaultMenuPage()` the map. The player bar shows only on the
-map; units and tabs go back to the map. Every
-activity's three pages are picked by tabs (`PRACTICE_PAGES`, `#practice-tabs`, `renderPracticeTabs()`; each
+It opens on the **menu** (`showPracticeMenu(page)`, `PRACTICE_ACTIVITIES`):
+four tabs (`PRACTICE_PAGES`, `#practice-tabs`, `renderPracticeTabs()`; each
 activity's `page`, `activityPage()`; `practice.menuPage` /
-`#practice-view[data-menu-page]`), all row cards read top to bottom,
-easiest first. Leaving an activity returns to its page; opening Practice
-shows the map.
-**Lessons** (`lessons`): first sounds, **Learn the first 3 notes** (an
+`#practice-view[data-menu-page]`) under the player bar: **Notes**, **Keys**,
+**Songs** and **Games**, each card showing its best result and reading top
+to bottom, easiest first (a half card left unpaired goes wide). Practice
+opens on the tab with the next path step (`defaultMenuPage()`), whose card
+is marked; leaving an activity returns to its tab (`menuPageFor(id)`).
+`PRACTICE_UNITS` (Your first notes, The first 5 notes, Notes 6 and beyond,
+The B♭ scale, The E♭ / A♭ / F / C scale, The chromatic scale) are no longer
+pages: they only head the learning path's steps on the profile
+(`practiceUnit()`, `firstUnitWith()`).
+**Notes** (`notes`): first sounds, **Learn the first 3 notes** (an
 easier start: concert D C B♭, `FIRST3_STEPS`, best stars in
 `pitchdetect-first-three`; its result leads to the name drill), **Learn the
 first 5 notes**, **Learn notes 6 and beyond** (`learn4`, lesson set `next4`:
 `NEXT4_STEPS`, concert G, A♭, the low A♭, the low A, the band-method notes
 after the first five, named on the card by `nextFourText()`; best stars in
 `pitchdetect-next-four`; its result leads to the 9 note quiz), **Learn the
-B♭ scale**, and **Learn the E♭ / A♭ / F / C scale** (`MORE_SCALES`, lesson
+B♭ scale** and **Learn the E♭ / A♭ / F / C scale** (on **Keys**
+(`keys`), each beside its scale run; `MORE_SCALES`, lesson
 sets and activity ids `scaleEb` `scaleAb` `scaleF` `scaleC`, units 5–8: the
 concert major scales after B♭, one octave each from `tonic` steps above the
 first B♭, `octave` moving an instrument's start an octave to stay in a
@@ -121,7 +97,7 @@ e.g. `pitchdetect-eb-scale-run`). Their notes are spelled in the written key
 (`spell` → the lesson's `spellings`, from `scaleSpellings()`, which
 `practiceSpelling()` uses during the lesson and, via
 `practice.challenge.spellings`, its drills and run: trumpet's concert C
-scale reads D E F♯ G A B C♯ D). **Learn the chromatic scale** (lesson set
+scale reads D E F♯ G A B C♯ D). **Learn the chromatic scale** (on Keys, lesson set
 and activity id `scaleChromatic`, unit 9, `CHROMATIC_STEPS`: every half
 step from the first B♭ up the octave, spelled as the lessons are; best stars
 in `pitchdetect-chromatic-scale`) and **Play the chromatic scale**
@@ -143,7 +119,7 @@ writing and `threeNotes(set)` / `threeNotesText(set)` /
 path; `firstThreeActivity()` its lesson, `threeSetActivity(id, set)` adds
 `bag`. Activities with `instruments` show only for those
 (`practiceActivityAvailable()`).
-**Practice drills** (`drills`), its cards grouped under headings (each
+**Games** (`games`), its cards grouped under headings (each
 activity's `group`, `practiceGroupTitle()`; `.practice-menu[data-grouped]`
 holds a `.practice-group` per heading, from `practiceGroupSection()`, and
 scrolls if it must; Practice playing notes comes first). Each heading is a
@@ -165,7 +141,7 @@ the 3-note fingering drill), **First 5 note quiz** (the challenge round), **9 no
 quiz** (`quiz9`, `startNineQuiz()`: the quiz over the first five notes plus
 notes 6 and beyond, `QUIZ9_LENGTH` (12) notes, one answer button per name
 low to high so the two A♭s share one; best in `pitchdetect-nine-note-quiz`,
-on the path after notes 6 and beyond) and **Play the B♭ scale**.
+on the path after notes 6 and beyond).
 **Songs** (`songs`): **Play 3-note songs** (`songs3`:
 `showSongList("three")`), **Write a 3-note song** (`write3`: the editor in
 3-note mode), **Play 5-note songs** (`songs5`: `showSongList("five")`, the
@@ -181,22 +157,22 @@ student's songs, from any screen.
 `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
-to its menu page, a menu page to the map and the map to the app; the menu
+to its tab and the menu to the app; the menu
 also stops the mic. Browser
 history mirrors these screens (`syncPracticeHistory()`, run after every
 `setPracticeMode()` and in `closePractice()`), so Android's back button and
-iOS's swipe-back step back like the arrow: each screen has a depth (map 1;
-a unit or tab 2, a unit's summary on the map 2, so they replace each other; the profile 2; activity 3,
-song 4); deeper pushes, sideways replaces, shallower
+iOS's swipe-back step back like the arrow: each screen has a depth (the
+menu 1, its tabs replacing each other; the profile 2; an activity 2; a song
+3); deeper pushes, sideways replaces, shallower
 `history.go()`s back, and `popstate` shows the entry's screen (after our
 own `history.go()`, `practiceHistoryGoing`, it syncs history to the screen
 instead, which may have moved on meanwhile). Keep new
 screens inside `practiceHistoryState()`. **Breadcrumbs** under the header
 (`#practice-crumbs`, `renderPracticeCrumbs()` over `practiceCrumbs()`, run
-with each history sync) show the same levels: Map › Unit 2 (or Every
-activity) › the activity, named as its card (`practiceActivityTitle()`) ›
-a song, each level above a link there; the header's song list is Map ›
-Songs, and its back arrow goes to the map; none on the map or while signing in. Keep new screens in
+with each history sync) show the same levels: the tab › the activity, named as its card
+(`practiceActivityTitle()`) › a song, each level above a link there; the
+header's song list is Songs › All songs; none on the menu (its tabs say
+where it is) or while signing in. Keep new screens in
 `practiceCrumbs()` too. The lessons
 teach the band-method first five notes, concert B♭ C D E♭ F, at each
 instrument's written pitch (`practiceStartConcertMidi` holds each instrument's
@@ -284,8 +260,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   the sound, but only unhelped notes score; `challengeStars()` turns the
   score into 0–3 trophy stars, best score per instrument in
   `pitchdetect-first-five-challenge`.
-- **B♭ scale** (**Learn the B♭ scale** on the Lessons page,
-  **Play the B♭ scale** on Practice drills): **Learn the
+- **B♭ scale** (**Learn the B♭ scale** and **Play the B♭ scale** on
+  Keys): **Learn the
   B♭ scale** runs the same lessons over `SCALE_STEPS` (concert B♭ up the
   octave, 8 notes) — lesson sets (`first3`, `first3bag`, `first5`, `next4`, `scale`) live in
   `LESSON_SETS` / `practice.lessons` (menu ids map to them via
@@ -300,7 +276,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   10/8/5 thresholds. The first 5 note quiz stays on the first five notes; the `namesscale` /
   `fingeringsscale` drills cover the scale.
 - **Songs** (`showSongList()` → `playThroughSong(id)`, the cards on the
-  menu's **Songs** page): `SONGS` holds public
+  menu's **Songs** tab): `SONGS` holds public
   domain tunes, each with a `level` the song list groups them by
   (`SONG_LEVELS`): each level is a colored button (hint, stars earned) that
   opens its songs in place below it, closed by default; `songLevelsOpen`
@@ -459,7 +435,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`alongSpeedPassed()`) as a medal beside the stars. Stopping Play along
   drops that run. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
-  from a song returns to the song list, and from the list to the Songs page.
+  from a song returns to the song list, and from the list to the Songs tab.
   A song opens in **Play it through** (`playThroughSong()`; the song list,
   the editor's Play it, Next song); note by note (`startSong()`) is the
   practice path, behind **Note by note** and **Practice the red notes**, and
@@ -633,7 +609,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   and hands it to `navigator.share`, else copies it. Opening a link
   (`checkSongLink()` on load and `hashchange`) strips the hash (the
   student's own instrument is used, asked at sign-in if none is saved; the
-  sharer's never shows), and walks menu (Songs) → song list
+  sharer's never shows), and walks menu (the Songs tab) → song list
   (`openSongImport()`) so back steps out normally, then `addSharedSong()`
   puts it straight into My songs (no import screen; an identical copy isn't
   added twice) and opens it in Play it through, with a toast; a pending
@@ -784,7 +760,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
   `enterTeacherMode()`. Every activity, any instrument: the header's pill
   becomes a drop-down (`#practice-instrument-select`,
   `updateTeacherHeader()`, `teacherPickInstrument()`: reloads practice and
-  returns to the menu page), and a teacher bar (`#teacher-bar`, menu only,
+  returns to the tab), and a teacher bar (`#teacher-bar`, menu only,
   `.practice-view.teacher`) replaces the player bar, with **Leave**
   (`leaveTeacherMode()` → sign-in). Practice storage goes through
   `progressGet()` / `progressSet()`: in teacher mode stars, bests and the
@@ -820,25 +796,25 @@ Loaded after firstfive.js; no server, everything stays on the device.
 - **Learning path:** `learningPath()` orders the activities (each step
   has a `unit`: the first unit with its activity, `firstUnitWith()`, except
   intermediate and advanced songs, in unit 4; the profile lists the path
-  under a heading per unit) (first sounds,
+  under a heading per unit, `.path-unit`) (first sounds,
   the first 3 notes (the student's set), naming, fingering and the quiz on them, 2
   3-note songs, writing a 3-note song, each first-five note, quiz, both drills, 3 beginner songs,
   writing a 5-note song, notes 6 and beyond, 2 of its songs, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs, then learning and playing
-  the E♭, A♭, F and C scales and Joy to the World on each, one unit each). Nothing is locked: the map
-  puts the avatar on the next step's unit, and a unit page
-  marks the next step (`markNextUp()`, `.next-up` + "Next" tag, or a dot on
-  the tab of the page it's on), and the profile lists the path; tapping a step opens it.
+  the E♭, A♭, F and C scales and Joy to the World on each, one unit each). Nothing is locked: the menu
+  opens on the next step's tab and marks its card (`markNextUp()`, `.next-up`
+  + "Next" tag, or a dot on the tab of the page it's on), and the profile
+  lists the path; tapping a step opens it (`startPathNode()`: back from it
+  goes to its tab).
   A result done well (stars on a quiz, drill, scale run, song or first
   sounds, or a whole lesson learned) gets **Next: <step>**
   (`addPathNextButton(actions)`, `.path-next`, its own row, the main
   button), unless the next step is the activity just done; the lesson's and
   first sounds' fixed follow-on buttons show only when it doesn't.
-- **Screens:** the player bar (`#player-bar`, on the map only: avatar, level, XP
+- **Screens:** the player bar (`#player-bar`, over the menu's tabs: avatar, level, XP
   bar, streak, today's goal ring; `updatePlayerBar()`, run by
   `onPracticeMenuShown()`) opens the profile (`showProfile()`, mode
-  `profile`, depth 2 in history; from a path step, the step's unit takes
-  the profile's place first): level and XP, avatar picker, streak /
+  `profile`, depth 2 in history): level and XP, avatar picker, streak /
   today / total, this week's bars and the goal picker, the path, badges,
   Switch student. Both render into `#practice-hub`.
 - **PWA:** `manifest.webmanifest` + `sw.js` (registered at the end of
@@ -996,10 +972,10 @@ node tests/smoke.js                # CHROMIUM=/path/to/chrome for a browser of y
 It serves the repo itself and checks: no errors or page scroll at desktop and
 phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload;
-Practice opens on the map and back from its Next step goes to the unit, then the map;
+Practice opens on the Notes tab with the next step marked, and back from
+it returns there; Keys pairs each scale's lesson and run;
 the header's Songs button lists every level of songs;
-a song's breadcrumbs name its unit and list and lead back to the unit;
-a unit's stop shows its summary (activities passed, stars), which back closes; a drill's result
+a song's breadcrumbs name its tab and list and lead back to the tab; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
