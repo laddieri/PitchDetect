@@ -2564,6 +2564,22 @@
 				margin-right: -8px;
 			}
 
+			/* The Songs tab: every song (buildSongList()) on one card that
+			   scrolls */
+			.practice-menu[data-songs] {
+				display: block;
+				overflow-y: auto;
+				padding: 16px;
+				border: 1px solid var(--border);
+				border-radius: var(--radius);
+				background: var(--surface);
+				box-shadow: var(--shadow-md);
+			}
+
+			.practice-menu[data-songs] .song-list {
+				margin: 0 auto;
+			}
+
 			/* The page tabs above the menu */
 			.practice-tabs {
 				flex-shrink: 0;
@@ -5238,8 +5254,13 @@
 				box-shadow: 4px 4px 0 var(--ink);
 			}
 
-			body.kid-mode .practice-card {
+			body.kid-mode .practice-card,
+			body.kid-mode .practice-menu[data-songs] {
 				box-shadow: var(--cartoon-shadow);
+			}
+
+			body.kid-mode .practice-menu[data-songs] {
+				border: var(--cartoon-border);
 			}
 
 			body.kid-mode .practice-map-note.current {
@@ -5610,6 +5631,11 @@
 				.song-list {
 					grid-template-columns: minmax(0, 1fr);
 					gap: 8px;
+				}
+
+				/* (room on the right and below for the songs' shadows) */
+				.practice-menu[data-songs] {
+					padding: 10px 14px 14px 10px;
 				}
 
 				.song-choice {
