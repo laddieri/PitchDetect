@@ -170,7 +170,7 @@ async function run() {
 					? document.querySelector(".practice-choice.next-up").getAttribute("data-activity") : null,
 				bar: getComputedStyle(document.getElementById("player-bar")).display !== "none" };
 		});
-		check(menu.page === "notes" && menu.tabs === "Notes,Keys,Songs,Arcade" && menu.next === "firstsounds" && menu.bar,
+		check(menu.page === "notes" && menu.tabs === "Notes,Keys,Songs,Games" && menu.next === "firstsounds" && menu.bar,
 			"Practice opens on the Notes tab with the next step marked (got " + menu.page + ", " + menu.tabs + ", " + menu.next + ")");
 		await page.click(".practice-choice.next-up");
 		await page.waitForFunction(function() { return practice.mode !== "menu"; });

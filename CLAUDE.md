@@ -66,7 +66,7 @@ It opens on the **menu** (`showPracticeMenu(page)`, `PRACTICE_ACTIVITIES`):
 four tabs (`PRACTICE_PAGES`, `#practice-tabs`, `renderPracticeTabs()`; each
 activity's `page`, `activityPage()`; `practice.menuPage` /
 `#practice-view[data-menu-page]`) under the player bar: **Notes**, **Keys**,
-**Songs** and **Arcade**, each card showing its best result and reading top
+**Songs** and **Games**, each card showing its best result and reading top
 to bottom, easiest first (a half card left unpaired goes wide). Practice
 opens on the tab with the next path step (`defaultMenuPage()`), whose card
 is marked; leaving an activity returns to its tab (`menuPageFor(id)`).
@@ -119,7 +119,7 @@ writing and `threeNotes(set)` / `threeNotesText(set)` /
 path; `firstThreeActivity()` its lesson, `threeSetActivity(id, set)` adds
 `bag`. Activities with `instruments` show only for those
 (`practiceActivityAvailable()`).
-**Arcade** (`arcade`), its cards grouped under headings (each
+**Games** (`games`), its cards grouped under headings (each
 activity's `group`, `practiceGroupTitle()`; `.practice-menu[data-grouped]`
 holds a `.practice-group` per heading, from `practiceGroupSection()`, and
 scrolls if it must; Practice playing notes comes first). Each heading is a

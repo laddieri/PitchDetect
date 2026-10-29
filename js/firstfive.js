@@ -499,12 +499,12 @@ function notesText(notes) {
 
 // The menu's pages, one tab each: the lessons that teach each set of notes,
 // the scales (each lesson beside its run), the songs and song writing, and
-// the arcade's timed drills and quizzes on the notes learned
+// the games: timed drills and quizzes on the notes learned
 var PRACTICE_PAGES = [
 	{ id: "notes", label: "Notes" },
 	{ id: "keys", label: "Keys" },
 	{ id: "songs", label: "Songs" },
-	{ id: "arcade", label: "Arcade" }
+	{ id: "games", label: "Games" }
 ];
 
 // The activities, each with its best result for this instrument, in menu
@@ -529,28 +529,28 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "scalerunC", icon: "scalerun", title: "Play the C scale", sub: "Up and back down, note by note", page: "keys" },
 	{ id: "scaleChromatic", icon: "scale", title: "Learn the chromatic scale", sub: "", page: "keys" },  // sub: chromaticText()
 	{ id: "scalerunChromatic", icon: "scalerun", title: "Play the chromatic scale", sub: "Every half step, up and back down", page: "keys" },
-	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "arcade", group: "playing" },  // title: the notes
-	{ id: "quiz3", icon: "trophy", title: "3 note quiz", sub: "", page: "arcade", group: "playing" },  // sub: the notes
-	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "arcade", group: "playing" },
-	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "arcade", group: "playing" },
-	{ id: "names3bag", icon: "A\u00a0B", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "arcade", group: "names" },  // title: the notes
-	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "arcade", group: "names" },  // sub: the notes
-	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "arcade", group: "names" },  // sub: the notes
-	{ id: "names9", icon: "A\u00a0B", title: "Name 9 notes", sub: "The first 5 and your new notes", page: "arcade", group: "names" },
-	{ id: "namesscale", icon: "A\u00a0B", title: "Name the B\u266d scale notes", sub: "", page: "arcade", group: "names" },  // sub: its range
-	{ id: "namesscaleEb", icon: "A\u00a0B", title: "Name the E\u266d scale notes", sub: "", page: "arcade", group: "names" },
-	{ id: "namesscaleAb", icon: "A\u00a0B", title: "Name the A\u266d scale notes", sub: "", page: "arcade", group: "names" },
-	{ id: "namesscaleF", icon: "A\u00a0B", title: "Name the F scale notes", sub: "", page: "arcade", group: "names" },
-	{ id: "namesscaleC", icon: "A\u00a0B", title: "Name the C scale notes", sub: "", page: "arcade", group: "names" },
-	{ id: "fingerings3bag", icon: "fingering", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "arcade", group: "fingerings" },  // title: the notes
-	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "", page: "arcade", group: "fingerings" },  // sub: the notes
-	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "arcade", group: "fingerings" },  // sub: the notes
-	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "arcade", group: "fingerings" },
-	{ id: "fingeringsscale", icon: "fingering", title: "Finger the B\u266d scale", sub: "", page: "arcade", group: "fingerings" },  // sub: its range
-	{ id: "fingeringsscaleEb", icon: "fingering", title: "Finger the E\u266d scale", sub: "", page: "arcade", group: "fingerings" },
-	{ id: "fingeringsscaleAb", icon: "fingering", title: "Finger the A\u266d scale", sub: "", page: "arcade", group: "fingerings" },
-	{ id: "fingeringsscaleF", icon: "fingering", title: "Finger the F scale", sub: "", page: "arcade", group: "fingerings" },
-	{ id: "fingeringsscaleC", icon: "fingering", title: "Finger the C scale", sub: "", page: "arcade", group: "fingerings" },
+	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "games", group: "playing" },  // title: the notes
+	{ id: "quiz3", icon: "trophy", title: "3 note quiz", sub: "", page: "games", group: "playing" },  // sub: the notes
+	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "games", group: "playing" },
+	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "games", group: "playing" },
+	{ id: "names3bag", icon: "A\u00a0B", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "games", group: "names" },  // title: the notes
+	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "games", group: "names" },  // sub: the notes
+	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "games", group: "names" },  // sub: the notes
+	{ id: "names9", icon: "A\u00a0B", title: "Name 9 notes", sub: "The first 5 and your new notes", page: "games", group: "names" },
+	{ id: "namesscale", icon: "A\u00a0B", title: "Name the B\u266d scale notes", sub: "", page: "games", group: "names" },  // sub: its range
+	{ id: "namesscaleEb", icon: "A\u00a0B", title: "Name the E\u266d scale notes", sub: "", page: "games", group: "names" },
+	{ id: "namesscaleAb", icon: "A\u00a0B", title: "Name the A\u266d scale notes", sub: "", page: "games", group: "names" },
+	{ id: "namesscaleF", icon: "A\u00a0B", title: "Name the F scale notes", sub: "", page: "games", group: "names" },
+	{ id: "namesscaleC", icon: "A\u00a0B", title: "Name the C scale notes", sub: "", page: "games", group: "names" },
+	{ id: "fingerings3bag", icon: "fingering", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "games", group: "fingerings" },  // title: the notes
+	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "", page: "games", group: "fingerings" },  // sub: the notes
+	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "games", group: "fingerings" },  // sub: the notes
+	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "games", group: "fingerings" },
+	{ id: "fingeringsscale", icon: "fingering", title: "Finger the B\u266d scale", sub: "", page: "games", group: "fingerings" },  // sub: its range
+	{ id: "fingeringsscaleEb", icon: "fingering", title: "Finger the E\u266d scale", sub: "", page: "games", group: "fingerings" },
+	{ id: "fingeringsscaleAb", icon: "fingering", title: "Finger the A\u266d scale", sub: "", page: "games", group: "fingerings" },
+	{ id: "fingeringsscaleF", icon: "fingering", title: "Finger the F scale", sub: "", page: "games", group: "fingerings" },
+	{ id: "fingeringsscaleC", icon: "fingering", title: "Finger the C scale", sub: "", page: "games", group: "fingerings" },
 	{ id: "songs3bag", icon: "\u266b", title: "", sub: "Hot Cross Buns and more", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "write3bag", icon: "pencil", title: "", sub: "Make up your own tune", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "songs3", icon: "\u266b", title: "Play 3-note songs", sub: "Hot Cross Buns and more", page: "songs" },
@@ -603,7 +603,7 @@ function defaultMenuPage() {
 	return (next && activityPage(next.activity)) || PRACTICE_PAGES[0].id;
 }
 
-// The headings the Arcade page groups its cards under (an
+// The headings the Games page groups its cards under (an
 // activity's group)
 function practiceGroupTitle(group) {
 	if (group === "names") return "Practice note names";
@@ -783,7 +783,7 @@ function showPracticeMenu(page) {
 	onPracticeMenuShown(menu, page);
 }
 
-// A heading and its cards on the Arcade page. The heading is a
+// A heading and its cards on the Games page. The heading is a
 // button that folds the cards away (remembered on this device).
 function practiceGroupSection(group) {
 	var section = document.createElement("section");
@@ -827,7 +827,7 @@ function practiceGroupSection(group) {
 	return section;
 }
 
-// The Arcade groups folded away: { names: true, ... }
+// The Games groups folded away: { names: true, ... }
 var PRACTICE_GROUPS_STORAGE_KEY = "pitchdetect-drill-groups-closed";
 function practiceGroupsClosed() {
 	try {
