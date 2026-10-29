@@ -439,7 +439,8 @@ function setPracticeMode(mode) {
 	schedulePracticeHistorySync();
 	var back = document.getElementById("practice-close");
 	var label = mode === "menu" ? "Back to the app"
-		: mode === "song" || mode === "editor" ? "Back to the songs" : "Back to the practice menu";
+		: mode === "song" || mode === "editor" ? "Back to the songs"
+		: mode === "songs" && practice.songList === "every" ? "Back to the map" : "Back to the practice menu";
 	back.setAttribute("aria-label", label);
 	back.title = label;
 }
@@ -1283,6 +1284,9 @@ function practiceBack() {
 	}
 	if (practice && (practice.mode === "song" || practice.mode === "editor")) {
 		showSongList();
+	} else if (practice && practice.mode === "songs" && practice.songList === "every") {
+		// The header's list of every song is in no unit
+		showPracticeMenu("map");
 	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
 	} else if (unitSummaryOpen()) {

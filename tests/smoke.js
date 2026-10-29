@@ -206,6 +206,13 @@ async function run() {
 		await page.waitForFunction(function() { return practice.menuPage === "map" && practice.mode === "menu"; });
 		check(songList.mode === "songs" && songList.levels === songList.all,
 			"the header's Songs button shows every level of songs (got " + songList.levels + "), and back returns to the map");
+		// From a unit, the header's song list's back arrow goes to the map
+		await page.evaluate(function() { showPracticeMenu("unit2"); });
+		await page.click("#practice-songs");
+		await page.click("#practice-close");
+		await page.waitForFunction(function() { return practice.mode === "menu"; });
+		var songsBack = await page.evaluate(function() { return practice.menuPage; });
+		check(songsBack === "map", "the back arrow from the header's song list goes to the map (got " + songsBack + ")");
 		// Breadcrumbs: none on the map; a song shows Map > its unit > its list > the
 		// song, and the unit's crumb goes straight there (back then reaches the map)
 		var noCrumbs = await page.isHidden("#practice-crumbs");

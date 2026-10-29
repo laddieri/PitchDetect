@@ -196,7 +196,7 @@ screens inside `practiceHistoryState()`. **Breadcrumbs** under the header
 with each history sync) show the same levels: Map › Unit 2 (or Every
 activity) › the activity, named as its card (`practiceActivityTitle()`) ›
 a song, each level above a link there; the header's song list is Map ›
-Songs; none on the map or while signing in. Keep new screens in
+Songs, and its back arrow goes to the map; none on the map or while signing in. Keep new screens in
 `practiceCrumbs()` too. The lessons
 teach the band-method first five notes, concert B♭ C D E♭ F, at each
 instrument's written pitch (`practiceStartConcertMidi` holds each instrument's
