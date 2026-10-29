@@ -674,6 +674,17 @@ function showPracticeMenu(page) {
 	var menu = document.getElementById("practice-menu");
 	menu.innerHTML = "";
 	renderPracticeTabs(page);
+	// The Songs tab is the list of every song, Beginner to the scale songs,
+	// and the student's own
+	menu.toggleAttribute("data-songs", page === "songs");
+	if (page === "songs") {
+		practice.songList = "every";
+		menu.removeAttribute("data-grouped");
+		menu.removeAttribute("data-count");
+		menu.appendChild(buildSongList());
+		onPracticeMenuShown(menu, page);
+		return;
+	}
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
 	var activities = PRACTICE_ACTIVITIES.filter(function(a) {
 		return practiceActivityAvailable(a.id) && a.page === page;
@@ -731,7 +742,7 @@ function showPracticeMenu(page) {
 		} else if (a.firstSounds) {
 			score = starText(practice.firstSoundsBest);
 		} else if (a.id === "songs" || a.id === "songs3" || a.id === "songs3bag" || a.id === "songs5") {
-			var list = listSongs({ songs: "all", songs3: "three", songs3bag: "three", songs5: "five" }[a.id]);
+			var list = listSongs({ songs: "every", songs3: "three", songs3bag: "three", songs5: "five" }[a.id]);
 			var songTotal = list.reduce(function(t, song) { return t + songStars(song, set); }, 0);
 			score = songTotal + " / " + list.length * 3 + " \u2605";
 		} else if (a.id === "write3" || a.id === "write3bag" || a.id === "write5") {
@@ -869,7 +880,7 @@ function startPracticeActivity(id) {
 	} else if (id === "firstsounds") {
 		startFirstSounds();
 	} else if (id === "songs") {
-		showSongList("all");
+		showPracticeMenu("songs");
 	} else if (id === "songs3") {
 		showSongList("three");
 	} else if (id === "songs5") {
@@ -930,12 +941,13 @@ function practiceCrumbs() {
 		crumbs.push({ label: "Profile" });
 		return crumbs;
 	}
-	// (the header's Songs button lists every song)
-	var allSongs = practice.songList === "every" && (deeper || practice.mode === "songs");
-	crumbs.push({
-		label: allSongs ? "All songs" : practiceActivityTitle(activity),
-		go: deeper ? function() { showSongList(); } : null
-	});
+	// (a song from the Songs tab sits right under it)
+	if (!(deeper && practice.songList === "every")) {
+		crumbs.push({
+			label: practiceActivityTitle(activity),
+			go: deeper ? function() { showSongList(); } : null
+		});
+	}
 	if (practice.mode === "song") {
 		var song = findSong(practice.song.id);
 		crumbs.push({ label: song ? songTitle(song) : "Song" });
@@ -2900,13 +2912,12 @@ function threeNoteSongs() {
 }
 
 // The built-in songs on song list list: "three" (Play 3-note songs),
-// "five" (the beginner songs, Play 5-note songs), "all" (More
-// songs: every level but the beginner songs) or "every" (the header's
-// Songs button: every song)
+// "five" (the beginner songs, Play 5-note songs) or "every" (the Songs tab:
+// every song)
 function listSongs(list) {
 	if (list === "three") return threeNoteSongs();
-	if (list === "every") return SONGS;
-	return SONGS.filter(function(song) { return (song.level === "beginner") === (list === "five"); });
+	if (list === "five") return SONGS.filter(function(song) { return song.level === "beginner"; });
+	return SONGS;
 }
 
 // The student's own songs written with a set of first 3 notes (default:
@@ -3043,13 +3054,17 @@ function songListLabel() {
 
 // The song list: one button per song with its stars, then the student's
 // own songs (each with an edit button) and Make a song. list "three" (Play
-// 3-note songs) shows just the 3-note songs and the student's
-// songs with their first 3 notes; "five" (Play 5-note songs) the beginner
-// songs and the student's songs with their first 5 notes; "all" (More songs) the other levels and the student's
-// songs; "every" (the header's Songs button) every level and all the
-// student's songs. Without one, the list shown last.
+// 3-note songs, from the learning path) shows just the 3-note songs and the
+// student's songs with their first 3 notes; "five" (Play 5-note songs) the
+// beginner songs and the student's songs with their first 5 notes; any other
+// ("every") is the Songs tab: every level and all the student's songs.
+// Without one, the list shown last.
 function showSongList(list) {
 	if (list) practice.songList = list;
+	if (practice.songList !== "three" && practice.songList !== "five") {
+		showPracticeMenu("songs");
+		return;
+	}
 	var three = practice.songList === "three";
 	var five = practice.songList === "five";
 	stopSongPlayback();
@@ -3063,6 +3078,17 @@ function showSongList(list) {
 		: five ? "Songs with your first 5 notes" : "Pick a song!";
 	var body = document.getElementById("practice-body");
 	body.innerHTML = "";
+	body.appendChild(buildSongList());
+	// Nothing here listens; the mic starts with the song
+	if (practiceStartedMic && listenActive) stopListening();
+	practiceStartedMic = false;
+}
+
+// The list practice.songList names: its songs (every song by level, each
+// level folding open in place), then the student's own songs and Make a song
+function buildSongList() {
+	var three = practice.songList === "three";
+	var five = practice.songList === "five";
 	var list = document.createElement("div");
 	list.className = "song-list";
 	function songButton(song) {
@@ -3085,9 +3111,7 @@ function showSongList(list) {
 	if (three || five) {
 		listSongs(practice.songList).forEach(function(song) { list.appendChild(songButton(song)); });
 	}
-	SONG_LEVELS.filter(function(level) {
-		return !three && !five && (level.id !== "beginner" || practice.songList === "every");
-	}).forEach(function(level) {
+	SONG_LEVELS.filter(function() { return !three && !five; }).forEach(function(level) {
 		var songs = SONGS.filter(function(song) { return song.level === level.id; });
 		var earned = songs.reduce(function(t, song) { return t + songStars(song); }, 0);
 		var toggle = document.createElement("button");
@@ -3145,17 +3169,13 @@ function showSongList(list) {
 	make.lastChild.textContent = three ? "Make a 3-note song" : five ? "Make a 5-note song" : "Make a song";
 	make.onclick = function() { openSongEditor(null, three ? practice.threeSet : five ? "first5" : null); };
 	list.appendChild(make);
-
-	body.appendChild(list);
-	// Nothing here listens; the mic starts with the song
-	if (practiceStartedMic && listenActive) stopListening();
-	practiceStartedMic = false;
+	return list;
 }
 
-// The header's Songs button: every song, from wherever the student is
+// The header's Songs button: the Songs tab, from wherever the student is
 function showAllSongs() {
 	if (!practice || practice.mode === "signin") return;
-	showSongList("every");
+	showPracticeMenu("songs");
 }
 
 // from: start partway (Practice the red notes), notes before it counted done;
@@ -3679,7 +3699,7 @@ function finishFollow() {
 	// Played it all right: the next song waits beside Play again
 	var songs = s.song.custom
 		? listCustomSongs(practice.songList)
-		: listSongs(practice.songList || "all");
+		: listSongs(practice.songList || "every");
 	songs = songs.filter(function(song) { return songNotes(song).length; });
 	var next = songs[songs.indexOf(s.song) + 1];
 	if (right === total && next && !from) {
@@ -7095,8 +7115,6 @@ function openSongImport() {
 	syncPracticeHistory();
 	showPracticeMenu("songs");
 	syncPracticeHistory();
-	showSongList();
-	syncPracticeHistory();
 	addSharedSong();
 }
 
@@ -8201,7 +8219,8 @@ function practiceHistoryState() {
 	// Sign-in on opening stands in for the menu; from the profile it's a level deeper
 	if (activity === "signin") return { practice: "signin", depth: practice.signinFrom === "profile" ? 3 : 1 };
 	if (activity === "profile") return { practice: "profile", depth: 2 };
-	var depth = 2;
+	// (a song from the Songs tab is a level under the menu)
+	var depth = practice.songList === "every" && (practice.mode === "song" || practice.mode === "editor") ? 1 : 2;
 	if (practice.mode === "song") return { practice: "song", song: practice.song.id, free: !!practice.song.free, depth: depth + 1 };
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
 	if (practice.mode === "songs") return { practice: "songs", depth: depth };

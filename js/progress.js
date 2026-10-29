@@ -745,7 +745,7 @@ function markNextUp(menu, page) {
 		tag.className = "next-up-tag";
 		tag.textContent = "Next";
 		card.appendChild(tag);
-	} else {
+	} else if (activityPage(next.activity) !== page) {
 		var tab = document.querySelector('.practice-tab[data-page="' + activityPage(next.activity) + '"]');
 		if (tab) tab.classList.add("next-up");
 	}

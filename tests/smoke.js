@@ -185,31 +185,32 @@ async function run() {
 		});
 		check(backPage === "notes" && keys.cards === "scale,scalerun" && keys.depth === 1,
 			"back from the step returns to its tab; Keys pairs each scale's lesson and run (got " + backPage + ", " + keys.cards + ", depth " + keys.depth + ")");
-		// The header's Songs button lists every song, Beginner included; the back
-		// arrow returns to the Songs tab
+		// The Songs tab (and the header's Songs button) lists every song,
+		// Beginner included, right on the tab
+		await page.evaluate(function() { showPracticeMenu("notes"); });
 		await page.click("#practice-songs");
 		var songList = await page.evaluate(function() {
-			return { mode: practice.mode, levels: document.querySelectorAll("#practice-body .song-level").length, all: SONG_LEVELS.length };
+			return { mode: practice.mode, page: practice.menuPage, depth: history.state.depth,
+				levels: document.querySelectorAll("#practice-menu .song-level").length, all: SONG_LEVELS.length };
 		});
-		await page.click("#practice-close");
-		await page.waitForFunction(function() { return practice.mode === "menu"; });
-		var songsBack = await page.evaluate(function() { return practice.menuPage; });
-		check(songList.mode === "songs" && songList.levels === songList.all && songsBack === "songs",
-			"the header's Songs button shows every level of songs (got " + songList.levels + "), and back returns to the Songs tab (got " + songsBack + ")");
-		// Breadcrumbs: none on the menu; a song shows its tab > its list > the
-		// song, and the tab's crumb goes straight back there
+		check(songList.mode === "menu" && songList.page === "songs" && songList.depth === 1 && songList.levels === songList.all,
+			"the Songs tab shows every level of songs (got " + songList.levels + " on " + songList.page + ")");
+		// Breadcrumbs: none on the menu; a song from the Songs tab shows Songs >
+		// the song, its crumb and the back arrow lead back to the tab, and the
+		// tab's back arrow leaves Practice
 		var noCrumbs = await page.isHidden("#practice-crumbs");
-		await page.click('.practice-choice[data-activity="songs5"]');
-		await page.click('#practice-body .song-choice:not(.song-level):not(.song-new)');
+		await page.click('.song-level[data-level="beginner"]');
+		await page.click("#song-level-beginner .song-choice");
 		await page.waitForFunction(function() { return practice.mode === "song"; });
 		var crumbs = await page.$$eval("#practice-crumbs li", function(items) {
 			return items.map(function(li) { return li.textContent; }).join(" > ");
 		});
+		var songDepth = await page.evaluate(function() { return history.state.depth; });
 		await page.click("#practice-crumbs li:nth-child(1) button");
 		await page.waitForFunction(function() { return practice.mode === "menu"; });
-		var crumbPage = await page.evaluate(function() { return practice.mode + " " + practice.menuPage + " " + history.state.depth; });
-		check(noCrumbs && /^Songs > Play 5-note songs > ./.test(crumbs) && crumbPage === "menu songs 1",
-			"breadcrumbs show where a song is and lead back to its tab (got " + crumbs + ", " + crumbPage + ")");
+		var crumbPage = await page.evaluate(function() { return practice.menuPage + " " + history.state.depth; });
+		check(noCrumbs && crumbs === "Songs > Mary Had a Little Lamb" && songDepth === 2 && crumbPage === "songs 1",
+			"a song's breadcrumbs lead back to the Songs tab (got " + crumbs + ", depth " + songDepth + ", " + crumbPage + ")");
 		await page.evaluate(function() { recordProgress(25); saveProfile(); });
 		var saved = await page.evaluate(function() {
 			var id = localStorage.getItem("pitchdetect-student");

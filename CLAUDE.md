@@ -142,18 +142,21 @@ quiz** (`quiz9`, `startNineQuiz()`: the quiz over the first five notes plus
 notes 6 and beyond, `QUIZ9_LENGTH` (12) notes, one answer button per name
 low to high so the two A♭s share one; best in `pitchdetect-nine-note-quiz`,
 on the path after notes 6 and beyond).
-**Songs** (`songs`): **Play 3-note songs** (`songs3`:
-`showSongList("three")`), **Write a 3-note song** (`write3`: the editor in
-3-note mode), **Play 5-note songs** (`songs5`: `showSongList("five")`, the
-Beginner songs and the student's 5-note songs; `listSongs(list)` gives each
-list's built-in songs, `listCustomSongs(list)` its own songs), **Write a
-5-note song** (`write5`: the editor on the first 5 notes, `song.three =
-"first5"`, `fiveNoteCustomSongs()`) and **More songs** (`songs`:
-`showSongList("all")`, every level but Beginner, and all the student's songs).
-The header's **Songs** button (`#practice-songs`, top right, styled like
-the app's Practice button; hidden while signing in) opens `showAllSongs()`:
-`showSongList("every")`, every level including Beginner and all the
-student's songs, from any screen.
+**Songs** (`songs`) has no cards: the tab is the song list itself
+(`buildSongList()` into `#practice-menu[data-songs]`, `practice.songList =
+"every"`): every level, Beginner included, and all the student's songs,
+with Make a song. The header's **Songs** button (`#practice-songs`, top
+right, styled like the app's Practice button; hidden while signing in)
+opens it from any screen (`showAllSongs()`). The tab's activities still
+exist for the learning path, titles and breadcrumbs: **Play 3-note songs**
+(`songs3`: `showSongList("three")`), **Write a 3-note song** (`write3`: the
+editor in 3-note mode), **Play 5-note songs** (`songs5`:
+`showSongList("five")`, the Beginner songs and the student's 5-note songs;
+`listSongs(list)` gives each list's built-in songs, `listCustomSongs(list)`
+its own songs), **Write a 5-note song** (`write5`: the editor on the first
+5 notes, `song.three = "first5"`, `fiveNoteCustomSongs()`) and **More
+songs** (`songs`: the Songs tab). `showSongList()` of any list but "three"
+or "five" shows the tab.
 `#practice-view[data-mode]` (`setPracticeMode()`:
 menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
@@ -163,15 +166,15 @@ history mirrors these screens (`syncPracticeHistory()`, run after every
 `setPracticeMode()` and in `closePractice()`), so Android's back button and
 iOS's swipe-back step back like the arrow: each screen has a depth (the
 menu 1, its tabs replacing each other; the profile 2; an activity 2; a song
-3); deeper pushes, sideways replaces, shallower
+3, or 2 from the Songs tab); deeper pushes, sideways replaces, shallower
 `history.go()`s back, and `popstate` shows the entry's screen (after our
 own `history.go()`, `practiceHistoryGoing`, it syncs history to the screen
 instead, which may have moved on meanwhile). Keep new
 screens inside `practiceHistoryState()`. **Breadcrumbs** under the header
 (`#practice-crumbs`, `renderPracticeCrumbs()` over `practiceCrumbs()`, run
 with each history sync) show the same levels: the tab › the activity, named as its card
-(`practiceActivityTitle()`) › a song, each level above a link there; the
-header's song list is Songs › All songs; none on the menu (its tabs say
+(`practiceActivityTitle()`) › a song, each level above a link there; a
+song from the Songs tab is Songs › the song; none on the menu (its tabs say
 where it is) or while signing in. Keep new screens in
 `practiceCrumbs()` too. The lessons
 teach the band-method first five notes, concert B♭ C D E♭ F, at each
@@ -435,7 +438,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`alongSpeedPassed()`) as a medal beside the stars. Stopping Play along
   drops that run. Help works as in the quiz; best unhelped-note score per song
   per instrument in `pitchdetect-songs`, shown as `challengeStars()`. Back
-  from a song returns to the song list, and from the list to the Songs tab.
+  from a song returns to its song list (the Songs tab, or a 3- or 5-note
+  list, whose back goes to the tab).
   A song opens in **Play it through** (`playThroughSong()`; the song list,
   the editor's Play it, Next song); note by note (`startSong()`) is the
   practice path, behind **Note by note** and **Practice the red notes**, and
@@ -609,7 +613,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   and hands it to `navigator.share`, else copies it. Opening a link
   (`checkSongLink()` on load and `hashchange`) strips the hash (the
   student's own instrument is used, asked at sign-in if none is saved; the
-  sharer's never shows), and walks menu (the Songs tab) → song list
+  sharer's never shows), and walks to the Songs tab
   (`openSongImport()`) so back steps out normally, then `addSharedSong()`
   puts it straight into My songs (no import screen; an identical copy isn't
   added twice) and opens it in Play it through, with a toast; a pending
@@ -974,8 +978,8 @@ phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload;
 Practice opens on the Notes tab with the next step marked, and back from
 it returns there; Keys pairs each scale's lesson and run;
-the header's Songs button lists every level of songs;
-a song's breadcrumbs name its tab and list and lead back to the tab; a drill's result
+the Songs tab (and the header's Songs button) lists every level of songs;
+a song's breadcrumbs lead back to the Songs tab; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
