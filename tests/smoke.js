@@ -206,6 +206,29 @@ async function run() {
 		await page.waitForFunction(function() { return practice.menuPage === "map" && practice.mode === "menu"; });
 		check(songList.mode === "songs" && songList.levels === songList.all,
 			"the header's Songs button shows every level of songs (got " + songList.levels + "), and back returns to the map");
+		// From a unit, the header's song list's back arrow goes to the map
+		await page.evaluate(function() { showPracticeMenu("unit2"); });
+		await page.click("#practice-songs");
+		await page.click("#practice-close");
+		await page.waitForFunction(function() { return practice.mode === "menu"; });
+		var songsBack = await page.evaluate(function() { return practice.menuPage; });
+		check(songsBack === "map", "the back arrow from the header's song list goes to the map (got " + songsBack + ")");
+		// Breadcrumbs: none on the map; a song shows Map > its unit > its list > the
+		// song, and the unit's crumb goes straight there (back then reaches the map)
+		var noCrumbs = await page.isHidden("#practice-crumbs");
+		await page.evaluate(function() { showPracticeMenu("unit2"); });
+		await page.click('.practice-choice[data-activity="songs5"]');
+		await page.click('#practice-body .song-choice:not(.song-level):not(.song-new)');
+		await page.waitForFunction(function() { return practice.mode === "song"; });
+		var crumbs = await page.$$eval("#practice-crumbs li", function(items) {
+			return items.map(function(li) { return li.textContent; }).join(" > ");
+		});
+		await page.click("#practice-crumbs li:nth-child(2) button");
+		var crumbPage = await page.evaluate(function() { return practice.mode + " " + practice.menuPage; });
+		await page.goBack();
+		await page.waitForFunction(function() { return practice.menuPage === "map"; });
+		check(noCrumbs && /^Map > Unit 2 > Play 5-note songs > ./.test(crumbs) && crumbPage === "menu unit2",
+			"breadcrumbs show where a song is and lead back to its unit (got " + crumbs + ", " + crumbPage + ")");
 		await page.evaluate(function() { recordProgress(25); saveProfile(); });
 		var saved = await page.evaluate(function() {
 			var id = localStorage.getItem("pitchdetect-student");

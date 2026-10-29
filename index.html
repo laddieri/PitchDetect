@@ -2067,6 +2067,90 @@
 				color: var(--accent);
 			}
 
+			/* Breadcrumbs (renderPracticeCrumbs()): where the screen sits, from
+			   the map down, each step above it a link back there. One line:
+			   the steps above shrink first, so the current screen stays
+			   readable. */
+			.practice-crumbs {
+				flex-shrink: 0;
+				min-width: 0;
+			}
+
+			.practice-crumbs[hidden] {
+				display: none;
+			}
+
+			.practice-crumbs ol {
+				display: flex;
+				align-items: center;
+				min-width: 0;
+				margin: 0;
+				padding: 0;
+				list-style: none;
+				font-size: 0.9rem;
+				line-height: 1.4;
+				white-space: nowrap;
+			}
+
+			.practice-crumbs li {
+				display: flex;
+				align-items: center;
+				flex: 0 100 auto;
+				min-width: 4em;
+			}
+
+			.practice-crumbs li:first-child {
+				flex-shrink: 0;
+				min-width: 0;
+			}
+
+			.practice-crumbs li:last-child {
+				flex-shrink: 1;
+				min-width: 0;
+			}
+
+			.practice-crumbs li + li::before {
+				content: "\203A";
+				flex-shrink: 0;
+				padding: 0 6px;
+				color: var(--text-muted);
+			}
+
+			.practice-crumbs button,
+			.practice-crumbs span {
+				min-width: 0;
+				overflow: hidden;
+				text-overflow: ellipsis;
+			}
+
+			.practice-crumbs button {
+				padding: 2px 0;
+				border: 0;
+				background: none;
+				font: inherit;
+				color: var(--text-muted);
+				text-decoration: underline;
+				text-decoration-color: var(--border-strong);
+				text-underline-offset: 3px;
+				cursor: pointer;
+			}
+
+			.practice-crumbs button:hover {
+				color: var(--accent);
+				text-decoration-color: currentColor;
+			}
+
+			.practice-crumbs button:focus-visible {
+				outline: none;
+				border-radius: 4px;
+				box-shadow: var(--ring);
+			}
+
+			.practice-crumbs [aria-current] {
+				font-weight: 700;
+				color: var(--text);
+			}
+
 			/* Title as a small kicker over the instrument, which is the big,
 			   tappable heading (a native select, so it works everywhere) */
 			.practice-heading {
@@ -6641,6 +6725,7 @@
 						</button>
 					</span>
 				</div>
+				<nav id="practice-crumbs" class="practice-crumbs" aria-label="Breadcrumb" hidden></nav>
 				<button id="player-bar" class="player-bar" onclick="showProfile()">
 					<span class="player-avatar" aria-hidden="true"></span>
 					<span class="player-info" aria-hidden="true">
