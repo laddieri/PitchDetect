@@ -383,9 +383,6 @@ function loadPracticeInstrument() {
 		lesson: "first5",
 		notes: lessons.first5.notes,  // the quiz and drills use the first five
 		threeSet: defaultThreeSet(select.value),  // ...and the 3-note ones the set last opened
-		// The menu shows a unit at a time, or every activity (teachers start there)
-		menuAll: typeof profile !== "undefined" && profile && typeof profile.menuAll === "boolean"
-			? profile.menuAll : teacherMode,
 		fingeringKeys: {},
 		challengeBest: loadChallengeBest(select.value),
 		// Each scale run's best, by lesson set ("scale" is B♭)
@@ -439,8 +436,7 @@ function setPracticeMode(mode) {
 	schedulePracticeHistorySync();
 	var back = document.getElementById("practice-close");
 	var label = mode === "menu" ? "Back to the app"
-		: mode === "song" || mode === "editor" ? "Back to the songs"
-		: mode === "songs" && practice.songList === "every" ? "Back to the map" : "Back to the practice menu";
+		: mode === "song" || mode === "editor" ? "Back to the songs" : "Back to the practice menu";
 	back.setAttribute("aria-label", label);
 	back.title = label;
 }
@@ -502,56 +498,59 @@ function notesText(notes) {
 }
 
 // The menu's pages, one tab each: the lessons that teach each set of notes,
-// the practice drills and quizzes on them, and the songs and song writing
+// the scales (each lesson beside its run), the songs and song writing, and
+// the arcade's timed drills and quizzes on the notes learned
 var PRACTICE_PAGES = [
-	{ id: "lessons", label: "Lessons" },
-	{ id: "drills", label: "Practice drills" },
-	{ id: "songs", label: "Songs" }
+	{ id: "notes", label: "Notes" },
+	{ id: "keys", label: "Keys" },
+	{ id: "songs", label: "Songs" },
+	{ id: "arcade", label: "Arcade" }
 ];
 
 // The activities, each with its best result for this instrument, in menu
 // order on their page, easiest first, so each page reads top to bottom like
-// a path. Half-width cards pair up on desktop.
+// a path. Half-width cards pair up on desktop (on Keys, each scale's lesson
+// beside its run).
 var PRACTICE_ACTIVITIES = [
-	{ id: "firstsounds", firstSounds: true, page: "lessons", wide: true },  // title, sub and icon from FIRST_SOUNDS
-	{ id: "learn3bag", icon: "\u266a", title: "Learn B, A and G", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "lessons", wide: true },
-	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", page: "lessons", wide: true },
-	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "lessons", wide: true },
-	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "lessons", wide: true },  // sub: nextFourText()
-	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "lessons", wide: true },
-	{ id: "scaleEb", icon: "scale", title: "Learn the E\u266d scale", sub: "", page: "lessons" },  // sub: moreScaleText()
-	{ id: "scaleAb", icon: "scale", title: "Learn the A\u266d scale", sub: "", page: "lessons" },
-	{ id: "scaleF", icon: "scale", title: "Learn the F scale", sub: "", page: "lessons" },
-	{ id: "scaleC", icon: "scale", title: "Learn the C scale", sub: "", page: "lessons" },
-	{ id: "scaleChromatic", icon: "scale", title: "Learn the chromatic scale", sub: "", page: "lessons", wide: true },  // sub: chromaticText()
-	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "playing" },  // title: the notes
-	{ id: "quiz3", icon: "trophy", title: "3 note quiz", sub: "", page: "drills", group: "playing" },  // sub: the notes
-	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "drills", group: "playing" },
-	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "drills", group: "playing" },
-	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing", wide: true },
-	{ id: "scalerunEb", icon: "scalerun", title: "Play the E\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing" },
-	{ id: "scalerunAb", icon: "scalerun", title: "Play the A\u266d scale", sub: "Up and back down, note by note", page: "drills", group: "playing" },
-	{ id: "scalerunF", icon: "scalerun", title: "Play the F scale", sub: "Up and back down, note by note", page: "drills", group: "playing" },
-	{ id: "scalerunC", icon: "scalerun", title: "Play the C scale", sub: "Up and back down, note by note", page: "drills", group: "playing" },
-	{ id: "scalerunChromatic", icon: "scalerun", title: "Play the chromatic scale", sub: "Every half step, up and back down", page: "drills", group: "playing", wide: true },
-	{ id: "names3bag", icon: "A\u00a0B", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "names" },  // title: the notes
-	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
-	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "drills", group: "names" },  // sub: the notes
-	{ id: "names9", icon: "A\u00a0B", title: "Name 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "names" },
-	{ id: "namesscale", icon: "A\u00a0B", title: "Name the B\u266d scale notes", sub: "", page: "drills", group: "names" },  // sub: its range
-	{ id: "namesscaleEb", icon: "A\u00a0B", title: "Name the E\u266d scale notes", sub: "", page: "drills", group: "names" },
-	{ id: "namesscaleAb", icon: "A\u00a0B", title: "Name the A\u266d scale notes", sub: "", page: "drills", group: "names" },
-	{ id: "namesscaleF", icon: "A\u00a0B", title: "Name the F scale notes", sub: "", page: "drills", group: "names" },
-	{ id: "namesscaleC", icon: "A\u00a0B", title: "Name the C scale notes", sub: "", page: "drills", group: "names" },
-	{ id: "fingerings3bag", icon: "fingering", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "drills", group: "fingerings" },  // title: the notes
-	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
-	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "drills", group: "fingerings" },  // sub: the notes
-	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "drills", group: "fingerings" },
-	{ id: "fingeringsscale", icon: "fingering", title: "Finger the B\u266d scale", sub: "", page: "drills", group: "fingerings" },  // sub: its range
-	{ id: "fingeringsscaleEb", icon: "fingering", title: "Finger the E\u266d scale", sub: "", page: "drills", group: "fingerings" },
-	{ id: "fingeringsscaleAb", icon: "fingering", title: "Finger the A\u266d scale", sub: "", page: "drills", group: "fingerings" },
-	{ id: "fingeringsscaleF", icon: "fingering", title: "Finger the F scale", sub: "", page: "drills", group: "fingerings" },
-	{ id: "fingeringsscaleC", icon: "fingering", title: "Finger the C scale", sub: "", page: "drills", group: "fingerings" },
+	{ id: "firstsounds", firstSounds: true, page: "notes", wide: true },  // title, sub and icon from FIRST_SOUNDS
+	{ id: "learn3bag", icon: "\u266a", title: "Learn B, A and G", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "notes", wide: true },
+	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", page: "notes", wide: true },
+	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "notes", wide: true },
+	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "notes", wide: true },  // sub: nextFourText()
+	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "keys" },
+	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "keys" },
+	{ id: "scaleEb", icon: "scale", title: "Learn the E\u266d scale", sub: "", page: "keys" },  // sub: moreScaleText()
+	{ id: "scalerunEb", icon: "scalerun", title: "Play the E\u266d scale", sub: "Up and back down, note by note", page: "keys" },
+	{ id: "scaleAb", icon: "scale", title: "Learn the A\u266d scale", sub: "", page: "keys" },
+	{ id: "scalerunAb", icon: "scalerun", title: "Play the A\u266d scale", sub: "Up and back down, note by note", page: "keys" },
+	{ id: "scaleF", icon: "scale", title: "Learn the F scale", sub: "", page: "keys" },
+	{ id: "scalerunF", icon: "scalerun", title: "Play the F scale", sub: "Up and back down, note by note", page: "keys" },
+	{ id: "scaleC", icon: "scale", title: "Learn the C scale", sub: "", page: "keys" },
+	{ id: "scalerunC", icon: "scalerun", title: "Play the C scale", sub: "Up and back down, note by note", page: "keys" },
+	{ id: "scaleChromatic", icon: "scale", title: "Learn the chromatic scale", sub: "", page: "keys" },  // sub: chromaticText()
+	{ id: "scalerunChromatic", icon: "scalerun", title: "Play the chromatic scale", sub: "Every half step, up and back down", page: "keys" },
+	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "arcade", group: "playing" },  // title: the notes
+	{ id: "quiz3", icon: "trophy", title: "3 note quiz", sub: "", page: "arcade", group: "playing" },  // sub: the notes
+	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "arcade", group: "playing" },
+	{ id: "quiz9", icon: "trophy", title: "9 note quiz", sub: "The first 5 and your new notes", page: "arcade", group: "playing" },
+	{ id: "names3bag", icon: "A\u00a0B", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "arcade", group: "names" },  // title: the notes
+	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "arcade", group: "names" },  // sub: the notes
+	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "arcade", group: "names" },  // sub: the notes
+	{ id: "names9", icon: "A\u00a0B", title: "Name 9 notes", sub: "The first 5 and your new notes", page: "arcade", group: "names" },
+	{ id: "namesscale", icon: "A\u00a0B", title: "Name the B\u266d scale notes", sub: "", page: "arcade", group: "names" },  // sub: its range
+	{ id: "namesscaleEb", icon: "A\u00a0B", title: "Name the E\u266d scale notes", sub: "", page: "arcade", group: "names" },
+	{ id: "namesscaleAb", icon: "A\u00a0B", title: "Name the A\u266d scale notes", sub: "", page: "arcade", group: "names" },
+	{ id: "namesscaleF", icon: "A\u00a0B", title: "Name the F scale notes", sub: "", page: "arcade", group: "names" },
+	{ id: "namesscaleC", icon: "A\u00a0B", title: "Name the C scale notes", sub: "", page: "arcade", group: "names" },
+	{ id: "fingerings3bag", icon: "fingering", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "arcade", group: "fingerings" },  // title: the notes
+	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "", page: "arcade", group: "fingerings" },  // sub: the notes
+	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "arcade", group: "fingerings" },  // sub: the notes
+	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "arcade", group: "fingerings" },
+	{ id: "fingeringsscale", icon: "fingering", title: "Finger the B\u266d scale", sub: "", page: "arcade", group: "fingerings" },  // sub: its range
+	{ id: "fingeringsscaleEb", icon: "fingering", title: "Finger the E\u266d scale", sub: "", page: "arcade", group: "fingerings" },
+	{ id: "fingeringsscaleAb", icon: "fingering", title: "Finger the A\u266d scale", sub: "", page: "arcade", group: "fingerings" },
+	{ id: "fingeringsscaleF", icon: "fingering", title: "Finger the F scale", sub: "", page: "arcade", group: "fingerings" },
+	{ id: "fingeringsscaleC", icon: "fingering", title: "Finger the C scale", sub: "", page: "arcade", group: "fingerings" },
 	{ id: "songs3bag", icon: "\u266b", title: "", sub: "Hot Cross Buns and more", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "write3bag", icon: "pencil", title: "", sub: "Make up your own tune", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "songs3", icon: "\u266b", title: "Play 3-note songs", sub: "Hot Cross Buns and more", page: "songs" },
@@ -561,13 +560,9 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "songs", icon: "\u266b", title: "More songs", sub: "When the Saints, Twinkle, or make your own", page: "songs", wide: true }
 ];
 
-// The units: Practice opens on a map of them all (menu page "map",
-// showPracticeMap()); a unit's own menu page ("unit1"...) shows one at a time,
-// with just that stretch of the path's cards in path order, so a beginner
-// sees a few cards, not everything. The arrows step through them and, past
-// the last, to every activity on the tabbed pages (PRACTICE_PAGES), which
-// teachers start on. An activity may be in more than one unit (More songs).
-// The path's steps say which unit they're in (learningPath()).
+// The units: stretches of the learning path, which the profile lists the
+// path's steps under (learningPath() gives each step its unit). An activity
+// may be in more than one unit (More songs).
 var PRACTICE_UNITS = [
 	{ id: "unit1", title: "Your first notes", activities: ["firstsounds", "learn3bag", "learn3",
 		"names3bag", "names3", "fingerings3bag", "fingerings3", "quiz3bag", "quiz3",
@@ -587,34 +582,12 @@ function practiceUnit(page) {
 }
 
 function isPracticeMenuPage(page) {
-	return page === "map" || !!practiceUnit(page) || PRACTICE_PAGES.some(function(p) { return p.id === page; });
+	return PRACTICE_PAGES.some(function(p) { return p.id === page; });
 }
 
-// What a unit's notes are, for the card that leads to it
-function practiceUnitSub(unit) {
-	if (unit.id === "unit1") return threeNotesText(defaultThreeSet(practice.instrument));
-	if (unit.id === "unit2") return notesText(practice.lessons.first5.notes);
-	if (unit.id === "unit3") return nextFourText();
-	if (unit.id === "unit4") return "All eight notes, and harder songs";
-	if (unit.id === "unit9") return chromaticText();
-	return moreScaleText(unit.activities[0]);  // a unit per concert scale
-}
-
-// The path's steps in a unit, and how many are done (null for the teacher,
-// whose progress isn't kept)
-function practiceUnitProgress(unit) {
-	if (typeof learningPath !== "function" || !progressCounts()) return null;
-	var nodes = learningPath().filter(function(n) { return n.unit === unit.id; });
-	return { done: nodes.filter(function(n) { return n.done; }).length, total: nodes.length };
-}
-
-// The menu page to return to from activity id: its tab when showing every
-// activity, else the unit on show if it has it, else the first unit with it
+// The menu page to return to from activity id: its tab
 function menuPageFor(id) {
-	if (practice.menuAll) return activityPage(id);
-	var current = practiceUnit(practice.menuPage);
-	if (current && current.activities.indexOf(id) >= 0) return current.id;
-	return firstUnitWith(id);
+	return activityPage(id);
 }
 
 // The first unit with activity id (null if none has it)
@@ -623,328 +596,14 @@ function firstUnitWith(id) {
 	return unit ? unit.id : null;
 }
 
-// The page the menu opens on: the map of every unit
+// The page the menu opens on: the tab with the next step on the learning
+// path, else Notes
 function defaultMenuPage() {
-	return "map";
-}
-
-// The unit with the next step on the path (null for the teacher, or once
-// the path is done)
-function practiceCurrentUnit() {
 	var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
-	return next ? practiceUnit(next.unit) : null;
+	return (next && activityPage(next.activity)) || PRACTICE_PAGES[0].id;
 }
 
-// The map Practice opens on, like a game's overworld: every unit as a stop
-// on a winding trail, the done ones gold, the student's avatar on the one
-// with the next step, and a button on to that step. A unit's stop shows its
-// summary first (showUnitSummary()); Every activity opens straight away.
-function showPracticeMap(menu) {
-	var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
-	var current = next ? practiceUnit(next.unit) : null;
-	var avatar = typeof profile !== "undefined" && profile && progressCounts() && AVATARS[profile.avatar]
-		? AVATARS[profile.avatar].icon : "";
-	var trail = document.createElement("div");
-	trail.className = "world-trail";
-	var stops = PRACTICE_UNITS.concat([null]);  // then every activity
-	var currentRow = null;
-	stops.forEach(function(unit, i) {
-		var row = document.createElement("div");
-		row.className = "world-row " + (i % 2 ? "right" : "left");
-		var progress = unit ? practiceUnitProgress(unit) : null;
-		var done = !!progress && progress.total > 0 && progress.done === progress.total;
-		var state = !unit ? "all" : done ? "done" : unit === current ? "current"
-			: progress && progress.done ? "started" : "todo";
-		row.setAttribute("data-state", state);
-		if (unit) row.setAttribute("data-unit", unit.id);
-		// The trail on to the next stop: gold up to the student's unit
-		if (i < stops.length - 1) {
-			var walked = state === "done" && (!current || PRACTICE_UNITS.indexOf(current) > i);
-			var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-			svg.setAttribute("class", "world-path" + (walked ? " walked" : ""));
-			svg.setAttribute("viewBox", "0 0 100 100");
-			svg.setAttribute("preserveAspectRatio", "none");
-			svg.setAttribute("aria-hidden", "true");
-			var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-			path.setAttribute("d", i % 2 ? "M75,0 C75,55 25,45 25,100" : "M25,0 C25,55 75,45 75,100");
-			path.setAttribute("vector-effect", "non-scaling-stroke");
-			svg.appendChild(path);
-			row.appendChild(svg);
-		}
-		var b = document.createElement("button");
-		b.className = "world-stop";
-		b.type = "button";
-		b.setAttribute("data-page", unit ? unit.id : "lessons");
-		b.innerHTML = '<span class="world-node"><span class="world-node-label"></span></span>' +
-			'<span class="world-info"><span class="world-kicker"></span><span class="world-title"></span>' +
-			'<span class="world-sub"></span></span>';
-		b.querySelector(".world-node-label").textContent = !unit ? "\u2630" : done ? "\u2605" : String(i + 1);
-		b.querySelector(".world-kicker").textContent = !unit ? "Review"
-			: "Unit " + (i + 1) + (!progress || !progress.total ? ""
-				: done ? " \u00b7 Done \u2713" : " \u00b7 " + progress.done + " of " + progress.total);
-		b.querySelector(".world-title").textContent = unit ? unit.title : "Every activity";
-		b.querySelector(".world-sub").textContent = unit ? practiceUnitSub(unit) : "Everything in one place";
-		if (progress && progress.done && !done) {
-			var meter = document.createElement("span");
-			meter.className = "unit-meter world-meter";
-			meter.innerHTML = '<span class="unit-meter-fill"></span>';
-			meter.firstChild.style.width = (progress.done / progress.total * 100).toFixed(1) + "%";
-			b.querySelector(".world-info").appendChild(meter);
-		}
-		if (state === "current" && avatar) {
-			var me = document.createElement("span");
-			me.className = "world-avatar";
-			me.setAttribute("aria-hidden", "true");
-			me.textContent = avatar;
-			b.querySelector(".world-node").appendChild(me);
-		}
-		b.setAttribute("aria-label", (unit ? "Unit " + (i + 1) + ": " + unit.title : "Every activity") +
-			(progress && progress.total ? ", " + progress.done + " of " + progress.total + " done" : "") +
-			(state === "current" ? ", you are here" : ""));
-		b.onclick = function() {
-			if (unit) showUnitSummary(unit.id);
-			else showPracticeMenu("lessons");
-		};
-		row.appendChild(b);
-		trail.appendChild(row);
-		if (state === "current") currentRow = row;
-	});
-	var scroller = document.createElement("div");
-	scroller.className = "world-scroll";
-	scroller.appendChild(trail);
-	menu.appendChild(scroller);
-
-	// On to the next step: its unit goes in history first, so back from the
-	// step lands there, then on the map
-	if (next) {
-		var go = document.createElement("button");
-		go.className = "practice-btn world-continue";
-		go.type = "button";
-		go.innerHTML = '<span class="world-continue-play" aria-hidden="true">\u25b6</span>' +
-			'<span class="world-continue-text"><span class="world-continue-title"></span>' +
-			'<span class="world-continue-sub"></span></span>';
-		go.querySelector(".world-continue-title").textContent = "Next: " + next.title;
-		go.querySelector(".world-continue-sub").textContent = "Unit " + (PRACTICE_UNITS.indexOf(current) + 1) + ": " + current.title;
-		go.onclick = function() {
-			showPracticeMenu(next.unit);
-			syncPracticeHistory();
-			startPathNode(next);
-		};
-		menu.appendChild(go);
-	}
-	// Bring the student's stop into view (the trail scrolls on a phone)
-	if (currentRow) {
-		requestAnimationFrame(function() {
-			if (!scroller.isConnected) return;
-			scroller.scrollTop = Math.max(0, currentRow.offsetTop - (scroller.clientHeight - currentRow.offsetHeight) / 2);
-		});
-	}
-}
-
-// The built-in songs a unit's More songs card is about: the songs with its
-// new notes, the B♭ scale unit's harder songs, a concert scale's songs
-function unitSongs(unit) {
-	if (unit.id === "unit3") return SONGS.filter(function(song) { return song.level === "beyond"; });
-	if (unit.id === "unit4") {
-		return SONGS.filter(function(song) {
-			return song.level === "intermediate" || song.level === "advanced" || song.id === "joyscale";
-		});
-	}
-	var scale = unit.activities[0];
-	if (!moreScale(scale)) return [];
-	return SONGS.filter(function(song) {
-		return song.level === "songs" + scale.slice(5) || song.id === "joy" + scale;
-	});
-}
-
-// How an activity in unit is going: { stars, max, passed }. Stars are the
-// menu card's (max 0 for song writing, which earns none). Passed: its steps
-// on the learning path in the unit are done; off the path, every lesson
-// note learned, all of first sounds, a song written, or any star.
-function practiceActivityResult(id, unit, nodes) {
-	var set = THREE_SET_ACTIVITIES[id];
-	var stars = 0, max = 3, passed = null;
-	if (LESSON_ACTIVITIES[id]) {
-		var lesson = practice.lessons[LESSON_ACTIVITIES[id]].stars;
-		stars = lesson.reduce(function(t, n) { return t + n; }, 0);
-		max = lesson.length * 3;
-		passed = lesson.every(function(n) { return n > 0; });
-	} else if (id === "firstsounds") {
-		stars = practice.firstSoundsBest || 0;
-		passed = stars >= 3;
-	} else if (/^(songs3|songs3bag|songs5|songs)$/.test(id)) {
-		var list = id === "songs" ? unitSongs(unit) : listSongs(id === "songs5" ? "five" : "three");
-		stars = list.reduce(function(t, song) { return t + songStars(song, set); }, 0);
-		max = list.length * 3;
-	} else if (/^write/.test(id)) {
-		max = 0;
-		passed = (set ? threeNoteCustomSongs(set) : fiveNoteCustomSongs()).length > 0;
-	} else if (/^scalerun/.test(id)) {
-		stars = challengeStars(practice.scaleRunBest[scaleSetOf(id)] || 0, scaleRunSequence(scaleSetOf(id)).length);
-	} else if (id === "quiz") {
-		stars = challengeStars(practice.challengeBest || 0);
-	} else if (id === "quiz3" || id === "quiz3bag") {
-		stars = challengeStars(practice.quiz3Best[set] || 0, QUIZ3_LENGTH);
-	} else if (id === "quiz9") {
-		stars = challengeStars(practice.quiz9Best || 0, QUIZ9_LENGTH);
-	} else {
-		stars = challengeStars(practice.drillBest[id] || 0, DRILL_STAR_GOAL);
-	}
-	var steps = (nodes || []).filter(function(n) { return n.unit === unit.id && n.activity === id; });
-	if (steps.length) passed = steps.every(function(n) { return n.done; });
-	else if (passed === null) passed = stars > 0;
-	return { stars: stars, max: max, passed: passed };
-}
-
-// A unit's totals: { passed, total, stars, max }
-function practiceUnitSummary(unit) {
-	var nodes = typeof learningPath === "function" ? learningPath() : [];
-	var sum = { passed: 0, total: 0, stars: 0, max: 0 };
-	unit.activities.filter(practiceActivityAvailable).forEach(function(id) {
-		var r = practiceActivityResult(id, unit, nodes);
-		sum.total++;
-		if (r.passed) sum.passed++;
-		sum.stars += r.stars;
-		sum.max += r.max;
-	});
-	return sum;
-}
-
-// The card a unit's stop on the map opens: how many of its activities are
-// passed and its stars, with a button into the unit. It has its own place in
-// history (practice.mapSummary), so back closes it.
-function showUnitSummary(id) {
-	var unit = practiceUnit(id);
-	var card = document.getElementById("unit-summary");
-	if (!unit || !card) return;
-	practice.mapSummary = id;
-	var index = PRACTICE_UNITS.indexOf(unit);
-	var sum = practiceUnitSummary(unit);
-	var done = sum.total > 0 && sum.passed === sum.total;
-	card.setAttribute("data-state", done ? "done" : sum.passed || sum.stars ? "started" : "todo");
-	card.querySelector(".unit-summary-badge").textContent = done ? "\u2605" : String(index + 1);
-	card.querySelector(".unit-summary-kicker").textContent = "Unit " + (index + 1) + " of " + PRACTICE_UNITS.length;
-	card.querySelector(".unit-summary-title").textContent = unit.title;
-	card.querySelector(".unit-summary-sub").textContent = practiceUnitSub(unit);
-	var stat = function(name, have, of) {
-		var el = card.querySelector(".unit-summary-stat." + name);
-		el.querySelector(".unit-summary-value").textContent = have;
-		el.querySelector(".unit-summary-of").textContent = "of " + of;
-		el.querySelector(".unit-meter-fill").style.width = (of ? have / of * 100 : 0).toFixed(1) + "%";
-	};
-	stat("passed", sum.passed, sum.total);
-	stat("stars", sum.stars, sum.max);
-	var next = typeof nextPathNode === "function" && progressCounts() ? nextPathNode() : null;
-	var nextEl = card.querySelector(".unit-summary-next");
-	nextEl.textContent = next && next.unit === unit.id ? "Next: " + next.title : "";
-	var go = card.querySelector(".unit-summary-go");
-	go.textContent = done ? "Play again" : sum.passed || sum.stars ? "Keep going" : "Let\u2019s go!";
-	go.onclick = function() { showPracticeMenu(unit.id); };
-	card.hidden = false;
-	go.focus();
-	syncPracticeHistory();
-}
-
-function unitSummaryOpen() {
-	var card = document.getElementById("unit-summary");
-	return !!card && !card.hidden;
-}
-
-// Close the unit card (sync: back through its history entry, unless a
-// screen change is taking its place)
-function closeUnitSummary(sync) {
-	var card = document.getElementById("unit-summary");
-	if (card) card.hidden = true;
-	var id = practice && practice.mapSummary;
-	if (practice) practice.mapSummary = null;
-	if (sync && practiceOpen) {
-		syncPracticeHistory();
-		var stop = id && document.querySelector('.world-row[data-unit="' + id + '"] .world-stop');
-		if (stop) stop.focus();
-	}
-}
-
-// The unit bar above the menu: the unit on show, how far along it is, and
-// arrows to the units either side (past the last: every activity)
-function renderPracticeUnits(page) {
-	var bar = document.getElementById("practice-units");
-	bar.innerHTML = "";
-	var unit = practiceUnit(page);
-	var index = unit ? PRACTICE_UNITS.indexOf(unit) : PRACTICE_UNITS.length;
-	var pageAt = function(i) { return i < PRACTICE_UNITS.length ? PRACTICE_UNITS[i].id : "lessons"; };
-	var labelAt = function(i) {
-		return i < PRACTICE_UNITS.length ? "Unit " + (i + 1) + ": " + PRACTICE_UNITS[i].title : "Every activity";
-	};
-	var arrow = function(dir) {
-		var to = index + dir;
-		var b = document.createElement("button");
-		b.className = "unit-arrow " + (dir < 0 ? "prev" : "next");
-		b.type = "button";
-		b.textContent = dir < 0 ? "‹" : "›";
-		if (to < 0 || to > PRACTICE_UNITS.length) {
-			b.disabled = true;
-			b.setAttribute("aria-label", dir < 0 ? "No earlier unit" : "No later unit");
-		} else {
-			b.setAttribute("data-page", pageAt(to));
-			b.setAttribute("aria-label", labelAt(to));
-			b.title = labelAt(to);
-			b.onclick = function() { showPracticeMenu(pageAt(to)); };
-		}
-		return b;
-	};
-	var info = document.createElement("div");
-	info.className = "unit-info";
-	var kicker = document.createElement("span");
-	kicker.className = "unit-kicker";
-	var title = document.createElement("span");
-	title.className = "unit-title";
-	info.appendChild(kicker);
-	info.appendChild(title);
-	if (unit) {
-		title.textContent = unit.title;
-		var progress = practiceUnitProgress(unit);
-		kicker.textContent = "Unit " + (index + 1) + " of " + PRACTICE_UNITS.length +
-			(!progress || !progress.total ? ""
-				: progress.done === progress.total ? " · Done ✓"
-				: " · " + progress.done + " of " + progress.total + " done");
-		if (progress && progress.total) {
-			var meter = document.createElement("span");
-			meter.className = "unit-meter";
-			meter.innerHTML = '<span class="unit-meter-fill"></span>';
-			meter.firstChild.style.width = (progress.done / progress.total * 100).toFixed(1) + "%";
-			info.appendChild(meter);
-		}
-	} else {
-		kicker.textContent = "All " + PRACTICE_UNITS.length + " units";
-		title.textContent = "Every activity";
-	}
-	bar.appendChild(arrow(-1));
-	bar.appendChild(info);
-	bar.appendChild(arrow(1));
-}
-
-// The card at the end of a unit that leads on to the next one (or, after
-// the last, to every activity)
-function practiceUnitNextCard(unit) {
-	var index = PRACTICE_UNITS.indexOf(unit);
-	var next = PRACTICE_UNITS[index + 1];
-	var progress = practiceUnitProgress(unit);
-	var b = document.createElement("button");
-	b.className = "practice-choice wide unit-next";
-	b.innerHTML = '<span class="practice-choice-icon" aria-hidden="true">→</span>' +
-		'<span class="practice-choice-text"><span class="practice-choice-title"></span>' +
-		'<span class="practice-choice-sub"></span></span>';
-	var lead = progress && progress.total && progress.done === progress.total ? "Up next" : "Coming up";
-	b.querySelector(".practice-choice-title").textContent = next
-		? lead + ": Unit " + (index + 2) + ", " + next.title : "Every activity";
-	b.querySelector(".practice-choice-sub").textContent = next
-		? practiceUnitSub(next) : "Everything in one place, for review";
-	b.setAttribute("data-page", next ? next.id : "lessons");
-	b.onclick = function() { showPracticeMenu(next ? next.id : "lessons"); };
-	return b;
-}
-
-// The headings the Practice drills page groups its cards under (an
+// The headings the Arcade page groups its cards under (an
 // activity's group)
 function practiceGroupTitle(group) {
 	if (group === "names") return "Practice note names";
@@ -994,7 +653,7 @@ function practiceActivityTitle(id) {
 	return "Find " + (id === "fingerings3" ? "the 3 notes" : notes) + " on the keyboard";
 }
 
-// Show menu page page: a unit, or a tab of every activity. Without one, the
+// Show menu page page: one of the tabs (PRACTICE_PAGES). Without one, the
 // menu stays on its page, leaving an activity returns to the page it's on,
 // and otherwise the page with the next step on the learning path opens.
 function showPracticeMenu(page) {
@@ -1003,70 +662,36 @@ function showPracticeMenu(page) {
 			: menuPageFor(currentPracticeActivity()) || practice.menuPage;
 		page = page || defaultMenuPage();
 	}
-	var unit = practiceUnit(page);
-	var map = page === "map";
-	// Showing every activity (or a unit) sticks for the student
-	if (!map && practice.menuAll !== !unit) {
-		practice.menuAll = !unit;
-		if (typeof profile !== "undefined" && profile) {
-			profile.menuAll = practice.menuAll;
-			saveProfile();
-		}
-	}
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
-	closeUnitSummary();
 	practice.step = -1;
 	practice.menuPage = page;
 	setPracticeMode("menu");
 	document.getElementById("practice-view").setAttribute("data-menu-page", page);
-	var back = document.getElementById("practice-close");
-	back.setAttribute("aria-label", map ? "Back to the app" : "Back to the map");
-	back.title = back.getAttribute("aria-label");
 	// Nothing on the menu listens; the mic restarts with the next Play step
 	if (practiceStartedMic && listenActive) stopListening();
 	practiceStartedMic = false;
 	var menu = document.getElementById("practice-menu");
 	menu.innerHTML = "";
-	menu.toggleAttribute("data-world", map);
-	if (map) {
-		document.getElementById("practice-units").innerHTML = "";
-		document.getElementById("practice-tabs").innerHTML = "";
-		document.getElementById("practice-view").removeAttribute("data-menu-unit");
-		menu.removeAttribute("data-unit");
-		menu.removeAttribute("data-grouped");
-		menu.removeAttribute("data-count");
-		showPracticeMap(menu);
-		onPracticeMenuShown(menu, page);
-		return;
-	}
-	renderPracticeUnits(page);
-	if (unit) document.getElementById("practice-tabs").innerHTML = "";
-	else renderPracticeTabs(page);
-	document.getElementById("practice-view").toggleAttribute("data-menu-unit", !!unit);
+	renderPracticeTabs(page);
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
-	var activities = unit
-		? unit.activities.map(function(id) {
-			return PRACTICE_ACTIVITIES.filter(function(a) { return a.id === id; })[0];
-		}).filter(function(a) { return practiceActivityAvailable(a.id); })
-		: PRACTICE_ACTIVITIES.filter(function(a) {
-			return practiceActivityAvailable(a.id) && a.page === page;
-		});
-	// A unit's cards pair up where they can; one left on its own is wide
+	var activities = PRACTICE_ACTIVITIES.filter(function(a) {
+		return practiceActivityAvailable(a.id) && a.page === page;
+	});
+	var grouped = activities.some(function(a) { return a.group; });
+	// Cards pair up where they can; one left on its own is wide
 	var wide = {}, pairing = [];
 	activities.forEach(function(a) {
 		if (!a.wide) pairing.push(a.id);
 		if (a.wide || a === activities[activities.length - 1]) {
-			if (unit && pairing.length % 2) wide[pairing[pairing.length - 1]] = true;
+			if (!grouped && pairing.length % 2) wide[pairing[pairing.length - 1]] = true;
 			pairing = [];
 		}
 	});
 	// Flute and oboe have two sets of first 3 notes, so their 3-note cards
 	// name the notes they're on
 	var bag = practiceActivityAvailable("learn3bag");
-	// (a unit's page also has the card leading on)
-	menu.setAttribute("data-count", activities.length + (unit ? 1 : 0));
-	var grouped = !unit && activities.some(function(a) { return a.group; });
+	menu.setAttribute("data-count", activities.length);
 	menu.toggleAttribute("data-grouped", grouped);
 	var groupCards = null, lastGroup = null;
 	activities.forEach(function(a) {
@@ -1155,12 +780,10 @@ function showPracticeMenu(page) {
 		}
 		(grouped ? groupCards : menu).appendChild(b);
 	});
-	if (unit) menu.appendChild(practiceUnitNextCard(unit));
-	menu.toggleAttribute("data-unit", !!unit);
 	onPracticeMenuShown(menu, page);
 }
 
-// A heading and its cards on the Practice drills page. The heading is a
+// A heading and its cards on the Arcade page. The heading is a
 // button that folds the cards away (remembered on this device).
 function practiceGroupSection(group) {
 	var section = document.createElement("section");
@@ -1204,7 +827,7 @@ function practiceGroupSection(group) {
 	return section;
 }
 
-// The Practice drills groups folded away: { names: true, ... }
+// The Arcade groups folded away: { names: true, ... }
 var PRACTICE_GROUPS_STORAGE_KEY = "pitchdetect-drill-groups-closed";
 function practiceGroupsClosed() {
 	try {
@@ -1271,8 +894,8 @@ function startPracticeActivity(id) {
 	}
 }
 
-// The back arrow (and Escape): an activity returns to its menu page, a
-// menu page to the map, and the map leaves practice
+// The back arrow (and Escape): an activity returns to its menu page, and
+// the menu leaves practice
 function practiceBack() {
 	if (practice && practice.mode === "signin") {
 		// Practice needs someone signed in on an instrument
@@ -1284,56 +907,40 @@ function practiceBack() {
 	}
 	if (practice && (practice.mode === "song" || practice.mode === "editor")) {
 		showSongList();
-	} else if (practice && practice.mode === "songs" && practice.songList === "every") {
-		// The header's list of every song is in no unit
-		showPracticeMenu("map");
 	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
-	} else if (unitSummaryOpen()) {
-		closeUnitSummary(true);
-	} else if (practice && practice.menuPage !== "map") {
-		showPracticeMenu("map");
 	} else {
 		closePractice();
 	}
 }
 
-// The breadcrumbs under the header: where the screen sits, from the map
-// down (Map › Unit 2 › First 5 note quiz), each step above it a link
-// there, like the back arrow but any number of levels at once. None on the
-// map itself or while signing in.
+// The breadcrumbs under the header: where the screen sits under the menu's
+// tabs (Songs › Play 5-note songs › Mary Had a Little Lamb), each step
+// above it a link back there, like the back arrow but any number of levels
+// at once. None on the menu itself (its tabs say where it is) or while
+// signing in.
 function practiceCrumbs() {
 	var activity = currentPracticeActivity();
-	if (activity === "signin" || (activity === "menu" && practice.menuPage === "map")) return [];
-	var crumbs = [{ label: "Map", go: function() { showPracticeMenu("map"); } }];
-	function page(id) {
-		var unit = practiceUnit(id);
-		crumbs.push({
-			label: unit ? "Unit " + (PRACTICE_UNITS.indexOf(unit) + 1) : "Every activity",
-			title: unit ? unit.title : null,
-			go: function() { showPracticeMenu(id); }
-		});
-	}
-	if (activity === "menu") {
-		page(practice.menuPage);
-	} else if (activity === "profile") {
+	if (activity === "signin" || activity === "menu") return [];
+	var deeper = practice.mode === "song" || practice.mode === "editor";
+	var parent = activity === "profile" ? practice.menuPage : menuPageFor(activity) || practice.menuPage;
+	var tab = PRACTICE_PAGES.filter(function(p) { return p.id === parent; })[0] || PRACTICE_PAGES[0];
+	var crumbs = [{ label: tab.label, go: function() { showPracticeMenu(tab.id); } }];
+	if (activity === "profile") {
 		crumbs.push({ label: "Profile" });
-	} else {
-		var deeper = practice.mode === "song" || practice.mode === "editor";
-		// The header's Songs button lists every song, in no unit
-		var allSongs = practice.songList === "every" && (deeper || practice.mode === "songs");
-		var parent = menuPageFor(activity) || practice.menuPage;
-		if (!allSongs && isPracticeMenuPage(parent) && parent !== "map") page(parent);
-		crumbs.push({
-			label: allSongs ? "Songs" : practiceActivityTitle(activity),
-			go: deeper ? function() { showSongList(); } : null
-		});
-		if (practice.mode === "song") {
-			var song = findSong(practice.song.id);
-			crumbs.push({ label: song ? songTitle(song) : "Song" });
-		} else if (practice.mode === "editor") {
-			crumbs.push({ label: "Write a song" });
-		}
+		return crumbs;
+	}
+	// (the header's Songs button lists every song)
+	var allSongs = practice.songList === "every" && (deeper || practice.mode === "songs");
+	crumbs.push({
+		label: allSongs ? "All songs" : practiceActivityTitle(activity),
+		go: deeper ? function() { showSongList(); } : null
+	});
+	if (practice.mode === "song") {
+		var song = findSong(practice.song.id);
+		crumbs.push({ label: song ? songTitle(song) : "Song" });
+	} else if (practice.mode === "editor") {
+		crumbs.push({ label: "Write a song" });
 	}
 	return crumbs;
 }
@@ -1388,7 +995,6 @@ function closePractice() {
 	practiceOpen = false;
 	stopSongPlayback();
 	closeTuningTip();
-	closeUnitSummary();
 	clearTimeout(practiceAdvanceTimer);
 	clearInterval(drillClockTimer);
 	stopNote();
@@ -3549,7 +3155,6 @@ function showSongList(list) {
 // The header's Songs button: every song, from wherever the student is
 function showAllSongs() {
 	if (!practice || practice.mode === "signin") return;
-	closeUnitSummary();
 	showSongList("every");
 }
 
@@ -8587,22 +8192,16 @@ document.addEventListener("keydown", function(event) {
 // pushes an entry (always from a tap, so browsers don't skip it), moving
 // sideways replaces it, and moving shallower (the back arrow, Escape, a
 // "Back to the menu" button) goes back through history to that entry. The
-// map is the top; a unit or tab is a level under it, and the profile (from
-// the map's player bar) is too.
+// menu is the top (its tabs replace each other); an activity, and the
+// profile (from the menu's player bar), are a level under it.
 function practiceHistoryState() {
 	if (!practiceOpen || !practice) return null;
 	var activity = currentPracticeActivity();
-	if (activity === "menu") {
-		// A unit's card on the map is a level under it, like the unit's page
-		if (practice.menuPage === "map" && practice.mapSummary) {
-			return { practice: "menu", page: "map", summary: practice.mapSummary, depth: 2 };
-		}
-		return { practice: "menu", page: practice.menuPage, depth: practice.menuPage === "map" ? 1 : 2 };
-	}
-	// Sign-in on opening stands in for the map; from the profile it's a level deeper
+	if (activity === "menu") return { practice: "menu", page: practice.menuPage, depth: 1 };
+	// Sign-in on opening stands in for the menu; from the profile it's a level deeper
 	if (activity === "signin") return { practice: "signin", depth: practice.signinFrom === "profile" ? 3 : 1 };
 	if (activity === "profile") return { practice: "profile", depth: 2 };
-	var depth = 3;
+	var depth = 2;
 	if (practice.mode === "song") return { practice: "song", song: practice.song.id, free: !!practice.song.free, depth: depth + 1 };
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
 	if (practice.mode === "songs") return { practice: "songs", depth: depth };
@@ -8615,8 +8214,7 @@ function practiceHistoryDepth(state) {
 
 function samePracticeState(a, b) {
 	if (!a || !a.practice) return !b;
-	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song && !a.free === !b.free &&
-		(a.summary || null) === (b.summary || null);
+	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song && !a.free === !b.free;
 }
 
 // Set while a history.go() of ours is on its way, so its popstate syncs
@@ -8670,10 +8268,7 @@ window.addEventListener("popstate", function(event) {
 		openPractice();
 		if (!practiceOpen) return;
 	}
-	if (state.practice === "menu") {
-		showPracticeMenu(state.page);
-		if (state.summary && state.page === "map") showUnitSummary(state.summary);
-	}
+	if (state.practice === "menu") showPracticeMenu(state.page);
 	else if (state.practice === "signin" && !practiceSignedIn()) showSignIn("open");
 	else if (state.practice === "signin" && !practice.instrument) showInstrumentStep("open");
 	else if (state.practice === "signin") showPracticeMenu();

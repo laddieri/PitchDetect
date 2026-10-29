@@ -161,74 +161,55 @@ async function run() {
 		page = await newPage(context, errors);
 		await page.goto(base);
 		await signIn(page, "Smoke", "Trumpet");
-		var map = await page.evaluate(function() {
+		// Practice opens on the tab with the next step (first sounds, on Notes),
+		// the step's card marked and the player bar above the tabs
+		var menu = await page.evaluate(function() {
 			return { page: document.getElementById("practice-view").getAttribute("data-menu-page"),
-				stops: document.querySelectorAll(".world-stop").length - PRACTICE_UNITS.length,
-				here: !!document.querySelector('.world-row[data-state="current"] .world-avatar') };
+				tabs: Array.prototype.map.call(document.querySelectorAll(".practice-tab"), function(t) { return t.textContent; }).join(),
+				next: (document.querySelector(".practice-choice.next-up") || {}).getAttribute
+					? document.querySelector(".practice-choice.next-up").getAttribute("data-activity") : null,
+				bar: getComputedStyle(document.getElementById("player-bar")).display !== "none" };
 		});
-		check(map.page === "map" && map.stops === 1 && map.here,
-			"Practice opens on the map of units, the student on theirs");
-		await page.click(".world-continue");
+		check(menu.page === "notes" && menu.tabs === "Notes,Keys,Songs,Arcade" && menu.next === "firstsounds" && menu.bar,
+			"Practice opens on the Notes tab with the next step marked (got " + menu.page + ", " + menu.tabs + ", " + menu.next + ")");
+		await page.click(".practice-choice.next-up");
 		await page.waitForFunction(function() { return practice.mode !== "menu"; });
 		await page.goBack();
 		await page.waitForFunction(function() { return practice.mode === "menu"; });
-		var unitPage = await page.getAttribute("#practice-view", "data-menu-page");
-		await page.goBack();
-		await page.waitForFunction(function() { return practice.menuPage === "map"; });
-		check(unitPage === "unit1", "back from the next step goes to its unit, then the map (got " + unitPage + ")");
-		// A unit's stop shows its summary first; back closes it, its button opens the unit
-		await page.evaluate(function() { practice.lessons.first5.stars[0] = 3; });
-		await page.click('.world-stop[data-page="unit2"]');
-		var summary = await page.evaluate(function() {
-			var card = document.getElementById("unit-summary");
-			return { shown: !card.hidden, page: practice.menuPage,
-				passed: card.querySelector(".passed .unit-summary-of").textContent,
-				stars: card.querySelector(".stars .unit-summary-value").textContent + " " +
-					card.querySelector(".stars .unit-summary-of").textContent };
+		var backPage = await page.getAttribute("#practice-view", "data-menu-page");
+		// Tabs replace each other in history, so back from any of them leaves Practice
+		await page.click('.practice-tab[data-page="keys"]');
+		var keys = await page.evaluate(function() {
+			return { cards: Array.prototype.map.call(document.querySelectorAll("#practice-menu [data-activity]"), function(c) {
+				return c.getAttribute("data-activity"); }).slice(0, 2).join(), depth: history.state && history.state.depth };
 		});
-		check(summary.shown && summary.page === "map" && summary.passed === "of 6" && summary.stars === "3 of 39",
-			"a unit's stop shows its activities passed and stars (got " + summary.passed + ", " + summary.stars + ")");
-		await page.goBack();
-		await page.waitForFunction(function() { return document.getElementById("unit-summary").hidden; });
-		await page.click('.world-stop[data-page="unit2"]');
-		await page.click(".unit-summary-go");
-		var opened = await page.getAttribute("#practice-view", "data-menu-page");
-		await page.goBack();
-		await page.waitForFunction(function() { return practice.menuPage === "map"; });
-		check(opened === "unit2" && await page.isHidden("#unit-summary"),
-			"back closes the summary, and its button opens the unit, then back to the map");
-		// The header's Songs button lists every song, Beginner included; back returns to the map
+		check(backPage === "notes" && keys.cards === "scale,scalerun" && keys.depth === 1,
+			"back from the step returns to its tab; Keys pairs each scale's lesson and run (got " + backPage + ", " + keys.cards + ", depth " + keys.depth + ")");
+		// The header's Songs button lists every song, Beginner included; the back
+		// arrow returns to the Songs tab
 		await page.click("#practice-songs");
 		var songList = await page.evaluate(function() {
 			return { mode: practice.mode, levels: document.querySelectorAll("#practice-body .song-level").length, all: SONG_LEVELS.length };
 		});
-		await page.goBack();
-		await page.waitForFunction(function() { return practice.menuPage === "map" && practice.mode === "menu"; });
-		check(songList.mode === "songs" && songList.levels === songList.all,
-			"the header's Songs button shows every level of songs (got " + songList.levels + "), and back returns to the map");
-		// From a unit, the header's song list's back arrow goes to the map
-		await page.evaluate(function() { showPracticeMenu("unit2"); });
-		await page.click("#practice-songs");
 		await page.click("#practice-close");
 		await page.waitForFunction(function() { return practice.mode === "menu"; });
 		var songsBack = await page.evaluate(function() { return practice.menuPage; });
-		check(songsBack === "map", "the back arrow from the header's song list goes to the map (got " + songsBack + ")");
-		// Breadcrumbs: none on the map; a song shows Map > its unit > its list > the
-		// song, and the unit's crumb goes straight there (back then reaches the map)
+		check(songList.mode === "songs" && songList.levels === songList.all && songsBack === "songs",
+			"the header's Songs button shows every level of songs (got " + songList.levels + "), and back returns to the Songs tab (got " + songsBack + ")");
+		// Breadcrumbs: none on the menu; a song shows its tab > its list > the
+		// song, and the tab's crumb goes straight back there
 		var noCrumbs = await page.isHidden("#practice-crumbs");
-		await page.evaluate(function() { showPracticeMenu("unit2"); });
 		await page.click('.practice-choice[data-activity="songs5"]');
 		await page.click('#practice-body .song-choice:not(.song-level):not(.song-new)');
 		await page.waitForFunction(function() { return practice.mode === "song"; });
 		var crumbs = await page.$$eval("#practice-crumbs li", function(items) {
 			return items.map(function(li) { return li.textContent; }).join(" > ");
 		});
-		await page.click("#practice-crumbs li:nth-child(2) button");
-		var crumbPage = await page.evaluate(function() { return practice.mode + " " + practice.menuPage; });
-		await page.goBack();
-		await page.waitForFunction(function() { return practice.menuPage === "map"; });
-		check(noCrumbs && /^Map > Unit 2 > Play 5-note songs > ./.test(crumbs) && crumbPage === "menu unit2",
-			"breadcrumbs show where a song is and lead back to its unit (got " + crumbs + ", " + crumbPage + ")");
+		await page.click("#practice-crumbs li:nth-child(1) button");
+		await page.waitForFunction(function() { return practice.mode === "menu"; });
+		var crumbPage = await page.evaluate(function() { return practice.mode + " " + practice.menuPage + " " + history.state.depth; });
+		check(noCrumbs && /^Songs > Play 5-note songs > ./.test(crumbs) && crumbPage === "menu songs 1",
+			"breadcrumbs show where a song is and lead back to its tab (got " + crumbs + ", " + crumbPage + ")");
 		await page.evaluate(function() { recordProgress(25); saveProfile(); });
 		var saved = await page.evaluate(function() {
 			var id = localStorage.getItem("pitchdetect-student");
