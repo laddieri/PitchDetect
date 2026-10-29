@@ -191,7 +191,13 @@ song 4); deeper pushes, sideways replaces, shallower
 `history.go()`s back, and `popstate` shows the entry's screen (after our
 own `history.go()`, `practiceHistoryGoing`, it syncs history to the screen
 instead, which may have moved on meanwhile). Keep new
-screens inside `practiceHistoryState()`. The lessons
+screens inside `practiceHistoryState()`. **Breadcrumbs** under the header
+(`#practice-crumbs`, `renderPracticeCrumbs()` over `practiceCrumbs()`, run
+with each history sync) show the same levels: Map › Unit 2 (or Every
+activity) › the activity, named as its card (`practiceActivityTitle()`) ›
+a song, each level above a link there; the header's song list is Map ›
+Songs; none on the map or while signing in. Keep new screens in
+`practiceCrumbs()` too. The lessons
 teach the band-method first five notes, concert B♭ C D E♭ F, at each
 instrument's written pitch (`practiceStartConcertMidi` holds each instrument's
 concert B♭; `PRACTICE_STEPS` the intervals). Opening a lesson set shows an
@@ -992,6 +998,7 @@ phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload;
 Practice opens on the map and back from its Next step goes to the unit, then the map;
 the header's Songs button lists every level of songs;
+a song's breadcrumbs name its unit and list and lead back to the unit;
 a unit's stop shows its summary (activities passed, stars), which back closes; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note

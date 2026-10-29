@@ -970,6 +970,29 @@ function activityPage(id) {
 	return a ? a.page : null;
 }
 
+// An activity's name, as its menu card shows it: fingering drills say
+// slide positions on trombone, or the keyboard without charts, and flute
+// and oboe's 3-note cards name the notes they're on
+function practiceActivityTitle(id) {
+	var a = PRACTICE_ACTIVITIES.filter(function(a) { return a.id === id; })[0];
+	if (!a) return "";
+	if (a.firstSounds) return FIRST_SOUNDS[practice.instrument] ? FIRST_SOUNDS[practice.instrument].title : "";
+	var set = THREE_SET_ACTIVITIES[id];
+	var bag = practiceActivityAvailable("learn3bag");
+	if (set && bag && id !== "learn3bag") {
+		return { learn3: "Learn ", names3: "Name ", fingerings3: "Finger ", songs3: "Play songs with ",
+			write3: "Write a song with ", quiz3: "Play " }[id.replace(/bag$/, "")] + threeNotesText(set);
+	}
+	var fingerings = /^fingerings/.test(id);
+	var slide = fingerings && practice.instrument === "trombone";
+	var keyboard = fingerings && !hasFingeringData(practice.instrument);
+	if (!slide && !keyboard) return a.title;
+	var notes = id === "fingerings" ? "the first 5 notes" : id === "fingerings3" ? "3 notes"
+		: id === "fingerings9" ? "9 notes" : "the " + scaleName(scaleSetOf(id)) + " scale";
+	if (slide) return "Slide positions for " + notes;
+	return "Find " + (id === "fingerings3" ? "the 3 notes" : notes) + " on the keyboard";
+}
+
 // Show menu page page: a unit, or a tab of every activity. Without one, the
 // menu stays on its page, leaving an activity returns to the page it's on,
 // and otherwise the page with the next step on the learning path opens.
@@ -1020,9 +1043,6 @@ function showPracticeMenu(page) {
 	if (unit) document.getElementById("practice-tabs").innerHTML = "";
 	else renderPracticeTabs(page);
 	document.getElementById("practice-view").toggleAttribute("data-menu-unit", !!unit);
-	var slide = practice.instrument === "trombone";
-	var chart = hasFingeringData(practice.instrument);
-
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
 	var activities = unit
 		? unit.activities.map(function(id) {
@@ -1049,37 +1069,17 @@ function showPracticeMenu(page) {
 	menu.toggleAttribute("data-grouped", grouped);
 	var groupCards = null, lastGroup = null;
 	activities.forEach(function(a) {
-		var title = a.firstSounds ? fsCfg.title : a.title;
+		var title = practiceActivityTitle(a.id);
 		var sub = a.firstSounds ? fsCfg.sub : a.sub;
 		var set = THREE_SET_ACTIVITIES[a.id];
 		if (a.id === "learn3bag") {
 			sub = "Where most " + (practice.instrument === "oboe" ? "oboe" : "flute") + " classes start";
 		} else if (a.id === "learn3" && bag) {
-			title = "Learn " + threeNotesText(set);
 			sub = "Where most band classes start";
-		}
-		if (a.id === "fingerings" && slide) {
-			title = "Slide positions for the first 5 notes";
-		} else if (a.id === "fingerings" && !chart) {
-			title = "Find the first 5 notes on the keyboard";
-		} else if (a.id === "fingerings3" && slide) {
-			title = "Slide positions for 3 notes";
-		} else if (a.id === "fingerings3" && !chart) {
-			title = "Find the 3 notes on the keyboard";
-		} else if (a.id === "fingerings9" && slide) {
-			title = "Slide positions for 9 notes";
-		} else if (a.id === "fingerings9" && !chart) {
-			title = "Find 9 notes on the keyboard";
-		} else if (/^fingeringsscale/.test(a.id) && slide) {
-			title = "Slide positions for the " + scaleName(scaleSetOf(a.id)) + " scale";
-		} else if (/^fingeringsscale/.test(a.id) && !chart) {
-			title = "Find the " + scaleName(scaleSetOf(a.id)) + " scale on the keyboard";
 		} else if (a.id === "write3" && !bag) {
 			sub = "Make up your own tune with " + threeNotesText(set);
 		}
 		if (set && bag && a.id.indexOf("learn3") !== 0) {
-			title = { names3: "Name ", fingerings3: "Finger ", songs3: "Play songs with ",
-				write3: "Write a song with ", quiz3: "Play " }[a.id.replace(/bag$/, "")] + threeNotesText(set);
 			if (/^(names|fingerings)3/.test(a.id)) sub = "3 notes, against the clock";
 			if (/^quiz3/.test(a.id)) sub = "3 note quiz: play the notes you see";
 		} else if (a.id === "names3" || a.id === "fingerings3" || a.id === "quiz3") {
@@ -1292,6 +1292,71 @@ function practiceBack() {
 	} else {
 		closePractice();
 	}
+}
+
+// The breadcrumbs under the header: where the screen sits, from the map
+// down (Map › Unit 2 › First 5 note quiz), each step above it a link
+// there, like the back arrow but any number of levels at once. None on the
+// map itself or while signing in.
+function practiceCrumbs() {
+	var activity = currentPracticeActivity();
+	if (activity === "signin" || (activity === "menu" && practice.menuPage === "map")) return [];
+	var crumbs = [{ label: "Map", go: function() { showPracticeMenu("map"); } }];
+	function page(id) {
+		var unit = practiceUnit(id);
+		crumbs.push({
+			label: unit ? "Unit " + (PRACTICE_UNITS.indexOf(unit) + 1) : "Every activity",
+			title: unit ? unit.title : null,
+			go: function() { showPracticeMenu(id); }
+		});
+	}
+	if (activity === "menu") {
+		page(practice.menuPage);
+	} else if (activity === "profile") {
+		crumbs.push({ label: "Profile" });
+	} else {
+		var deeper = practice.mode === "song" || practice.mode === "editor";
+		// The header's Songs button lists every song, in no unit
+		var allSongs = practice.songList === "every" && (deeper || practice.mode === "songs");
+		var parent = menuPageFor(activity) || practice.menuPage;
+		if (!allSongs && isPracticeMenuPage(parent) && parent !== "map") page(parent);
+		crumbs.push({
+			label: allSongs ? "Songs" : practiceActivityTitle(activity),
+			go: deeper ? function() { showSongList(); } : null
+		});
+		if (practice.mode === "song") {
+			var song = findSong(practice.song.id);
+			crumbs.push({ label: song ? songTitle(song) : "Song" });
+		} else if (practice.mode === "editor") {
+			crumbs.push({ label: "Write a song" });
+		}
+	}
+	return crumbs;
+}
+
+function renderPracticeCrumbs() {
+	var nav = document.getElementById("practice-crumbs");
+	var crumbs = practiceOpen && practice ? practiceCrumbs() : [];
+	nav.hidden = !crumbs.length;
+	var list = document.createElement("ol");
+	crumbs.forEach(function(crumb, i) {
+		var item = document.createElement("li");
+		var last = i === crumbs.length - 1;
+		var el = document.createElement(last || !crumb.go ? "span" : "button");
+		el.textContent = crumb.label;
+		// (the full name, where it's cut short)
+		el.title = crumb.title || crumb.label;
+		if (el.tagName === "BUTTON") {
+			el.type = "button";
+			if (crumb.title) el.setAttribute("aria-label", crumb.label + ": " + crumb.title);
+			el.onclick = crumb.go;
+		}
+		if (last) el.setAttribute("aria-current", "page");
+		item.appendChild(el);
+		list.appendChild(item);
+	});
+	nav.innerHTML = "";
+	nav.appendChild(list);
 }
 
 // The activity the student is in (for history)
@@ -8579,6 +8644,7 @@ function schedulePracticeHistorySync() {
 	practiceHistorySyncQueued = true;
 	Promise.resolve().then(function() {
 		practiceHistorySyncQueued = false;
+		renderPracticeCrumbs();
 		syncPracticeHistory();
 	});
 }
