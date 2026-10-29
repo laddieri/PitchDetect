@@ -462,8 +462,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   from a song returns to the song list, and from the list to the Songs page.
   A song opens in **Play it through** (`playThroughSong()`; the song list,
   the editor's Play it, Next song); note by note (`startSong()`) is the
-  practice path, behind **Note by note** and **Practice the red notes**, and
-  its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
+  practice path, behind **Note by note** and **Practice measure n** (the
+  red notes), and its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
   (`data-step="song-free"`, `practice.song.free`), no arrow and no waiting
   on each note. It has two buttons (`resetFollow()`): **Hear it**
   (`#song-hear`, `playSong()`) and **Play it** (`#song-listen`,
@@ -480,12 +480,19 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `touch-action: pan-y`, and the click ending a slide isn't a tap,
   `songDragEnd`; `practice.song.part` `{ a, b }` measures, shaded by
   `shadeSongPart()`), Hear it plays it and Play it ("Practice it")
-  practices it note by note. A tap puts a part away; tapping the note again
+  practices it note by note. To show that measures can be picked: a press
+  held `SONG_PRESS_MS` (or a mouse hovering) faintly shades its measure
+  (`songHintMeasure()`, `.song-hint-shade`, cleared by `clearSongHint()`),
+  and the first Play it through on a device (`maybeShowSongPartDemo()`,
+  flag `pitchdetect-song-part-demo`; not under reduced motion) has a finger
+  (`.song-part-demo-finger`) slide across the first two measures, shading
+  them (`.song-demo-shade`), stopped by any press, a song playing or the
+  mic (`songPartDemoGoing()`, `stopSongPartDemo()`). A tap puts a part away; tapping the note again
   or off the notes clears it. Nothing is selectable while a song plays or
   the mic follows (`songSelectable()`). Play it is Listen to me at My speed,
   else Play along. Its score screens
   (`finishFollow()`, `finishAlong()`) keep one row: the next step
-  (Practice the red notes, Play again, Next song, the next speed, which then
+  (Practice measure n, Play again, Next song, the next speed, which then
   puts Play along again in the menu) beside a ⋯ menu (`songMoreMenu()`)
   with the rest. The mic stays off until Play it: **Listen to me**
   (`startFollow()`, `follow.listening`; the button then turns into **Stop and
@@ -512,9 +519,12 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `FOLLOW_END_SILENCE_MS` quiet; stopped partway, unreached notes stay
   black) turns the mic off and marks mistakes red with a score and stars
   (best notes right saved in `pitchdetect-songs`, shared with note by note;
-  a perfect run offers Next song). **Practice the red notes** opens note-by-note at the start
-  of the first red note's line (`startSong(id, from)`: earlier notes count
-  done, no best saved, the result offers Play it through again). Hear the
+  a perfect run offers Next song). After a run with red notes
+  (`finishFollow()`, `finishAlong()`), `songSuggestPart()` picks the first
+  red note's measure (and the next, if it has red notes too) as
+  `practice.song.suggest`, shaded on the score like a part, and
+  **Practice measure n** (`practiceSuggestLabel()`,
+  `practiceSuggestedPart()`) practices it note by note as a part picked. Hear the
   song restarts the run; **Note by note** returns to `startSong()`.
   **A part** picked on Play it through: Practice it runs
   `startSong(id, from, to)` over just
@@ -1013,7 +1023,9 @@ song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops; Play it through has just Hear it and
 Play it, listens only after Play it, a tapped note shows its fingering and
 is where Hear it and Play it start, and sliding across measures picks a
-part that Play it practices note by note; Hear the song's notes sound with
+part that Play it practices note by note; a press shades its measure, the
+first Play it through shows a finger sliding across two measures, once, and
+a run's red notes are shaded and practiced as a part; Hear the song's notes sound with
 the metronome's clicks; Play it through marks a note
 played flat "low" and a tapped wrong note shows what was played; Play along scores
 notes in time over the piano, marks a late note late, measures the

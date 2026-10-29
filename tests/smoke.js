@@ -364,6 +364,62 @@ async function run() {
 		check(picked.part === "0-1" && picked.shaded === 2 && /Practice it/.test(picked.label) &&
 			!practicing.free && practicing.from === 0 && practicing.measures === 1,
 			"sliding across measures picks a part, and Play it practices it note by note (got " + JSON.stringify(picked) + ", " + JSON.stringify(practicing) + ")");
+		// A press held on a measure shades it before any slide
+		await page.evaluate(function() { playThroughSong("mary"); });
+		await page.mouse.move(slide.ax, slide.ay);
+		await page.mouse.down();
+		await page.waitForTimeout(300);
+		var pressed = await page.evaluate(function() {
+			return document.querySelectorAll("#practice-staff-output .song-hint-shade").length;
+		});
+		await page.mouse.up();
+		check(pressed === 1 && await page.evaluate(function() {
+			return !document.querySelector("#practice-staff-output .song-hint-shade");
+		}), "a press on a measure shades it until let go (got " + pressed + ")");
+		// The first time on this device, a finger shows the slide across measures
+		await page.mouse.move(0, 0);
+		var demo = await page.evaluate(async function() {
+			localStorage.removeItem(SONG_PART_DEMO_STORAGE_KEY);
+			playThroughSong("mary");
+			var r = { finger: false, shaded: 0 };
+			var end = performance.now() + SONG_PART_DEMO_DELAY_MS + SONG_PART_DEMO_MS + 500;
+			while (performance.now() < end) {
+				await new Promise(function(done) { setTimeout(done, 50); });
+				r.finger = r.finger || !!document.querySelector(".song-part-demo-finger");
+				r.shaded = Math.max(r.shaded, document.querySelectorAll("#practice-staff-output .song-demo-shade").length);
+			}
+			r.after = !!document.querySelector(".song-part-demo-finger, .song-demo-shade");
+			r.part = practice.song.part;
+			r.seen = localStorage.getItem(SONG_PART_DEMO_STORAGE_KEY);
+			playThroughSong("mary");
+			r.again = !!songPartDemo;
+			return r;
+		});
+		check(demo.finger && demo.shaded === 2 && !demo.after && !demo.part && demo.seen && !demo.again,
+			"the first Play it through shows a finger sliding across two measures, once (got " + JSON.stringify(demo) + ")");
+		// After a run with red notes, their measures are shaded and practiced as a part
+		var suggested = await page.evaluate(function() {
+			playThroughSong("mary");
+			startFollow();
+			// Wrong notes in the first two measures
+			var s = practice.song;
+			s.follow.heard = s.notes.map(function(n, j) { return n.measure < 2 && j % 2 ? n.midi + 5 : n.midi; });
+			// (no XP, which would move the level-ups later checks expect)
+			var record = recordProgress;
+			recordProgress = function() {};
+			finishFollow();
+			recordProgress = record;
+			var button = Array.prototype.find.call(document.querySelectorAll("#practice-body .practice-actions button"),
+				function(b) { return /^Practice measure/.test(b.textContent); });
+			var r = { label: button ? button.textContent : null,
+				shaded: document.querySelectorAll("#practice-staff-output .song-pick-shade").length };
+			if (button) button.click();
+			s = practice.song;
+			r.part = !s.free && s.to !== undefined ? s.notes[s.from || 0].measure + "-" + s.notes[s.to - 1].measure : null;
+			return r;
+		});
+		check(suggested.label === "Practice measures 1\u20132" && suggested.shaded === 2 && suggested.part === "0-1",
+			"after a run, the red notes' measures are shaded and practiced as a part (got " + JSON.stringify(suggested) + ")");
 		// Note by note and Pick a part wait behind Play it through's \u22ef menu
 		await page.evaluate(function() { playThroughSong("mary"); });
 		// Play along's speeds wait behind the song's settings gear

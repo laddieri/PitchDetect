@@ -3713,6 +3713,19 @@
 				touch-action: pan-y;
 			}
 
+			/* The first visit's demo of that slide (runSongPartDemo()): a
+			   finger under the staff, its tip at the point given */
+			.song-part-demo-finger {
+				position: fixed;
+				z-index: 58;
+				font-size: 34px;
+				line-height: 1;
+				transform: translate(-50%, 0);
+				pointer-events: none;
+				opacity: 0;
+				filter: drop-shadow(0 2px 3px rgba(15, 23, 42, 0.3));
+			}
+
 			.song-line + .song-line {
 				margin-top: 6px;
 			}
