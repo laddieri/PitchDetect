@@ -210,6 +210,23 @@ async function run() {
 		await page.waitForFunction(function() { return practice.mode === "menu"; });
 		check(overview === "Learn it,Play it" && run === "challenge scale scaleEb",
 			"a scale's card offers Learn it and Play it, which runs the scale (got " + overview + ", " + run + ")");
+		// Change octave moves a scale to another octave in the instrument's range
+		// (trumpet's B\u266d scale: written C4 or C5 up), and E\u266d, which fits
+		// only one, has no button
+		var octave = await page.evaluate(function() {
+			startPracticeActivity("scaleEb");
+			var ebButton = !!document.getElementById("scale-octave");
+			startPracticeActivity("scale");
+			var low = practice.lessons.scale.notes[0];
+			document.getElementById("scale-octave").click();
+			var high = practice.lessons.scale.notes[0];
+			document.getElementById("scale-octave").click();
+			return { eb: ebButton, low: low, high: high, back: practice.lessons.scale.notes[0] };
+		});
+		await page.click("#practice-close");
+		await page.waitForFunction(function() { return practice.mode === "menu"; });
+		check(!octave.eb && octave.low === 60 && octave.high === 72 && octave.back === 60,
+			"Change octave moves trumpet's B\u266d scale up an octave and back (got " + JSON.stringify(octave) + ")");
 		// The Songs tab (and the header's Songs button) lists every song,
 		// Beginner included, right on the tab
 		await page.evaluate(function() { showPracticeMenu("notes"); });

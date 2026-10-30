@@ -178,9 +178,89 @@ MORE_SCALES.forEach(function(scale) {
 });
 
 // A lesson set's steps on an instrument (some start a scale an octave away)
-function lessonSteps(set, instrument) {
+function lessonSteps(set, instrument, id) {
 	var shift = (set.octave && set.octave[instrument]) || 0;
+	// A scale may be moved to another octave the student picked
+	// (Change octave on its overview), if that's still in range
+	if (id && isScaleSet(id)) {
+		var picked = loadScaleOctaves()[instrument + ":" + id];
+		if (typeof picked === "number" && scaleOctaveShifts(id, instrument).indexOf(picked) >= 0) shift = picked;
+	}
 	return set.steps.map(function(step) { return step + shift; });
+}
+
+// Each instrument's range for a school player, written pitch (MIDI, low and
+// high), and never past its fingering charts, so every note of a scale has
+// a chart: flute's charts end at B6, oboe's at C6, the saxophones' at C♯6,
+// trombone's at B♭4, the three-valve charts at F♯3 to C6 written (euphonium
+// and tuba read them an octave and more lower), horn's at F♯2 to C6. Bells
+// are a school bell kit's G to C. Where the charts go further, the top is a
+// strong school player's: clarinet E6, horn A5.
+var PRACTICE_RANGES = {
+	"treble clef": [55, 84],    // G3 to C6
+	"bass clef": [36, 64],      // C2 to E4
+	"flute": [60, 94],          // C4 to B♭6
+	"oboe": [58, 84],           // B♭3 to C6
+	"clarinet": [52, 88],       // E3 to E6
+	"bass clarinet": [52, 79],  // E3 to G5 (no charts)
+	"bassoon": [34, 67],        // B♭1 to G4
+	"alto sax": [58, 85],       // B♭3 to C♯6 (the charts' files are numbered an octave down)
+	"tenor sax": [58, 85],
+	"bari sax": [58, 85],
+	"trumpet": [54, 84],        // F♯3 to C6
+	"horn": [53, 81],           // F3 to A5
+	"trombone": [40, 70],       // E2 to B♭4
+	"euphonium": [40, 70],      // E2 to B♭4
+	"tuba": [28, 58],           // E1 to B♭3
+	"glockenspiel": [55, 84]    // G3 to C6 written
+};
+
+// The octave shifts (semitones on a scale's steps) that keep every note of
+// scale lesson set id in the instrument's range, low to high: the usual
+// octave, and an octave either way (or two) where they fit
+function scaleOctaveShifts(id, instrument) {
+	var set = LESSON_SETS[id];
+	var range = PRACTICE_RANGES[instrument];
+	var base = (set.octave && set.octave[instrument]) || 0;
+	if (!range) return [base];
+	var start = practiceStartConcertMidi[instrument];
+	if (start === undefined) start = 70;
+	var t = transpositionMap[instrument] || 0;
+	var low = Math.min.apply(null, set.steps), high = Math.max.apply(null, set.steps);
+	var shifts = [];
+	for (var k = -2; k <= 2; k++) {
+		var shift = base + k * 12;
+		if (start + t + low + shift >= range[0] && start + t + high + shift <= range[1]) shifts.push(shift);
+	}
+	return shifts.length ? shifts : [base];
+}
+
+// The octaves students picked: { "trumpet:scaleEb": -12, ... }
+var SCALE_OCTAVE_STORAGE_KEY = "pitchdetect-scale-octaves";
+function loadScaleOctaves() {
+	try {
+		var saved = JSON.parse(progressGet(SCALE_OCTAVE_STORAGE_KEY) || "{}");
+		if (saved && typeof saved === "object") return saved;
+	} catch (e) {}
+	return {};
+}
+
+// The overview's Change octave: the scale moves to the next octave in range
+// (round to the lowest after the highest), for its lesson, drills, run and
+// songs alike. Stars stay with the scale, whichever octave earned them.
+function changeScaleOctave() {
+	var id = practice.lesson;
+	var shifts = scaleOctaveShifts(id, practice.instrument);
+	if (shifts.length < 2) return;
+	var current = currentLesson().notes[0] - practiceNotes(LESSON_SETS[id].steps.slice(0, 1))[0];
+	var next = shifts[(shifts.indexOf(current) + 1) % shifts.length];
+	var saved = loadScaleOctaves();
+	saved[practice.instrument + ":" + id] = next;
+	progressSet(SCALE_OCTAVE_STORAGE_KEY, JSON.stringify(saved));
+	var notes = practiceNotes(lessonSteps(LESSON_SETS[id], practice.instrument, id));
+	practice.lessons[id].notes = notes;
+	if (LESSON_SETS[id].spell) practice.lessons[id].spellings = scaleSpellings(notes);
+	showLessonOverview();
 }
 
 // The concert scale (MORE_SCALES) of lesson set id, or null
@@ -387,7 +467,7 @@ function loadPracticeInstrument() {
 	var lessons = {};
 	Object.keys(LESSON_SETS).forEach(function(id) {
 		var set = LESSON_SETS[id];
-		var notes = practiceNotes(lessonSteps(set, select.value));
+		var notes = practiceNotes(lessonSteps(set, select.value, id));
 		lessons[id] = {
 			id: id,
 			notes: notes,
@@ -1101,6 +1181,17 @@ function showLessonOverview() {
 	var body = document.getElementById("practice-body");
 	body.innerHTML = "";
 	var scale = isScaleSet(practice.lesson);
+	// A scale fits more than one octave on most instruments: a small button
+	// moves it (scaleOctaveShifts() keeps it in the instrument's range)
+	if (scale && scaleOctaveShifts(practice.lesson, practice.instrument).length > 1) {
+		var octave = document.createElement("button");
+		octave.type = "button";
+		octave.className = "scale-octave";
+		octave.id = "scale-octave";
+		octave.innerHTML = '<span aria-hidden="true">\u21c5</span> Change octave';
+		octave.onclick = changeScaleOctave;
+		body.appendChild(octave);
+	}
 	var text = document.createElement("div");
 	text.className = "practice-feedback-sub";
 	text.textContent = scale ? "Learn it one note at a time, or play it up and back down."
