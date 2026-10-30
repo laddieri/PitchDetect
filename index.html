@@ -3084,8 +3084,10 @@
 				display: none;
 			}
 
+			/* Note by note's line, no taller than it's drawn: STAFF_VIEWBOX_HEIGHT
+			   (120) at SONG_MAX_SCALE (1.1) */
 			.practice-view[data-step="song"] .practice-staff {
-				height: clamp(120px, 30vh, 260px);
+				height: clamp(110px, 30vh, 132px);
 			}
 
 			.song-list {

@@ -2837,7 +2837,8 @@ var FOLLOW_GAP_MS = 60;            // silence this long ends a note
 var FOLLOW_END_SILENCE_MS = 5000;  // quiet this long after starting ends the run
 var FOLLOW_SAME_NOTE = 0.5;        // semitones from a note's pitch so far that are still that note
 var HEARD_CLOSE_CENTS = 75;        // this near a note (past PRACTICE_PASS_CENTS + 15): it, out of tune
-var SONG_MEASURE_WIDTH = 170;      // staff units per measure
+var SONG_MEASURE_WIDTH = 170;      // staff units per measure (at least)
+var SONG_MAX_SCALE = 1.1;          // stacked lines: screen px per staff unit, at most
 var SONG_BEATS = { w: 4, h: 2, q: 1, "8": 0.5 };  // in quarter notes
 var MY_SONGS_STORAGE_KEY = "pitchdetect-my-songs";
 
@@ -4683,7 +4684,8 @@ function measureBeats(time) {
 // note to show faintly beside that one (the wrong note being played), or
 // beside opts.ghostAt;
 // opts.marks: event index → a word to write above it (Play along's "early" /
-// "late"). Returns { svg, stave, xs (event index → x), measureX
+// "late"); opts.minWidth: widen the measures so the line is at least this
+// many units wide. Returns { svg, stave, xs (event index → x), measureX
 // (measure → [start, end] of its note area) }, in SVG units.
 function renderSongLine(out, song, events, line, measures, opts, color) {
 	out.innerHTML = "";
@@ -4708,12 +4710,13 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 		return probe.getNoteStartX() - probe.getX();
 	}
 	var widest = startWidth(true);
-	var W = widest + perLine * SONG_MEASURE_WIDTH + 10;
+	var measureWidth = Math.max(SONG_MEASURE_WIDTH, ((opts.minWidth || 0) - widest - 10) / perLine);
+	var W = widest + perLine * measureWidth + 10;
 	var renderer = new VF.Renderer(out, VF.Renderer.Backends.SVG);
 	renderer.resize(W, H);
 	var context = renderer.getContext();
 
-	var x = 5 + (opts.left ? 0 : (perLine - count) * SONG_MEASURE_WIDTH / 2);
+	var x = 5 + (opts.left ? 0 : (perLine - count) * measureWidth / 2);
 	var result = { svg: null, stave: null, xs: {}, measureX: {} };
 	var arrowAt = null;
 	var marksAt = [];  // opts.marks: words over notes ("early", "late")
@@ -4724,7 +4727,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 	var slack = count === perLine ? (widest - startWidth(first === 0)) / count : 0;
 	for (var m = first; m < first + count; m++) {
 		var extra = m === first ? startWidth(m === 0) : 0;
-		var stave = new VF.Stave(x, y, SONG_MEASURE_WIDTH + extra + slack);
+		var stave = new VF.Stave(x, y, measureWidth + extra + slack);
 		if (m === first) {
 			stave.addClef(clef);
 			if (key !== "C") stave.addKeySignature(key);
@@ -4954,7 +4957,16 @@ try { songWholeView = localStorage.getItem(SONG_WHOLE_STORAGE_KEY) === "1"; } ca
 function renderSongView(out, song, events, line, measures, opts, color) {
 	var layouts = {};
 	if (!songWholeView && !opts.whole && !opts.through) {
-		layouts[line] = renderSongLine(out, song, events, line, measures, opts, color);
+		// A line alone fills its box too: it's drawn no bigger than
+		// SONG_MAX_SCALE either, wider measures and blank room around it
+		var alone = opts;
+		if (!opts.left) {
+			alone = {};
+			Object.keys(opts).forEach(function(k) { alone[k] = opts[k]; });
+			alone.minWidth = out.clientWidth / SONG_MAX_SCALE;
+			alone.height = Math.max(opts.height || STAFF_VIEWBOX_HEIGHT, out.clientHeight / SONG_MAX_SCALE);
+		}
+		layouts[line] = renderSongLine(out, song, events, line, measures, alone, color);
 		return layouts;
 	}
 	var scroll = out.scrollTop;
@@ -4963,6 +4975,10 @@ function renderSongView(out, song, events, line, measures, opts, color) {
 	var lineOpts = {};
 	Object.keys(opts).forEach(function(k) { lineOpts[k] = opts[k]; });
 	lineOpts.height = SONG_WHOLE_LINE_HEIGHT;
+	// A wide card would draw the staff huge: the measures widen instead, so
+	// it's drawn no bigger than SONG_MAX_SCALE and more lines fit (not the
+	// editor, whose lines and spaces are tapped)
+	if (!opts.left) lineOpts.minWidth = out.clientWidth / SONG_MAX_SCALE;
 	var lines = opts.through ? line + 1 : Math.ceil(measures / perLine);
 	for (var l = 0; l < lines; l++) {
 		var div = document.createElement("div");
@@ -5037,6 +5053,14 @@ function onWideSongChange(q) {
 	if (!practiceOpen || !practice) return;
 	if (practice.mode === "song" && practice.song) drawSongLine(practice.song.pos);
 }
+// Resizing the window redraws a song for its new width
+var songResizeTimer = null;
+window.addEventListener("resize", function() {
+	clearTimeout(songResizeTimer);
+	songResizeTimer = setTimeout(function() {
+		if (practiceOpen && practice && practice.mode === "song" && practice.song) drawSongLine(practice.song.pos);
+	}, 150);
+});
 if (WIDE_SONG_QUERY.addEventListener) WIDE_SONG_QUERY.addEventListener("change", onWideSongChange);
 else if (WIDE_SONG_QUERY.addListener) WIDE_SONG_QUERY.addListener(onWideSongChange);
 
