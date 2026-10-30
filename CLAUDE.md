@@ -183,7 +183,7 @@ history mirrors these screens (`syncPracticeHistory()`, run after every
 `setPracticeMode()` and in `closePractice()`), so Android's back button and
 iOS's swipe-back step back like the arrow: each screen has a depth (the
 menu 1, its tabs replacing each other; the profile 2; an activity 2; a song
-3, or 2 from the Songs tab); deeper pushes, sideways replaces, shallower
+3, or 2 from the Songs tab; note by note one more); deeper pushes, sideways replaces, shallower
 `history.go()`s back, and `popstate` shows the entry's screen (after our
 own `history.go()`, `practiceHistoryGoing`, it syncs history to the screen
 instead, which may have moved on meanwhile). Keep new
@@ -528,6 +528,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   of the first red note's line (`startSong(id, from)`: earlier notes count
   done, no best saved, the result offers Play it through again). Hear the
   song restarts the run; **Note by note** returns to `startSong()`.
+  Note by note is a level under its song's Play it through: its
+  **← Whole song** button, the back arrow and its breadcrumb (Songs ›
+  the song › Note by note) all go back there (`songNoteByNoteBack()`,
+  a part practiced still picked), a history entry deeper than the song.
   **A part** picked on Play it through: Practice it runs
   `startSong(id, from, to)` over just
   those notes (`songPartNotes()`; `songEnd()` stops there, one progress dot
@@ -1014,7 +1018,8 @@ trumpet's written key too, whose overview's Learn it and Play it run the
 lesson and the scale, and Change octave moves trumpet's B♭ scale up an
 octave and back;
 the Songs tab (and the header's Songs button) lists every level of songs;
-a song's breadcrumbs lead back to the Songs tab; a drill's result
+a song's breadcrumbs lead back to the Songs tab, and back from note by
+note returns to the whole song; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
