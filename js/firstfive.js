@@ -1015,7 +1015,8 @@ function startPracticeActivity(id) {
 }
 
 // The back arrow (and Escape): an activity returns to its menu page, and
-// the menu leaves practice
+// the menu leaves practice; note by note returns to its song's Play it
+// through, and that to the song list
 function practiceBack() {
 	if (practice && practice.mode === "signin") {
 		// Practice needs someone signed in on an instrument
@@ -1025,7 +1026,9 @@ function practiceBack() {
 		else showPracticeMenu();
 		return;
 	}
-	if (practice && (practice.mode === "song" || practice.mode === "editor")) {
+	if (practice && practice.mode === "song" && !practice.song.free) {
+		songNoteByNoteBack();
+	} else if (practice && (practice.mode === "song" || practice.mode === "editor")) {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
 		showPracticeMenu();
@@ -1059,7 +1062,9 @@ function practiceCrumbs() {
 	}
 	if (practice.mode === "song") {
 		var song = findSong(practice.song.id);
-		crumbs.push({ label: song ? songTitle(song) : "Song" });
+		var free = practice.song.free;
+		crumbs.push({ label: song ? songTitle(song) : "Song", go: free ? null : songNoteByNoteBack });
+		if (!free) crumbs.push({ label: "Note by note" });
 	} else if (practice.mode === "editor") {
 		crumbs.push({ label: "Write a song" });
 	}
@@ -3354,7 +3359,7 @@ function startSong(id, from, to) {
 	help.id = "song-help";
 	actions.appendChild(hear);
 	actions.appendChild(help);
-	actions.appendChild(practiceButton("Play it through", "secondary", function() { playThroughSong(id); }));
+	actions.appendChild(practiceButton("\u2190 Whole song", "secondary", songNoteByNoteBack));
 	body.appendChild(actions);
 
 	if (!listenActive) {
@@ -3362,6 +3367,13 @@ function startSong(id, from, to) {
 		startListening();
 	}
 	showSongNote();
+}
+
+// Out of note by note (\u2190 Whole song, the back arrow, its breadcrumb):
+// back to the whole song on Play it through, a part practiced still picked
+function songNoteByNoteBack() {
+	var s = practice.song;
+	playThroughSong(s.id, s.to !== undefined ? songPart(s) : null);
 }
 
 // Play it through: the whole song on the page with no arrow and no waiting
@@ -8547,7 +8559,11 @@ function practiceHistoryState() {
 	if (activity === "profile") return { practice: "profile", depth: 2 };
 	// (a song from the Songs tab is a level under the menu)
 	var depth = practice.songList === "every" && (practice.mode === "song" || practice.mode === "editor") ? 1 : 2;
-	if (practice.mode === "song") return { practice: "song", song: practice.song.id, free: !!practice.song.free, depth: depth + 1 };
+	// (note by note is a level under its song's Play it through)
+	if (practice.mode === "song") {
+		var free = !!practice.song.free;
+		return { practice: "song", song: practice.song.id, free: free, depth: depth + (free ? 1 : 2) };
+	}
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
 	if (practice.mode === "songs") return { practice: "songs", depth: depth };
 	return { practice: activity, depth: depth };

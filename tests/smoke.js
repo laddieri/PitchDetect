@@ -479,6 +479,23 @@ async function run() {
 		await page.click(".song-tools >> text=Note by note");
 		check(await page.evaluate(function() { return practice.mode === "song" && !practice.song.free; }),
 			"Play it through's Note by note button opens note by note");
+		// Its breadcrumbs name it under the song, and the back arrow, the
+		// browser's back and \u2190 Whole song all return to the whole song
+		var nbn = await page.evaluate(function() {
+			return { crumbs: Array.prototype.map.call(document.querySelectorAll("#practice-crumbs li"), function(li) { return li.textContent; }).join(" > "),
+				depth: history.state.depth };
+		});
+		await page.click("#practice-close");
+		var backArrow = await page.evaluate(function() { return practice.mode === "song" && practice.song.free; });
+		await page.click(".song-tools >> text=Note by note");
+		await page.goBack();
+		await page.waitForFunction(function() { return practice.song.free; }, null, { timeout: 3000 }).catch(function() {});
+		var browserBack = await page.evaluate(function() { return practice.mode === "song" && practice.song.free && history.state.depth; });
+		await page.click(".song-tools >> text=Note by note");
+		await page.click("#practice-body >> text=Whole song");
+		var wholeSong = await page.evaluate(function() { return practice.mode === "song" && practice.song.free; });
+		check(/> Note by note$/.test(nbn.crumbs) && backArrow && browserBack === nbn.depth - 1 && wholeSong,
+			"back from note by note returns to the whole song (got " + nbn.crumbs + ", " + [backArrow, browserBack, wholeSong] + ")");
 
 		// Play along scores each note in time, over the piano: a note no
 		// louder than the piano doesn't count, one played late is marked
