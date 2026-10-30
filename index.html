@@ -4167,8 +4167,12 @@
 
 			/* Phones: one row; a path step stays below */
 			@media (max-width: 700px) {
+				/* The full width of the card: shrink-wrapped, the two
+				   equal buttons were only as wide as the shorter label
+				   needed, and a longer one (Stop and score) spilled out */
 				.song-free-actions {
 					flex-wrap: nowrap;
+					align-self: stretch;
 				}
 
 				.song-free-actions:has(.path-next) {
@@ -4189,6 +4193,15 @@
 					min-width: 0;
 					padding: 10px 12px;
 					font-size: 0.98rem;
+				}
+
+				/* Too narrow for two equal halves: a longer label takes more */
+				@media (max-width: 359px) {
+					.song-free-actions > #song-hear,
+					.song-free-actions > #song-listen {
+						flex-basis: auto;
+						padding: 10px 8px;
+					}
 				}
 
 				.song-free-actions > .practice-btn,

@@ -402,7 +402,7 @@ async function run() {
 		await page.click(".song-click-picker >> text=On");
 		await page.click(".song-piano-picker >> text=Off");
 		var backing = await page.evaluate(function() {
-			var hits = songBacking(practice.song.song, practice.song.events);
+			var hits = songBacking(practice.song.song, practice.song.events).filter(backingOn);
 			var beats = practice.song.events.reduce(function(n, e) { return n + eventBeats(e); }, 0);
 			var r = { hits: hits.length, beats: Math.round(beats), clicksOnly: hits.every(function(h) { return h.click; }),
 				saved: localStorage.getItem("pitchdetect-song-piano") + localStorage.getItem("pitchdetect-song-click") };
@@ -415,10 +415,11 @@ async function run() {
 		// Hear the song plays the tune with its metronome: each note on the
 		// audio clock at the same time as the click on its beat
 		var together = await page.evaluate(async function() {
-			var times = { note: [], click: [] }, wind = synthesizeWind, struck = synthesizeStruck, click = playClick;
+			var times = { note: [], click: [], piano: 0 }, wind = synthesizeWind, struck = synthesizeStruck, click = playClick;
 			synthesizeWind = function(freq, timbre, t) { times.note.push(t); return wind.apply(this, arguments); };
 			synthesizeStruck = function(freq, timbre, t, dest, sustain, nodes) {
 				if (!nodes) times.note.push(t);  // (not the piano's)
+				else times.piano++;
 				return struck.apply(this, arguments);
 			};
 			playClick = function(hit, t) { times.click.push(t); return click.apply(this, arguments); };
@@ -426,6 +427,14 @@ async function run() {
 			setSongClick(true);
 			playSong();
 			await new Promise(function(r) { setTimeout(r, 3000); });
+			// Switched mid-song, they change at once: the piano comes in,
+			// the metronome stops
+			var clicks = times.click.length, pianoBefore = times.piano;
+			setSongPiano(true);
+			setSongClick(false);
+			await new Promise(function(r) { setTimeout(r, 1500); });
+			var switched = songPlayTimer !== null && pianoBefore === 0 && times.piano > 0
+				&& times.click.length === clicks && !accompNodes.some(function(n) { return n.kind === "click"; });
 			stopSongPlayback();
 			synthesizeWind = wind;
 			synthesizeStruck = struck;
@@ -436,10 +445,11 @@ async function run() {
 			var n = Math.min(times.note.length, times.click.length);
 			var worst = 0;
 			for (var i = 0; i < n; i++) worst = Math.max(worst, Math.abs(times.note[i] - times.click[i]));
-			return { n: n, worst: Math.round(worst * 1000) };
+			return { n: n, worst: Math.round(worst * 1000), switched: switched };
 		});
 		check(together.n >= 3 && together.worst <= 2,
 			"Hear the song's notes sound with the metronome's clicks (" + together.n + " beats, " + together.worst + " ms apart at most)");
+		check(together.switched, "the piano and metronome switch on and off mid-song");
 		await page.keyboard.press("Escape");
 		await page.click(".song-settings-toggle");
 		await page.click(".song-settings-more >> text=Note by note");

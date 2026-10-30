@@ -407,11 +407,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   with sharps or flats), then on Play it through **More**
   (`.song-settings-more`): Note by note and the timing check. The rows come from `songSettingsChoices()`;
   `updateSongSettings()` refreshes them. Hear the song, Play along and the
-  editor's Hear it play `songBacking(song, events)`: the piano part if on,
-  plus `songClicks()` if on (a click per beat, a dotted quarter in 6/8, higher
+  editor's Hear it play `songBacking(song, events)`: the piano part plus
+  `songClicks()` (a click per beat, a dotted quarter in 6/8, higher
   on the downbeat, a short first measure counted back as a pickup; hits with
   `click` sound as `playClick()`'s woodblock tock, as does Play along's
-  count-in), so the settings take effect the next time a song plays.
+  count-in, which is `countIn` and always plays). `playSongEvents()` plays
+  each hit only if its setting is on as its note comes (`backingOn()`), so
+  the settings take effect at once, mid-song too: `songBackingChanged()`
+  fades and drops the switched-off kind's queued hits (`accompNodes` carry
+  `kind`, `fadeAccompNode()`), and a switched-on one catches up on the
+  current note's hits still to come (`songBackingCatchUp`).
   `playSongEvents()` times every event from the start (a late timer
   shortens the next wait) and puts the tune, piano and clicks on the audio
   clock from one anchor (`hitTime()`, an absolute audio time passed to
@@ -1014,7 +1019,7 @@ beside the staff), plays and stops; Play it through has just Hear it and
 Play it, listens only after Play it, a tapped note shows its fingering and
 is where Hear it and Play it start, and sliding across measures picks a
 part that Play it practices note by note; Hear the song's notes sound with
-the metronome's clicks; Play it through marks a note
+the metronome's clicks, and the piano and metronome switch mid-song; Play it through marks a note
 played flat "low" and a tapped wrong note shows what was played; Play along scores
 notes in time over the piano, marks a late note late, measures the
 delay from its count-in's clicks (or the timing check's), and opens the next speed; a long
