@@ -738,7 +738,10 @@ function markNextUp(menu, page) {
 	if (!progressCounts()) return;
 	var next = nextPathNode();
 	if (!next) return;
-	var card = menu.querySelector('[data-activity="' + next.activity + '"]');
+	// (a step without a card of its own is on its activity's card: a scale run
+	// on its scale's)
+	var a = PRACTICE_ACTIVITIES.filter(function(a) { return a.id === next.activity; })[0];
+	var card = menu.querySelector('[data-activity="' + (a && a.card || next.activity) + '"]');
 	if (card) {
 		card.classList.add("next-up");
 		var tag = document.createElement("span");

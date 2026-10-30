@@ -82,13 +82,18 @@ first 5 notes**, **Learn notes 6 and beyond** (`learn4`, lesson set `next4`:
 after the first five, named on the card by `nextFourText()`; best stars in
 `pitchdetect-next-four`; its result leads to the 9 note quiz), **Learn the
 B♭ scale** and **Learn the E♭ / A♭ / F / C scale** (on **Keys**
-(`keys`), each beside its scale run; `MORE_SCALES`, lesson
+(`keys`): one card per scale, titled "Concert E♭ scale", with the lesson's stars
+over its run's; an activity with `card` (each scale run) has no card of its
+own and is opened from that card's screen: the scale's overview, whose
+buttons are **Learn it** and **Play it** (`isScaleSet()`; Hear them is a
+link under them); `MORE_SCALES`, lesson
 sets and activity ids `scaleEb` `scaleAb` `scaleF` `scaleC`, units 5–8: the
 concert major scales after B♭, one octave each from `tonic` steps above the
 first B♭, `octave` moving an instrument's start an octave to stay in a
 beginner's range and on its charts, read through `lessonSteps()`. **Keys
 are named by concert pitch**, as band directors name them, always with the
-word: "Learn the concert E♭ scale" (`concertScaleName(set)`); on a
+word: the "Concert E♭ scale" card, "Learn the concert E♭ scale" on the
+path (`concertScaleName(set)`); on a
 transposing instrument (`practiceTransposes()`) the card adds its written
 name, "Your F scale: F up to F" (`scaleText(set)`, `writtenScaleName(set)`),
 else just "E♭ up to E♭"; the B♭ scale, drills and runs likewise. Best
@@ -810,7 +815,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
   writing a 5-note song, notes 6 and beyond, 2 of its songs, B♭ scale,
   scale run, 3 intermediate, 3 advanced songs, then learning and playing
   the E♭, A♭, F and C scales and Joy to the World on each, one unit each). Nothing is locked: the menu
-  opens on the next step's tab and marks its card (`markNextUp()`, `.next-up`
+  opens on the next step's tab and marks its card (`markNextUp()`; a scale run marks its scale's card; `.next-up`
   + "Next" tag, or a dot on the tab of the page it's on), and the profile
   lists the path; tapping a step opens it (`startPathNode()`: back from it
   goes to its tab).
@@ -981,8 +986,9 @@ It serves the repo itself and checks: no errors or page scroll at desktop and
 phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload;
 Practice opens on the Notes tab with the next step marked, and back from
-it returns there; Keys pairs each scale's lesson and run, named by concert
-key with a trumpet's written key too;
+it returns there; Keys has one card per scale, named by concert key with a
+trumpet's written key too, whose overview's Learn it and Play it run the
+lesson and the scale;
 the Songs tab (and the header's Songs button) lists every level of songs;
 a song's breadcrumbs lead back to the Songs tab; a drill's result
 goes on to the next step; a failed save warns; the iPhone
