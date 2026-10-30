@@ -423,6 +423,9 @@ async function run() {
 		check(speedsHidden && await page.evaluate(function() {
 			return !!document.querySelector("#practice-steps .speed-picker").offsetParent;
 		}), "Play along's speeds show only from the song's settings gear");
+		check(await page.evaluate(function() {
+			return !/Timing check/.test(document.querySelector(".song-settings-panel").textContent);
+		}), "the song's settings hold only settings (no timing check)");
 		// The settings turn the piano off and a metronome on: a click a beat
 		await page.click(".song-click-picker >> text=On");
 		await page.click(".song-piano-picker >> text=Off");

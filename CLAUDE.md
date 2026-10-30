@@ -404,8 +404,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   device-wide as `pitchdetect-song-piano`, on by default), **Metronome**
   on/off (`songClick`, `pitchdetect-song-click`, off by default) and
   "Sharps and flats": in the key signature or on each note (only for a key
-  with sharps or flats), then on Play it through **More**
-  (`.song-settings-more`): the timing check. The rows come from `songSettingsChoices()`;
+  with sharps or flats): settings only. The rows come from `songSettingsChoices()`;
   `updateSongSettings()` refreshes them. Hear the song, Play along and the
   editor's Hear it play `songBacking(song, events)`: the piano part plus
   `songClicks()` (a click per beat, a dotted quarter in 6/8, higher
@@ -436,13 +435,14 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `ALONG_CLICK_RISE` × louder than just before the click, extrapolated back
   by the window's energy growth) plus `ALONG_PITCH_DELAY_MS`, if they agree
   within `ALONG_CLICK_AGREE_MS`; else "check", the **timing check**'s
-  (`startTimingCheck()`, in Play it through's ⋯ menus, for headphones: 4
+  (`startTimingCheck()`, in Play along's result ⋯ menu, for headphones: 4
   clicks, then a short note on each of 8, `practice.song.check`,
   `timingCheckNote()`; `finishTimingCheck()` keeps the median click → note
   delay if the middle half agree, device-wide in `pitchdetect-along-lag`,
   `storedTimingCheck()`); else "guess": the piano's 50 ms head start, the
   speakers' `outputLatency` and `ALONG_LATENCY_MS`. A result with most
-  notes late (or early) on a guess suggests the timing check. Early, late
+  notes late (or early) on a guess suggests the timing check, its button
+  then beside Play along again (Practice the red notes moving to ⋯). Early, late
   and out-of-tune notes don't score; they turn orange with a word over them
   at the end (`songOffMarks()`: "low" / "high" / "early" / "late",
   `renderSongLine()`'s `opts.marks`, `drawSongMark()`; counted by
