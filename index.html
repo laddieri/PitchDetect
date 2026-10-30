@@ -4246,6 +4246,101 @@
 				box-shadow: 2px 2px 0 var(--ink);
 			}
 
+			/* Play it through's tools (updateSongTools()): small pills between
+			   the prompt and Hear it / Play it, one row tall so they don't
+			   move the buttons as they change */
+			.song-tools {
+				display: flex;
+				flex-wrap: wrap;
+				justify-content: center;
+				align-items: center;
+				gap: 8px;
+				min-height: 34px;
+			}
+
+			.song-tools .practice-btn,
+			.song-tool-chip {
+				padding: 5px 14px;
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-pill);
+				font-size: 0.9rem;
+				white-space: nowrap;
+			}
+
+			.song-tools .practice-btn.secondary {
+				color: var(--text);
+			}
+
+			/* What's picked (a part, a note to start from) and its ✕ */
+			.song-tool-chip {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				padding-right: 4px;
+				background: var(--accent-soft);
+				color: var(--text);
+				font-family: var(--font);
+				font-weight: 600;
+			}
+
+			.song-tool-chip-x,
+			.song-fingering-close {
+				display: inline-flex;
+				align-items: center;
+				justify-content: center;
+				width: 26px;
+				height: 26px;
+				padding: 0;
+				border: 1px solid var(--border-strong);
+				border-radius: 50%;
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 0.85rem;
+				font-weight: 700;
+				line-height: 1;
+				cursor: pointer;
+			}
+
+			.song-tool-chip-x:hover,
+			.song-fingering-close:hover {
+				border-color: var(--accent);
+				color: var(--accent);
+			}
+
+			.song-tool-chip-x:focus-visible,
+			.song-fingering-close:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			.song-tool-chip-x:disabled {
+				opacity: 0.5;
+				cursor: default;
+			}
+
+			/* A tapped note's chart: the ✕ that hides it, top right */
+			.song-fingering-close {
+				position: absolute;
+				top: 4px;
+				right: 6px;
+				width: 32px;
+				height: 32px;
+				font-size: 1rem;
+			}
+
+			body.kid-mode .song-tools .practice-btn,
+			body.kid-mode .song-tool-chip,
+			body.kid-mode .song-tool-chip-x,
+			body.kid-mode .song-fingering-close {
+				border: 2px solid var(--ink);
+				box-shadow: 2px 2px 0 var(--ink);
+			}
+
+			body.kid-mode .song-tool-chip-x {
+				box-shadow: none;
+			}
+
 			/* A scale's overview: Hear them as a link under Learn it and Play it */
 			.overview-hear-link {
 				padding: 6px 10px;

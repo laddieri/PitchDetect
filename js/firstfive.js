@@ -3368,8 +3368,9 @@ function startSong(id, from, to) {
 // on each note, so a student who has played it perfectly can play it
 // smoothly. The mic follows along (updateFollowListen): notes played right
 // turn green as they go, and mistakes show only at the end. Its two
-// buttons, Hear it and Play it, start from a note tapped (startNote) or
-// play a part dragged across (part: { a, b } measures, to start with).
+// buttons, Hear it and Play it, start from a note picked with Start here
+// (startNote) or play a part picked with Practice a part (part: { a, b }
+// measures, to start with; picking while it's being chosen).
 function playThroughSong(id, part) {
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
@@ -3383,7 +3384,8 @@ function playThroughSong(id, part) {
 	practice.song = {
 		id: id, song: song, events: events, notes: songNotes(song, events),
 		measures: events.length ? events[events.length - 1].measure + 1 : 0,
-		pos: 0, results: [], streak: 0, free: true, part: part || null, startNote: null
+		pos: 0, results: [], streak: 0, free: true, part: part || null, startNote: null,
+		picking: !!part
 	};
 	document.getElementById("practice-view").setAttribute("data-step", "song-free");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
@@ -3417,6 +3419,10 @@ function resetFollow() {
 	body.innerHTML =
 		'<div class="practice-feedback" id="practice-feedback" aria-live="polite"></div>' +
 		'<div class="practice-feedback-sub" id="practice-feedback-sub">&nbsp;</div>';
+	var tools = document.createElement("div");
+	tools.className = "song-tools";
+	tools.id = "song-tools";
+	body.appendChild(tools);
 	var actions = document.createElement("div");
 	actions.className = "practice-actions song-free-actions";
 	var hear = practiceButton(songHearLabel(), "secondary", function() {
@@ -3431,36 +3437,141 @@ function resetFollow() {
 	showSongSelection();
 }
 
-// Play it through's two buttons and prompt for what's selected: a part
-// (Hear it plays it, Play it practices it note by note), a note (both
+// Play it through's two buttons, tools and prompt for what's selected: a
+// part (Hear it plays it, Play it practices it note by note), a note (both
 // start there) or nothing (the whole song)
 function showSongSelection() {
 	var s = practice.song;
 	var range = songPartNotes(s);
 	if (s.part && range) {
 		var count = range.to - range.from;
-		setPracticeFeedback(partLabel(s.part, true), count + (count === 1 ? " note" : " notes") + " \u00b7 tap a note to start over", "good");
+		setPracticeFeedback(partLabel(s.part, true), count + (count === 1 ? " note" : " notes") +
+			(s.part.a === s.part.b ? " \u00b7 tap another measure to add more" : ""), "good");
 	} else if (s.part) {
-		setPracticeFeedback("There are only rests there", "Slide across measures with notes in them", "close");
+		setPracticeFeedback("There are only rests there", "Tap a measure with notes in it", "close");
+	} else if (s.picking) {
+		setPracticeFeedback("Which part do you want to practice?", "Tap its first measure, then its last");
 	} else if (songStartNote(s) > 0) {
-		setPracticeFeedback("Starting from the note you tapped", "Tap it again to start from the beginning");
+		setPracticeFeedback("Starting partway through", "Tap any note to see its fingering");
 	} else {
-		setPracticeFeedback("Play it all the way through!", "Tap a note to see how to play it \u00b7 slide across measures to practice them");
+		setPracticeFeedback("Play it all the way through!", "Tap any note to see its fingering");
 	}
 	updateSongButtons();
+	updateSongTools();
 	drawSongLine(s.pos);
+}
+
+// Play it through's tools, between the prompt and Hear it / Play it: Note
+// by note and Practice a part, or what's picked (a note to start from, a
+// part) with an \u2715 to put it away, and Start here for a note tapped.
+// Disabled while the song plays or the mic follows (songSelectable()).
+function updateSongTools() {
+	var s = practice.song;
+	var tools = document.getElementById("song-tools");
+	if (!tools || !s || !s.free) return;
+	tools.innerHTML = "";
+	var tapped = s.tapped !== null && s.tapped !== undefined && !s.done && !s.picking;
+	if (s.picking) {
+		if (s.part) tools.appendChild(songToolChip(partLabel(s.part, true), "Stop practicing a part", stopSongPicking));
+		else tools.appendChild(practiceButton("Cancel", "secondary", stopSongPicking));
+	} else {
+		if (tapped && s.tapped !== s.startNote) {
+			tools.appendChild(practiceButton("\u25b6 Start here", "secondary", songStartHere));
+		}
+		if (songStartNote(s) > 0) {
+			var start = s.events[tieStart(s.events, s.startNote)];
+			tools.appendChild(songToolChip("From the " + songNoteName(start) + " in measure " + (start.measure + 1),
+				"Start from the beginning", function() {
+					s.startNote = null;
+					showSongSelection();
+				}));
+		} else if (!tapped) {
+			tools.appendChild(practiceButton("\ud83d\udc63 Note by note", "secondary", function() { startSong(s.id); }));
+			tools.appendChild(practiceButton("\u2702\ufe0f Practice a part", "secondary", startSongPicking));
+		}
+	}
+	var busy = !songSelectable() || s.done;
+	tools.querySelectorAll("button").forEach(function(b) { b.disabled = busy; });
+}
+
+// What's picked, with an \u2715 that puts it away (label: the \u2715's)
+function songToolChip(text, label, onclose) {
+	var chip = document.createElement("span");
+	chip.className = "song-tool-chip";
+	chip.textContent = text;
+	var x = document.createElement("button");
+	x.className = "song-tool-chip-x";
+	x.textContent = "\u2715";
+	x.setAttribute("aria-label", label);
+	x.title = label;
+	x.onclick = onclose;
+	chip.appendChild(x);
+	return chip;
+}
+
+// Practice a part: taps on the staff now pick measures (songPickMeasure()),
+// as does sliding across them
+function startSongPicking() {
+	var s = practice.song;
+	removeSongFingerings();
+	s.tapped = null;
+	s.startNote = null;
+	s.picking = true;
+	showSongSelection();
+}
+
+function stopSongPicking() {
+	var s = practice.song;
+	s.picking = false;
+	s.part = null;
+	showSongSelection();
+}
+
+// A tap on measure m while picking a part: the first picks it, a tap on
+// another stretches the part to it, and a tap on a part of one measure
+// (or once it's longer) starts over from there
+function songPickMeasure(m) {
+	var s = practice.song;
+	var p = s.part;
+	if (!p || p.a !== p.b) s.part = { a: m, b: m };
+	else if (m === p.a) s.part = null;
+	else s.part = { a: Math.min(p.a, m), b: Math.max(p.a, m) };
+	showSongSelection();
+}
+
+// Start here (Play it through): Hear it and Play it start from the note
+// tapped, and its fingering is put away
+function songStartHere() {
+	var s = practice.song;
+	s.startNote = s.tapped;
+	removeSongFingerings();
+	s.tapped = null;
+	showSongSelection();
+}
+
+// The tapped note's \u2715 (or a tap on it again)
+function closeSongFingering() {
+	var s = practice.song;
+	removeSongFingerings();
+	s.tapped = null;
+	if (s.free && !s.done) showSongSelection();
+	else drawSongLine(s.pos);
 }
 
 // Hear it and Play it say what they'll do (while nothing plays)
 function updateSongButtons() {
 	var s = practice.song;
 	var hear = document.getElementById("song-hear");
-	if (hear && songPlayTimer === null) hear.textContent = songHearLabel();
+	var none = (s.part || s.picking) && !songPartNotes(s);
+	if (hear && songPlayTimer === null) {
+		hear.textContent = songHearLabel();
+		hear.disabled = !!(s.free && none);
+	}
 	var listen = document.getElementById("song-listen");
 	if (listen && s.free && !s.follow.listening && !(s.along && !s.along.done)) {
 		listen.textContent = songRecordLabel();
 		listen.onclick = startSongRecord;
-		listen.disabled = !!s.part && !songPartNotes(s);
+		listen.disabled = !!none;
 	}
 }
 
@@ -3561,7 +3672,8 @@ function startFollow() {
 	s.follow.listening = true;
 	practice.ignoreUntil = performance.now() + 300;
 	songMicOn();
-	setPracticeFeedback("I\u2019m listening!", s.runFrom ? "Play from the note you tapped" : "Play it all the way through", "good");
+	setPracticeFeedback("I\u2019m listening!", s.runFrom ? "Play from the note you picked" : "Play it all the way through", "good");
+	updateSongTools();
 	drawSongLine(s.pos);
 	var listen = document.getElementById("song-listen");
 	if (listen) {
@@ -3826,6 +3938,7 @@ function finishFollow() {
 			right === total ? "good" : "close");
 	}
 
+	removeSongTools();
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.innerHTML = "";
 	if (firstMiss >= 0) {
@@ -3851,6 +3964,12 @@ function finishFollow() {
 	if (s.follow.heard.length) {
 		recordProgress(10 + 2 * right + (right === total ? 15 : 0) + (newBest && right > 0 ? NEW_BEST_XP : 0));
 	}
+}
+
+// A score screen has its own buttons (and a \u22ef menu for the rest)
+function removeSongTools() {
+	var tools = document.getElementById("song-tools");
+	if (tools) tools.remove();
 }
 
 // The first note on the line holding note pos, so practice starts from the
@@ -3920,7 +4039,8 @@ function songSelectable() {
 		!(s.along && !s.along.done) && !s.check;
 }
 
-// Slide across measures on Play it through to pick a part: a sideways drag
+// Slide across measures on Play it through to pick a part (as Practice a
+// part's taps do, songPickMeasure()): a sideways drag
 // (SONG_DRAG_PX) from where it started, the measures it crosses; a tap
 // stays a tap (songNoteTap()). The staff scrolls up and down as before
 // (touch-action: pan-y).
@@ -3950,6 +4070,7 @@ function songDragMove(event) {
 		removeSongFingerings();
 		s.tapped = null;
 		s.startNote = null;
+		s.picking = true;
 	}
 	var m = songMeasureAt(event.clientX, event.clientY);
 	if (m === null) return;
@@ -4016,13 +4137,13 @@ function partLabel(part, capital) {
 function songHearLabel() {
 	var s = practice.song;
 	if (!s.free) return songPart(s) ? "\u25b6 Hear this part" : "\u25b6 Hear the song";
-	return s.part ? "\u25b6 Hear the part" : "\u25b6 Hear it";
+	return s.part || s.picking ? "\u25b6 Hear the part" : "\u25b6 Hear it";
 }
 
 // Play it's label: what it will do (startSongRecord())
 function songRecordLabel() {
 	var s = practice.song;
-	if (s.part) return "\ud83c\udfa4 Practice it";
+	if (s.part || s.picking) return "\ud83c\udfa4 Practice it";
 	return songOwnSpeed() ? LISTEN_TO_ME_LABEL : playAlongLabel();
 }
 
@@ -4406,13 +4527,12 @@ function songSettingsButton(song, speed) {
 			function() { return songKeySignatures; }, setSongKeySignatures));
 	}
 	var pop = songPopover("song-settings", button, panel);
-	// Play it through's less used ways to practice
+	// Play it through's timing check (Note by note is under the song)
 	if (speed) {
 		panel.appendChild(songSettingsTitle("More"));
 		var more = document.createElement("div");
 		more.className = "song-settings-more";
-		[["Note by note", function() { startSong(practice.song.id); }],
-			[TIMING_CHECK_LABEL, startTimingCheck]].forEach(function(item) {
+		[[TIMING_CHECK_LABEL, startTimingCheck]].forEach(function(item) {
 			more.appendChild(practiceButton(item[0], "secondary", function() {
 				pop.close();
 				item[1]();
@@ -5042,7 +5162,10 @@ function playSong() {
 		songMicOff();
 	}
 	var hear = document.getElementById("song-hear");
-	if (hear) hear.textContent = "\u25a0 Stop";
+	if (hear) {
+		hear.textContent = "\u25a0 Stop";
+		hear.disabled = false;
+	}
 	// A part plays just its measures
 	var part = songPart(s);
 	var start = 0, events = s.events;
@@ -5106,6 +5229,7 @@ function playAlong() {
 		along.textContent = "\u25a0 Stop";
 		along.onclick = stopSongPlayback;
 	}
+	updateSongTools();
 	var time = s.song.time || "4/4";
 	var pulse = time.split("/")[1] === "8" ? 1.5 : 1;
 	var pulses = Math.round(measureBeats(time) / pulse);
@@ -5319,6 +5443,7 @@ function startTimingCheck() {
 	var beatMs = 60000 / TIMING_CHECK_TEMPO;
 	songMicOn();
 	setPracticeFeedback(TIMING_CHECK_LABEL, "Get ready…");
+	updateSongTools();
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.innerHTML = "";
 	actions.appendChild(practiceButton("■ Stop", "secondary", stopTimingCheck));
@@ -5510,6 +5635,7 @@ function finishAlong(partway) {
 			right === total ? "good" : "close");
 	}
 
+	removeSongTools();
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.innerHTML = "";
 	// Two buttons at most in the row; the rest wait behind the \u22ef menu
@@ -5972,10 +6098,12 @@ function removeSongFingerings() {
 	wrap.remove();
 }
 
-// A tap on a note of a song (not while it plays or a part is being picked):
-// that note's fingering, in the chart area Hear the song uses, and the note
-// marked. A tap on it again, or off the notes, puts it away. In note by
-// note, the note being waited for gets Help instead (so it no longer scores).
+// A tap on a note of a song (not while it plays): that note's fingering, in
+// the chart area Hear the song uses, with an \u2715 to put it away, and the
+// note marked (on Play it through, Start here then starts from it). A tap on
+// it again puts it away too. In note by note, the note being waited for gets
+// Help instead (so it no longer scores). While picking a part, a tap picks
+// a measure instead (songPickMeasure()).
 function songNoteTap(event) {
 	if (!practiceOpen || !practice || practice.mode !== "song" || !practice.song) return;
 	if (songPlayTimer !== null || songPlayAlong) return;
@@ -5984,6 +6112,11 @@ function songNoteTap(event) {
 	var s = practice.song;
 	if (s.free && !songSelectable()) return;
 	if (!s.layouts) return;
+	if (s.free && s.picking && !s.done) {
+		var m = songMeasureAt(event.clientX, event.clientY);
+		if (m !== null) songPickMeasure(m);
+		return;
+	}
 	var lineEl = event.target.closest ? event.target.closest(".song-line") : null;
 	var keys = Object.keys(s.layouts);
 	var r = lineEl ? s.layouts[lineEl.getAttribute("data-line")] : keys.length === 1 ? s.layouts[keys[0]] : null;
@@ -6008,13 +6141,10 @@ function songNoteTap(event) {
 		if (!s.helped) showSongHelp();
 		return;
 	}
-	// Before a run on Play it through, a tap also picks the note Hear it and
-	// Play it start from (and puts away a part picked)
-	var picking = s.free && !s.done;
-	if (hit === null || hit === s.tapped) {
-		if ((s.tapped === null || s.tapped === undefined) && !(picking && (s.part || s.startNote !== null))) return;
-		removeSongFingerings();
-		s.tapped = null;
+	if (hit === null) return;
+	if (hit === s.tapped) {
+		closeSongFingering();
+		return;
 	} else {
 		showSongFingerings([s.events[hit]]);
 		s.tapped = hit;
@@ -6040,10 +6170,18 @@ function songNoteTap(event) {
 			name.appendChild(said);
 		}
 		if (wrap && (name.firstChild)) wrap.appendChild(name);
+		if (wrap) {
+			var close = document.createElement("button");
+			close.className = "song-fingering-close";
+			close.textContent = "\u2715";
+			close.setAttribute("aria-label", "Hide the fingering");
+			close.title = "Hide the fingering";
+			close.onclick = closeSongFingering;
+			wrap.appendChild(close);
+		}
 	}
-	if (picking) {
-		s.part = null;
-		s.startNote = s.tapped;
+	// (Play it through, before a run: Start here)
+	if (s.free && !s.done) {
 		showSongSelection();
 		return;
 	}
