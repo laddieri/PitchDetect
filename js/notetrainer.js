@@ -2299,13 +2299,15 @@ function updateKeyDropdown() {
 }
 
 // Keep the always-visible key chip in sync with the staff's written key.
-// The chip shows the written key (matching the drawn key signature); the
-// tooltip carries the concert key for transposing instruments.
+// The chip shows the written key (matching the drawn key signature), and
+// for transposing instruments the concert key after it.
 function updateKeyChip() {
 	var chip = document.getElementById("key-chip");
 	if (!chip) return;
 	var written = keyDisplayName(getWrittenKey());
-	chip.textContent = "Key: " + written + " \u25be";  // small down triangle
+	// A transposing instrument's key also gets its concert name, what the band calls it
+	var concert = ((getTransposition() % 12) + 12) % 12 ? " (concert " + keyDisplayName(concertKey) + ")" : "";
+	chip.textContent = "Key: " + written + concert + " \u25be";  // small down triangle
 	chip.title = keyDisplayName(concertKey) + " concert \u2014 click to change the key signature";
 }
 

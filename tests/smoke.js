@@ -185,6 +185,17 @@ async function run() {
 		});
 		check(backPage === "notes" && keys.cards === "scale,scalerun" && keys.depth === 1,
 			"back from the step returns to its tab; Keys pairs each scale's lesson and run (got " + backPage + ", " + keys.cards + ", depth " + keys.depth + ")");
+		// Scales go by their concert names, as the band calls them, and a
+		// trumpet also sees its own: concert E♭ is its F scale
+		var eb = await page.evaluate(function() {
+			var card = document.querySelector('#practice-menu [data-activity="scaleEb"]');
+			var joy = SONGS.filter(function(song) { return song.id === "joyscaleEb"; })[0];
+			var buns = SONGS.filter(function(song) { return song.id === "hotcrossbunseb"; })[0];
+			return card.textContent + " | " + songTitle(joy) + " | " + songTitle(buns);
+		});
+		check(/Learn the concert E\u266d scale/.test(eb) && /Your F scale: F up to F/.test(eb)
+			&& /Joy to the World \(concert E\u266d scale\)/.test(eb) && /Hot Cross Buns in concert E\u266d/.test(eb),
+			"scales and songs name concert keys, and a trumpet's written scale (got " + eb + ")");
 		// The Songs tab (and the header's Songs button) lists every song,
 		// Beginner included, right on the tab
 		await page.evaluate(function() { showPracticeMenu("notes"); });
