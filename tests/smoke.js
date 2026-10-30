@@ -227,10 +227,9 @@ async function run() {
 		await page.waitForFunction(function() { return practice.mode === "menu"; });
 		check(!octave.eb && octave.low === 60 && octave.high === 72 && octave.back === 60,
 			"Change octave moves trumpet's B\u266d scale up an octave and back (got " + JSON.stringify(octave) + ")");
-		// The Songs tab (and the header's Songs button) lists every song,
-		// Beginner included, right on the tab
+		// The Songs tab lists every song, Beginner included, right on the tab
 		await page.evaluate(function() { showPracticeMenu("notes"); });
-		await page.click("#practice-songs");
+		await page.click('#practice-tabs [data-page="songs"]');
 		var songList = await page.evaluate(function() {
 			return { mode: practice.mode, page: practice.menuPage, depth: history.state.depth,
 				levels: document.querySelectorAll("#practice-menu .song-level").length, all: SONG_LEVELS.length };

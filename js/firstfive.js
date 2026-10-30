@@ -3315,12 +3315,6 @@ function buildSongList() {
 	return list;
 }
 
-// The header's Songs button: the Songs tab, from wherever the student is
-function showAllSongs() {
-	if (!practice || practice.mode === "signin") return;
-	showPracticeMenu("songs");
-}
-
 // from: start partway (Practice the red notes), notes before it counted done;
 // to: stop before note to (Pick a part: just the measures picked)
 function startSong(id, from, to) {

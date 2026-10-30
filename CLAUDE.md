@@ -162,9 +162,7 @@ on the path after notes 6 and beyond).
 **Songs** (`songs`) has no cards: the tab is the song list itself
 (`buildSongList()` into `#practice-menu[data-songs]`, `practice.songList =
 "every"`): every level, Beginner included, and all the student's songs,
-with Make a song. The header's **Songs** button (`#practice-songs`, top
-right, styled like the app's Practice button; hidden while signing in)
-opens it from any screen (`showAllSongs()`). The tab's activities still
+with Make a song. The tab's activities still
 exist for the learning path, titles and breadcrumbs: **Play 3-note songs**
 (`songs3`: `showSongList("three")`), **Write a 3-note song** (`write3`: the
 editor in 3-note mode), **Play 5-note songs** (`songs5`:
@@ -1020,7 +1018,7 @@ it returns there; Keys has one card per scale, named by concert key with a
 trumpet's written key too, whose overview's Learn it and Play it run the
 lesson and the scale, and Change octave moves trumpet's B♭ scale up an
 octave and back;
-the Songs tab (and the header's Songs button) lists every level of songs;
+the Songs tab lists every level of songs;
 a song's breadcrumbs lead back to the Songs tab, and back from note by
 note returns to the whole song; a drill's result
 goes on to the next step; a failed save warns; the iPhone
