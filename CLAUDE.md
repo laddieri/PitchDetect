@@ -55,7 +55,7 @@ All state is module-global. The main clusters:
 `playTone()`'s `legato` (a song's slurred note: `stopNote(fade, delay)` fades the
 sounding note over `LEGATO_FADE` from the new note's start, `TONE_LOOKAHEAD`, holding
 its level until then, so there's no gap), fade-out teardown in `stopNote()`. The first `playTone()` of a visit shows `showSoundHint()` (an info toast: turn up your volume); `setAudioSessionType()` sets iOS's `navigator.audioSession` to `playback` (`play-and-record` while listening) so the silent switch doesn't mute the notes. |
-| **UI state sync** | `updateControlStates()` (enable/disable), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updatePanePager()` (mobile fingering/piano pages), `updateKeyChip()` / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast(message, duration)` (inline errors — never use `alert()`;
+| **UI state sync** | `updateControlStates()` (enable/disable), `updateNoteDisplay()` / `updateConcertPitchDisplay()`, `updateFingeringDisplay()`, `updatePianoDisplay()`, `updatePanePager()` (mobile fingering/piano pages), `updateKeyChip()` ("Key: G (concert B♭)" on a transposing instrument) / `updateKeyDropdown()` `applyResponsiveControls()` (breakpoint DOM moves), `showToast(message, duration)` (inline errors — never use `alert()`;
 mic failures go through `micErrorMessage()`, which says what to do next). |
 
 ### `js/firstfive.js` — First 5 Notes practice
@@ -82,7 +82,7 @@ first 5 notes**, **Learn notes 6 and beyond** (`learn4`, lesson set `next4`:
 after the first five, named on the card by `nextFourText()`; best stars in
 `pitchdetect-next-four`; its result leads to the 9 note quiz), **Learn the
 B♭ scale** and **Learn the E♭ / A♭ / F / C scale** (on **Keys**
-(`keys`): one card per scale, titled "E♭ scale", with the lesson's stars
+(`keys`): one card per scale, titled "Concert E♭ scale", with the lesson's stars
 over its run's; an activity with `card` (each scale run) has no card of its
 own and is opened from that card's screen: the scale's overview, whose
 buttons are **Learn it** and **Play it** (`isScaleSet()`; Hear them is a
@@ -90,12 +90,17 @@ link under them); `MORE_SCALES`, lesson
 sets and activity ids `scaleEb` `scaleAb` `scaleF` `scaleC`, units 5–8: the
 concert major scales after B♭, one octave each from `tonic` steps above the
 first B♭, `octave` moving an instrument's start an octave to stay in a
-beginner's range and on its charts, read through `lessonSteps()`; each card
-says "Concert E♭: F up to F" at the written pitch, `moreScaleText()`; best
+beginner's range and on its charts, read through `lessonSteps()`. **Keys
+are named by concert pitch**, as band directors name them, always with the
+word: the "Concert E♭ scale" card, "Learn the concert E♭ scale" on the
+path (`concertScaleName(set)`); on a
+transposing instrument (`practiceTransposes()`) the card adds its written
+name, "Your F scale: F up to F" (`scaleText(set)`, `writtenScaleName(set)`),
+else just "E♭ up to E♭"; the B♭ scale, drills and runs likewise. Best
 stars in `pitchdetect-eb-scale` etc.; each result leads to its scale run).
 Each also has drills and a scale run like the B♭ scale's, their ids the
 B♭ ones plus the key (`namesscaleEb`, `fingeringsscaleEb`, `scalerunEb`;
-`scaleSetOf(id)` gives the lesson set, `scaleName(set)` its name; run
+`scaleSetOf(id)` gives the lesson set, `scaleName(set)` its bare name; run
 bests in `practice.scaleRunBest[set]`, stored under `SCALE_RUN_STORAGE_KEYS`,
 e.g. `pitchdetect-eb-scale-run`). Their notes are spelled in the written key
 (`spell` → the lesson's `spellings`, from `scaleSpellings()`, which
@@ -305,7 +310,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   Had a Little Lamb in A♭, Old MacDonald, Yankee Doodle, Deck the Halls; a
   song with `steps`, `BEYOND_AB_STEPS` / `BEYOND_A_STEPS`, numbers its notes
   1–8 from those concert steps instead of the B♭ scale, and `tonic` makes
-  `songTitle()` add " in <key>" at the student's written pitch),
+  `songTitle()` add " in concert <key>"),
   **Intermediate** (rests, dotted notes or notes past the fifth: Goin' Home,
   When the Saints, Twinkle, All My Little Ducklings), **Advanced** (eighth
   notes on the whole scale: London Bridge, Michael Row the Boat, Row Row Row
@@ -313,9 +318,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   once per scale, ids `joyscale`, `joyscaleEb`...; a song with `scale` (a
   lesson set) numbers its notes 1–8 up that scale's lesson notes, so it gets
   the lesson's octave and written-key spelling, and `songTitle()` adds
-  " (E♭ scale)"; the units 5–8 hold the More songs card and the path has
+  " (concert E♭ scale)"; the units 5–8 hold the More songs card and the path has
   each one after its scale run), then a level per new scale (**E♭ / A♭ / F /
-  C scale songs**, ids `songsEb`...): five tunes from the levels above,
+  C scale songs**, titled "Concert E♭ scale songs", ids `songsEb`...): five tunes from the levels above,
   numbered up that scale the same way (`SCALE_SONG_TUNES`, ids the tune's
   plus the scale's, `odetojoyscaleEb`; only tunes that stay on degrees 1–8).
   Keep `SONGS` in level order (Next song follows it). Each measure is a
@@ -981,8 +986,9 @@ It serves the repo itself and checks: no errors or page scroll at desktop and
 phone sizes; Listen names a 440 Hz tone; a student signs in, and their
 profile, instrument and XP survive a reload;
 Practice opens on the Notes tab with the next step marked, and back from
-it returns there; Keys has one card per scale, whose overview's Learn it
-and Play it run the lesson and the scale;
+it returns there; Keys has one card per scale, named by concert key with a
+trumpet's written key too, whose overview's Learn it and Play it run the
+lesson and the scale;
 the Songs tab (and the header's Songs button) lists every level of songs;
 a song's breadcrumbs lead back to the Songs tab; a drill's result
 goes on to the next step; a failed save warns; the iPhone

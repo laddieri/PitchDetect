@@ -81,9 +81,9 @@ var BADGES = [
 		test: function(s) { return s.next4.every(function(n) { return n > 0; }); } },
 	{ id: "quiz-whiz", icon: "\uD83C\uDFC6", name: "Quiz Whiz", how: "Play every note of the quiz on your own",
 		test: function(s) { return s.quizBest >= CHALLENGE_LENGTH; } },
-	{ id: "scale-climber", icon: "\uD83D\uDCC8", name: "Scale Climber", how: "Learn all 8 notes of the B\u266D scale",
+	{ id: "scale-climber", icon: "\uD83D\uDCC8", name: "Scale Climber", how: "Learn all 8 notes of the concert B\u266D scale",
 		test: function(s) { return s.scale.every(function(n) { return n > 0; }); } },
-	{ id: "scale-master", icon: "\uD83D\uDC51", name: "Scale Master", how: "Play the B\u266D scale up and down on your own",
+	{ id: "scale-master", icon: "\uD83D\uDC51", name: "Scale Master", how: "Play the concert B\u266D scale up and down on your own",
 		test: function(s) { return s.scaleRunBest >= s.scaleRunLength; } },
 	{ id: "scale-explorer", icon: "\uD83E\uDDED", name: "Scale Explorer", how: "Learn the concert E\u266D, A\u266D, F and C scales",
 		test: function(s) { return s.moreScales.every(function(n) { return n > 0; }); } },
@@ -673,9 +673,9 @@ function learningPath() {
 		done: challengeStars(practice.quiz9Best || 0, QUIZ9_LENGTH) > 0 });
 	nodes.push({ title: "Play 2 songs with your new notes", activity: "songs", level: "beyond",
 		done: songsStarredAt("beyond") >= 2 });
-	nodes.push({ title: "Learn the B\u266D scale", activity: "scale",
+	nodes.push({ title: "Learn the concert B\u266D scale", activity: "scale",
 		done: practice.lessons.scale.stars.every(function(n) { return n > 0; }) });
-	nodes.push({ title: "Play the B\u266D scale", activity: "scalerun",
+	nodes.push({ title: "Play the concert B\u266D scale", activity: "scalerun",
 		done: challengeStars(practice.scaleRunBest.scale || 0, scaleRunSequence().length) > 0 });
 	nodes.push({ title: "Play 3 intermediate songs", activity: "songs", level: "intermediate", unit: "unit4",
 		done: songsStarredAt("intermediate") >= 3 });

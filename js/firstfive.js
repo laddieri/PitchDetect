@@ -198,6 +198,26 @@ function scaleName(set) {
 	return set === "scale" ? "B\u266d" : moreScale(set).name;
 }
 
+// A scale as band directors name it, so the whole band agrees which one:
+// "concert E♭" (or "chromatic")
+function concertScaleName(set) {
+	return set === "scaleChromatic" ? "chromatic" : "concert " + scaleName(set);
+}
+
+// Whether the student's instrument reads its notes under other names than
+// concert pitch (trumpet, clarinet, saxes, horn); octaves don't count
+function practiceTransposes() {
+	return ((transpositionMap[practice.instrument] || 0) % 12) !== 0;
+}
+
+// A scale's name at the student's written pitch: "F" for trumpet's concert E♭
+function writtenScaleName(set) {
+	var lesson = practice.lessons[set];
+	var first = lesson.notes[0];
+	var pc = ((first % 12) + 12) % 12;
+	return keyDisplayName((lesson.spellings && lesson.spellings[pc]) || plainPracticeSpelling(first));
+}
+
 // The scale (lesson set) a scale drill or run activity is on, or null:
 // "namesscale" and "scalerun" are on "scale", "fingeringsscaleEb" and
 // "scalerunEb" on "scaleEb"
@@ -518,16 +538,16 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", page: "notes", wide: true },
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "notes", wide: true },
 	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "notes", wide: true },  // sub: nextFourText()
-	{ id: "scale", icon: "scale", title: "B\u266d scale", sub: "All eight notes, up the octave", page: "keys" },
-	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scale" },
-	{ id: "scaleEb", icon: "scale", title: "E\u266d scale", sub: "", page: "keys" },  // sub: moreScaleText()
-	{ id: "scalerunEb", icon: "scalerun", title: "Play the E\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scaleEb" },
-	{ id: "scaleAb", icon: "scale", title: "A\u266d scale", sub: "", page: "keys" },
-	{ id: "scalerunAb", icon: "scalerun", title: "Play the A\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scaleAb" },
-	{ id: "scaleF", icon: "scale", title: "F scale", sub: "", page: "keys" },
-	{ id: "scalerunF", icon: "scalerun", title: "Play the F scale", sub: "Up and back down, note by note", page: "keys", card: "scaleF" },
-	{ id: "scaleC", icon: "scale", title: "C scale", sub: "", page: "keys" },
-	{ id: "scalerunC", icon: "scalerun", title: "Play the C scale", sub: "Up and back down, note by note", page: "keys", card: "scaleC" },
+	{ id: "scale", icon: "scale", title: "Concert B\u266d scale", sub: "", page: "keys" },  // sub: scaleText()
+	{ id: "scalerun", icon: "scalerun", title: "Play the concert B\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scale" },
+	{ id: "scaleEb", icon: "scale", title: "Concert E\u266d scale", sub: "", page: "keys" },  // sub: scaleText()
+	{ id: "scalerunEb", icon: "scalerun", title: "Play the concert E\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scaleEb" },
+	{ id: "scaleAb", icon: "scale", title: "Concert A\u266d scale", sub: "", page: "keys" },
+	{ id: "scalerunAb", icon: "scalerun", title: "Play the concert A\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scaleAb" },
+	{ id: "scaleF", icon: "scale", title: "Concert F scale", sub: "", page: "keys" },
+	{ id: "scalerunF", icon: "scalerun", title: "Play the concert F scale", sub: "Up and back down, note by note", page: "keys", card: "scaleF" },
+	{ id: "scaleC", icon: "scale", title: "Concert C scale", sub: "", page: "keys" },
+	{ id: "scalerunC", icon: "scalerun", title: "Play the concert C scale", sub: "Up and back down, note by note", page: "keys", card: "scaleC" },
 	{ id: "scaleChromatic", icon: "scale", title: "Chromatic scale", sub: "", page: "keys" },  // sub: chromaticText()
 	{ id: "scalerunChromatic", icon: "scalerun", title: "Play the chromatic scale", sub: "Every half step, up and back down", page: "keys", card: "scaleChromatic" },
 	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "games", group: "playing" },  // title: the notes
@@ -538,20 +558,20 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "names3", icon: "A\u00a0B", title: "Name the 3 notes", sub: "", page: "games", group: "names" },  // sub: the notes
 	{ id: "names", icon: "A\u00a0B", title: "Name the first 5 notes", sub: "", page: "games", group: "names" },  // sub: the notes
 	{ id: "names9", icon: "A\u00a0B", title: "Name 9 notes", sub: "The first 5 and your new notes", page: "games", group: "names" },
-	{ id: "namesscale", icon: "A\u00a0B", title: "Name the B\u266d scale notes", sub: "", page: "games", group: "names" },  // sub: its range
-	{ id: "namesscaleEb", icon: "A\u00a0B", title: "Name the E\u266d scale notes", sub: "", page: "games", group: "names" },
-	{ id: "namesscaleAb", icon: "A\u00a0B", title: "Name the A\u266d scale notes", sub: "", page: "games", group: "names" },
-	{ id: "namesscaleF", icon: "A\u00a0B", title: "Name the F scale notes", sub: "", page: "games", group: "names" },
-	{ id: "namesscaleC", icon: "A\u00a0B", title: "Name the C scale notes", sub: "", page: "games", group: "names" },
+	{ id: "namesscale", icon: "A\u00a0B", title: "Name the concert B\u266d scale", sub: "", page: "games", group: "names" },  // sub: its range
+	{ id: "namesscaleEb", icon: "A\u00a0B", title: "Name the concert E\u266d scale", sub: "", page: "games", group: "names" },
+	{ id: "namesscaleAb", icon: "A\u00a0B", title: "Name the concert A\u266d scale", sub: "", page: "games", group: "names" },
+	{ id: "namesscaleF", icon: "A\u00a0B", title: "Name the concert F scale", sub: "", page: "games", group: "names" },
+	{ id: "namesscaleC", icon: "A\u00a0B", title: "Name the concert C scale", sub: "", page: "games", group: "names" },
 	{ id: "fingerings3bag", icon: "fingering", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "games", group: "fingerings" },  // title: the notes
 	{ id: "fingerings3", icon: "fingering", title: "Finger the 3 notes", sub: "", page: "games", group: "fingerings" },  // sub: the notes
 	{ id: "fingerings", icon: "fingering", title: "Finger the first 5 notes", sub: "", page: "games", group: "fingerings" },  // sub: the notes
 	{ id: "fingerings9", icon: "fingering", title: "Finger 9 notes", sub: "The first 5 and your new notes", page: "games", group: "fingerings" },
-	{ id: "fingeringsscale", icon: "fingering", title: "Finger the B\u266d scale", sub: "", page: "games", group: "fingerings" },  // sub: its range
-	{ id: "fingeringsscaleEb", icon: "fingering", title: "Finger the E\u266d scale", sub: "", page: "games", group: "fingerings" },
-	{ id: "fingeringsscaleAb", icon: "fingering", title: "Finger the A\u266d scale", sub: "", page: "games", group: "fingerings" },
-	{ id: "fingeringsscaleF", icon: "fingering", title: "Finger the F scale", sub: "", page: "games", group: "fingerings" },
-	{ id: "fingeringsscaleC", icon: "fingering", title: "Finger the C scale", sub: "", page: "games", group: "fingerings" },
+	{ id: "fingeringsscale", icon: "fingering", title: "Finger the concert B\u266d scale", sub: "", page: "games", group: "fingerings" },  // sub: its range
+	{ id: "fingeringsscaleEb", icon: "fingering", title: "Finger the concert E\u266d scale", sub: "", page: "games", group: "fingerings" },
+	{ id: "fingeringsscaleAb", icon: "fingering", title: "Finger the concert A\u266d scale", sub: "", page: "games", group: "fingerings" },
+	{ id: "fingeringsscaleF", icon: "fingering", title: "Finger the concert F scale", sub: "", page: "games", group: "fingerings" },
+	{ id: "fingeringsscaleC", icon: "fingering", title: "Finger the concert C scale", sub: "", page: "games", group: "fingerings" },
 	{ id: "songs3bag", icon: "\u266b", title: "", sub: "Hot Cross Buns and more", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "write3bag", icon: "pencil", title: "", sub: "Make up your own tune", instruments: FIRST3_BAG_INSTRUMENTS, page: "songs" },  // title: the notes
 	{ id: "songs3", icon: "\u266b", title: "Play 3-note songs", sub: "Hot Cross Buns and more", page: "songs" },
@@ -649,7 +669,7 @@ function practiceActivityTitle(id) {
 	var keyboard = fingerings && !hasFingeringData(practice.instrument);
 	if (!slide && !keyboard) return a.title;
 	var notes = id === "fingerings" ? "the first 5 notes" : id === "fingerings3" ? "3 notes"
-		: id === "fingerings9" ? "9 notes" : "the " + scaleName(scaleSetOf(id)) + " scale";
+		: id === "fingerings9" ? "9 notes" : "the " + concertScaleName(scaleSetOf(id)) + " scale";
 	if (slide) return "Slide positions for " + notes;
 	return "Find " + (id === "fingerings3" ? "the 3 notes" : notes) + " on the keyboard";
 }
@@ -725,12 +745,13 @@ function showPracticeMenu(page) {
 		} else if (a.id === "names" || a.id === "fingerings") {
 			sub = notesText(practice.lessons.first5.notes);
 		} else if (/^(names|fingerings)scale/.test(a.id)) {
-			var scaleNotes = practice.lessons[scaleSetOf(a.id)].notes;
-			sub = practiceNoteName(scaleNotes[0]) + " up to " + practiceNoteName(scaleNotes[scaleNotes.length - 1]);
+			sub = scaleText(scaleSetOf(a.id));
 		} else if (a.id === "learn4") {
 			sub = nextFourText();
-		} else if (moreScale(a.id)) {
-			sub = moreScaleText(a.id);
+		} else if (a.id === "scale" || moreScale(a.id)) {
+			sub = scaleText(a.id);
+		} else if (/^scalerun/.test(a.id) && a.id !== "scalerunChromatic" && practiceTransposes()) {
+			sub = "Your " + writtenScaleName(scaleSetOf(a.id)) + " scale, up and back down";
 		} else if (a.id === "scaleChromatic") {
 			sub = chromaticText();
 		}
@@ -1027,12 +1048,12 @@ function closePractice() {
 	if (button && button.offsetParent !== null) button.focus();
 }
 
-// "Concert E♭: F up to F": a concert scale and where it starts and ends at
-// the student's written pitch
-function moreScaleText(id) {
-	var notes = practice.lessons[id].notes;
-	var name = practiceNoteName(notes[0]);
-	return "Concert " + moreScale(id).name + ": " + name + " up to " + name;
+// A concert scale's card: "E♭ up to E♭", or on an instrument that reads
+// it under another name, that name: "Your F scale: F up to F" (trumpet's
+// concert E♭)
+function scaleText(set) {
+	var name = writtenScaleName(set);
+	return (practiceTransposes() ? "Your " + name + " scale: " : "") + name + " up to " + name;
 }
 
 // "Every half step, C up to C": the chromatic scale at the student's
@@ -1071,7 +1092,7 @@ function showLessonOverview() {
 	var notes = currentLesson().notes;
 	var more = moreScale(practice.lesson);
 	document.getElementById("practice-prompt").textContent = more ? "Meet the concert " + more.name + " scale!"
-		: practice.lesson === "scale" ? "Meet the B\u266d scale!"
+		: practice.lesson === "scale" ? "Meet the concert B\u266d scale!"
 		: practice.lesson === "scaleChromatic" ? "Meet the chromatic scale!"
 		: practice.lesson === "next4" ? "Meet notes 6 and beyond!"
 		: practice.lesson.indexOf("first3") === 0 ? "Meet your first 3 notes!" : "Meet your first 5 notes!";
@@ -1835,8 +1856,7 @@ function renderPracticeResult() {
 	var prompt = document.getElementById("practice-prompt");
 	var body = document.getElementById("practice-body");
 	prompt.textContent = !practice.allLearned ? "You played " + name + "!"
-		: more ? "You learned the whole concert " + more.name + " scale!"
-		: scale ? "You learned the whole " + scaleName(practice.lesson) + " scale!"
+		: more || scale ? "You learned the whole " + concertScaleName(practice.lesson) + " scale!"
 		: first3 ? "You learned your first 3 notes!"
 		: next4 ? "You learned notes 6 and beyond!"
 		: "You learned all five notes!";
@@ -2263,7 +2283,7 @@ function finishScaleRun() {
 		saveChallengeBest(practice.instrument, score, SCALE_RUN_STORAGE_KEYS[c.set]);
 	}
 	showRoundResult(score, newBest,
-		score === c.seq.length ? "Perfect! You played the whole " + scaleName(c.set) + " scale!" : "Scale complete!",
+		score === c.seq.length ? "Perfect! You played the whole " + concertScaleName(c.set) + " scale!" : "Scale complete!",
 		"You played " + score + " of " + c.seq.length + " on your own",
 		function() { startScaleRun(c.set); }, c.seq.length);
 	recordProgress(10 + 3 * score + (newBest && score > 0 ? NEW_BEST_XP : 0));
@@ -2858,8 +2878,8 @@ var SONG_LEVELS = [
 	{ id: "scales", title: "Scale songs", sub: "Joy to the World in every key" }
 ];
 MORE_SCALES.forEach(function(scale) {
-	SONG_LEVELS.push({ id: "songs" + scale.id.slice(5), title: scale.name + " scale songs",
-		sub: "Old favorites on the concert " + scale.name + " scale" });
+	SONG_LEVELS.push({ id: "songs" + scale.id.slice(5), title: "Concert " + scale.name + " scale songs",
+		sub: "Old favorites up and down this scale" });
 });
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
@@ -2918,12 +2938,13 @@ function spellScale(scale) {
 	});
 }
 
-// A song's title; a song in a key ("Hot Cross Buns in E♭") names the key
-// at the student's written pitch, a scale song the (concert) scale
+// A song's title; a song in a key ("Hot Cross Buns in concert E♭") or on a
+// scale names it at concert pitch, as the scales are named
 function songTitle(song) {
-	if (song.scale) return song.title + " (" + scaleName(song.scale) + " scale)";
+	if (song.scale) return song.title + " (" + concertScaleName(song.scale) + " scale)";
 	if (!song.tonic) return song.title;
-	return song.title + " in " + practiceNoteName(practiceNotes(song.steps)[song.tonic - 1]);
+	// steps count from concert B♭
+	return song.title + " in concert " + keyDisplayName(plainPracticeSpelling(70 + song.steps[song.tonic - 1]));
 }
 
 // The student's first 3 notes from the bottom: 3-note songs' degrees 1–3.

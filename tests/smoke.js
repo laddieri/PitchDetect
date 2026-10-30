@@ -185,6 +185,17 @@ async function run() {
 		});
 		check(backPage === "notes" && keys.cards === "scale,scaleEb" && keys.depth === 1,
 			"back from the step returns to its tab; Keys has one card per scale (got " + backPage + ", " + keys.cards + ", depth " + keys.depth + ")");
+		// Scales go by their concert names, as the band calls them, and a
+		// trumpet also sees its own: concert E♭ is its F scale
+		var eb = await page.evaluate(function() {
+			var card = document.querySelector('#practice-menu [data-activity="scaleEb"]');
+			var joy = SONGS.filter(function(song) { return song.id === "joyscaleEb"; })[0];
+			var buns = SONGS.filter(function(song) { return song.id === "hotcrossbunseb"; })[0];
+			return card.textContent + " | " + songTitle(joy) + " | " + songTitle(buns);
+		});
+		check(/Concert E\u266d scale/.test(eb) && /Your F scale: F up to F/.test(eb)
+			&& /Joy to the World \(concert E\u266d scale\)/.test(eb) && /Hot Cross Buns in concert E\u266d/.test(eb),
+			"scales and songs name concert keys, and a trumpet's written scale (got " + eb + ")");
 		// A scale's card opens its overview, with Learn it and Play it (its run)
 		await page.click('.practice-choice[data-activity="scaleEb"]');
 		var overview = await page.evaluate(function() {
