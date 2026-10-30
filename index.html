@@ -2635,11 +2635,14 @@
 				animation: next-up-bob 1.6s ease-in-out infinite;
 			}
 
+			/* (a scale's card: its lesson's stars over its run's) */
 			.practice-choice-score {
 				color: #f5b301;
 				font-size: 1rem;
 				font-weight: 700;
 				letter-spacing: 1px;
+				white-space: pre-line;
+				text-align: right;
 			}
 
 			.practice-card {
@@ -4197,6 +4200,26 @@
 				.song-more-button {
 					font-size: 1.05rem;
 				}
+			}
+
+			/* A scale's overview: Hear them as a link under Learn it and Play it */
+			.overview-hear-link {
+				padding: 6px 10px;
+				border: 0;
+				background: none;
+				font-family: var(--font);
+				font-size: 1rem;
+				font-weight: 600;
+				color: var(--accent);
+				text-decoration: underline;
+				text-underline-offset: 3px;
+				cursor: pointer;
+			}
+
+			.overview-hear-link:focus-visible {
+				outline: none;
+				border-radius: 6px;
+				box-shadow: var(--ring);
 			}
 
 			/* On to the next step of the path (addPathNextButton()), in a row

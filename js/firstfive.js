@@ -509,26 +509,27 @@ var PRACTICE_PAGES = [
 
 // The activities, each with its best result for this instrument, in menu
 // order on their page, easiest first, so each page reads top to bottom like
-// a path. Half-width cards pair up on desktop (on Keys, each scale's lesson
-// beside its run).
+// a path. Half-width cards pair up on desktop. An activity with a card
+// has none of its own: it's opened from that activity's screen (each scale
+// run from its scale's card, whose overview offers Learn it and Play it).
 var PRACTICE_ACTIVITIES = [
 	{ id: "firstsounds", firstSounds: true, page: "notes", wide: true },  // title, sub and icon from FIRST_SOUNDS
 	{ id: "learn3bag", icon: "\u266a", title: "Learn B, A and G", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "notes", wide: true },
 	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", page: "notes", wide: true },
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "notes", wide: true },
 	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "notes", wide: true },  // sub: nextFourText()
-	{ id: "scale", icon: "scale", title: "Learn the B\u266d scale", sub: "All eight notes, up the octave", page: "keys" },
-	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "keys" },
-	{ id: "scaleEb", icon: "scale", title: "Learn the E\u266d scale", sub: "", page: "keys" },  // sub: moreScaleText()
-	{ id: "scalerunEb", icon: "scalerun", title: "Play the E\u266d scale", sub: "Up and back down, note by note", page: "keys" },
-	{ id: "scaleAb", icon: "scale", title: "Learn the A\u266d scale", sub: "", page: "keys" },
-	{ id: "scalerunAb", icon: "scalerun", title: "Play the A\u266d scale", sub: "Up and back down, note by note", page: "keys" },
-	{ id: "scaleF", icon: "scale", title: "Learn the F scale", sub: "", page: "keys" },
-	{ id: "scalerunF", icon: "scalerun", title: "Play the F scale", sub: "Up and back down, note by note", page: "keys" },
-	{ id: "scaleC", icon: "scale", title: "Learn the C scale", sub: "", page: "keys" },
-	{ id: "scalerunC", icon: "scalerun", title: "Play the C scale", sub: "Up and back down, note by note", page: "keys" },
-	{ id: "scaleChromatic", icon: "scale", title: "Learn the chromatic scale", sub: "", page: "keys" },  // sub: chromaticText()
-	{ id: "scalerunChromatic", icon: "scalerun", title: "Play the chromatic scale", sub: "Every half step, up and back down", page: "keys" },
+	{ id: "scale", icon: "scale", title: "B\u266d scale", sub: "All eight notes, up the octave", page: "keys" },
+	{ id: "scalerun", icon: "scalerun", title: "Play the B\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scale" },
+	{ id: "scaleEb", icon: "scale", title: "E\u266d scale", sub: "", page: "keys" },  // sub: moreScaleText()
+	{ id: "scalerunEb", icon: "scalerun", title: "Play the E\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scaleEb" },
+	{ id: "scaleAb", icon: "scale", title: "A\u266d scale", sub: "", page: "keys" },
+	{ id: "scalerunAb", icon: "scalerun", title: "Play the A\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scaleAb" },
+	{ id: "scaleF", icon: "scale", title: "F scale", sub: "", page: "keys" },
+	{ id: "scalerunF", icon: "scalerun", title: "Play the F scale", sub: "Up and back down, note by note", page: "keys", card: "scaleF" },
+	{ id: "scaleC", icon: "scale", title: "C scale", sub: "", page: "keys" },
+	{ id: "scalerunC", icon: "scalerun", title: "Play the C scale", sub: "Up and back down, note by note", page: "keys", card: "scaleC" },
+	{ id: "scaleChromatic", icon: "scale", title: "Chromatic scale", sub: "", page: "keys" },  // sub: chromaticText()
+	{ id: "scalerunChromatic", icon: "scalerun", title: "Play the chromatic scale", sub: "Every half step, up and back down", page: "keys", card: "scaleChromatic" },
 	{ id: "quiz3bag", icon: "trophy", title: "", sub: "", instruments: FIRST3_BAG_INSTRUMENTS, page: "games", group: "playing" },  // title: the notes
 	{ id: "quiz3", icon: "trophy", title: "3 note quiz", sub: "", page: "games", group: "playing" },  // sub: the notes
 	{ id: "quiz", icon: "trophy", title: "First 5 note quiz", sub: "Play the notes you see", page: "games", group: "playing" },
@@ -687,7 +688,7 @@ function showPracticeMenu(page) {
 	}
 	var fsCfg = FIRST_SOUNDS[practice.instrument];
 	var activities = PRACTICE_ACTIVITIES.filter(function(a) {
-		return practiceActivityAvailable(a.id) && a.page === page;
+		return practiceActivityAvailable(a.id) && a.page === page && !a.card;
 	});
 	var grouped = activities.some(function(a) { return a.group; });
 	// Cards pair up where they can; one left on its own is wide
@@ -739,6 +740,13 @@ function showPracticeMenu(page) {
 			var stars = practice.lessons[LESSON_ACTIVITIES[a.id]].stars;
 			var total = stars.reduce(function(t, n) { return t + n; }, 0);
 			score = total + " / " + stars.length * 3 + " \u2605";
+			// A scale's card holds its run too: its trophy stars underneath
+			if (isScaleSet(LESSON_ACTIVITIES[a.id])) {
+				var setId = LESSON_ACTIVITIES[a.id];
+				var runBest = practice.scaleRunBest[setId];
+				score += "\n" + (typeof runBest === "number"
+					? starText(challengeStars(runBest, scaleRunSequence(setId).length)) : "\u2606\u2606\u2606");
+			}
 		} else if (a.firstSounds) {
 			score = starText(practice.firstSoundsBest);
 		} else if (a.id === "songs" || a.id === "songs3" || a.id === "songs3bag" || a.id === "songs5") {
@@ -1043,8 +1051,15 @@ function startLesson(id) {
 	showLessonOverview();
 }
 
+// Whether lesson set set is a scale (B\u266d, a concert scale, chromatic),
+// which has a run: Play the ... scale
+function isScaleSet(set) {
+	return /^scale/.test(set) && !!SCALE_RUN_STORAGE_KEYS[set];
+}
+
 // Every note of the lesson on one staff, named, with Hear them and a button
-// into the first note that still has stars to earn
+// into the first note that still has stars to earn (a scale's also has
+// Play it, its run: the Keys tab has one card per scale)
 function showLessonOverview() {
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
@@ -1064,9 +1079,11 @@ function showLessonOverview() {
 
 	var body = document.getElementById("practice-body");
 	body.innerHTML = "";
+	var scale = isScaleSet(practice.lesson);
 	var text = document.createElement("div");
 	text.className = "practice-feedback-sub";
-	text.textContent = "Learn their names. Next, we\u2019ll practice them one at a time.";
+	text.textContent = scale ? "Learn it one note at a time, or play it up and back down."
+		: "Learn their names. Next, we\u2019ll practice them one at a time.";
 	body.appendChild(text);
 	var actions = document.createElement("div");
 	actions.className = "practice-actions";
@@ -1079,12 +1096,21 @@ function showLessonOverview() {
 		playSongEvents(notes.map(function(midi) { return { midi: midi, dur: "h" }; }), drawLessonOverview);
 	});
 	hear.id = "overview-hear";
-	actions.appendChild(hear);
-	actions.appendChild(practiceButton("Let\u2019s start \u2192", "primary", function() {
+	// (a scale's overview keeps its row for Learn it and Play it: Hear them
+	// goes under it, as a link)
+	if (scale) hear.className = "overview-hear-link";
+	else actions.appendChild(hear);
+	actions.appendChild(practiceButton(scale ? "Learn it" : "Let\u2019s start \u2192", "primary", function() {
 		var next = currentLesson().stars.findIndex(function(s) { return s < 3; });
 		startPracticeNote(next >= 0 ? next : 0);
 	}));
+	// A scale's overview is its card's screen: learn it, or play its run
+	if (scale) {
+		var set = practice.lesson;
+		actions.appendChild(practiceButton("Play it", "primary", function() { startScaleRun(set); }));
+	}
 	body.appendChild(actions);
+	if (scale) body.appendChild(hear);
 }
 
 // The overview's staff: the lesson's notes with their names lined up

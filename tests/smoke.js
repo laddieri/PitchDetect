@@ -183,8 +183,22 @@ async function run() {
 			return { cards: Array.prototype.map.call(document.querySelectorAll("#practice-menu [data-activity]"), function(c) {
 				return c.getAttribute("data-activity"); }).slice(0, 2).join(), depth: history.state && history.state.depth };
 		});
-		check(backPage === "notes" && keys.cards === "scale,scalerun" && keys.depth === 1,
-			"back from the step returns to its tab; Keys pairs each scale's lesson and run (got " + backPage + ", " + keys.cards + ", depth " + keys.depth + ")");
+		check(backPage === "notes" && keys.cards === "scale,scaleEb" && keys.depth === 1,
+			"back from the step returns to its tab; Keys has one card per scale (got " + backPage + ", " + keys.cards + ", depth " + keys.depth + ")");
+		// A scale's card opens its overview, with Learn it and Play it (its run)
+		await page.click('.practice-choice[data-activity="scaleEb"]');
+		var overview = await page.evaluate(function() {
+			return Array.prototype.map.call(document.querySelectorAll("#practice-body .practice-actions button"), function(b) {
+				return b.textContent; }).join();
+		});
+		await page.click('#practice-body .practice-actions button:has-text("Play it")');
+		var run = await page.evaluate(function() {
+			return practice.mode + " " + practice.challenge.kind + " " + practice.challenge.set;
+		});
+		await page.click("#practice-close");
+		await page.waitForFunction(function() { return practice.mode === "menu"; });
+		check(overview === "Learn it,Play it" && run === "challenge scale scaleEb",
+			"a scale's card offers Learn it and Play it, which runs the scale (got " + overview + ", " + run + ")");
 		// The Songs tab (and the header's Songs button) lists every song,
 		// Beginner included, right on the tab
 		await page.evaluate(function() { showPracticeMenu("notes"); });
