@@ -339,10 +339,19 @@ async function run() {
 		await page.mouse.click(spot.x, spot.y);
 		check(await page.evaluate(function() { return !document.getElementById("song-fingering") && practice.song.tapped === null; }),
 			"tapping the note again puts its fingering away");
-		// Before a run, a tapped note is where Hear it and Play it start
+		// Its \u2715 puts it away too
+		spot = await page.evaluate(noteSpot);
+		await page.mouse.click(spot.x, spot.y);
+		await page.click(".song-fingering-close");
+		check(await page.evaluate(function() { return !document.getElementById("song-fingering") && practice.song.tapped === null; }),
+			"a tapped note's fingering has an \u2715 that hides it");
+		// Before a run, Start here makes a tapped note where Hear it and Play
+		// it start (just tapping it doesn't)
 		await page.evaluate(function() { playThroughSong("mary"); });
 		spot = await page.evaluate(noteSpot);
 		await page.mouse.click(spot.x, spot.y);
+		var notYet = await page.evaluate(function() { return songStartNote(practice.song); });
+		await page.click(".song-tools >> text=Start here");
 		var fromNote = await page.evaluate(async function() {
 			var real = playSongEvents, first = null;
 			playSongEvents = function(events) { first = events[0]; };
@@ -354,8 +363,8 @@ async function run() {
 			finishFollow();
 			return r;
 		});
-		check(fromNote.heard && fromNote.start === 2 && fromNote.runFrom === 2,
-			"Hear it and Play it start from a tapped note (got " + JSON.stringify(fromNote) + ")");
+		check(notYet === 0 && fromNote.heard && fromNote.start === 2 && fromNote.runFrom === 2,
+			"Hear it and Play it start from a note picked with Start here (got " + JSON.stringify(fromNote) + ")");
 		await page.evaluate(function() { closeLevelUp(); });
 		// Sliding across measures picks a part; Play it practices it note by note
 		await page.evaluate(function() { playThroughSong("mary"); });
@@ -388,7 +397,23 @@ async function run() {
 		check(picked.part === "0-1" && picked.shaded === 2 && /Practice it/.test(picked.label) &&
 			!practicing.free && practicing.from === 0 && practicing.measures === 1,
 			"sliding across measures picks a part, and Play it practices it note by note (got " + JSON.stringify(picked) + ", " + JSON.stringify(practicing) + ")");
-		// Note by note and Pick a part wait behind Play it through's \u22ef menu
+		// Practice a part: taps on the first and last measures pick it, and
+		// its \u2715 puts it away
+		await page.evaluate(function() { playThroughSong("mary"); });
+		await page.click(".song-tools >> text=Practice a part");
+		await page.waitForTimeout(400);  // (a tap just after the slide above isn't one)
+		var waiting = await page.evaluate(function() { return document.getElementById("song-listen").disabled; });
+		await page.mouse.click(slide.bx, slide.by);
+		await page.mouse.click(slide.ax, slide.ay);
+		var tappedPart = await page.evaluate(function() {
+			var p = practice.song.part;
+			return { part: p ? p.a + "-" + p.b : null, fingering: !!document.getElementById("song-fingering"),
+				listen: !document.getElementById("song-listen").disabled };
+		});
+		await page.click(".song-tool-chip-x");
+		check(waiting && tappedPart.part === "0-1" && !tappedPart.fingering && tappedPart.listen &&
+			await page.evaluate(function() { return !practice.song.part && !practice.song.picking; }),
+			"Practice a part picks measures by tapping, and its \u2715 puts the part away (got " + JSON.stringify(tappedPart) + ")");
 		await page.evaluate(function() { playThroughSong("mary"); });
 		// Play along's speeds wait behind the song's settings gear
 		var speedsHidden = await page.evaluate(function() {
@@ -451,10 +476,9 @@ async function run() {
 			"Hear the song's notes sound with the metronome's clicks (" + together.n + " beats, " + together.worst + " ms apart at most)");
 		check(together.switched, "the piano and metronome switch on and off mid-song");
 		await page.keyboard.press("Escape");
-		await page.click(".song-settings-toggle");
-		await page.click(".song-settings-more >> text=Note by note");
+		await page.click(".song-tools >> text=Note by note");
 		check(await page.evaluate(function() { return practice.mode === "song" && !practice.song.free; }),
-			"Play it through's settings open note by note");
+			"Play it through's Note by note button opens note by note");
 
 		// Play along scores each note in time, over the piano: a note no
 		// louder than the piano doesn't count, one played late is marked
