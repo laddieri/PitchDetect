@@ -195,13 +195,13 @@ function lessonSteps(set, instrument, id) {
 // trombone's at B♭4, the three-valve charts at F♯3 to C6 written (euphonium
 // and tuba read them an octave and more lower), horn's at F♯2 to C6. Bells
 // are a school bell kit's G to C. Where the charts go further, the top is a
-// strong school player's: clarinet E6, horn A5.
+// strong school player's: horn A5.
 var PRACTICE_RANGES = {
 	"treble clef": [55, 84],    // G3 to C6
 	"bass clef": [36, 64],      // C2 to E4
 	"flute": [60, 94],          // C4 to B♭6
 	"oboe": [58, 84],           // B♭3 to C6
-	"clarinet": [52, 88],       // E3 to E6
+	"clarinet": [52, 91],       // E3 to G6, the top of its charts
 	"bass clarinet": [52, 79],  // E3 to G5 (no charts)
 	"bassoon": [34, 67],        // B♭1 to G4
 	"alto sax": [58, 85],       // B♭3 to C♯6 (the charts' files are numbered an octave down)
