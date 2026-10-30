@@ -1965,8 +1965,7 @@
 			/* ---------- First 5 Notes practice ---------- */
 			/* Entry: an outline button in the header, beside the Advanced mode
 			   switch */
-			#practiceButton,
-			#practice-songs {
+			#practiceButton {
 				padding: 11px 22px;
 				font-size: 0.95rem;
 				font-weight: 500;
@@ -1982,19 +1981,16 @@
 				transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
 			}
 
-			#practiceButton svg,
-			#practice-songs svg {
+			#practiceButton svg {
 				flex-shrink: 0;
 			}
 
-			#practiceButton:hover,
-			#practice-songs:hover {
+			#practiceButton:hover {
 				border-color: var(--accent);
 				background-color: var(--accent-soft);
 			}
 
-			#practiceButton:focus-visible,
-			#practice-songs:focus-visible {
+			#practiceButton:focus-visible {
 				outline: none;
 				box-shadow: var(--ring);
 			}
@@ -2040,7 +2036,7 @@
 			}
 
 			/* The sides grow alike from nothing, so the heading stays centered
-			   between the back arrow and the Songs button */
+			   between the back arrow and the mic badge's side */
 			.practice-header-side,
 			.practice-header-spacer {
 				flex: 1 0 0;
@@ -2165,12 +2161,6 @@
 			.practice-header-spacer {
 				justify-content: flex-end;
 				gap: 10px;
-			}
-
-			/* Songs: straight to the song list, like the app's Practice button
-			   (not while signing in) */
-			.practice-view[data-mode="signin"] #practice-songs {
-				visibility: hidden;
 			}
 
 			/* The mic is on: a badge where the header's right side is kept
@@ -3407,27 +3397,13 @@
 				margin-top: 6px;
 			}
 
-			.song-settings-panel .speed-picker {
-				flex-wrap: wrap;
-			}
-
-			.song-settings-panel .speed-choice {
-				padding: 6px 11px;
-				font-size: 0.9rem;
-			}
-
-			/* My speed, apart from Play along's speeds after it */
-			.speed-choice.speed-mine {
-				margin-right: 4px;
-			}
-
 			body.kid-mode .song-settings-panel {
 				border: var(--cartoon-border);
 				border-radius: 14px;
 				box-shadow: 4px 4px 0 var(--ink);
 			}
 
-			/* Play it's speeds (alongSpeedPicker()), in the song's settings */
+			/* Play along's speeds (alongSpeedPicker()), in Play it through's tools */
 			.speed-picker {
 				display: flex;
 				gap: 2px;
@@ -3440,13 +3416,13 @@
 				display: inline-flex;
 				align-items: center;
 				gap: 4px;
-				padding: 4px 9px;
+				padding: 5px 10px;
 				border: none;
 				border-radius: var(--radius-pill);
 				background: transparent;
 				color: var(--text-muted);
 				font-family: var(--font);
-				font-size: 0.8rem;
+				font-size: 0.9rem;
 				font-weight: 600;
 				cursor: pointer;
 			}
@@ -5364,8 +5340,7 @@
 			}
 
 			/* Kid mode: the cartoon look */
-			body.kid-mode #practiceButton,
-			body.kid-mode #practice-songs {
+			body.kid-mode #practiceButton {
 				font-size: 1.2rem;
 				font-weight: 700;
 				padding: 11px 24px;
@@ -5377,7 +5352,6 @@
 			}
 
 			body.kid-mode #practiceButton:active,
-			body.kid-mode #practice-songs:active,
 			body.kid-mode .practice-btn:active,
 			body.kid-mode .practice-answer:active:not(:disabled) {
 				transform: translate(3px, 3px);
@@ -5611,21 +5585,17 @@
 			@media (max-width: 700px) {
 				/* Header-sized: the star goes, the label stays */
 				#practiceButton,
-				body.kid-mode #practiceButton,
-				#practice-songs,
-				body.kid-mode #practice-songs {
+				body.kid-mode #practiceButton {
 					padding: 6px 12px;
 					font-size: 0.9rem;
 				}
 
-				body.kid-mode #practiceButton,
-				body.kid-mode #practice-songs {
+				body.kid-mode #practiceButton {
 					border-radius: 12px;
 					box-shadow: 3px 3px 0 var(--ink);
 				}
 
-				#practiceButton svg,
-				#practice-songs svg {
+				#practiceButton svg {
 					display: none;
 				}
 
@@ -6185,10 +6155,6 @@
 							<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
 							<span class="visually-hidden-mic">Listening</span>
 						</span>
-						<button id="practice-songs" onclick="showAllSongs()" title="All the songs to practice" aria-label="Songs">
-							<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M9 3v12.3A3.5 3.5 0 1 0 11 18.5V8h8v7.3a3.5 3.5 0 1 0 2 3.2V3z"/></svg>
-							<span class="btn-label">Songs</span>
-						</button>
 					</span>
 				</div>
 				<nav id="practice-crumbs" class="practice-crumbs" aria-label="Breadcrumb" hidden></nav>

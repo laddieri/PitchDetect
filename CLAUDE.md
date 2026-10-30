@@ -162,9 +162,7 @@ on the path after notes 6 and beyond).
 **Songs** (`songs`) has no cards: the tab is the song list itself
 (`buildSongList()` into `#practice-menu[data-songs]`, `practice.songList =
 "every"`): every level, Beginner included, and all the student's songs,
-with Make a song. The header's **Songs** button (`#practice-songs`, top
-right, styled like the app's Practice button; hidden while signing in)
-opens it from any screen (`showAllSongs()`). The tab's activities still
+with Make a song. The tab's activities still
 exist for the learning path, titles and breadcrumbs: **Play 3-note songs**
 (`songs3`: `showSongList("three")`), **Write a 3-note song** (`write3`: the
 editor in 3-note mode), **Play 5-note songs** (`songs5`:
@@ -389,18 +387,21 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `ACCOMP_RING_MS` with the mic still ignoring it. **Play along** (Play it
   through's Play it at a speed, `playAlong()`, `songPlayAlong`): a measure
   counted in, then just the piano with the staff and fingering following,
-  for the student to play the tune over, at the speed picked in the song's
-  settings (`ALONG_SPEEDS`: Turtle 60, Walk 80, Bunny 100, Rocket 120;
-  `alongSpeedPicker()` / `updateSpeedPicker()`, `songSpeed` for the visit;
-  Play it shows the speed's icon, `playAlongLabel()`). The picker's first
-  choice, **My speed** (`songSpeed = "mine"`, `songOwnSpeed()`, the
-  default), makes Play it Listen to me instead; the piano and metronome
-  only decide what's heard, never which of the two runs.
+  for the student to play the tune over, at the speed picked with Play it
+  through's **Play along** tool (`practice.song.choosingSpeed`: the tools
+  row shows the speeds, `ALONG_SPEEDS`: Turtle 60, Walk 80, Bunny 100,
+  Rocket 120, `alongSpeedPicker()` / `updateSpeedChoices()`, and Cancel;
+  `songSpeed` for the visit, then a chip "🐢 Turtle speed" with an ✕; Play
+  it reads "🐢 Play along", `playAlongLabel()`; `updateSpeedPicker()` drops
+  a speed not open on the song). Without one, **My speed** (`songSpeed =
+  "mine"`, `songOwnSpeed()`, the default), Play it is Listen to me instead;
+  the piano and metronome only decide what's heard, never which of the two
+  runs.
   **Song settings** (`songSettingsButton(song, speed)`): a gear at the card's
   top right on Play it through (`#practice-steps` there takes
   no height), beside the whole song button in note by note, opening a panel
-  (`songPopover()`, shared with the ⋯ menu; kept on screen) with the
-  speeds (Play it through only), **Piano** on/off (`songPiano`, persisted
+  (`songPopover()`, shared with the ⋯ menu; kept on screen) with
+  **Piano** on/off (`songPiano`, persisted
   device-wide as `pitchdetect-song-piano`, on by default), **Metronome**
   on/off (`songClick`, `pitchdetect-song-click`, off by default) and
   "Sharps and flats": in the key signature or on each note (only for a key
@@ -474,8 +475,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`showSongSelection()`, `updateSongButtons()`, `songHearLabel()` /
   `songRecordLabel()`). Between the prompt and them, a row of small
   labeled **tools** (`#song-tools`, `updateSongTools()`, disabled while
-  nothing is selectable): **Note by note** and **Practice a part**, or what's
-  picked as a chip with an ✕ that puts it away (`songToolChip()`), and
+  nothing is selectable): **Note by note**, **Practice a part** and
+  **Play along** (see Play along), or what's picked as a chip with an ✕ that puts it away (`songToolChip()`), and
   **Start here** while a note's fingering is showing. Kept explicit: the
   student shouldn't have to discover gestures. Selected: nothing, the whole
   song; a note picked with **Start here** (`songStartHere()`;
@@ -1017,7 +1018,7 @@ it returns there; Keys has one card per scale, named by concert key with a
 trumpet's written key too, whose overview's Learn it and Play it run the
 lesson and the scale, and Change octave moves trumpet's B♭ scale up an
 octave and back;
-the Songs tab (and the header's Songs button) lists every level of songs;
+the Songs tab lists every level of songs;
 a song's breadcrumbs lead back to the Songs tab, and back from note by
 note returns to the whole song; a drill's result
 goes on to the next step; a failed save warns; the iPhone
@@ -1030,7 +1031,8 @@ link goes straight into My songs (once) and opens in Play it through, 4
 measures a line on a desktop; in a fresh browser a song link shows no
 instrument until the student picks theirs; a
 song has piano chords and Play along counts in (on a desktop with the chart
-beside the staff), plays and stops; Play it through has just Hear it and
+beside the staff), plays and stops, and its tool under the song picks the
+speed (the settings gear holds no speeds); Play it through has just Hear it and
 Play it, listens only after Play it, a tapped note shows its fingering
 (hidden by its ✕) and Start here makes it where Hear it and Play it
 start, and sliding across measures, or tapping them after Practice a part,
