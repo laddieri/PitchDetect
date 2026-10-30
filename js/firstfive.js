@@ -4957,7 +4957,16 @@ try { songWholeView = localStorage.getItem(SONG_WHOLE_STORAGE_KEY) === "1"; } ca
 function renderSongView(out, song, events, line, measures, opts, color) {
 	var layouts = {};
 	if (!songWholeView && !opts.whole && !opts.through) {
-		layouts[line] = renderSongLine(out, song, events, line, measures, opts, color);
+		// A line alone fills its box too: it's drawn no bigger than
+		// SONG_MAX_SCALE either, wider measures and blank room around it
+		var alone = opts;
+		if (!opts.left) {
+			alone = {};
+			Object.keys(opts).forEach(function(k) { alone[k] = opts[k]; });
+			alone.minWidth = out.clientWidth / SONG_MAX_SCALE;
+			alone.height = Math.max(opts.height || STAFF_VIEWBOX_HEIGHT, out.clientHeight / SONG_MAX_SCALE);
+		}
+		layouts[line] = renderSongLine(out, song, events, line, measures, alone, color);
 		return layouts;
 	}
 	var scroll = out.scrollTop;
@@ -5044,13 +5053,12 @@ function onWideSongChange(q) {
 	if (!practiceOpen || !practice) return;
 	if (practice.mode === "song" && practice.song) drawSongLine(practice.song.pos);
 }
-// Resizing the window redraws a stacked song for its new width
+// Resizing the window redraws a song for its new width
 var songResizeTimer = null;
 window.addEventListener("resize", function() {
 	clearTimeout(songResizeTimer);
 	songResizeTimer = setTimeout(function() {
-		if (practiceOpen && practice && practice.mode === "song" && practice.song &&
-			(practice.song.free || songWholeView)) drawSongLine(practice.song.pos);
+		if (practiceOpen && practice && practice.mode === "song" && practice.song) drawSongLine(practice.song.pos);
 	}, 150);
 });
 if (WIDE_SONG_QUERY.addEventListener) WIDE_SONG_QUERY.addEventListener("change", onWideSongChange);

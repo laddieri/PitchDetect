@@ -635,7 +635,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `.song-line` div per line (shorter viewBox, `SONG_WHOLE_LINE_HEIGHT`,
   ledger notes overhang; outside the editor its measures widen,
   `opts.minWidth`, so a wide card draws the staff no bigger than
-  `SONG_MAX_SCALE` px per unit and more lines fit; a window resize redraws), keeps the scroll position across redraws and
+  `SONG_MAX_SCALE` px per unit and more lines fit; a line alone, note by
+  note, is capped the same way, its viewBox taller than its staff; a window
+  resize redraws), keeps the scroll position across redraws and
   scrolls the current line into view only as far as needed. Following along
   (`opts.ahead`: Hear the song, Play along, Play it through, note by note)
   the next line must show
