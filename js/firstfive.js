@@ -4538,21 +4538,7 @@ function songSettingsButton(song, speed) {
 			[[true, "In the key signature"], [false, "On each note"]],
 			function() { return songKeySignatures; }, setSongKeySignatures));
 	}
-	var pop = songPopover("song-settings", button, panel);
-	// Play it through's timing check (Note by note is under the song)
-	if (speed) {
-		panel.appendChild(songSettingsTitle("More"));
-		var more = document.createElement("div");
-		more.className = "song-settings-more";
-		[[TIMING_CHECK_LABEL, startTimingCheck]].forEach(function(item) {
-			more.appendChild(practiceButton(item[0], "secondary", function() {
-				pop.close();
-				item[1]();
-			}));
-		});
-		panel.appendChild(more);
-	}
-	return pop.wrap;
+	return songPopover("song-settings", button, panel).wrap;
 }
 
 function songSettingsTitle(text) {
@@ -5638,7 +5624,7 @@ function finishAlong(partway) {
 			speed.icon + " " + (right === total ? "Perfect! " : right + " of " + total + " notes right ") + starText(stars),
 			partway ? "You stopped partway through"
 				: nextOpen && !wasOpen ? "You unlocked " + next.icon + " " + next.name + " speed!"
-				: skewed ? "Lots of notes off the beat? Try the timing check in the settings"
+				: skewed ? "Lots of notes off the beat? Try the timing check"
 				: firstMiss >= 0 && offText ? "Red: missed or wrong \u00b7 orange: " + offText
 				: offText ? "Orange notes: " + offText
 				: s.results.indexOf("wrong") >= 0 ? "Tap a red note to see what you played"
@@ -5657,9 +5643,13 @@ function finishAlong(partway) {
 		resetFollow();
 		updateSpeedPicker();
 	}]];
+	// Notes off the beat on a guessed delay: the timing check is the step
+	// to take, beside Play along again
+	var check = [TIMING_CHECK_LABEL, startTimingCheck];
+	if (skewed && !faster) actions.appendChild(practiceButton(check[0], "secondary", check[1]));
 	if (firstMiss >= 0) {
 		var red = ["Practice the red notes", function() { startSong(s.id, songLineStart(firstMiss)); }];
-		if (faster) more.push(red);
+		if (faster || skewed) more.push(red);
 		else actions.appendChild(practiceButton(red[0], "secondary", red[1]));
 	}
 	var again = [playAlongLabel(speed) + " again", function() { startAlong(speed.id); }];
@@ -5673,7 +5663,7 @@ function finishAlong(partway) {
 		actions.appendChild(practiceButton(again[0], "primary", again[1]));
 	}
 	more.push(["Note by note", function() { startSong(s.id); }]);
-	more.push([TIMING_CHECK_LABEL, startTimingCheck]);
+	if (!skewed || faster) more.push(check);
 	actions.appendChild(songMoreMenu(more));
 	if (scored && stars > 0) addPathNextButton(actions);
 	updateSpeedPicker();
