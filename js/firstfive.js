@@ -4460,17 +4460,43 @@ function updateSongSettings() {
 	});
 }
 
-// The piano and metronome change what plays next time
+// The piano and metronome change at once, even while a song plays
+// (songBackingChanged())
 function setSongPiano(on) {
 	songPiano = on;
 	try { localStorage.setItem(SONG_PIANO_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
 	updateSongSettings();
+	songBackingChanged("piano", on);
 }
 
 function setSongClick(on) {
 	songClick = on;
 	try { localStorage.setItem(SONG_CLICK_STORAGE_KEY, on ? "1" : "0"); } catch (e) {}
 	updateSongSettings();
+	songBackingChanged("click", on);
+}
+
+// Piano or metronome switched while a song plays: turned off, what's
+// sounding fades and what's queued is dropped; turned on, it joins in on
+// the current note (songBackingCatchUp, set by playSongEvents())
+var songBackingCatchUp = null;
+function songBackingChanged(kind, on) {
+	if (on) {
+		if (songBackingCatchUp) songBackingCatchUp();
+		return;
+	}
+	if (!audioContext || audioContext.state === "closed") return;
+	var now = audioContext.currentTime;
+	accompNodes = accompNodes.filter(function(n) {
+		if (n.kind !== kind) return true;
+		fadeAccompNode(n, now);
+		return false;
+	});
+}
+
+// Is a hit of a song's backing (songBacking()) wanted right now?
+function backingOn(hit) {
+	return hit.click ? songClick : songPiano;
 }
 
 function setSongKeySignatures(on) {
@@ -4891,7 +4917,8 @@ function toggleSongView() {
 // Play a song's events (notes and rests) from the start at SONG_TEMPO with
 // the instrument's sound, calling show(i) as each begins. The mic ignores it
 // while it plays; stopSongPlayback() ends it. opts (optional): tempo; piano,
-// a piano part and metronome to play along (songBacking()); silent, no tune (Play
+// a piano part and metronome to play along (songBacking(): each hit plays
+// if its setting is on as its note comes, backingOn()); silent, no tune (Play
 // along); countIn, pulses (opts.pulse beats each) to count first, calling
 // onCount(n) on each; onEnd, called once the last event has played (not
 // when stopped).
@@ -4900,6 +4927,10 @@ function playSongEvents(events, show, opts) {
 	var beatMs = 60000 / (opts.tempo || SONG_TEMPO);
 	var piano = opts.piano || [];
 	var i = 0, beat = 0, h = 0, count = 0;
+	// The song's beats come after the count-in's
+	var lead = opts.countIn ? opts.countIn * opts.pulse : 0;
+	// The current note's hits (from noteHit up to h), and those played
+	var noteHit = 0, played = [];
 	if (piano.length || opts.countIn) startAccompaniment();
 	// Everything is timed from the start, not from the last timer, which
 	// can fire late: a late timer then shortens the wait for the next. The
@@ -4933,8 +4964,23 @@ function playSongEvents(events, show, opts) {
 		if (audioStart === null) return audioContext.currentTime + Math.max(0, 0.05 + offset);
 		return audioStart + (elapsed + ahead) * beatMs / 1000 + 0.05;
 	}
+	function playHit(k, at) {
+		played[k] = true;
+		playPianoHit(piano[k], 0, beatMs / 1000, at);
+	}
+	// The piano or metronome switched on: the current note's hits still to
+	// come that it skipped (elapsed is already the next note's start)
+	songBackingCatchUp = function() {
+		if (!audioContext) return;
+		for (var k = noteHit; k < h; k++) {
+			if (played[k] || !backingOn(piano[k])) continue;
+			var at = hitTime(lead + piano[k].beat - elapsed);
+			if (at !== undefined && at > audioContext.currentTime) playHit(k, at);
+		}
+	};
 	function next() {
 		if (i >= events.length) {
+			songBackingCatchUp = null;
 			// The last chord rings on; the mic waits it out
 			var ring = accompNodes.length ? ACCOMP_RING_MS : 0;
 			accompNodes = [];
@@ -4965,8 +5011,8 @@ function playSongEvents(events, show, opts) {
 				hitTime(0));  // with the piano and metronome
 		}
 		// The piano's chords during this note, timed on the audio clock
-		for (; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
-			playPianoHit(piano[h], 0, beatMs / 1000, hitTime(piano[h].beat - beat));
+		for (noteHit = h; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
+			if (backingOn(piano[h])) playHit(h, hitTime(piano[h].beat - beat));
 		}
 		beat += beats;
 		i++;
@@ -4981,7 +5027,7 @@ function playSongEvents(events, show, opts) {
 		practice.ignoreUntil = performance.now() + ms + 600;
 		count++;
 		opts.onCount(count, performance.now() + hitOffset(0) * 1000);
-		playPianoHit({ click: true, accent: count === 1, len: 0.2, gain: ACCOMP_CLICK_GAIN }, 0, beatMs / 1000, hitTime(0));
+		playPianoHit({ click: true, countIn: true, accent: count === 1, len: 0.2, gain: ACCOMP_CLICK_GAIN }, 0, beatMs / 1000, hitTime(0));
 		wait(opts.pulse, countIn);
 	}
 	if (opts.countIn) countIn(); else next();
@@ -5749,15 +5795,13 @@ function songAccompaniment(song, events) {
 	return hits;
 }
 
-// What plays under a song's events (all of them, or a part's): the piano
-// part if it's on (songPiano), and the metronome if it's on (songClick),
-// as hits like songAccompaniment()'s, in order
+// What can play under a song's events (all of them, or a part's): the
+// piano part and the metronome, as hits like songAccompaniment()'s, in
+// order. playSongEvents() plays each only if its setting (songPiano,
+// songClick) is on as its note comes, so either can change mid-song.
 function songBacking(song, events) {
-	var hits = songPiano ? songAccompaniment(song, events) : [];
-	if (songClick) {
-		hits = hits.concat(songClicks(song, events)).sort(function(a, b) { return a.beat - b.beat; });
-	}
-	return hits;
+	return songAccompaniment(song, events).concat(songClicks(song, events))
+		.sort(function(a, b) { return a.beat - b.beat; });
 }
 
 // The metronome for a song's events: a click on each beat (a dotted
@@ -5821,7 +5865,7 @@ function playPianoHit(hit, offset, beatSec, at) {
 		// Only the gains need keeping, to fade; the oscillators stop themselves
 		var now = audioContext.currentTime;
 		accompNodes = accompNodes.filter(function(n) { return n.end > now; });
-		accompNodes.push({ gain: gain, end: t + duration });
+		accompNodes.push({ gain: gain, end: t + duration, kind: "piano" });
 	} catch (e) {
 		// No audio available
 	}
@@ -5845,21 +5889,27 @@ function playClick(hit, t) {
 	osc.stop(t + 0.1);
 	var now = audioContext.currentTime;
 	accompNodes = accompNodes.filter(function(n) { return n.end > now; });
-	accompNodes.push({ gain: gain, end: t + 0.1 });
+	// (the count-in's clicks aren't the metronome's: they always play)
+	accompNodes.push({ gain: gain, end: t + 0.1, kind: hit.countIn ? null : "click" });
 }
 
 // Fade out the piano (Hear the song or Play along stopped)
 function stopAccompaniment() {
 	var nodes = accompNodes;
 	accompNodes = [];
+	songBackingCatchUp = null;
 	if (!nodes.length || !audioContext || audioContext.state === "closed") return;
 	var now = audioContext.currentTime;
-	nodes.forEach(function(n) {
-		rampGainToZero(n.gain.gain, now, 0.03);
-		setTimeout(function() {
-			try { n.gain.disconnect(); } catch (e) {}
-		}, 100);
-	});
+	nodes.forEach(function(n) { fadeAccompNode(n, now); });
+}
+
+// Fade one of accompNodes out at audio time now (a hit still to come never
+// sounds: its own envelope, set for later, is cancelled)
+function fadeAccompNode(n, now) {
+	rampGainToZero(n.gain.gain, now, 0.03);
+	setTimeout(function() {
+		try { n.gain.disconnect(); } catch (e) {}
+	}, 100);
 }
 
 // While Hear the song plays, the fingering for each note as it sounds. One
