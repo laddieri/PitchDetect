@@ -86,7 +86,15 @@ B♭ scale** and **Learn the E♭ / A♭ / F / C scale** (on **Keys**
 over its run's; an activity with `card` (each scale run) has no card of its
 own and is opened from that card's screen: the scale's overview, whose
 buttons are **Learn it** and **Play it** (`isScaleSet()`; Hear them is a
-link under them); `MORE_SCALES`, lesson
+link under them). Where more than one octave of a scale fits the instrument,
+the overview has a small **Change octave** (`#scale-octave`,
+`changeScaleOctave()`): the next octave in range, round to the lowest
+(`scaleOctaveShifts(id, instrument)` against `PRACTICE_RANGES`, each
+instrument's written range for a school player, never past its fingering
+charts). The pick is kept per instrument and scale in
+`pitchdetect-scale-octaves` (`loadScaleOctaves()`, read by
+`lessonSteps(set, instrument, id)`), so the lesson, drills, run and scale
+songs all move; stars stay with the scale. `MORE_SCALES`, lesson
 sets and activity ids `scaleEb` `scaleAb` `scaleF` `scaleC`, units 5–8: the
 concert major scales after B♭, one octave each from `tonic` steps above the
 first B♭, `octave` moving an instrument's start an octave to stay in a
@@ -988,7 +996,8 @@ profile, instrument and XP survive a reload;
 Practice opens on the Notes tab with the next step marked, and back from
 it returns there; Keys has one card per scale, named by concert key with a
 trumpet's written key too, whose overview's Learn it and Play it run the
-lesson and the scale;
+lesson and the scale, and Change octave moves trumpet's B♭ scale up an
+octave and back;
 the Songs tab (and the header's Songs button) lists every level of songs;
 a song's breadcrumbs lead back to the Songs tab; a drill's result
 goes on to the next step; a failed save warns; the iPhone

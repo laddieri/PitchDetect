@@ -4202,6 +4202,37 @@
 				}
 			}
 
+			/* A scale's overview: Change octave, a small pill under the staff */
+			.scale-octave {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				padding: 5px 14px;
+				border: 1px solid var(--border-strong);
+				border-radius: var(--radius-pill);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 0.9rem;
+				font-weight: 600;
+				cursor: pointer;
+			}
+
+			.scale-octave:hover {
+				border-color: var(--accent);
+				color: var(--accent);
+			}
+
+			.scale-octave:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			body.kid-mode .scale-octave {
+				border: 2px solid var(--ink);
+				box-shadow: 2px 2px 0 var(--ink);
+			}
+
 			/* A scale's overview: Hear them as a link under Learn it and Play it */
 			.overview-hear-link {
 				padding: 6px 10px;
