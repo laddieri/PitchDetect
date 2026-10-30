@@ -2981,7 +2981,7 @@ MORE_SCALES.forEach(function(scale) {
 var songPlayTimer = null;  // Hear the song playback, see playSong()
 // Play along's button names its speed (picked in the song's settings)
 function playAlongLabel(speed) {
-	return (speed || ALONG_SPEEDS[alongSpeedIndex()]).icon + " Play it";
+	return (speed || ALONG_SPEEDS[alongSpeedIndex()]).icon + " Play along";
 }
 var songLevelsOpen = {};   // song list levels shown open, by level id
 
@@ -3397,12 +3397,12 @@ function playThroughSong(id, part) {
 		id: id, song: song, events: events, notes: songNotes(song, events),
 		measures: events.length ? events[events.length - 1].measure + 1 : 0,
 		pos: 0, results: [], streak: 0, free: true, part: part || null, startNote: null,
-		picking: !!part
+		picking: !!part, choosingSpeed: false
 	};
 	document.getElementById("practice-view").setAttribute("data-step", "song-free");
 	document.getElementById("practice-prompt").textContent = songTitle(song);
 	document.getElementById("practice-steps").innerHTML = "";
-	document.getElementById("practice-steps").appendChild(songSettingsButton(song, true));
+	document.getElementById("practice-steps").appendChild(songSettingsButton(song));
 	document.getElementById("practice-staff-output").scrollTop = 0;
 	resetFollow();
 	// The mic waits for Play it
@@ -3463,8 +3463,12 @@ function showSongSelection() {
 		setPracticeFeedback("There are only rests there", "Tap a measure with notes in it", "close");
 	} else if (s.picking) {
 		setPracticeFeedback("Which part do you want to practice?", "Tap its first measure, then its last");
+	} else if (s.choosingSpeed) {
+		setPracticeFeedback("How fast?", "The piano plays along with you \u00b7 faster speeds open as you play");
 	} else if (songStartNote(s) > 0) {
 		setPracticeFeedback("Starting partway through", "Tap any note to see its fingering");
+	} else if (!songOwnSpeed()) {
+		setPracticeFeedback("Play along with the piano!", "Tap any note to see its fingering");
 	} else {
 		setPracticeFeedback("Play it all the way through!", "Tap any note to see its fingering");
 	}
@@ -3486,6 +3490,14 @@ function updateSongTools() {
 	if (s.picking) {
 		if (s.part) tools.appendChild(songToolChip(partLabel(s.part, true), "Stop practicing a part", stopSongPicking));
 		else tools.appendChild(practiceButton("Cancel", "secondary", stopSongPicking));
+	} else if (s.choosingSpeed) {
+		var row = alongSpeedPicker();
+		tools.appendChild(row);
+		updateSpeedChoices(row);
+		tools.appendChild(practiceButton("Cancel", "secondary", function() {
+			s.choosingSpeed = false;
+			showSongSelection();
+		}));
 	} else {
 		if (tapped && s.tapped !== s.startNote) {
 			tools.appendChild(practiceButton("\u25b6 Start here", "secondary", songStartHere));
@@ -3500,10 +3512,27 @@ function updateSongTools() {
 		} else if (!tapped) {
 			tools.appendChild(practiceButton("\ud83d\udc63 Note by note", "secondary", function() { startSong(s.id); }));
 			tools.appendChild(practiceButton("\u2702\ufe0f Practice a part", "secondary", startSongPicking));
+			if (songOwnSpeed()) {
+				tools.appendChild(practiceButton("\ud83c\udfb9 Play along", "secondary", function() {
+					removeSongFingerings();
+					s.tapped = null;
+					s.choosingSpeed = true;
+					showSongSelection();
+				}));
+			}
+		}
+		// Play along's speed, picked: an \u2715 goes back to My speed
+		if (!songOwnSpeed()) {
+			var speed = ALONG_SPEEDS[alongSpeedIndex()];
+			tools.appendChild(songToolChip(speed.icon + " " + speed.name + " speed", "Stop playing along", function() {
+				songSpeed = "mine";
+				showSongSelection();
+			}));
 		}
 	}
-	var busy = !songSelectable() || s.done;
-	tools.querySelectorAll("button").forEach(function(b) { b.disabled = busy; });
+	if (!songSelectable() || s.done) {
+		tools.querySelectorAll("button").forEach(function(b) { b.disabled = true; });
+	}
 }
 
 // What's picked, with an \u2715 that puts it away (label: the \u2715's)
@@ -3528,6 +3557,7 @@ function startSongPicking() {
 	removeSongFingerings();
 	s.tapped = null;
 	s.startNote = null;
+	s.choosingSpeed = false;
 	s.picking = true;
 	showSongSelection();
 }
@@ -4373,7 +4403,7 @@ function renderSongProgress() {
 	var current = s.pos < songEnd(s) ? unitOf(s.pos) : last + 1;
 	row.setAttribute("aria-label", (part ? "Measure " : "Line ") + (Math.min(current, last) - first + 1) + " of " + (last - first + 1));
 	list.appendChild(songViewButton());
-	list.appendChild(songSettingsButton(s.song, false));
+	list.appendChild(songSettingsButton(s.song));
 	for (var u = first; u <= last; u++) {
 		var dot = document.createElement("span");
 		var helped = s.results.some(function(own, i) { return !own && unitOf(i) === u; });
@@ -4506,12 +4536,11 @@ function songTonic(song) {
 var SETTINGS_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
 	'<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
 
-// The song's settings, behind a gear (above Play it through and Pick a
-// part, beside the whole song button in note by note): Play along's speed
-// (speed: Play it through), the piano and the metronome, and key signature
-// or accidentals, the last only for a song whose key has sharps or flats,
-// where it changes something
-function songSettingsButton(song, speed) {
+// The song's settings, behind a gear (at the top of Play it through, beside
+// the whole song button in note by note): the piano and the metronome, and
+// key signature or accidentals, the last only for a song whose key has
+// sharps or flats, where it changes something
+function songSettingsButton(song) {
 	var key = songKey(song) !== "C";
 	var button = document.createElement("button");
 	button.className = "editor-tool song-settings-toggle";
@@ -4522,10 +4551,6 @@ function songSettingsButton(song, speed) {
 	panel.className = "song-settings-panel";
 	panel.setAttribute("role", "dialog");
 	panel.setAttribute("aria-label", "Song settings");
-	if (speed) {
-		panel.appendChild(songSettingsTitle("Speed"));
-		panel.appendChild(alongSpeedPicker());
-	}
 	panel.appendChild(songSettingsTitle("Piano"));
 	panel.appendChild(songSettingsChoices("song-piano-picker", "Piano",
 		[[true, "On"], [false, "Off"]], function() { return songPiano; }, setSongPiano));
@@ -5671,61 +5696,55 @@ function finishAlong(partway) {
 	if (scored) recordProgress(10 + 2 * right + (right === total ? 15 : 0) + speed.xp + (newBest && right > 0 ? NEW_BEST_XP : 0));
 }
 
-// Play it's speed picker (in Play it through's settings): My speed (the mic
-// follows the student, no piano) and a button per Play along speed, a lock
-// on the ones not open yet on this song (updateSpeedPicker())
+// Play along's speeds (Play it through's Play along tool, updateSongTools()):
+// a button per speed, a lock on the ones not open yet on this song
+// (updateSpeedChoices()). Picking one makes Play it Play along at it.
 function alongSpeedPicker() {
 	var row = document.createElement("div");
 	row.className = "speed-picker";
 	row.setAttribute("role", "group");
 	row.setAttribute("aria-label", "Speed");
-	var mine = document.createElement("button");
-	mine.className = "speed-choice speed-mine";
-	mine.innerHTML = '<span class="speed-icon" aria-hidden="true">\ud83c\udfa4</span><span class="speed-name">My speed</span>';
-	mine.title = "My speed: play it your way, the app follows you";
-	mine.setAttribute("aria-label", mine.title);
-	mine.onclick = function() {
-		songSpeed = "mine";
-		updateSpeedPicker();
-	};
-	row.appendChild(mine);
 	ALONG_SPEEDS.forEach(function(speed) {
 		var b = document.createElement("button");
 		b.className = "speed-choice speed-along";
 		b.innerHTML = '<span class="speed-icon" aria-hidden="true"></span><span class="speed-name"></span>';
 		b.onclick = function() {
 			songSpeed = speed.id;
-			updateSpeedPicker();
+			practice.song.choosingSpeed = false;
+			showSongSelection();
 		};
 		row.appendChild(b);
 	});
 	return row;
 }
 
-function updateSpeedPicker() {
-	var row = document.querySelector("#practice-steps .speed-picker");
-	var s = practice && practice.song;
-	if (!row || !s) return;
-	// A speed not open on this song falls back to the fastest that is
-	var own = songOwnSpeed();
-	var k = alongSpeedIndex();
-	while (k > 0 && !alongSpeedOpen(s.song, k)) k--;
-	if (!own) songSpeed = ALONG_SPEEDS[k].id;
-	var playing = songPlayTimer !== null || (s.along && !s.along.done) || (s.follow && s.follow.listening);
-	if (s.free) updateSongButtons();
-	var mine = row.querySelector(".speed-mine");
-	mine.disabled = playing;
-	mine.setAttribute("aria-pressed", own ? "true" : "false");
+function updateSpeedChoices(row) {
+	var s = practice.song;
+	var own = songOwnSpeed(), k = alongSpeedIndex();
 	row.querySelectorAll(".speed-along").forEach(function(b, i) {
 		var speed = ALONG_SPEEDS[i], open = alongSpeedOpen(s.song, i);
 		b.querySelector(".speed-icon").textContent = open ? speed.icon : "\ud83d\udd12";
 		b.querySelector(".speed-name").textContent = speed.name;
-		b.disabled = !open || playing;
+		b.disabled = !open;
 		b.setAttribute("aria-pressed", !own && i === k ? "true" : "false");
 		var label = open ? speed.name + " speed" : speed.name + " speed: play along at " + ALONG_SPEEDS[i - 1].name + " speed to open it";
 		b.title = label;
 		b.setAttribute("aria-label", label);
 	});
+}
+
+// A speed not open on this song falls back to the fastest that is; Play
+// it's label and the tools follow
+function updateSpeedPicker() {
+	var s = practice && practice.song;
+	if (!s) return;
+	var k = alongSpeedIndex();
+	while (k > 0 && !alongSpeedOpen(s.song, k)) k--;
+	if (!songOwnSpeed()) songSpeed = ALONG_SPEEDS[k].id;
+	if (s.free) {
+		updateSongButtons();
+		updateSongTools();
+	}
 }
 
 // My speed: Play it follows the student (Listen to me), not Play along

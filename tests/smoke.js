@@ -415,17 +415,23 @@ async function run() {
 			await page.evaluate(function() { return !practice.song.part && !practice.song.picking; }),
 			"Practice a part picks measures by tapping, and its \u2715 puts the part away (got " + JSON.stringify(tappedPart) + ")");
 		await page.evaluate(function() { playThroughSong("mary"); });
-		// Play along's speeds wait behind the song's settings gear
-		var speedsHidden = await page.evaluate(function() {
-			return !document.querySelector("#practice-steps .speed-picker").offsetParent;
+		// Play along is a tool under the song: it offers the speeds, the one
+		// picked turns Play it into Play along, and its \u2715 goes back
+		await page.click(".song-tools >> text=Play along");
+		await page.click(".song-tools .speed-choice >> text=Walk");
+		var along = await page.evaluate(function() {
+			return { speed: songSpeed, label: document.getElementById("song-listen").textContent,
+				chip: document.querySelector(".song-tool-chip").textContent };
 		});
+		await page.click(".song-tool-chip-x");
+		var mine = await page.evaluate(function() { return songSpeed + " " + document.getElementById("song-listen").textContent; });
+		check(along.speed === "walk" && /Play along/.test(along.label) && /Walk speed/.test(along.chip) && /^mine .*Play it$/.test(mine),
+			"Play along's tool picks a speed for Play it, and its \u2715 goes back (got " + JSON.stringify(along) + ", " + mine + ")");
 		await page.click(".song-settings-toggle");
-		check(speedsHidden && await page.evaluate(function() {
-			return !!document.querySelector("#practice-steps .speed-picker").offsetParent;
-		}), "Play along's speeds show only from the song's settings gear");
 		check(await page.evaluate(function() {
-			return !/Timing check/.test(document.querySelector(".song-settings-panel").textContent);
-		}), "the song's settings hold only settings (no timing check)");
+			var text = document.querySelector(".song-settings-panel").textContent;
+			return !/Timing check|Turtle/.test(text);
+		}), "the song's settings hold only settings (no speeds or timing check)");
 		// The settings turn the piano off and a metronome on: a click a beat
 		await page.click(".song-click-picker >> text=On");
 		await page.click(".song-piano-picker >> text=Off");
@@ -563,8 +569,7 @@ async function run() {
 		});
 		await page.waitForFunction(function() { return practice.song.done; }, null, { timeout: 15000 });
 		var passed = await page.evaluate(function() {
-			var bunny = document.querySelectorAll("#practice-steps .speed-along")[2];
-			return { text: document.getElementById("practice-feedback").textContent, bunnyOpen: !bunny.disabled,
+			return { text: document.getElementById("practice-feedback").textContent, bunnyOpen: alongSpeedOpen(practice.song.song, 2),
 				best: practice.songSpeedBest.auclair, total: practice.song.notes.length };
 		});
 		check(/Perfect/.test(passed.text) && passed.bunnyOpen && passed.best && passed.best.walk === passed.total,
