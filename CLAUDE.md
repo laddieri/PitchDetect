@@ -514,8 +514,13 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   high (within `HEARD_CLOSE_CENTS`: orange, not scored) or wrong, for both
   Play it through and Play along. `followNote()`
   re-aligns everything heard with the song by edit distance
-  (`alignFollow()`, costs `HEARD_COST`: right / octave / low / high / wrong /
-  missed, extra notes free, a skip in a run of repeats marked on the last;
+  (`alignFollow()`, costs `HEARD_COST`: right / octave / low / high / wrong,
+  a missed or extra note 1, going back to an earlier note (a restart)
+  `FOLLOW_RESTART_COST`, each note showing its last time through; a skip in a
+  run of repeats marked on the last; where the student is, `s.pos`, is the
+  cheapest place, the *earliest* on a tie, so a wrong or stray note never
+  moves the run ahead of them (`furthest` at the end of a run, and
+  `follow.mayBeDone` ends a run that may have reached the end after 1.5 s);
   `played` keeps the pitch heard for each song note, `practice.song.played`).
   After a run, a tapped note says what was heard for it under its name
   (`songHeardText()`: "You played E♭", "A bit low", "Not heard", "a bit
