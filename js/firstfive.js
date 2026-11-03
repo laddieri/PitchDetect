@@ -3789,7 +3789,7 @@ function updateFollowListen(now, freq, level) {
 		if (f.silentMs >= FOLLOW_GAP_MS) f.seg = null;
 		if (a || check) return;
 		// Stopped: soon after reaching the last note, or after a long quiet
-		var quiet = s.pos >= s.notes.length ? 1500 : FOLLOW_END_SILENCE_MS;
+		var quiet = s.pos >= s.notes.length || f.mayBeDone ? 1500 : FOLLOW_END_SILENCE_MS;
 		if (f.started && now - f.lastSound > quiet) finishFollow();
 		return;
 	}
@@ -3855,6 +3855,9 @@ function followNote(pitch) {
 	s.results = a.results;
 	s.played = a.played;
 	s.pos = a.end;
+	// Maybe at the end (a last note skipped to, say): the run ends sooner
+	// once the student stops (see updateFollowListen())
+	f.mayBeDone = alignFollowFrom(s, false, true).end >= s.notes.length;
 	drawSongLine(a.end);
 	if (a.end >= s.notes.length && a.results[a.end - 1] !== "wrong" && a.results[a.end - 1] !== "missed") {
 		practice.step = 4;
@@ -3864,9 +3867,9 @@ function followNote(pitch) {
 
 // alignFollow() over the notes from where the run started (s.runFrom):
 // the notes before it stay null, and end counts from the song's start
-function alignFollowFrom(s, toEnd) {
+function alignFollowFrom(s, toEnd, furthest) {
 	var from = s.runFrom || 0;
-	var a = alignFollow(s.follow.heard, s.notes.slice(from), toEnd);
+	var a = alignFollow(s.follow.heard, s.notes.slice(from), toEnd, furthest);
 	var before = s.notes.slice(0, from).map(function() { return null; });
 	return { results: before.concat(a.results), played: before.concat(a.played), end: from + a.end };
 }
@@ -3874,51 +3877,97 @@ function alignFollowFrom(s, toEnd) {
 // Line up the notes heard with the song's notes (edit distance): each heard
 // note matches a song note (right, an octave off, or low or high: heardAs()),
 // replaces one (wrong) or is extra; song notes nothing lines up with were
-// missed. The whole run is weighed at once, so a wrong note and a skipped
-// one aren't mixed up. Unless toEnd, the song may stop partway (the student
-// isn't done): results past end stay null. played: song note → the pitch
-// heard for it.
-function alignFollow(heard, notes, toEnd) {
+// missed. The student may also go back and play from an earlier note (a
+// restart, FOLLOW_RESTART_COST): each note then shows how it was played the
+// last time through. The whole run is weighed at once, so a wrong note and a
+// skipped one aren't mixed up. Unless toEnd, the song may stop partway (the
+// student isn't done): results past end stay null. Where the student has got
+// to is the cheapest place; on a tie the earliest, so a wrong or stray note
+// never moves the run ahead of the student (the next notes settle it), or
+// with furthest, the furthest (at the end of a run). played: song note →
+// the pitch heard for it.
+var FOLLOW_RESTART_COST = 2;  // going back: as much as 2 extra notes
+function alignFollow(heard, notes, toEnd, furthest) {
 	var m = heard.length, n = notes.length, i, j;
+	var EPS = 1e-6;
 	function cost(h, e) {
 		return HEARD_COST[heardAs(h, e)];
 	}
-	var D = [];
+	// D[i][j]: the least cost of the first i notes heard leaving the student
+	// at song note j; how[i][j]: the step that got there
+	var D = [], how = [];
 	for (i = 0; i <= m; i++) {
-		D.push([]);
+		var row = [], from = [];
 		for (j = 0; j <= n; j++) {
-			if (i === 0) D[i][j] = j;
-			else if (j === 0) D[i][j] = i;
-			else D[i][j] = Math.min(D[i - 1][j - 1] + cost(heard[i - 1], notes[j - 1].midi),
-				D[i - 1][j] + 1, D[i][j - 1] + 1);
+			if (i === 0) {
+				row.push(j);
+				from.push(j ? "skip" : null);
+				continue;
+			}
+			row.push(D[i - 1][j] + 1);
+			from.push("extra");
+			if (j > 0) {
+				var c = D[i - 1][j - 1] + cost(heard[i - 1], notes[j - 1].midi);
+				if (c <= row[j] + EPS) {
+					row[j] = c;
+					from[j] = "match";
+				}
+			}
 		}
+		if (i > 0) {
+			// Back to an earlier note, from the cheapest place after it
+			var best = Infinity, bestJ = -1;
+			for (j = n; j >= 0; j--) {
+				if (best + FOLLOW_RESTART_COST < row[j] - EPS) {
+					row[j] = best + FOLLOW_RESTART_COST;
+					from[j] = { back: bestJ };
+				}
+				if (row[j] < best) {
+					best = row[j];
+					bestJ = j;
+				}
+			}
+			// Skipped notes. Where skipping a note costs the same as playing
+			// it, skip it: in a run of the same note, the last one is the one
+			// missed.
+			for (j = 1; j <= n; j++) {
+				if (row[j - 1] + 1 <= row[j] + EPS) {
+					row[j] = row[j - 1] + 1;
+					from[j] = "skip";
+				}
+			}
+		}
+		D.push(row);
+		how.push(from);
 	}
-	// Where the student has got to: the cheapest place, the furthest on a tie
 	var end = n;
 	if (!toEnd) {
 		end = 0;
-		for (j = 1; j <= n; j++) if (D[m][j] < D[m][end] + 1e-6) end = j;
+		for (j = 1; j <= n; j++) {
+			if (furthest ? D[m][j] <= D[m][end] + EPS : D[m][j] < D[m][end] - EPS) end = j;
+		}
 	}
 	var results = notes.map(function() { return null; });
 	var played = notes.map(function() { return null; });
+	// Walk back from the end: the last time through a note is the one shown
 	i = m;
 	j = end;
-	// Walk back from the end. Where skipping a note costs the same as
-	// matching it, skip it: in a run of the same note, the last one is the
-	// one missed.
-	function same(x, y) { return Math.abs(x - y) < 1e-6; }
-	while (j > 0) {
-		var c = i > 0 ? cost(heard[i - 1], notes[j - 1].midi) : 0;
-		if (same(D[i][j], D[i][j - 1] + 1)) {
-			results[j - 1] = "missed";
+	while (i > 0 || j > 0) {
+		var step = how[i][j];
+		if (step === "skip") {
+			if (results[j - 1] === null) results[j - 1] = "missed";
 			j--;
-		} else if (i > 0 && same(D[i][j], D[i - 1][j - 1] + c)) {
-			results[j - 1] = heardAs(heard[i - 1], notes[j - 1].midi);
-			played[j - 1] = heard[i - 1];
+		} else if (step === "match") {
+			if (results[j - 1] === null) {
+				results[j - 1] = heardAs(heard[i - 1], notes[j - 1].midi);
+				played[j - 1] = heard[i - 1];
+			}
 			i--;
 			j--;
+		} else if (step === "extra") {
+			i--;
 		} else {
-			i--;  // an extra note
+			j = step.back;
 		}
 	}
 	return { results: results, end: end, played: played };
@@ -3942,7 +3991,7 @@ function finishFollow() {
 	// (a run from a tapped note scores the notes from there)
 	var from = s.runFrom || 0;
 	var total = s.notes.length - from;
-	var a = alignFollowFrom(s, false);
+	var a = alignFollowFrom(s, false, true);
 	var partway = a.end < s.notes.length - 1;
 	if (!partway) a = alignFollowFrom(s, true);
 	s.results = a.results;

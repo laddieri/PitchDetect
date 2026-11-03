@@ -645,6 +645,32 @@ async function run() {
 		check(heardTap.text === heardTap.want && heardTap.ghost,
 			"a tapped wrong note shows what was played (got " + heardTap.text + ")");
 
+		// Play it through follows the student, not ahead of them: a wrong
+		// note doesn't move the run on, and going back to the start is followed
+		var followBack = await page.evaluate(function() {
+			playThroughSong("auclair");
+			startFollow();
+			practice.ignoreUntil = 0;
+			var s = practice.song, t = performance.now(), seen = {};
+			function play(midi) {
+				var freq = frequencyFromNoteNumber(midi - getTransposition());
+				for (var k = 0; k < 10; k++) updateFollowListen(t += 16, freq, 0.2);
+				for (k = 0; k < 6; k++) updateFollowListen(t += 16, null, 0.001);
+			}
+			for (var j = 0; j < 4; j++) play(s.notes[j].midi);
+			play(s.notes[4].midi + 5);
+			seen.wrong = s.pos;
+			for (j = 0; j < 3; j++) play(s.notes[j].midi);
+			seen.back = s.pos;
+			for (j = 3; j < s.notes.length; j++) play(s.notes[j].midi);
+			if (!s.done) finishFollow();
+			closeLevelUp();
+			seen.right = s.results.filter(function(r) { return r === "right"; }).length === s.notes.length;
+			return seen;
+		});
+		check(followBack.wrong === 4 && followBack.back === 3 && followBack.right,
+			"Play it through stays put on a wrong note and follows a restart (got " + JSON.stringify(followBack) + ")");
+
 		await page.evaluate(function() {
 			clearInterval(alongSimTimer);
 			updatePracticeListen = realPracticeListen;
