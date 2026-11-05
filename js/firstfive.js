@@ -4303,7 +4303,9 @@ function updateSongListen(now, freq, level) {
 			tapTraceStartedMic = false;
 			drawSongLine(s.pos);
 		} else if (pitchTrace && pitchTrace.tap && pitchTraceActive()) {
-			pushPitchTrace(now, freq ? 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition() - pitchTrace.target : null);
+			var diff = freq ? 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition() - pitchTrace.target : null;
+			pushPitchTrace(now, diff);
+			tapTraceHold(s.tapTrace, now, diff);
 			practice.lastFrame = null;
 			return;
 		}
@@ -6356,6 +6358,26 @@ function startTapTrace(e) {
 		songMicOn();
 	}
 	if (!s.free) setPracticeFeedback("Try " + songNoteName(e) + "!", "The line shows how close you are");
+}
+
+// A tapped note held in tune as long as a lesson's (PRACTICE_HOLD_MS, gaps
+// under PRACTICE_GAP_MS forgiven) is celebrated as the lessons do: fireworks
+// and a chime. Once per time it's played: it has to stop (or go off) first.
+function tapTraceHold(t, now, diff) {
+	var dt = t.lastFrame ? Math.max(0, Math.min(now - t.lastFrame, 100)) : 0;
+	t.lastFrame = now;
+	if (diff !== null && Math.abs(diff) * 100 <= PRACTICE_PASS_CENTS) {
+		t.lastGood = now;
+		if (!t.done) t.holdMs = (t.holdMs || 0) + dt;
+	} else if (now - (t.lastGood || 0) > PRACTICE_GAP_MS) {
+		t.holdMs = 0;
+		t.done = false;
+	}
+	if (!t.done && t.holdMs >= PRACTICE_HOLD_MS) {
+		t.done = true;
+		launchFireworks(document.getElementById("practice-stage"));
+		playChime();
+	}
 }
 
 // Where the trace goes on the line holding the tapped note: { r (the line's
