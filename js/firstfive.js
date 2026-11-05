@@ -4292,6 +4292,21 @@ function showSongHelp() {
 
 // Mic frames during a song (see updatePracticeListen)
 function updateSongListen(now, freq, level) {
+	// A note tapped: the mic is for it, shown on its trace, until a run
+	// starts (its fingering stays up): then the run has the mic
+	if (pitchTrace && pitchTrace.tap) {
+		var s = practice.song;
+		if (s.free && (s.follow.listening || s.along || s.check)) {
+			var box = document.querySelector("#song-fingering .song-tap-trace");
+			if (box) box.remove();
+			pitchTrace = null;
+			tapTraceStartedMic = false;
+		} else if (pitchTraceActive()) {
+			pushPitchTrace(now, freq ? 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition() - pitchTrace.target : null);
+			practice.lastFrame = null;
+			return;
+		}
+	}
 	if (practice.song.free) {
 		updateFollowListen(now, freq, level);
 		return;
@@ -6178,6 +6193,7 @@ function showSongFingerings(events) {
 
 // Put away the play-along fingering and bring back any Help chart
 function removeSongFingerings() {
+	stopTapTrace();
 	document.getElementById("practice-view").removeAttribute("data-song-charts");
 	var wrap = document.getElementById("song-fingering");
 	if (!wrap) return;
@@ -6258,6 +6274,7 @@ function songNoteTap(event) {
 			name.appendChild(said);
 		}
 		if (wrap && (name.firstChild)) wrap.appendChild(name);
+		if (wrap) startTapTrace(wrap, s.events[hit]);
 		if (wrap) {
 			var close = document.createElement("button");
 			close.className = "song-fingering-close";
@@ -6278,6 +6295,77 @@ function songNoteTap(event) {
 
 // How far from a note's center a tap still picks it (SVG units)
 var SONG_TAP_REACH = 28;
+
+// A tapped note's pitch trace, as in the lessons: the note on its own small
+// staff beside its fingering, and the mic on, so the student can try it and
+// see how close they are (and, on brass, the partial ladder). Note by note
+// stops waiting on the song meanwhile (updateSongListen()). It goes with
+// the fingering (removeSongFingerings()), and the mic with it, if this
+// turned it on.
+var tapTraceStartedMic = false;
+var TAP_TRACE_LABEL_ROOM = 24;  // staff units (index.html's aspect-ratio counts them)
+function startTapTrace(wrap, e) {
+	var VF = Vex.Flow;
+	var box = document.createElement("div");
+	box.className = "song-tap-trace";
+	wrap.appendChild(box);
+	var clef = getCurrentClef();
+	var W = PRACTICE_TRACE_STAFF_WIDTH, H = STAFF_VIEWBOX_HEIGHT;
+	var renderer = new VF.Renderer(box, VF.Renderer.Backends.SVG);
+	renderer.resize(W, H);
+	var context = renderer.getContext();
+	var stave = new VF.Stave(5, Math.round((H - 4 * LINE_SPACING) / 2), W - 10);
+	stave.addClef(clef);
+	stave.setContext(context).draw();
+	var note;
+	try {
+		var letter = "cdefgab".charAt(e.letter);
+		note = new VF.StaveNote({ clef: clef, keys: [letter + "/" + e.octave], duration: "w" });
+		if (e.alter) note.addAccidental(0, new VF.Accidental(e.alter < 0 ? "b" : "#"));
+		var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
+		voice.addTickables([note]);
+		new VF.Formatter().joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 20);
+		voice.draw(context, stave);
+	} catch (err) {
+		box.remove();
+		return;
+	}
+	var svg = box.querySelector("svg");
+	var center = (stave.getYForLine(0) + stave.getYForLine(4)) / 2;
+	// (room right of the staff for the ladder's names)
+	svg.setAttribute("viewBox", "0 " + (center - H / 2) + " " + (W + TAP_TRACE_LABEL_ROOM) + " " + H);
+	svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+	// Note by note: what it said about the note it's waiting on (and its
+	// ghost) goes, and that note's hold starts over afterwards
+	if (!practice.song.free) resetPracticeHold();
+	setupPitchTrace(svg, note, e.midi, center - H / 2, H, stave.getNoteEndX());
+	pitchTrace.tap = true;
+	clearPitchTrace();
+	if (practice.song.free && !listenActive && !listenStarting) {
+		tapTraceStartedMic = true;
+		songMicOn();
+	}
+	if (!practice.song.free) {
+		setPracticeFeedback("Try " + songNoteName(e) + "!", "The line shows how close you are");
+	}
+}
+
+// The tapped note's trace is put away: the mic too, unless a run (Listen to
+// me, Play along, the timing check) has it now. (Later, since those put the
+// fingering away just before they start.)
+function stopTapTrace() {
+	if (!pitchTrace || !pitchTrace.tap) return;
+	pitchTrace = null;
+	if (!tapTraceStartedMic) return;
+	setTimeout(function() {
+		if (!tapTraceStartedMic || (pitchTrace && pitchTrace.tap)) return;
+		tapTraceStartedMic = false;
+		var s = practice && practice.mode === "song" ? practice.song : null;
+		if (!s || !s.free) return;
+		if (s.follow.listening || songPlayAlong || (s.along && !s.along.done) || (s.check && !s.check.done)) return;
+		songMicOff();
+	}, 0);
+}
 
 // Stop Hear the song (if playing) and return the staff to the student's note
 function stopSongPlayback() {
@@ -8479,8 +8567,10 @@ function setupPitchLadder(svg, g, partials) {
 }
 
 function pitchTraceActive() {
-	return !!pitchTrace && !!practice && practice.step === 3 &&
-		(practice.mode === "lesson" || practice.mode === "challenge");
+	if (!pitchTrace || !practice) return false;
+	// A note tapped on a song (startTapTrace())
+	if (pitchTrace.tap) return practice.mode === "song" && !!practice.song && practice.song.tapped !== null;
+	return practice.step === 3 && (practice.mode === "lesson" || practice.mode === "challenge");
 }
 
 // The staff step (diatonic, half a space each) of a written note, as the

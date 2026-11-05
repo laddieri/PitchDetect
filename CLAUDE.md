@@ -552,6 +552,15 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   key), the note marked (`practice.song.tapped`; layouts in
   `practice.song.layouts`); its ✕ (`.song-fingering-close`) or tapping
   it again puts it away (`closeSongFingering()`). In note by note, tapping the note being waited for is Help.
+  A tapped note also gets the lessons' **pitch trace** (`startTapTrace()`:
+  the note on its own small staff, `.song-tap-trace`, beside its chart,
+  `pitchTrace.tap`, with the brass partial ladder) and the mic turns on for
+  it (`tapTraceStartedMic`), so the student can try it; `updateSongListen()`
+  feeds the trace and nothing else meanwhile (note by note stops waiting on
+  its note, whose hint and ghost are cleared, `resetPracticeHold()`).
+  `removeSongFingerings()` → `stopTapTrace()` puts it away, and the mic,
+  unless a run that just started (Listen to me, Play along, the timing
+  check) has it now.
   Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
   dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
   playable ones, each with its `event` index. `renderSongLine()` draws a
@@ -1043,7 +1052,8 @@ song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops, and its tool under the song picks the
 speed (the settings gear holds no speeds); Play it through has just Hear it and
 Play it, listens only after Play it, a tapped note shows its fingering
-(hidden by its ✕) and Start here makes it where Hear it and Play it
+and listens for it, tracing the pitch with trumpet's partial ladder (the mic
+off again once it's put away; hidden by its ✕) and Start here makes it where Hear it and Play it
 start, and sliding across measures, or tapping them after Practice a part,
 picks a part that Play it practices note by note; Hear the song's notes sound with
 the metronome's clicks, and the piano and metronome switch mid-song; Play it through marks a note
