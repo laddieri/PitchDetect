@@ -6341,8 +6341,8 @@ var SONG_TAP_REACH = 28;
 // fingering (removeSongFingerings()), and the mic with it, if this turned
 // it on. Drawn by withTapTrace() as the song is drawn.
 var tapTraceStartedMic = false;
-var TAP_TRACE_SPAN = 170;  // staff units the trace takes, at most
-var TAP_TRACE_MIN = 110;   // less room than this right of the note: it goes left
+var TAP_TRACE_SPAN = 100;  // staff units the trace takes, at most (the ladder's 36 included)
+var TAP_TRACE_MIN = 80;    // less room than this right of the note: it goes left
 var TAP_TRACE_MUTED = "rgba(100, 116, 139, 0.25)";
 function startTapTrace(e) {
 	var s = practice.song;
