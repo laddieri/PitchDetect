@@ -3928,28 +3928,6 @@
 				pointer-events: none;
 			}
 
-			/* A tapped note on its own staff beside its chart, with the pitch
-			   being played traced right of it (startTapTrace()) */
-			.song-tap-trace {
-				flex: 0 0 auto;
-				height: 100%;
-				aspect-ratio: 254 / 120;
-				max-width: 58%;
-				/* clear of the ✕ */
-				margin-right: 34px;
-			}
-
-			/* (the chart gives up the room) */
-			#practice-body .song-fingering:has(.song-tap-trace) > .practice-fingering {
-				min-width: 0;
-			}
-
-			.song-tap-trace svg {
-				display: block;
-				width: 100%;
-				height: 100%;
-			}
-
 			/* After a run: what was heard for that note */
 			.song-fingering-heard {
 				font-size: 0.95rem;

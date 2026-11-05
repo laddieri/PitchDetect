@@ -339,13 +339,15 @@ async function run() {
 			return listenActive && pitchTrace && pitchTrace.points.length > 5;
 		}, null, { timeout: 5000 }).catch(function() {});
 		var traced = await page.evaluate(function() {
-			var box = document.querySelector("#song-fingering .song-tap-trace");
-			return { box: !!box, mic: listenActive, points: pitchTrace ? pitchTrace.points.length : 0,
-				line: box ? Array.prototype.some.call(box.querySelectorAll(".pitch-trace-line"), function(l) { return l.getAttribute("d"); }) : false,
-				rungs: box ? box.querySelectorAll(".pitch-ladder-rung").length : 0 };
+			var svg = document.querySelector("#practice-staff-output .pitch-trace");
+			svg = svg && svg.ownerSVGElement;
+			return { onStaff: !!svg, mic: listenActive, points: pitchTrace ? pitchTrace.points.length : 0,
+				line: svg ? Array.prototype.some.call(svg.querySelectorAll(".pitch-trace-line"), function(l) { return l.getAttribute("d"); }) : false,
+				rungs: svg ? svg.querySelectorAll(".pitch-ladder-rung").length : 0,
+				faded: Object.keys(practice.song.tapMuted || {}).length };
 		});
-		check(traced.box && traced.mic && traced.points > 5 && traced.line && traced.rungs > 1,
-			"a tapped note listens and traces the pitch played, with the partial ladder (" + JSON.stringify(traced) + ")");
+		check(traced.onStaff && traced.mic && traced.points > 5 && traced.line && traced.rungs > 1 && traced.faded > 0,
+			"a tapped note listens and traces the pitch played on the song's staff, with the partial ladder (" + JSON.stringify(traced) + ")");
 		// (On a desktop the chart goes beside the staff, which moves it)
 		spot = await page.evaluate(noteSpot);
 		await page.mouse.click(spot.x, spot.y);
@@ -361,7 +363,8 @@ async function run() {
 		var heardOver = await page.waitForFunction(function() {
 			return practice.song.follow.heard.length > 0;
 		}, null, { timeout: 5000 }).then(function() { return true; }, function() { return false; });
-		check(heardOver && await page.evaluate(function() { return !pitchTrace && !!document.getElementById("song-fingering"); }),
+		check(heardOver && await page.evaluate(function() {
+			return !pitchTrace && !document.querySelector("#practice-staff-output .pitch-trace") && !!document.getElementById("song-fingering"); }),
 			"Play it with a tapped note's fingering up hears the run, not the trace");
 		await page.click("#song-listen");
 		await page.evaluate(function() { playThroughSong("mary"); });
