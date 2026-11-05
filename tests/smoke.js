@@ -348,6 +348,23 @@ async function run() {
 		});
 		check(traced.onStaff && traced.mic && traced.points > 5 && traced.line && traced.rungs > 1 && traced.faded > 0,
 			"a tapped note listens and traces the pitch played on the song's staff, with the partial ladder (" + JSON.stringify(traced) + ")");
+		// Held in tune as long as a lesson's note, it's celebrated as the lessons
+		// do (fireworks and a chime), once until it stops
+		var cheered = await page.evaluate(function() {
+			var fw = 0, chimes = 0, realFw = launchFireworks, realChime = playChime;
+			launchFireworks = function() { fw++; };
+			playChime = function() { chimes++; };
+			var t = performance.now() + 10000, freq = frequencyFromNoteNumber(practice.song.tapTrace.midi - getTransposition());
+			for (var k = 0; k < 120; k++) updatePracticeListen(t += 16, freq, 0.2);
+			var once = fw;
+			for (k = 0; k < 20; k++) updatePracticeListen(t += 16, null, 0.001);
+			for (k = 0; k < 120; k++) updatePracticeListen(t += 16, freq, 0.2);
+			launchFireworks = realFw;
+			playChime = realChime;
+			return { once: once, fw: fw, chimes: chimes };
+		});
+		check(cheered.once === 1 && cheered.fw === 2 && cheered.chimes === 2,
+			"a tapped note held in tune gets fireworks and a chime, once each time it's played (" + JSON.stringify(cheered) + ")");
 		// (On a desktop the chart goes beside the staff, which moves it)
 		spot = await page.evaluate(noteSpot);
 		await page.mouse.click(spot.x, spot.y);

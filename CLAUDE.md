@@ -562,7 +562,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   line's note heads, `renderSongLine()`'s `heads`; the notes under it fade,
   `tapMuted`, drawing the line again if they change; `setupPitchTrace()`'s
   `x0`; `pitchTrace.tap`; the brass partial ladder included), and the mic
-  turns on for it (`tapTraceStartedMic`), so the student can try it;
+  turns on for it (`tapTraceStartedMic`), so the student can try it; held
+  in tune for `PRACTICE_HOLD_MS`, as in a lesson, it gets fireworks and a
+  chime (`tapTraceHold()`, once until it stops or goes off);
   `updateSongListen()` feeds the trace and nothing else meanwhile (note by
   note stops waiting on its note, whose hint and ghost are cleared,
   `resetPracticeHold()`). `removeSongFingerings()` → `stopTapTrace()` puts
@@ -1060,7 +1062,7 @@ song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops, and its tool under the song picks the
 speed (the settings gear holds no speeds); Play it through has just Hear it and
 Play it, listens only after Play it, a tapped note shows its fingering
-and listens for it, tracing the pitch on the song's staff with trumpet's partial ladder (the mic
+and listens for it, tracing the pitch on the song's staff with trumpet's partial ladder, held in tune gets fireworks and a chime (the mic
 off again once it's put away; hidden by its ✕) and Start here makes it where Hear it and Play it
 start, and sliding across measures, or tapping them after Practice a part,
 picks a part that Play it practices note by note; Hear the song's notes sound with
