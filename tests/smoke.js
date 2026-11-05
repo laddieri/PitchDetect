@@ -333,11 +333,42 @@ async function run() {
 		});
 		check(!spot.mic && tapped.tapped === spot.event && tapped.chart && tapped.name,
 			"Stop and score turns the mic off, and a tapped note shows its fingering (" + tapped.name + ")");
+		// ...and listens for it, tracing the pitch played beside it as the
+		// lessons do, with trumpet's partial ladder
+		await page.waitForFunction(function() {
+			return listenActive && pitchTrace && pitchTrace.points.length > 5;
+		}, null, { timeout: 5000 }).catch(function() {});
+		var traced = await page.evaluate(function() {
+			var svg = document.querySelector("#practice-staff-output .pitch-trace");
+			svg = svg && svg.ownerSVGElement;
+			return { onStaff: !!svg, mic: listenActive, points: pitchTrace ? pitchTrace.points.length : 0,
+				line: svg ? Array.prototype.some.call(svg.querySelectorAll(".pitch-trace-line"), function(l) { return l.getAttribute("d"); }) : false,
+				rungs: svg ? svg.querySelectorAll(".pitch-ladder-rung").length : 0,
+				faded: Object.keys(practice.song.tapMuted || {}).length };
+		});
+		check(traced.onStaff && traced.mic && traced.points > 5 && traced.line && traced.rungs > 1 && traced.faded > 0,
+			"a tapped note listens and traces the pitch played on the song's staff, with the partial ladder (" + JSON.stringify(traced) + ")");
 		// (On a desktop the chart goes beside the staff, which moves it)
 		spot = await page.evaluate(noteSpot);
 		await page.mouse.click(spot.x, spot.y);
 		check(await page.evaluate(function() { return !document.getElementById("song-fingering") && practice.song.tapped === null; }),
 			"tapping the note again puts its fingering away");
+		await page.waitForFunction(function() { return !listenActive && !listenStarting; }, null, { timeout: 3000 }).catch(function() {});
+		check(await page.evaluate(function() { return !listenActive && !pitchTrace; }), "putting the fingering away turns the mic off");
+		// Play it with a note's fingering up (it stays): the run has the mic
+		await page.evaluate(function() { playThroughSong("mary"); });
+		spot = await page.evaluate(noteSpot);
+		await page.mouse.click(spot.x, spot.y);
+		await page.click("#song-listen");
+		var heardOver = await page.waitForFunction(function() {
+			return practice.song.follow.heard.length > 0;
+		}, null, { timeout: 5000 }).then(function() { return true; }, function() { return false; });
+		check(heardOver && await page.evaluate(function() {
+			return !pitchTrace && !document.querySelector("#practice-staff-output .pitch-trace") && !!document.getElementById("song-fingering"); }),
+			"Play it with a tapped note's fingering up hears the run, not the trace");
+		await page.click("#song-listen");
+		await page.evaluate(function() { playThroughSong("mary"); });
+		await page.waitForFunction(function() { return !listenActive && !listenStarting; }, null, { timeout: 3000 }).catch(function() {});
 		// Its \u2715 puts it away too
 		spot = await page.evaluate(noteSpot);
 		await page.mouse.click(spot.x, spot.y);

@@ -552,6 +552,21 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   key), the note marked (`practice.song.tapped`; layouts in
   `practice.song.layouts`); its ✕ (`.song-fingering-close`) or tapping
   it again puts it away (`closeSongFingering()`). In note by note, tapping the note being waited for is Help.
+  A tapped note also gets the lessons' **pitch trace** on the song's own
+  staff (`startTapTrace()`, `practice.song.tapTrace`; drawn as the song is
+  by `withTapTrace()`, which wraps `drawSongFree()` / `drawSongEventOnce()`:
+  `tapTraceSpot()` puts it right of the note, or left of it when the line
+  ends within `TAP_TRACE_MIN`, at most `TAP_TRACE_SPAN` wide, from the
+  line's note heads, `renderSongLine()`'s `heads`; the notes under it fade,
+  `tapMuted`, drawing the line again if they change; `setupPitchTrace()`'s
+  `x0`; `pitchTrace.tap`; the brass partial ladder included), and the mic
+  turns on for it (`tapTraceStartedMic`), so the student can try it;
+  `updateSongListen()` feeds the trace and nothing else meanwhile (note by
+  note stops waiting on its note, whose hint and ghost are cleared,
+  `resetPracticeHold()`). `removeSongFingerings()` → `stopTapTrace()` puts
+  it away, and the mic, unless a run that just started (Listen to me, Play
+  along, the timing check) has it now. A run started with the fingering up
+  (it stays) drops just the trace and keeps the mic (in `updateSongListen()`).
   Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
   dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
   playable ones, each with its `event` index. `renderSongLine()` draws a
@@ -1043,7 +1058,8 @@ song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops, and its tool under the song picks the
 speed (the settings gear holds no speeds); Play it through has just Hear it and
 Play it, listens only after Play it, a tapped note shows its fingering
-(hidden by its ✕) and Start here makes it where Hear it and Play it
+and listens for it, tracing the pitch on the song's staff with trumpet's partial ladder (the mic
+off again once it's put away; hidden by its ✕) and Start here makes it where Hear it and Play it
 start, and sliding across measures, or tapping them after Practice a part,
 picks a part that Play it practices note by note; Hear the song's notes sound with
 the metronome's clicks, and the piano and metronome switch mid-song; Play it through marks a note
