@@ -6305,11 +6305,28 @@ function songNoteTap(event) {
 		}
 	}
 	// (Play it through, before a run: Start here)
-	if (s.free && !s.done) {
-		showSongSelection();
-		return;
-	}
-	drawSongLine(s.pos);
+	if (s.free && !s.done) showSongSelection();
+	else drawSongLine(s.pos);
+	revealTappedNote();
+}
+
+// The fingering takes room from the music above it, which can leave the
+// note just tapped scrolled out of sight under the chart: scroll its line
+// back into view (only as far as it takes)
+function revealTappedNote() {
+	var s = practice.song;
+	if (!s || s.tapped === null || !s.layouts) return;
+	var out = document.getElementById("practice-staff-output");
+	var key = Object.keys(s.layouts).find(function(l) { return s.layouts[l].xs[s.tapped] !== undefined; });
+	var el = key === undefined ? null : out.querySelector('.song-line[data-line="' + key + '"]');
+	if (!el) return;
+	var ink = songLineInk(el);
+	var to = ink.top < out.scrollTop ? ink.top - 6
+		: ink.bottom > out.scrollTop + out.clientHeight ? ink.bottom - out.clientHeight + 6 : null;
+	if (to === null) return;
+	to = Math.max(0, Math.min(to, out.scrollHeight - out.clientHeight));
+	var smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+	out.scrollTo({ top: to, behavior: smooth ? "smooth" : "auto" });
 }
 
 // How far from a note's center a tap still picks it (SVG units)

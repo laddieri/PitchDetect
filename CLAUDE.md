@@ -552,6 +552,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   key), the note marked (`practice.song.tapped`; layouts in
   `practice.song.layouts`); its ✕ (`.song-fingering-close`) or tapping
   it again puts it away (`closeSongFingering()`). In note by note, tapping the note being waited for is Help.
+  The chart takes room from the music, so `revealTappedNote()` scrolls the
+  tapped note's line back into view (on a phone it could end up under it).
   A tapped note also gets the lessons' **pitch trace** on the song's own
   staff (`startTapTrace()`, `practice.song.tapTrace`; drawn as the song is
   by `withTapTrace()`, which wraps `drawSongFree()` / `drawSongEventOnce()`:
@@ -1062,7 +1064,7 @@ and listens for it, tracing the pitch on the song's staff with trumpet's partial
 off again once it's put away; hidden by its ✕) and Start here makes it where Hear it and Play it
 start, and sliding across measures, or tapping them after Practice a part,
 picks a part that Play it practices note by note; Hear the song's notes sound with
-the metronome's clicks, and the piano and metronome switch mid-song; Play it through marks a note
+the metronome's clicks, and the piano and metronome switch mid-song; on a phone, a tapped note low in a song stays in sight above its chart; Play it through marks a note
 played flat "low" and a tapped wrong note shows what was played; Play along scores
 notes in time over the piano, marks a late note late, measures the
 delay from its count-in's clicks (or the timing check's), and opens the next speed; a long

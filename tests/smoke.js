@@ -888,6 +888,34 @@ async function run() {
 		});
 		// Open on trumpet: C, G, C, E, G, the lesson's C the target
 		check(ladder === "G E C G *C", "trumpet's partial ladder shows the open notes (got \"" + ladder + "\")");
+		// On a phone, a song's tapped note stays in sight above its chart (the
+		// chart takes room from the music, which scrolls the note back up)
+		var lastSpot = await page.evaluate(function() {
+			playThroughSong("mary");
+			var s = practice.song, i = s.notes[s.notes.length - 1].event, out = document.getElementById("practice-staff-output");
+			out.scrollTop = out.scrollHeight;
+			var key = Object.keys(s.layouts).find(function(l) { return s.layouts[l].xs[i] !== undefined; });
+			var r = s.layouts[key], pt = r.svg.createSVGPoint();
+			pt.x = r.xs[i];
+			pt.y = r.heads[i].y;
+			var p = pt.matrixTransform(r.svg.getScreenCTM());
+			return { x: p.x, y: p.y, event: i };
+		});
+		await page.mouse.click(lastSpot.x, lastSpot.y);
+		await page.waitForTimeout(900);
+		var inSight = await page.evaluate(function(i) {
+			var s = practice.song;
+			var key = Object.keys(s.layouts).find(function(l) { return s.layouts[l].xs[i] !== undefined; });
+			var r = s.layouts[key], pt = r.svg.createSVGPoint();
+			pt.x = r.xs[i];
+			pt.y = r.heads[i].y;
+			var y = pt.matrixTransform(r.svg.getScreenCTM()).y;
+			var out = document.getElementById("practice-staff-output").getBoundingClientRect();
+			var chart = document.getElementById("song-fingering").getBoundingClientRect();
+			return { tapped: s.tapped === i, ok: y >= out.top && y <= out.bottom && y < chart.top, y: Math.round(y), chart: Math.round(chart.top) };
+		}, lastSpot.event);
+		check(inSight.tapped && inSight.ok, "on a phone, a song's tapped last note stays in sight above its chart (" + JSON.stringify(inSight) + ")");
+		await page.evaluate(function() { closeSongFingering(); });
 		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
 		await context.close();
 
