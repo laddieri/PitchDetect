@@ -555,7 +555,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   The chart takes room from the music, so `revealTappedNote()` scrolls the
   tapped note's line back into view (on a phone it could end up under it).
   A tapped note also gets the lessons' **pitch trace** on the song's own
-  staff (`startTapTrace()`, `practice.song.tapTrace`; drawn as the song is
+  staff, with note by note's bobbing arrow over it while it's tried (`opts.arrow`;
+  in note by note it moves there from the note being waited for)
+  (`startTapTrace()`, `practice.song.tapTrace`; drawn as the song is
   by `withTapTrace()`, which wraps `drawSongFree()` / `drawSongEventOnce()`:
   `tapTraceSpot()` puts it right of the note, or left of it when the line
   ends within `TAP_TRACE_MIN`, at most `TAP_TRACE_SPAN` wide, from the
@@ -1062,7 +1064,7 @@ song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops, and its tool under the song picks the
 speed (the settings gear holds no speeds); Play it through has just Hear it and
 Play it, listens only after Play it, a tapped note shows its fingering
-and listens for it, tracing the pitch on the song's staff with trumpet's partial ladder, held in tune gets fireworks and a chime (the mic
+and listens for it, tracing the pitch on the song's staff under an arrow, with trumpet's partial ladder, held in tune gets fireworks and a chime (the mic
 off again once it's put away; hidden by its ✕) and Start here makes it where Hear it and Play it
 start, and sliding across measures, or tapping them after Practice a part,
 picks a part that Play it practices note by note; Hear the song's notes sound with
