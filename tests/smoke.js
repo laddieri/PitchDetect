@@ -344,9 +344,10 @@ async function run() {
 			return { onStaff: !!svg, mic: listenActive, points: pitchTrace ? pitchTrace.points.length : 0,
 				line: svg ? Array.prototype.some.call(svg.querySelectorAll(".pitch-trace-line"), function(l) { return l.getAttribute("d"); }) : false,
 				rungs: svg ? svg.querySelectorAll(".pitch-ladder-rung").length : 0,
-				faded: Object.keys(practice.song.tapMuted || {}).length };
+				faded: Object.keys(practice.song.tapMuted || {}).length,
+				arrows: document.querySelectorAll("#practice-staff-output .song-arrow").length };
 		});
-		check(traced.onStaff && traced.mic && traced.points > 5 && traced.line && traced.rungs > 1 && traced.faded > 0,
+		check(traced.onStaff && traced.mic && traced.points > 5 && traced.line && traced.rungs > 1 && traced.faded > 0 && traced.arrows === 1,
 			"a tapped note listens and traces the pitch played on the song's staff, with the partial ladder (" + JSON.stringify(traced) + ")");
 		// Held in tune as long as a lesson's note, it's celebrated as the lessons
 		// do (fireworks and a chime), once until it stops
@@ -381,7 +382,8 @@ async function run() {
 			return practice.song.follow.heard.length > 0;
 		}, null, { timeout: 5000 }).then(function() { return true; }, function() { return false; });
 		check(heardOver && await page.evaluate(function() {
-			return !pitchTrace && !document.querySelector("#practice-staff-output .pitch-trace") && !!document.getElementById("song-fingering"); }),
+			return !pitchTrace && !document.querySelector("#practice-staff-output .pitch-trace") &&
+				!document.querySelector("#practice-staff-output .song-arrow") && !!document.getElementById("song-fingering"); }),
 			"Play it with a tapped note's fingering up hears the run, not the trace");
 		await page.click("#song-listen");
 		await page.evaluate(function() { playThroughSong("mary"); });

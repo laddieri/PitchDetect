@@ -4515,7 +4515,9 @@ function drawSongFree(pos) {
 	var start = !s.done && !part && s.startNote !== null ? tieStart(s.events, s.startNote) : null;
 	s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		s.done || pos === 0 ? (part ? Math.floor(part.a / SONG_MEASURES_PER_LINE) : -1) : songLineOf(at), s.measures,
-		{ end: true, whole: true, ahead: true, marks: s.done ? marks : null, ghost: ghost, ghostAt: ghost === null ? null : s.tapped },
+		{ end: true, whole: true, ahead: true, marks: s.done ? marks : null, ghost: ghost, ghostAt: ghost === null ? null : s.tapped,
+			// (a note tapped to try: the arrow note by note has, over it)
+			arrow: s.tapTrace ? s.tapTrace.event : null },
 		function(i) {
 			if (s.tapMuted && s.tapMuted[i]) return TAP_TRACE_MUTED;
 			var r = byEvent[i];
@@ -4536,6 +4538,8 @@ function drawSongEvent(hl, arrow, ghost) {
 
 function drawSongEventOnce(hl, arrow, ghost) {
 	var s = practice.song;
+	// A note tapped to try: the arrow is over it while it's tried
+	if (s.tapTrace) arrow = s.tapTrace.event;
 	var styles = getComputedStyle(document.body);
 	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
 	var done = styles.getPropertyValue("--success").trim() || "#16a34a";
