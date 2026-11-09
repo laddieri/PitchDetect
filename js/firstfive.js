@@ -3549,13 +3549,18 @@ function updateSongTools() {
 }
 
 // Try this note (a note tapped on Play it through): the mic on for it,
-// its pitch traced beside it (startTapTrace()); again, Stop puts that away
+// and what it hears shown on the note (startTryNote()); again, Stop puts
+// that away
 function songTryButton(s) {
-	var b = practiceButton(s.tapTrace ? "\u25a0 Stop" : "\ud83c\udfa4 Try this note", "secondary song-try", function() {
-		if (s.tapTrace) stopTapTrace();
-		else if (s.tapped !== null && s.tapped !== undefined) startTapTrace(s.events[s.tapped]);
-		drawSongLine(s.pos);
-		updateSongTools();
+	var b = practiceButton(s.tryNote ? "\u25a0 Stop" : "\ud83c\udfa4 Try this note", "secondary song-try", function() {
+		if (s.tryNote) stopTryNote();
+		else if (s.tapped !== null && s.tapped !== undefined) startTryNote(s.events[s.tapped]);
+		// (the prompt back, before a run; a score keeps its own)
+		if (!s.done && !s.tryNote) showSongSelection();
+		else {
+			drawSongLine(s.pos);
+			updateSongTools();
+		}
 	});
 	return b;
 }
@@ -4376,20 +4381,16 @@ function showSongHelp() {
 
 // Mic frames during a song (see updatePracticeListen)
 function updateSongListen(now, freq, level) {
-	// A note tapped: the mic is for it, shown on its trace, until a run
-	// starts (its fingering stays up): then the run has the mic
-	if (practice.song.tapTrace) {
+	// A note being tried: the mic is for it until a run starts (its
+	// fingering stays up): then the run has the mic
+	if (practice.song.tryNote) {
 		var s = practice.song;
-		if (s.free && (s.follow.listening || s.along || s.check)) {
-			s.tapTrace = null;
-			s.tapMuted = null;
-			pitchTrace = null;
-			tapTraceStartedMic = false;
+		if (s.follow.listening || s.along || s.check) {
+			s.tryNote = null;
+			tryNoteStartedMic = false;
 			drawSongLine(s.pos);
-		} else if (pitchTrace && pitchTrace.tap && pitchTraceActive()) {
-			var diff = freq ? 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition() - pitchTrace.target : null;
-			pushPitchTrace(now, diff);
-			tapTraceHold(s.tapTrace, now, diff);
+		} else {
+			updateTryNote(now, freq);
 			practice.lastFrame = null;
 			return;
 		}
@@ -4557,7 +4558,7 @@ function songLineOf(pos) {
 function drawSongLine(pos) {
 	var s = practice.song;
 	if (s.free) {
-		withTapTrace(function() { drawSongFree(pos); });
+		drawSongFree(pos);
 		return;
 	}
 	var hl = pos < s.notes.length ? s.notes[pos].event : s.events.length;
@@ -4583,7 +4584,16 @@ function drawSongFree(pos) {
 	// (selected: a note tapped, the note to start from, a part picked)
 	var tapped = styles.getPropertyValue("--here").trim() || "#4f46e5";
 	var at = Math.min(pos, s.notes.length - 1);
-	var ghost = songTappedGhost(s);
+	// A note being tried: what's heard for it, in place of its score's
+	var trying = s.tryNote, live = trying ? trying.state : null;
+	var ghost = trying ? trying.ghost : songTappedGhost(s);
+	var shown = s.done ? marks : null;
+	if (trying) {
+		shown = {};
+		if (s.done) Object.keys(marks).forEach(function(k) { shown[k] = marks[k]; });
+		if (live === "low" || live === "high" || live === "octave") shown[trying.event] = live;
+		else delete shown[trying.event];
+	}
 	// Before a run: the note it starts from, or the part picked, in the accent color
 	var part = !s.done ? s.part : null;
 	var start = !s.done && !part && s.startNote !== null ? tieStart(s.events, s.startNote) : null;
@@ -4592,11 +4602,12 @@ function drawSongFree(pos) {
 	var runEnd = songRunEnd(s) < s.notes.length ? s.notes[songRunEnd(s)].event : s.events.length;
 	s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		s.done || pos === 0 ? (part ? Math.floor(part.a / SONG_MEASURES_PER_LINE) : -1) : songLineOf(at), s.measures,
-		{ end: true, whole: true, ahead: true, marks: s.done ? marks : null, ghost: ghost, ghostAt: ghost === null ? null : s.tapped,
-			// (a note tapped to try: the arrow note by note has, over it)
-			arrow: s.tapTrace ? s.tapTrace.event : null },
+		{ end: true, whole: true, ahead: true, marks: shown, ghost: ghost, ghostAt: ghost === null ? null : s.tapped,
+			// (a note being tried: the arrow note by note has, over it,
+			// unless a word is there)
+			arrow: trying && !(shown && shown[trying.event]) ? trying.event : null },
 		function(i) {
-			if (s.tapMuted && s.tapMuted[i]) return TAP_TRACE_MUTED;
+			if (live && i === trying.event) return live === "right" ? good : live === "wrong" ? bad : off;
 			if (runFrom !== null && (i < runFrom || i >= runEnd)) return SONG_OUTSIDE_RUN;
 			var r = byEvent[i];
 			if (marks[i]) return off;
@@ -4613,13 +4624,7 @@ function drawSongFree(pos) {
 // Draw the line holding event hl (a note or rest; past the end = the last
 // line, all played), events before it green; arrow: an event to point at
 function drawSongEvent(hl, arrow, ghost) {
-	withTapTrace(function() { drawSongEventOnce(hl, arrow, ghost); });
-}
-
-function drawSongEventOnce(hl, arrow, ghost) {
 	var s = practice.song;
-	// A note tapped to try: the arrow is over it while it's tried
-	if (s.tapTrace) arrow = s.tapTrace.event;
 	var styles = getComputedStyle(document.body);
 	// You are here (and a note tapped): not the orange of a note nearly right
 	var here = styles.getPropertyValue("--here").trim() || "#4f46e5";
@@ -4639,7 +4644,6 @@ function drawSongEventOnce(hl, arrow, ghost) {
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
 		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null, whole: !!s.free, ahead: true },
 		function(i) {
-			if (s.tapMuted && s.tapMuted[i]) return TAP_TRACE_MUTED;
 			if (inPart && (i < inPart.start || i >= inPart.end)) return muted;
 			if (i === hl || i === s.tapped) return here;
 			if (marks[i]) return off;  // out of tune, an octave off, early or late
@@ -4997,7 +5001,7 @@ function renderSongLine(out, song, events, line, measures, opts, color) {
 			result.endX = stave.getNoteEndX();
 			tickables.forEach(function(t, k) {
 				result.xs[indexes[k]] = t.getAbsoluteX() + t.getGlyphWidth() / 2;
-				// (a note's head, for a tapped note's pitch trace)
+				// (a note's head: where a note is on the page)
 				if (!t.isRest()) result.heads[indexes[k]] = { x: t.getAbsoluteX(), w: t.getGlyphWidth(), y: t.getYs()[0] };
 				if (opts.marks && opts.marks[indexes[k]]) {
 					var mbox = t.getBoundingBox();
@@ -5825,6 +5829,12 @@ function showSongResultKey(s) {
 		var r = s.results[j];
 		said.setAttribute("data-kind", !r ? "" : !heard ? "right" : r === "wrong" || r === "missed" ? "wrong" : "off");
 		said.textContent = songNoteName(s.events[s.notes[j].event]) + (heard ? ": " + heard : "");
+		// (being tried: what it sounds like now)
+		if (s.tryNote) {
+			var now = tryNoteText(s);
+			said.setAttribute("data-kind", now[2] === "good" ? "right" : now[2] === "close" ? "off" : now[2] === "off" ? "wrong" : "");
+			said.textContent = now[0];
+		}
 		tools.appendChild(said);
 		tools.appendChild(songTryButton(s));
 		return;
@@ -6360,7 +6370,7 @@ function showSongFingerings(events) {
 
 // Put away the play-along fingering and bring back any Help chart
 function removeSongFingerings() {
-	stopTapTrace();
+	stopTryNote();
 	document.getElementById("practice-view").removeAttribute("data-song-charts");
 	var wrap = document.getElementById("song-fingering");
 	if (!wrap) return;
@@ -6474,116 +6484,130 @@ function revealTappedNote() {
 // How far from a note's center a tap still picks it (SVG units)
 var SONG_TAP_REACH = 28;
 
-// A tapped note's pitch trace, as in the lessons, on the song's staff:
-// the mic turns on, and the pitch played is drawn flowing right from the
-// note (or, near the end of its line, toward it from the left), with the
-// brass partial ladder, so the student can try the note and see how close
-// they are. Notes under the trace are faded so it reads. Note by note stops
-// waiting on the song meanwhile (updateSongListen()). It goes with the
+// Try this note (a note tapped on Play it through, or on its score): the
+// mic turns on for it and says what it hears in the score's own words and
+// colors: the note green when it's right, orange with "low" / "high" (or
+// "octave") over it when it's nearly right, red with a gray ghost of the
+// note played beside it when it's another note (s.tryNote: { event, midi,
+// state (heardAs()), ghost }, drawn by drawSongFree()). It goes with the
 // fingering (removeSongFingerings()), and the mic with it, if this turned
-// it on. Drawn by withTapTrace() as the song is drawn.
-var tapTraceStartedMic = false;
-var TAP_TRACE_SPAN = 100;  // staff units the trace takes, at most (the ladder's 36 included)
-var TAP_TRACE_MIN = 80;    // less room than this right of the note: it goes left
-var TAP_TRACE_MUTED = "rgba(100, 116, 139, 0.25)";
-function startTapTrace(e) {
+// it on.
+var tryNoteStartedMic = false;
+function startTryNote(e) {
 	var s = practice.song;
-	// Note by note: what it said about the note it's waiting on (and its
-	// ghost) goes, and that note's hold starts over afterwards
-	if (!s.free) resetPracticeHold();
-	s.tapTrace = { event: s.tapped, midi: e.midi };
-	pitchTrace = null;
-	if (s.free && !listenActive && !listenStarting) {
-		tapTraceStartedMic = true;
+	s.tryNote = { event: s.tapped, midi: e.midi, state: null, ghost: null, shown: "", cand: "", frames: 0, lastSound: 0 };
+	if (!listenActive && !listenStarting) {
+		tryNoteStartedMic = true;
 		songMicOn();
 	}
-	if (!s.free) setPracticeFeedback("Try " + songNoteName(e) + "!", "The line shows how close you are");
+	sayTryNote(s);
 }
 
-// A tapped note held in tune as long as a lesson's (PRACTICE_HOLD_MS, gaps
-// under PRACTICE_GAP_MS forgiven) is celebrated as the lessons do: fireworks
-// and a chime. Once per time it's played: it has to stop (or go off) first.
-function tapTraceHold(t, now, diff) {
+// A mic frame for the note being tried. What's heard shows once it has
+// lasted PRACTICE_HINT_FRAMES, and goes after PRACTICE_GHOST_CLEAR_MS of
+// silence, so the staff doesn't flicker. Held right as long as a lesson's
+// note (PRACTICE_HOLD_MS, gaps under PRACTICE_GAP_MS forgiven) it gets
+// fireworks and a chime, once per time it's played.
+function updateTryNote(now, freq) {
+	var s = practice.song, t = s.tryNote;
 	var dt = t.lastFrame ? Math.max(0, Math.min(now - t.lastFrame, 100)) : 0;
 	t.lastFrame = now;
-	if (diff !== null && Math.abs(diff) * 100 <= PRACTICE_PASS_CENTS) {
+	var state = null, ghost = null;
+	if (freq) {
+		var played = 69 + 12 * Math.log(freq / 440) / Math.LN2 + getTransposition();
+		state = heardAs(played, t.midi);
+		// (squeaks past an octave would only clutter the staff)
+		if ((state === "wrong" || state === "octave") && Math.abs(played - t.midi) < 12.5) ghost = Math.round(played);
+		t.lastSound = now;
+		var key = state + ":" + (state === "wrong" ? Math.round(played) : state === "octave" ? (played > t.midi ? 1 : -1) : "");
+		t.frames = key === t.cand ? t.frames + 1 : 1;
+		t.cand = key;
+		if (t.frames >= PRACTICE_HINT_FRAMES && key !== t.shown) {
+			t.shown = key;
+			t.state = state;
+			t.ghost = ghost;
+			t.played = Math.round(played);
+			drawSongLine(s.pos);
+			sayTryNote(s);
+		}
+	} else {
+		t.cand = "";
+		t.frames = 0;
+		if (t.shown && now - t.lastSound > PRACTICE_GHOST_CLEAR_MS) {
+			t.shown = "";
+			t.state = t.ghost = null;
+			drawSongLine(s.pos);
+			sayTryNote(s);
+		}
+	}
+	if (state === "right") {
 		t.lastGood = now;
 		if (!t.done) t.holdMs = (t.holdMs || 0) + dt;
 	} else if (now - (t.lastGood || 0) > PRACTICE_GAP_MS) {
 		t.holdMs = 0;
-		t.done = false;
+		if (t.done) {
+			t.done = false;
+			sayTryNote(s);
+		}
 	}
 	if (!t.done && t.holdMs >= PRACTICE_HOLD_MS) {
 		t.done = true;
 		launchFireworks(document.getElementById("practice-stage"));
 		playChime();
+		sayTryNote(s);
 	}
 }
 
-// Where the trace goes on the line holding the tapped note: { r (the line's
-// layout), head, x0, endX (as setupPitchTrace() takes them) }, or null
-function tapTraceSpot(s) {
-	if (!s.tapTrace || !s.layouts) return null;
-	var i = s.tapTrace.event;
-	var key = Object.keys(s.layouts).find(function(l) { return s.layouts[l].heads && s.layouts[l].heads[i]; });
-	if (key === undefined) return null;
-	var r = s.layouts[key], head = r.heads[i];
-	var right = head.x + head.w + 6;
-	if (r.endX - right >= TAP_TRACE_MIN || r.endX - right >= head.x - 14 - r.startX) {
-		return { r: r, head: head, x0: right, endX: Math.min(r.endX, right + TAP_TRACE_SPAN) };
+// What the note being tried sounds like, in words: [main, sub, kind]
+function tryNoteText(s) {
+	var t = s.tryNote, name = songNoteName(s.events[t.event]);
+	if (t.done) return ["You got it!", "That’s " + name, "good"];
+	if (t.state === "right") return ["That’s " + name + "!", "Hold it…", "good"];
+	if (t.state === "low") return ["A bit low", "Push the pitch up a bit", "close"];
+	if (t.state === "high") return ["A bit high", "Relax the pitch down a bit", "close"];
+	if (t.state === "octave") {
+		return t.played > t.midi ? ["An octave too high", "Try the lower " + name, "off"]
+			: ["An octave too low", "Try the higher " + name, "off"];
 	}
-	// (left of the note, clear of its accidental)
-	return { r: r, head: head, x0: Math.max(r.startX, head.x - 14 - TAP_TRACE_SPAN), endX: head.x - 14 };
+	if (t.state === "wrong") {
+		// Brass on another partial of this fingering: the fingers are fine
+		var partials = brassPartials(t.midi);
+		var partial = partials && partials.some(function(n) { return Math.abs(n - t.played) < 0.5; });
+		var up = t.played > t.midi;
+		var sub = partial
+			? (practice.instrument === "trombone" ? "Right slide" : "Right fingers") + ", too " + (up ? "high" : "low") +
+				(up ? ". Relax your lips and use slower air." : ". Firm up your lips and use faster air.")
+			: practice.instrument === "trombone" ? "Check your slide"
+			: hasFingeringData(practice.instrument) ? "Check your fingering" : "Try again";
+		return ["You played " + practiceNoteName(t.played), sub, "off"];
+	}
+	return ["Try " + name + "!", "Play it and hold it", ""];
 }
 
-// Draw a song (draw()) with the tapped note's trace: the notes under it
-// faded (drawn again if they've changed), then the trace on top
-function withTapTrace(draw) {
-	draw();
-	var s = practice.song;
-	if (!s || !s.tapTrace) return;
-	var spot = tapTraceSpot(s);
-	var muted = {}, keys = [];
-	if (spot) {
-		Object.keys(spot.r.xs).forEach(function(k) {
-			var x = spot.r.xs[k];
-			if (+k !== s.tapTrace.event && x > spot.x0 - 8 && x < spot.endX + 8) {
-				muted[k] = true;
-				keys.push(k);
-			}
-		});
+// Say it: in the prompt before a run; on a score, which keeps its
+// prompt, in its row (showSongResultKey())
+function sayTryNote(s) {
+	if (s.done) {
+		showSongResultKey(s);
+		return;
 	}
-	var before = s.tapMuted ? Object.keys(s.tapMuted).join() : "";
-	if (keys.join() !== before) {
-		s.tapMuted = keys.length ? muted : null;
-		draw();
-		spot = tapTraceSpot(s);
-	}
-	if (!spot || !spot.r.svg) return;
-	var head = spot.head;
-	var note = {
-		getAbsoluteX: function() { return head.x; },
-		getGlyphWidth: function() { return head.w; },
-		getYs: function() { return [head.y]; }
-	};
-	setupPitchTrace(spot.r.svg, note, s.tapTrace.midi, spot.r.viewTop, spot.r.height, spot.endX, spot.x0);
-	pitchTrace.tap = true;
+	var text = tryNoteText(s);
+	setPracticeFeedback(text[0], text[1], text[2]);
 }
 
-// The tapped note's trace is put away: the mic too, unless a run (Listen to
+// The note being tried is put away: the mic too, unless a run (Listen to
 // me, Play along, the timing check) has it now. (Later, since those put the
 // fingering away just before they start.)
-function stopTapTrace() {
+function stopTryNote() {
 	var s = practice && practice.song;
-	if (!s || !s.tapTrace) return;
-	s.tapTrace = null;
-	s.tapMuted = null;
-	if (pitchTrace && pitchTrace.tap) pitchTrace = null;
-	if (!tapTraceStartedMic) return;
+	if (!s || !s.tryNote) return;
+	s.tryNote = null;
+	if (!tryNoteStartedMic) return;
 	setTimeout(function() {
-		if (!tapTraceStartedMic || (pitchTrace && pitchTrace.tap)) return;
-		tapTraceStartedMic = false;
+		if (!tryNoteStartedMic) return;
 		var s = practice && practice.mode === "song" ? practice.song : null;
+		if (s && s.tryNote) return;
+		tryNoteStartedMic = false;
 		if (!s || !s.free) return;
 		if (s.follow.listening || songPlayAlong || (s.along && !s.along.done) || (s.check && !s.check.done)) return;
 		songMicOff();
@@ -8690,7 +8714,7 @@ function setPracticeGhost(midi) {
 // shows plainly.
 var pitchTrace = null;
 
-function setupPitchTrace(svg, note, target, top, height, endX, x0) {
+function setupPitchTrace(svg, note, target, top, height, endX) {
 	var ns = "http://www.w3.org/2000/svg";
 	var headX = note.getAbsoluteX();
 	var headW = note.getGlyphWidth();
@@ -8717,9 +8741,7 @@ function setupPitchTrace(svg, note, target, top, height, endX, x0) {
 
 	var y = note.getYs()[0];
 	var bandH = PRACTICE_PASS_CENTS / 50 * PITCH_TRACE_FINE;
-	// (x0: where the trace starts, if not just right of the note: a song's
-	// tapped note, whose trace may be left of it)
-	if (x0 === undefined) x0 = headX + headW + 6;
+	var x0 = headX + headW + 6;
 	var bandL = Math.min(x0, headX) - 4, bandR = Math.max(endX, headX + headW + 4);
 	band.setAttribute("x", bandL);
 	band.setAttribute("width", bandR - bandL);
@@ -8795,8 +8817,6 @@ function setupPitchLadder(svg, g, partials) {
 
 function pitchTraceActive() {
 	if (!pitchTrace || !practice) return false;
-	// A note tapped on a song (startTapTrace())
-	if (pitchTrace.tap) return practice.mode === "song" && !!practice.song && practice.song.tapped !== null;
 	return practice.step === 3 && (practice.mode === "lesson" || practice.mode === "challenge");
 }
 

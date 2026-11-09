@@ -337,62 +337,90 @@ async function run() {
 			"Stop and score turns the mic off, and a tapped note shows its fingering (" + tapped.name + ")");
 		// ...without listening, until Try this note
 		await page.waitForTimeout(300);
-		check(await page.evaluate(function() { return !listenActive && !listenStarting && !pitchTrace && !practice.song.tapTrace; }),
+		check(await page.evaluate(function() { return !listenActive && !listenStarting && !practice.song.tryNote; }),
 			"a tapped note doesn't turn the mic on by itself");
 		await page.click(".song-tools .song-try");
-		// ...then it listens for it, tracing the pitch played beside it as
-		// the lessons do, with trumpet's partial ladder
+		// ...then it listens for it: the mic's A (trumpet's B) is another
+		// note, so the note turns red with a gray ghost of the B beside it,
+		// named in the score's row (this is a score, which keeps its
+		// prompt). No pitch trace on a song's staff.
 		await page.waitForFunction(function() {
-			return listenActive && pitchTrace && pitchTrace.points.length > 5;
+			return listenActive && practice.song.tryNote && practice.song.tryNote.state;
 		}, null, { timeout: 5000 }).catch(function() {});
-		var traced = await page.evaluate(function() {
-			var svg = document.querySelector("#practice-staff-output .pitch-trace");
-			svg = svg && svg.ownerSVGElement;
-			return { onStaff: !!svg, mic: listenActive, points: pitchTrace ? pitchTrace.points.length : 0,
-				line: svg ? Array.prototype.some.call(svg.querySelectorAll(".pitch-trace-line"), function(l) { return l.getAttribute("d"); }) : false,
-				rungs: svg ? svg.querySelectorAll(".pitch-ladder-rung").length : 0,
-				faded: Object.keys(practice.song.tapMuted || {}).length,
-				arrows: document.querySelectorAll("#practice-staff-output .song-arrow").length };
+		var tried = await page.evaluate(function() {
+			var out = document.getElementById("practice-staff-output");
+			return { mic: listenActive, state: practice.song.tryNote && practice.song.tryNote.state,
+				ghost: out.querySelectorAll(".vf-practice-ghost").length,
+				trace: out.querySelectorAll(".pitch-trace, .pitch-ladder-rung").length,
+				arrows: out.querySelectorAll(".song-arrow").length,
+				said: document.querySelector("#song-tools .song-heard").textContent,
+				stop: document.querySelector(".song-tools .song-try").textContent };
 		});
-		check(traced.onStaff && traced.mic && traced.points > 5 && traced.line && traced.rungs > 1 && traced.faded > 0 && traced.arrows === 1,
-			"Try this note listens and traces the pitch played on the song's staff, with the partial ladder (" + JSON.stringify(traced) + ")");
-		// Held in tune as long as a lesson's note, it's celebrated as the lessons
-		// do (fireworks and a chime), once until it stops
+		check(tried.mic && tried.state === "wrong" && tried.ghost === 1 && tried.trace === 0 && tried.arrows === 1 &&
+			/^You played B/.test(tried.said) && /Stop/.test(tried.stop),
+			"Try this note listens and shows a wrong note as a gray ghost beside it, named, with no pitch trace (" + JSON.stringify(tried) + ")");
+		// A bit low: orange with "low" over it and no ghost. Held in tune as
+		// long as a lesson's note: green, and celebrated as the lessons do
+		// (fireworks and a chime), once until it stops. Silence clears it.
 		var cheered = await page.evaluate(function() {
 			var fw = 0, chimes = 0, realFw = launchFireworks, realChime = playChime;
 			launchFireworks = function() { fw++; };
 			playChime = function() { chimes++; };
-			var t = performance.now() + 10000, freq = frequencyFromNoteNumber(practice.song.tapTrace.midi - getTransposition());
-			for (var k = 0; k < 120; k++) updatePracticeListen(t += 16, freq, 0.2);
-			var once = fw;
-			for (k = 0; k < 20; k++) updatePracticeListen(t += 16, null, 0.001);
+			var s = practice.song, out = document.getElementById("practice-staff-output");
+			var said = function() { return document.querySelector("#song-tools .song-heard").textContent; };
+			var marks = function() { return Array.prototype.map.call(out.querySelectorAll(".song-mark"), function(m) { return m.textContent; }).join(); };
+			var t = performance.now() + 10000, midi = s.tryNote.midi - getTransposition();
+			var freq = frequencyFromNoteNumber(midi), flat = freq * Math.pow(2, -60 / 1200);
+			for (var k = 0; k < 20; k++) updatePracticeListen(t += 16, flat, 0.2);
+			var low = { state: s.tryNote.state, marks: marks(), ghost: out.querySelectorAll(".vf-practice-ghost").length, said: said() };
+			for (k = 0; k < 120; k++) updatePracticeListen(t += 16, freq, 0.2);
+			var once = fw, right = { state: s.tryNote.state, marks: marks(), said: said() };
+			for (k = 0; k < 60; k++) updatePracticeListen(t += 16, null, 0.001);
+			var quiet = { state: s.tryNote.state, said: said() };
 			for (k = 0; k < 120; k++) updatePracticeListen(t += 16, freq, 0.2);
 			launchFireworks = realFw;
 			playChime = realChime;
-			return { once: once, fw: fw, chimes: chimes };
+			return { low: low, right: right, quiet: quiet, once: once, fw: fw, chimes: chimes };
 		});
+		check(cheered.low.state === "low" && cheered.low.marks === "low" && cheered.low.ghost === 0 && cheered.low.said === "A bit low" &&
+			cheered.right.state === "right" && cheered.right.marks === "" && cheered.right.said === "You got it!" &&
+			cheered.quiet.state === null && /^Try /.test(cheered.quiet.said),
+			"a note tried a bit low is marked low, in tune it's right, and silence clears it (" + JSON.stringify(cheered) + ")");
 		check(cheered.once === 1 && cheered.fw === 2 && cheered.chimes === 2,
-			"a tapped note held in tune gets fireworks and a chime, once each time it's played (" + JSON.stringify(cheered) + ")");
+			"a note tried and held in tune gets fireworks and a chime, once each time it's played (" + JSON.stringify(cheered) + ")");
 		// (On a desktop the chart goes beside the staff, which moves it)
 		spot = await page.evaluate(noteSpot);
 		await page.mouse.click(spot.x, spot.y);
 		check(await page.evaluate(function() { return !document.getElementById("song-fingering") && practice.song.tapped === null; }),
 			"tapping the note again puts its fingering away");
 		await page.waitForFunction(function() { return !listenActive && !listenStarting; }, null, { timeout: 3000 }).catch(function() {});
-		check(await page.evaluate(function() { return !listenActive && !pitchTrace; }), "putting the fingering away turns the mic off");
+		check(await page.evaluate(function() {
+			return !listenActive && !practice.song.tryNote;
+		}), "putting the fingering away turns the mic off");
 		// Play it with a note's fingering up (it stays): the run has the mic
 		await page.evaluate(function() { playThroughSong("mary"); });
 		spot = await page.evaluate(noteSpot);
 		await page.mouse.click(spot.x, spot.y);
 		await page.click(".song-tools .song-try");
+		// (before a run the words go in the prompt, and Stop brings it back)
+		var prompts = await page.evaluate(function() {
+			var said = function() { return document.getElementById("practice-feedback").textContent; };
+			var trying = said();
+			document.querySelector(".song-tools .song-try").click();
+			var stopped = said(), tapped = practice.song.tapped !== null;
+			document.querySelector(".song-tools .song-try").click();
+			return { trying: trying, stopped: stopped, tapped: tapped };
+		});
+		check(/^Try /.test(prompts.trying) && prompts.stopped === "Play it all the way through!" && prompts.tapped,
+			"before a run, Try this note takes over the prompt and Stop brings it back (" + JSON.stringify(prompts) + ")");
 		await page.click("#song-listen");
 		var heardOver = await page.waitForFunction(function() {
 			return practice.song.follow.heard.length > 0;
 		}, null, { timeout: 5000 }).then(function() { return true; }, function() { return false; });
 		check(heardOver && await page.evaluate(function() {
-			return !pitchTrace && !document.querySelector("#practice-staff-output .pitch-trace") &&
+			return !practice.song.tryNote && !document.querySelector("#practice-staff-output .vf-practice-ghost") &&
 				!document.querySelector("#practice-staff-output .song-arrow") && !!document.getElementById("song-fingering"); }),
-			"Play it with a tapped note's fingering up hears the run, not the trace");
+			"Play it with a tapped note's fingering up hears the run, not the note being tried");
 		await page.click("#song-listen");
 		await page.evaluate(function() { playThroughSong("mary"); });
 		await page.waitForFunction(function() { return !listenActive && !listenStarting; }, null, { timeout: 3000 }).catch(function() {});
@@ -812,7 +840,7 @@ async function run() {
 			var a = el && el.getBoundingClientRect(), b = chart && chart.getBoundingClientRect();
 			return { text: el ? el.textContent : "", ghost: !!document.querySelector("#practice-staff-output .vf-practice-ghost"),
 				clear: !!(a && b) && (a.top >= b.bottom || a.bottom <= b.top || a.left >= b.right || a.right <= b.left),
-				mic: !!s.tapTrace || tapTraceStartedMic,
+				mic: !!s.tryNote || tryNoteStartedMic,
 				want: "You played " + practiceNoteName(s.notes[3].midi + 2) };
 		});
 		check(heardTap.text.indexOf(heardTap.want) > 0 && heardTap.ghost && heardTap.clear && !heardTap.mic,
