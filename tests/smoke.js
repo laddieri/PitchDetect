@@ -306,7 +306,9 @@ async function run() {
 		var buttons = await page.evaluate(function() {
 			return Array.prototype.map.call(document.querySelectorAll("#practice-body .practice-actions > *"), function(b) { return b.id; }).join();
 		});
-		check(buttons === "song-hear,song-listen", "Play it through has just Hear it and Play it (got " + buttons + ")");
+		var hearSong = await page.evaluate(function() { return document.getElementById("song-hear").textContent; });
+		check(buttons === "song-hear,song-listen" && hearSong === "\u25b6 Hear the song",
+			"Play it through has just Hear the song and Play it (got " + buttons + ", " + hearSong + ")");
 		await page.click("#song-listen");
 		await page.waitForFunction(function() { return listenActive; }, null, { timeout: 5000 }).catch(function() {});
 		var listening = await page.evaluate(function() {
@@ -333,8 +335,13 @@ async function run() {
 		});
 		check(!spot.mic && tapped.tapped === spot.event && tapped.chart && tapped.name,
 			"Stop and score turns the mic off, and a tapped note shows its fingering (" + tapped.name + ")");
-		// ...and listens for it, tracing the pitch played beside it as the
-		// lessons do, with trumpet's partial ladder
+		// ...without listening, until Try this note
+		await page.waitForTimeout(300);
+		check(await page.evaluate(function() { return !listenActive && !listenStarting && !pitchTrace && !practice.song.tapTrace; }),
+			"a tapped note doesn't turn the mic on by itself");
+		await page.click(".song-tools .song-try");
+		// ...then it listens for it, tracing the pitch played beside it as
+		// the lessons do, with trumpet's partial ladder
 		await page.waitForFunction(function() {
 			return listenActive && pitchTrace && pitchTrace.points.length > 5;
 		}, null, { timeout: 5000 }).catch(function() {});
@@ -348,7 +355,7 @@ async function run() {
 				arrows: document.querySelectorAll("#practice-staff-output .song-arrow").length };
 		});
 		check(traced.onStaff && traced.mic && traced.points > 5 && traced.line && traced.rungs > 1 && traced.faded > 0 && traced.arrows === 1,
-			"a tapped note listens and traces the pitch played on the song's staff, with the partial ladder (" + JSON.stringify(traced) + ")");
+			"Try this note listens and traces the pitch played on the song's staff, with the partial ladder (" + JSON.stringify(traced) + ")");
 		// Held in tune as long as a lesson's note, it's celebrated as the lessons
 		// do (fireworks and a chime), once until it stops
 		var cheered = await page.evaluate(function() {
@@ -377,6 +384,7 @@ async function run() {
 		await page.evaluate(function() { playThroughSong("mary"); });
 		spot = await page.evaluate(noteSpot);
 		await page.mouse.click(spot.x, spot.y);
+		await page.click(".song-tools .song-try");
 		await page.click("#song-listen");
 		var heardOver = await page.waitForFunction(function() {
 			return practice.song.follow.heard.length > 0;
@@ -438,18 +446,40 @@ async function run() {
 			return { part: p ? p.a + "-" + p.b : null, label: document.getElementById("song-listen").textContent,
 				shaded: document.querySelectorAll("#practice-staff-output .song-pick-shade").length };
 		});
-		await page.click("#song-listen");
-		var practicing = await page.evaluate(function() {
-			var s = practice.song;
-			return { free: !!s.free, from: s.from || 0, to: s.to, measures: s.to !== undefined ? s.notes[s.to - 1].measure : null };
+		// It's played straight through (Listen to me), scored on just its
+		// notes, saving no best; Hear plays just it
+		var partRun = await page.evaluate(function() {
+			var s = practice.song, key = songBestKey(s.song), best = practice.songBest[key];
+			var hearLabel = document.getElementById("song-hear").textContent;
+			startSongRecord();
+			practice.ignoreUntil = 0;
+			var r = { free: !!s.free, from: s.runFrom, to: s.runTo, hear: hearLabel,
+				want: songPartNotes(s), sub: document.getElementById("practice-feedback-sub").textContent };
+			var t = performance.now();
+			for (var j = r.from; j < r.to; j++) {
+				var freq = frequencyFromNoteNumber(s.notes[j].midi - getTransposition());
+				for (var k = 0; k < 10; k++) updateFollowListen(t += 16, freq, 0.2);
+				for (k = 0; k < 6; k++) updateFollowListen(t += 16, null, 0.001);
+			}
+			if (!s.done) finishFollow();
+			r.done = s.done;
+			r.main = document.getElementById("practice-feedback").textContent;
+			r.outside = s.results.slice(r.to).every(function(x) { return x === null; });
+			r.sameBest = practice.songBest[key] === best;
+			r.step = Array.prototype.some.call(document.querySelectorAll("#practice-body .practice-actions button"),
+				function(b) { return /Step through it/.test(b.textContent); });
+			return r;
 		});
-		check(picked.part === "0-1" && picked.shaded === 2 && /Practice it/.test(picked.label) &&
-			!practicing.free && practicing.from === 0 && practicing.measures === 1,
-			"sliding across measures picks a part, and Play it practices it note by note (got " + JSON.stringify(picked) + ", " + JSON.stringify(practicing) + ")");
+		check(picked.part === "0-1" && picked.shaded === 2 && picked.label === "\ud83c\udfa4 Play measures 1\u20132" &&
+			partRun.free && partRun.from === partRun.want.from && partRun.to === partRun.want.to && partRun.hear === "\u25b6 Hear measures 1\u20132" &&
+			partRun.done && partRun.main === "Perfect! \u2605\u2605\u2605" && partRun.outside && partRun.sameBest && partRun.step,
+			"sliding across measures picks a part, and Play it plays it straight through, scoring just it (got " +
+			JSON.stringify(picked) + ", " + JSON.stringify(partRun) + ")");
+		await page.evaluate(function() { closeLevelUp(); });
 		// Practice a part: taps on the first and last measures pick it, and
 		// its \u2715 puts it away
 		await page.evaluate(function() { playThroughSong("mary"); });
-		await page.click(".song-tools >> text=Practice a part");
+		await page.click(".song-tools >> text=Pick a part");
 		await page.waitForTimeout(400);  // (a tap just after the slide above isn't one)
 		var waiting = await page.evaluate(function() { return document.getElementById("song-listen").disabled; });
 		await page.mouse.click(slide.bx, slide.by);
@@ -462,11 +492,11 @@ async function run() {
 		await page.click(".song-tool-chip-x");
 		check(waiting && tappedPart.part === "0-1" && !tappedPart.fingering && tappedPart.listen &&
 			await page.evaluate(function() { return !practice.song.part && !practice.song.picking; }),
-			"Practice a part picks measures by tapping, and its \u2715 puts the part away (got " + JSON.stringify(tappedPart) + ")");
+			"Pick a part picks measures by tapping, and its \u2715 puts the part away (got " + JSON.stringify(tappedPart) + ")");
 		await page.evaluate(function() { playThroughSong("mary"); });
 		// Play along is a tool under the song: it offers the speeds, the one
 		// picked turns Play it into Play along, and its \u2715 goes back
-		await page.click(".song-tools >> text=Play along");
+		await page.click(".song-tools >> text=Play with piano");
 		await page.click(".song-tools .speed-choice >> text=Walk");
 		var along = await page.evaluate(function() {
 			return { speed: songSpeed, label: document.getElementById("song-listen").textContent,
@@ -474,8 +504,27 @@ async function run() {
 		});
 		await page.click(".song-tool-chip-x");
 		var mine = await page.evaluate(function() { return songSpeed + " " + document.getElementById("song-listen").textContent; });
-		check(along.speed === "walk" && /Play along/.test(along.label) && /Walk speed/.test(along.chip) && /^mine .*Play it$/.test(mine),
-			"Play along's tool picks a speed for Play it, and its \u2715 goes back (got " + JSON.stringify(along) + ", " + mine + ")");
+		check(along.speed === "walk" && /Play it with piano$/.test(along.label) && /Walk speed/.test(along.chip) && /^mine .*Play it$/.test(mine),
+			"Play with piano's tool picks a speed for Play it, and its \u2715 goes back (got " + JSON.stringify(along) + ", " + mine + ")");
+		// A part and the piano together: Play it plays the part along with
+		// the piano, just its measures
+		var partAlong = await page.evaluate(function() {
+			var s = practice.song, real = playSongEvents, played = null;
+			songSpeed = "walk";
+			s.part = { a: 1, b: 1 };
+			s.picking = true;
+			showSongSelection();
+			var label = document.getElementById("song-listen").textContent;
+			playSongEvents = function(events) { played = events; };
+			countInAlong(s, { speed: ALONG_SPEEDS[1], times: [], clicks: [], quiet: [], rise: [] }, 1, 4);
+			playSongEvents = real;
+			var span = songPartEvents(s, s.part);
+			songSpeed = "mine";
+			stopSongPicking();
+			return { label: label, ok: played && played.length === span.end - span.start && played[0] === s.events[span.start] };
+		});
+		check(/Play measure 2 with piano$/.test(partAlong.label) && partAlong.ok,
+			"a part picked plays along with the piano, just its measures (got " + JSON.stringify(partAlong) + ")");
 		await page.click(".song-settings-toggle");
 		check(await page.evaluate(function() {
 			var text = document.querySelector(".song-settings-panel").textContent;
@@ -534,9 +583,31 @@ async function run() {
 			"Hear the song's notes sound with the metronome's clicks (" + together.n + " beats, " + together.worst + " ms apart at most)");
 		check(together.switched, "the piano and metronome switch on and off mid-song");
 		await page.keyboard.press("Escape");
-		await page.click(".song-tools >> text=Note by note");
-		check(await page.evaluate(function() { return practice.mode === "song" && !practice.song.free; }),
-			"Play it through's Note by note button opens note by note");
+		// Step through it (note by note) is offered with a part picked
+		var noStep = await page.evaluate(function() { return !!document.querySelector(".song-tools") &&
+			!/Step through|Note by note/.test(document.querySelector(".song-tools").textContent); });
+		async function pickPart() {
+			await page.evaluate(function() {
+				practice.song.part = { a: 0, b: 1 };
+				practice.song.picking = true;
+				showSongSelection();
+			});
+		}
+		await pickPart();
+		await page.click(".song-tools >> text=Step through it");
+		check(noStep && await page.evaluate(function() { return practice.mode === "song" && !practice.song.free && practice.song.to !== undefined; }),
+			"Step through it is offered for a part picked, not as a tool of its own, and steps through the part");
+		// "Hear the song" is the song (or part), "Hear the note" one note
+		var hears = await page.evaluate(function() {
+			var song = document.getElementById("song-hear").textContent;
+			showSongHelp();
+			var note = document.getElementById("song-help").textContent;
+			stopSongPlayback();
+			stopNote();
+			return { song: song, note: note };
+		});
+		check(hears.song === "\u25b6 Hear measures 1\u20132" && hears.note === "\u25b6 Hear the note",
+			"Hear names what it plays: the part, or the note in Help (got " + JSON.stringify(hears) + ")");
 		// Its breadcrumbs name it under the song, and the back arrow, the
 		// browser's back and \u2190 Whole song all return to the whole song
 		var nbn = await page.evaluate(function() {
@@ -545,14 +616,15 @@ async function run() {
 		});
 		await page.click("#practice-close");
 		var backArrow = await page.evaluate(function() { return practice.mode === "song" && practice.song.free; });
-		await page.click(".song-tools >> text=Note by note");
+		await page.click(".song-tools >> text=Step through it");
 		await page.goBack();
 		await page.waitForFunction(function() { return practice.song.free; }, null, { timeout: 3000 }).catch(function() {});
 		var browserBack = await page.evaluate(function() { return practice.mode === "song" && practice.song.free && history.state.depth; });
-		await page.click(".song-tools >> text=Note by note");
+		await pickPart();
+		await page.click(".song-tools >> text=Step through it");
 		await page.click("#practice-body >> text=Whole song");
 		var wholeSong = await page.evaluate(function() { return practice.mode === "song" && practice.song.free; });
-		check(/> Note by note$/.test(nbn.crumbs) && backArrow && browserBack === nbn.depth - 1 && wholeSong,
+		check(/> Step through it$/.test(nbn.crumbs) && backArrow && browserBack === nbn.depth - 1 && wholeSong,
 			"back from note by note returns to the whole song (got " + nbn.crumbs + ", " + [backArrow, browserBack, wholeSong] + ")");
 
 		// Play along scores each note in time, over the piano: a note no
@@ -663,7 +735,7 @@ async function run() {
 			practice.ignoreUntil = 0;
 			var s = practice.song, t = performance.now();
 			s.notes.forEach(function(n, j) {
-				var midi = n.midi + (j === 1 ? -0.6 : j === 3 ? 2 : 0);
+				var midi = n.midi + (j === 1 ? -0.6 : j === 3 ? 2 : j === 6 ? 12 : 0);
 				var freq = frequencyFromNoteNumber(midi - getTransposition());
 				for (var k = 0; k < 10; k++) updateFollowListen(t += 16, freq, 0.2);
 				for (k = 0; k < 6; k++) updateFollowListen(t += 16, null, 0.001);
@@ -682,10 +754,11 @@ async function run() {
 				marks: Array.prototype.map.call(document.querySelectorAll("#practice-staff-output .song-mark"), function(t) { return t.textContent; }),
 				sub: document.getElementById("practice-feedback-sub").textContent };
 		});
-		check(heardRun.results[1] === "low" && heardRun.results[3] === "wrong" && heardRun.marks.join() === "low" &&
-			heardRun.results.filter(function(r) { return r === "right"; }).length === heardRun.results.length - 2 &&
-			/1 a bit low/.test(heardRun.sub),
-			"Play it through marks a note played out of tune low, not missed (got " + heardRun.sub + ")");
+		check(heardRun.results[1] === "low" && heardRun.results[3] === "wrong" && heardRun.results[6] === "octave" &&
+			heardRun.marks.join() === "low,octave" &&
+			heardRun.results.filter(function(r) { return r === "right"; }).length === heardRun.results.length - 3 &&
+			/1 a bit low/.test(heardRun.sub) && /1 in the wrong octave/.test(heardRun.sub),
+			"Play it through marks a note played out of tune low, and one an octave off, not missed (got " + heardRun.sub + ")");
 		// The score says everything found, what the colors mean, and picks
 		// the trouble spot (shaded) as the main button
 		var result = await page.evaluate(function() {
@@ -711,19 +784,22 @@ async function run() {
 			var a = el && el.getBoundingClientRect(), b = chart && chart.getBoundingClientRect();
 			return { text: el ? el.textContent : "", ghost: !!document.querySelector("#practice-staff-output .vf-practice-ghost"),
 				clear: !!(a && b) && (a.top >= b.bottom || a.bottom <= b.top || a.left >= b.right || a.right <= b.left),
+				mic: !!s.tapTrace || tapTraceStartedMic,
 				want: "You played " + practiceNoteName(s.notes[3].midi + 2) };
 		});
-		check(heardTap.text.indexOf(heardTap.want) > 0 && heardTap.ghost && heardTap.clear,
-			"a tapped wrong note shows what was played, clear of its chart (got " + JSON.stringify(heardTap) + ")");
+		check(heardTap.text.indexOf(heardTap.want) > 0 && heardTap.ghost && heardTap.clear && !heardTap.mic,
+			"a tapped wrong note shows what was played, clear of its chart, without starting the mic (got " + JSON.stringify(heardTap) + ")");
 		// Its trouble spot's button opens that part, picked
 		await page.click("#song-fingering .song-fingering-close");
 		await page.click("#practice-body .song-trouble-button");
 		var opened = await page.evaluate(function() {
 			var s = practice.song;
-			return { free: s.free, part: s.part, done: s.done };
+			return { free: s.free, part: s.part, done: s.done, label: document.getElementById("song-listen").textContent,
+				step: /Step through it/.test(document.getElementById("song-tools").textContent) };
 		});
-		check(opened.free && !opened.done && opened.part && opened.part.a === result.wrongIn && opened.part.b === result.wrongIn,
-			"the trickiest part's button opens that part on Play it through (got " + JSON.stringify(opened) + ")");
+		check(opened.free && !opened.done && opened.part && opened.part.a === result.wrongIn && opened.part.b === result.wrongIn &&
+			new RegExp("Play measure " + (result.wrongIn + 1) + "( with piano)?$").test(opened.label) && opened.step,
+			"the trickiest part's button opens that part, to play straight through or step through (got " + JSON.stringify(opened) + ")");
 
 		// A run stopped partway counts only the notes reached and saves
 		// nothing: no best, no stars, no XP, no badge
@@ -918,6 +994,7 @@ async function run() {
 			startDrill("names3");
 			practice.challenge.score = DRILL_STAR_GOAL;
 			finishDrill();
+			closeLevelUp();  // (the XP may have leveled up)
 		});
 		var nextStep = await page.textContent(".path-next").catch(function() { return ""; });
 		await page.click(".path-next");
@@ -988,6 +1065,38 @@ async function run() {
 		}, lastSpot.event);
 		check(inSight.tapped && inSight.ok, "on a phone, a song's tapped last note stays in sight above its chart (" + JSON.stringify(inSight) + ")");
 		await page.evaluate(function() { closeSongFingering(); });
+		// On a phone, a score's row (trickiest part and color key, or a
+		// tapped note's what-was-heard) keeps its height, so nothing moves
+		var rowSpot = await page.evaluate(function() {
+			playThroughSong("auclair");
+			startFollow();
+			practice.ignoreUntil = 0;
+			var s = practice.song, t = performance.now();
+			s.notes.forEach(function(n, j) {
+				var freq = frequencyFromNoteNumber(n.midi + (j === 3 ? 2 : 0) - getTransposition());
+				for (var k = 0; k < 10; k++) updateFollowListen(t += 16, freq, 0.2);
+				for (k = 0; k < 6; k++) updateFollowListen(t += 16, null, 0.001);
+			});
+			if (!s.done) finishFollow();
+			closeLevelUp();
+			var i = s.notes[3].event;
+			var key = Object.keys(s.layouts).find(function(l) { return s.layouts[l].xs[i] !== undefined; });
+			var r = s.layouts[key], pt = r.svg.createSVGPoint();
+			pt.x = r.xs[i];
+			pt.y = r.heads[i].y;
+			var p = pt.matrixTransform(r.svg.getScreenCTM());
+			return { x: p.x, y: p.y, h: document.getElementById("song-tools").getBoundingClientRect().height,
+				lines: document.querySelector("#song-tools .song-legend") ? 1 : 0,
+				buttons: document.querySelector("#practice-body .practice-actions").getBoundingClientRect().top };
+		});
+		await page.mouse.click(rowSpot.x, rowSpot.y);
+		var rowAfter = await page.evaluate(function() {
+			return { h: document.getElementById("song-tools").getBoundingClientRect().height,
+				heard: !!document.querySelector("#song-tools .song-heard"),
+				buttons: document.querySelector("#practice-body .practice-actions").getBoundingClientRect().top };
+		});
+		check(rowSpot.lines && rowAfter.heard && Math.abs(rowAfter.h - rowSpot.h) < 1 && Math.abs(rowAfter.buttons - rowSpot.buttons) < 1,
+			"on a phone, a score's row keeps its height when a note is tapped (" + JSON.stringify([rowSpot, rowAfter]) + ")");
 		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
 		await context.close();
 

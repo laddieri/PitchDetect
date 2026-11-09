@@ -1064,7 +1064,7 @@ function practiceCrumbs() {
 		var song = findSong(practice.song.id);
 		var free = practice.song.free;
 		crumbs.push({ label: song ? songTitle(song) : "Song", go: free ? null : songNoteByNoteBack });
-		if (!free) crumbs.push({ label: "Note by note" });
+		if (!free) crumbs.push({ label: "Step through it" });
 	} else if (practice.mode === "editor") {
 		crumbs.push({ label: "Write a song" });
 	}
@@ -2980,9 +2980,9 @@ MORE_SCALES.forEach(function(scale) {
 });
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
-// Play along's button names its speed (picked in the song's settings)
+// Play along's name, with its speed (picked with the tool under the song)
 function playAlongLabel(speed) {
-	return (speed || ALONG_SPEEDS[alongSpeedIndex()]).icon + " Play along";
+	return (speed || ALONG_SPEEDS[alongSpeedIndex()]).icon + " Play with piano";
 }
 var songLevelsOpen = {};   // song list levels shown open, by level id
 
@@ -3316,8 +3316,8 @@ function buildSongList() {
 	return list;
 }
 
-// from: start partway (Practice the red notes), notes before it counted done;
-// to: stop before note to (Pick a part: just the measures picked)
+// Step through it (note by note). from / to: just the notes of a part
+// picked (to past the last), the notes before it counted done
 function startSong(id, from, to) {
 	stopSongPlayback();
 	clearTimeout(practiceAdvanceTimer);
@@ -3375,8 +3375,8 @@ function songNoteByNoteBack() {
 // on each note, so a student who has played it perfectly can play it
 // smoothly. The mic follows along (updateFollowListen): notes played right
 // turn green as they go, and mistakes show only at the end. Its two
-// buttons, Hear it and Play it, start from a note picked with Start here
-// (startNote) or play a part picked with Practice a part (part: { a, b }
+// buttons, Hear the song and Play it, start from a note picked with Start here
+// (startNote) or play a part picked with Pick a part (part: { a, b }
 // measures, to start with; picking while it's being chosen).
 function playThroughSong(id, part) {
 	stopSongPlayback();
@@ -3420,6 +3420,7 @@ function resetFollow() {
 	s.done = false;
 	s.trouble = null;
 	s.runFrom = 0;
+	s.runTo = null;
 	removeSongFingerings();
 	s.tapped = null;
 
@@ -3446,7 +3447,7 @@ function resetFollow() {
 }
 
 // Play it through's two buttons, tools and prompt for what's selected: a
-// part (Hear it plays it, Play it practices it note by note), a note (both
+// part (Hear plays it, Play it plays it straight through), a note (both
 // start there) or nothing (the whole song)
 function showSongSelection() {
 	var s = practice.song;
@@ -3458,7 +3459,7 @@ function showSongSelection() {
 	} else if (s.part) {
 		setPracticeFeedback("There are only rests there", "Tap a measure with notes in it", "close");
 	} else if (s.picking) {
-		setPracticeFeedback("Which part do you want to practice?", "Tap its first measure, then its last");
+		setPracticeFeedback("Which part do you want to play?", "Tap its first measure, then its last");
 	} else if (s.choosingSpeed) {
 		setPracticeFeedback("How fast?", "The piano plays along with you \u00b7 faster speeds open as you play");
 	} else if (songStartNote(s) > 0) {
@@ -3473,10 +3474,14 @@ function showSongSelection() {
 	drawSongLine(s.pos);
 }
 
-// Play it through's tools, between the prompt and Hear it / Play it: Note
-// by note and Practice a part, or what's picked (a note to start from, a
-// part) with an \u2715 to put it away, and Start here for a note tapped.
-// Disabled while the song plays or the mic follows (songSelectable()).
+// Play it through's tools, between the prompt and Hear the song / Play
+// it: Pick a part and Play with piano (options of the same run: either,
+// both or neither), or what's picked (a part, a speed, a note to start
+// from) as a chip with an \u2715 to put it away; Step through it beside a
+// part (note by note, for when it's too hard to play straight through);
+// Start here and Try this note for a note tapped. Disabled while the song
+// plays or the mic follows (songSelectable()). On a score: its row
+// (showSongResultKey()).
 function updateSongTools() {
 	var s = practice.song;
 	var tools = document.getElementById("song-tools");
@@ -3485,12 +3490,10 @@ function updateSongTools() {
 		showSongResultKey(s);
 		return;
 	}
+	tools.removeAttribute("data-result");
 	tools.innerHTML = "";
-	var tapped = s.tapped !== null && s.tapped !== undefined && !s.done && !s.picking;
-	if (s.picking) {
-		if (s.part) tools.appendChild(songToolChip(partLabel(s.part, true), "Stop practicing a part", stopSongPicking));
-		else tools.appendChild(practiceButton("Cancel", "secondary", stopSongPicking));
-	} else if (s.choosingSpeed) {
+	var tapped = s.tapped !== null && s.tapped !== undefined && !s.picking;
+	if (s.choosingSpeed) {
 		var row = alongSpeedPicker();
 		tools.appendChild(row);
 		updateSpeedChoices(row);
@@ -3498,41 +3501,63 @@ function updateSongTools() {
 			s.choosingSpeed = false;
 			showSongSelection();
 		}));
-	} else {
-		if (tapped && s.tapped !== s.startNote) {
+	} else if (s.picking && !s.part) {
+		tools.appendChild(practiceButton("Cancel", "secondary", stopSongPicking));
+	} else if (tapped) {
+		if (s.tapped !== s.startNote) {
 			tools.appendChild(practiceButton("\u25b6 Start here", "secondary", songStartHere));
 		}
-		if (songStartNote(s) > 0) {
+		tools.appendChild(songTryButton(s));
+	} else {
+		if (s.part) {
+			tools.appendChild(songToolChip(partLabel(s.part, true), "Play the whole song", stopSongPicking));
+		} else if (songStartNote(s) > 0) {
 			var start = s.events[tieStart(s.events, s.startNote)];
 			tools.appendChild(songToolChip("From the " + songNoteName(start) + " in measure " + (start.measure + 1),
 				"Start from the beginning", function() {
 					s.startNote = null;
 					showSongSelection();
 				}));
-		} else if (!tapped) {
-			tools.appendChild(practiceButton("\ud83d\udc63 Note by note", "secondary", function() { startSong(s.id); }));
-			tools.appendChild(practiceButton("\u2702\ufe0f Practice a part", "secondary", startSongPicking));
-			if (songOwnSpeed()) {
-				tools.appendChild(practiceButton("\ud83c\udfb9 Play along", "secondary", function() {
-					removeSongFingerings();
-					s.tapped = null;
-					s.choosingSpeed = true;
-					showSongSelection();
-				}));
-			}
+		} else {
+			tools.appendChild(practiceButton("\u2702\ufe0f Pick a part", "secondary", startSongPicking));
 		}
-		// Play along's speed, picked: an \u2715 goes back to My speed
-		if (!songOwnSpeed()) {
+		if (songOwnSpeed()) {
+			tools.appendChild(practiceButton("\ud83c\udfb9 Play with piano", "secondary", function() {
+				removeSongFingerings();
+				s.tapped = null;
+				s.choosingSpeed = true;
+				showSongSelection();
+			}));
+		} else {
+			// The piano's speed, picked: an \u2715 goes back to My speed
 			var speed = ALONG_SPEEDS[alongSpeedIndex()];
-			tools.appendChild(songToolChip(speed.icon + " " + speed.name + " speed", "Stop playing along", function() {
+			tools.appendChild(songToolChip(speed.icon + " " + speed.name + " speed", "Play without the piano", function() {
 				songSpeed = "mine";
 				showSongSelection();
 			}));
 		}
+		if (s.part && songPartNotes(s)) {
+			tools.appendChild(practiceButton("\ud83d\udc63 Step through it", "secondary", songStepThrough));
+		}
 	}
-	if (!songSelectable() || s.done) {
-		tools.querySelectorAll("button").forEach(function(b) { b.disabled = true; });
+	if (!songSelectable()) {
+		tools.querySelectorAll("button").forEach(function(b) {
+			// (a note being tried can be stopped)
+			if (!b.classList.contains("song-try")) b.disabled = true;
+		});
 	}
+}
+
+// Try this note (a note tapped on Play it through): the mic on for it,
+// its pitch traced beside it (startTapTrace()); again, Stop puts that away
+function songTryButton(s) {
+	var b = practiceButton(s.tapTrace ? "\u25a0 Stop" : "\ud83c\udfa4 Try this note", "secondary song-try", function() {
+		if (s.tapTrace) stopTapTrace();
+		else if (s.tapped !== null && s.tapped !== undefined) startTapTrace(s.events[s.tapped]);
+		drawSongLine(s.pos);
+		updateSongTools();
+	});
+	return b;
 }
 
 // What's picked, with an \u2715 that puts it away (label: the \u2715's)
@@ -3550,7 +3575,7 @@ function songToolChip(text, label, onclose) {
 	return chip;
 }
 
-// Practice a part: taps on the staff now pick measures (songPickMeasure()),
+// Pick a part: taps on the staff now pick measures (songPickMeasure()),
 // as does sliding across them
 function startSongPicking() {
 	var s = practice.song;
@@ -3581,7 +3606,7 @@ function songPickMeasure(m) {
 	showSongSelection();
 }
 
-// Start here (Play it through): Hear it and Play it start from the note
+// Start here (Play it through): Hear the song and Play it start from the note
 // tapped, and its fingering is put away
 function songStartHere() {
 	var s = practice.song;
@@ -3603,7 +3628,7 @@ function closeSongFingering() {
 	}
 }
 
-// Hear it and Play it say what they'll do (while nothing plays)
+// Hear and Play it say what they'll do (while nothing plays)
 function updateSongButtons() {
 	var s = practice.song;
 	var hear = document.getElementById("song-hear");
@@ -3620,7 +3645,7 @@ function updateSongButtons() {
 	}
 }
 
-// The note a run or Hear it starts from: the one tapped (as an index into
+// The note a run or Hear the song starts from: the one tapped (as an index into
 // the song's notes), else the first
 function songStartNote(s) {
 	if (s.startNote === null || s.startNote === undefined) return 0;
@@ -3628,16 +3653,36 @@ function songStartNote(s) {
 	return j < 0 ? 0 : j;
 }
 
-// Play it: a part picked is practiced note by note; otherwise at My speed
-// the mic follows along (Listen to me), at another speed it's Play along
+// Play it: at My speed the mic follows along (Listen to me), at another
+// speed it's Play along; either over the part picked, if one is
 function startSongRecord() {
-	var s = practice.song;
-	if (s.part) {
-		var range = songPartNotes(s);
-		if (range) startSong(s.id, range.from, range.to);
-		return;
-	}
 	if (songOwnSpeed()) startFollow(); else playAlong();
+}
+
+// The notes a run covers (Play it): the part picked, else from the note
+// picked with Start here to the end. { from, to } (to past the last)
+function songRunRange(s) {
+	return (s.part && songPartNotes(s)) || { from: songStartNote(s), to: s.notes.length };
+}
+
+// Where the run under way (or just done) ends: past its last note
+function songRunEnd(s) {
+	return typeof s.runTo === "number" ? s.runTo : s.notes.length;
+}
+
+// Whether a run covers the whole song (only that saves a best)
+function songRunWhole(s) {
+	return !s.runFrom && songRunEnd(s) === s.notes.length;
+}
+
+// Step through it: note by note over the part picked (or the run's
+// part), else the whole song: the way in when a part is too hard to
+// play straight through
+function songStepThrough() {
+	var s = practice.song;
+	var range = s.part ? songPartNotes(s) : null;
+	if (range) startSong(s.id, range.from, range.to);
+	else startSong(s.id);
 }
 
 // A "⋯" button opening a small menu of the less used ways to practice
@@ -3705,19 +3750,20 @@ function songPopover(className, button, panel) {
 	return { wrap: wrap, close: close };
 }
 
-var LISTEN_TO_ME_LABEL = "\ud83c\udfa4 Play it";
-
 // Listen to me (Play it at My speed): the mic on and a run started, from
 // the note tapped if one is; the button turns into Stop and score
 function startFollow() {
 	var s = practice.song;
 	stopSongPlayback();
 	if (s.pos > 0 || s.done || s.along) resetFollow();
-	s.runFrom = s.pos = songStartNote(s);
+	var range = songRunRange(s);
+	s.runFrom = s.pos = range.from;
+	s.runTo = range.to;
 	s.follow.listening = true;
 	practice.ignoreUntil = performance.now() + 300;
 	songMicOn();
-	setPracticeFeedback("I\u2019m listening!", s.runFrom ? "Play from the note you picked" : "Play it all the way through", "good");
+	setPracticeFeedback("I\u2019m listening!", s.part ? "Play " + partLabel(s.part)
+		: s.runFrom ? "Play from the note you picked" : "Play it all the way through", "good");
 	updateSongTools();
 	drawSongLine(s.pos);
 	var listen = document.getElementById("song-listen");
@@ -3797,7 +3843,7 @@ function updateFollowListen(now, freq, level) {
 		if (f.silentMs >= FOLLOW_GAP_MS) f.seg = null;
 		if (a || check) return;
 		// Stopped: soon after reaching the last note, or after a long quiet
-		var quiet = s.pos >= s.notes.length || f.mayBeDone ? 1500 : FOLLOW_END_SILENCE_MS;
+		var quiet = s.pos >= songRunEnd(s) || f.mayBeDone ? 1500 : FOLLOW_END_SILENCE_MS;
 		if (f.started && now - f.lastSound > quiet) finishFollow();
 		return;
 	}
@@ -3865,21 +3911,22 @@ function followNote(pitch) {
 	s.pos = a.end;
 	// Maybe at the end (a last note skipped to, say): the run ends sooner
 	// once the student stops (see updateFollowListen())
-	f.mayBeDone = alignFollowFrom(s, false, true).end >= s.notes.length;
+	f.mayBeDone = alignFollowFrom(s, false, true).end >= songRunEnd(s);
 	drawSongLine(a.end);
-	if (a.end >= s.notes.length && a.results[a.end - 1] !== "wrong" && a.results[a.end - 1] !== "missed") {
+	if (a.end >= songRunEnd(s) && a.results[a.end - 1] !== "wrong" && a.results[a.end - 1] !== "missed") {
 		practice.step = 4;
 		practiceAdvanceTimer = setTimeout(finishFollow, 700);
 	}
 }
 
-// alignFollow() over the notes from where the run started (s.runFrom):
-// the notes before it stay null, and end counts from the song's start
+// alignFollow() over the run's notes (from s.runFrom to songRunEnd()):
+// the notes outside it stay null, and end counts from the song's start
 function alignFollowFrom(s, toEnd, furthest) {
-	var from = s.runFrom || 0;
-	var a = alignFollow(s.follow.heard, s.notes.slice(from), toEnd, furthest);
-	var before = s.notes.slice(0, from).map(function() { return null; });
-	return { results: before.concat(a.results), played: before.concat(a.played), end: from + a.end };
+	var from = s.runFrom || 0, to = songRunEnd(s);
+	var a = alignFollow(s.follow.heard, s.notes.slice(from, to), toEnd, furthest);
+	function none(list) { return list.map(function() { return null; }); }
+	var before = none(s.notes.slice(0, from)), after = none(s.notes.slice(to));
+	return { results: before.concat(a.results, after), played: before.concat(a.played, after), end: from + a.end };
 }
 
 // Line up the notes heard with the song's notes (edit distance): each heard
@@ -3996,11 +4043,11 @@ function finishFollow() {
 	// Stopped partway (Stop and score, or a long quiet): notes never reached
 	// stay black. At the end, line up with the whole song, so a wrong or
 	// missing last note shows.
-	// (a run from a tapped note scores the notes from there)
-	var from = s.runFrom || 0;
-	var total = s.notes.length - from;
+	// (a run from a note picked, or over a part, scores just those notes)
+	var from = s.runFrom || 0, to = songRunEnd(s);
+	var total = to - from;
 	var a = alignFollowFrom(s, false, true);
-	var partway = a.end < s.notes.length - 1;
+	var partway = a.end < to - 1;
 	if (!partway) a = alignFollowFrom(s, true);
 	s.results = a.results;
 	s.played = a.played;
@@ -4015,7 +4062,7 @@ function finishFollow() {
 	var perfect = !partway && right === total;
 	var stars = partway ? 0 : challengeStars(right, total);
 	var prev = practice.songBest[songBestKey(s.song)];
-	var newBest = scored && !from && (typeof prev !== "number" || right > prev);
+	var newBest = scored && songRunWhole(s) && (typeof prev !== "number" || right > prev);
 	if (newBest) {
 		practice.songBest[songBestKey(s.song)] = right;
 		saveSongBest(practice.instrument, practice.songBest);
@@ -4028,7 +4075,8 @@ function finishFollow() {
 		setPracticeFeedback(
 			perfect ? "Perfect! " + starText(stars)
 				: right + " of " + total + " notes right" + (partway ? "" : " " + starText(stars)),
-			[partway ? "You stopped partway" : "", found].filter(Boolean).join(" \u00b7 ") || "\u00a0",
+			[s.part ? partLabel(s.part, true) : "", partway ? "You stopped partway" : "", found]
+				.filter(Boolean).join(" \u00b7 ") || "\u00a0",
 			perfect ? "good" : "close");
 	}
 	drawSongLine(s.pos);
@@ -4036,27 +4084,30 @@ function finishFollow() {
 
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.innerHTML = "";
-	actions.appendChild(practiceButton("Play again", perfect || s.trouble ? "secondary" : "primary", resetFollow));
-	if (s.trouble) actions.appendChild(songTroubleButton(s));
 	// Played it all right: the next song waits beside Play again
 	var songs = s.song.custom
 		? listCustomSongs(practice.songList)
 		: listSongs(practice.songList || "every");
 	songs = songs.filter(function(song) { return songNotes(song).length; });
 	var next = songs[songs.indexOf(s.song) + 1];
-	if (perfect && next && !from) {
-		actions.appendChild(practiceButton("Next song \u2192", "primary", function() { playThroughSong(next.id); }));
-	}
-	actions.appendChild(songMoreMenu([
-		["Note by note", function() { startSong(s.id); }]
-	]));
-	if (scored && stars > 0) addPathNextButton(actions, !!s.trouble);
+	var again = ["Play again", resetFollow];
+	var main = perfect && next && songRunWhole(s)
+		? ["Next song \u2192", function() { playThroughSong(next.id); }] : null;
+	songResultRow(s, actions, again, main, perfect, []);
+	if (scored && stars > 0) addPathNextButton(actions, !!songTroubleToPractice(s));
 	if (perfect) launchFireworks(document.getElementById("practice-stage"));
 	if (scored) recordProgress(10 + 2 * right + (perfect ? 15 : 0) + (newBest && right > 0 ? NEW_BEST_XP : 0));
 }
 
+// A score's trouble spot as a part to go and practice: not when it's the
+// part just played (Play again is that)
+function songTroubleToPractice(s) {
+	var t = s.trouble, p = s.part;
+	return t && !(p && p.a === t.a && p.b === t.b) ? t : null;
+}
+
 // A score screen's main button: practice its trouble spot (the part
-// picked on Play it through, shaded, to hear and practice)
+// picked on Play it through, shaded, to hear and play)
 function songTroubleButton(s) {
 	var part = s.trouble;
 	return practiceButton("Practice " + partLabel(part), "primary song-trouble-button", function() {
@@ -4064,8 +4115,34 @@ function songTroubleButton(s) {
 	});
 }
 
-// A part dragged across on Play it through: the measures shaded under
-// their notes (in the accent color, see drawSongLine())
+// A score's row of buttons (two at most, then a \u22ef menu with the
+// rest): main (the next song or speed) beside again (or side, in its
+// place); else the trouble spot to practice, as the main button, beside
+// again (or side); else again, beside Step through it when the part just
+// played still has mistakes. Step through it and the whole song (after a
+// part) go in the menu when not in the row, after more's items.
+function songResultRow(s, actions, again, main, perfect, more, side) {
+	var trouble = songTroubleToPractice(s);
+	var stepRow = !trouble && !main && !perfect && !!s.part && s.results.some(Boolean);
+	var step = ["\ud83d\udc63 Step through it", songStepThrough];
+	if (main || trouble) {
+		actions.appendChild(practiceButton((side || again)[0], "secondary", (side || again)[1]));
+		if (main) actions.appendChild(practiceButton(main[0], "primary", main[1]));
+		else actions.appendChild(songTroubleButton(s));
+		if (side) more.unshift(again);
+		if (main && trouble) more.unshift(["Practice " + partLabel(trouble), songTroubleButton(s).onclick]);
+	} else {
+		if (stepRow) actions.appendChild(practiceButton(step[0], "secondary", step[1]));
+		else if (side) actions.appendChild(practiceButton(side[0], "secondary", side[1]));
+		actions.appendChild(practiceButton(again[0], "primary", again[1]));
+	}
+	if (!stepRow) more.push(step);
+	if (s.part) more.push(["Play the whole song", function() { playThroughSong(s.id); }]);
+	actions.appendChild(songMoreMenu(more));
+}
+
+// A part on Play it through: the measures shaded under their notes (a part
+// picked in the "here" color, a score's trouble spot in red; drawSongFree())
 function shadeSongPart(layouts, part, color) {
 	var ns = "http://www.w3.org/2000/svg";
 	Object.keys(layouts).forEach(function(l) {
@@ -4218,17 +4295,22 @@ function partLabel(part, capital) {
 	return capital ? label.charAt(0).toUpperCase() + label.slice(1) : label;
 }
 
+// Hear's label: the song (from the note picked, if one is) or the part
+// picked. "Hear the note" is a single note's (note by note's Help), so
+// neither ever means the other.
 function songHearLabel() {
 	var s = practice.song;
-	if (!s.free) return songPart(s) ? "\u25b6 Hear this part" : "\u25b6 Hear the song";
-	return s.part || s.picking ? "\u25b6 Hear the part" : "\u25b6 Hear it";
+	var part = s.free ? s.part : songPart(s);
+	return part ? "\u25b6 Hear " + partLabel(part) : "\u25b6 Hear the song";
 }
 
-// Play it's label: what it will do (startSongRecord())
-function songRecordLabel() {
+// Play it's label says what it will do (startSongRecord()): "Play it",
+// "Play measures 3\u20134", "... with piano" (Play along)
+function songRecordLabel(speed) {
 	var s = practice.song;
-	if (s.part || s.picking) return "\ud83c\udfa4 Practice it";
-	return songOwnSpeed() ? LISTEN_TO_ME_LABEL : playAlongLabel();
+	var what = s.part ? "Play " + partLabel(s.part) : "Play it";
+	if (!speed && songOwnSpeed()) return "\ud83c\udfa4 " + what;
+	return (speed || ALONG_SPEEDS[alongSpeedIndex()]).icon + " " + what + " with piano";
 }
 
 // Point the round at the current note: highlight it, reset the hold, and put
@@ -4279,7 +4361,7 @@ function showSongHelp() {
 	document.getElementById("practice-prompt").textContent = "This is " + songNoteName(s.notes[s.pos]) + ". Play it!";
 	var help = document.getElementById("song-help");
 	help.parentNode.parentNode.insertBefore(practiceFingeringBox(), help.parentNode);
-	help.textContent = "▶ Hear it";
+	help.textContent = "\u25b6 Hear the note";
 	help.onclick = function() {
 		stopSongPlayback();
 		playPracticeExample();
@@ -4394,7 +4476,8 @@ function passSongNote() {
 function finishSong() {
 	var s = practice.song;
 	var total = s.notes.length;
-	// Practiced a part: again until it's all on their own, then the whole song
+	// Stepped through a part: next, play it straight through (back on Play
+	// it through, the part still picked), or step through it again
 	var picked = songPart(s);
 	if (picked) {
 		var notes = s.results.slice(s.from || 0, s.to);
@@ -4402,27 +4485,13 @@ function finishSong() {
 		showRoundResult(mine, false, "You practiced " + partLabel(picked) + "!",
 			"You played " + mine + " of " + notes.length + " notes on your own",
 			function() { startSong(s.id, s.from, s.to); }, notes.length,
-			{ label: "Pick another part", onclick: function() { playThroughSong(s.id, picked); } });
+			{ label: "Play the whole song", onclick: function() { playThroughSong(s.id); } });
 		var buttons = document.querySelector("#practice-body .practice-actions");
-		if (mine === notes.length) buttons.lastChild.className = "practice-btn secondary";
-		buttons.appendChild(practiceButton("Play it through \u2192", mine === notes.length ? "primary" : "secondary",
-			function() { playThroughSong(s.id); }));
+		buttons.lastChild.className = "practice-btn secondary";
+		buttons.lastChild.textContent = "\ud83d\udc63 Step through again";
+		buttons.appendChild(practiceButton("Play " + partLabel(picked) + " \u2192", "primary",
+			function() { playThroughSong(s.id, picked); }));
 		recordProgress(mine);
-		return;
-	}
-	// Practiced from the red notes on: no best score, straight back to
-	// playing it through
-	if (s.from) {
-		var part = s.results.slice(s.from);
-		var own = part.filter(Boolean).length;
-		showRoundResult(own, false, "You practiced the red notes!",
-			"You played " + own + " of " + part.length + " notes on your own",
-			function() { startSong(s.id, s.from); }, part.length,
-			{ label: songListLabel(), onclick: function() { showSongList(); } });
-		var acts = document.querySelector("#practice-body .practice-actions");
-		acts.lastChild.className = "practice-btn secondary";
-		acts.appendChild(practiceButton("Play it through \u2192", "primary", function() { playThroughSong(s.id); }));
-		recordProgress(own);
 		return;
 	}
 	var score = s.results.filter(Boolean).length;
@@ -4493,6 +4562,8 @@ function drawSongLine(pos) {
 	drawSongEvent(hl, pos < songEnd(s) ? hl : null, practice.ghost);
 }
 
+var SONG_OUTSIDE_RUN = "rgba(100, 116, 139, 0.4)";
+
 // Play it through's staff: right notes green as they're played, mistakes
 // at the end
 function drawSongFree(pos) {
@@ -4505,12 +4576,16 @@ function drawSongFree(pos) {
 	var byEvent = {};
 	s.notes.forEach(function(n, i) { byEvent[n.event] = s.results[i]; });
 	var marks = songOffMarks(s);
-	var tapped = styles.getPropertyValue("--accent").trim() || "#4f46e5";
+	// (selected: a note tapped, the note to start from, a part picked)
+	var tapped = styles.getPropertyValue("--here").trim() || "#4f46e5";
 	var at = Math.min(pos, s.notes.length - 1);
 	var ghost = songTappedGhost(s);
 	// Before a run: the note it starts from, or the part picked, in the accent color
 	var part = !s.done ? s.part : null;
 	var start = !s.done && !part && s.startNote !== null ? tieStart(s.events, s.startNote) : null;
+	// A score of a run over part of the song: the rest grayed out
+	var runFrom = s.done && !songRunWhole(s) ? s.notes[s.runFrom || 0].event : null;
+	var runEnd = songRunEnd(s) < s.notes.length ? s.notes[songRunEnd(s)].event : s.events.length;
 	s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		s.done || pos === 0 ? (part ? Math.floor(part.a / SONG_MEASURES_PER_LINE) : -1) : songLineOf(at), s.measures,
 		{ end: true, whole: true, ahead: true, marks: s.done ? marks : null, ghost: ghost, ghostAt: ghost === null ? null : s.tapped,
@@ -4518,6 +4593,7 @@ function drawSongFree(pos) {
 			arrow: s.tapTrace ? s.tapTrace.event : null },
 		function(i) {
 			if (s.tapMuted && s.tapMuted[i]) return TAP_TRACE_MUTED;
+			if (runFrom !== null && (i < runFrom || i >= runEnd)) return SONG_OUTSIDE_RUN;
 			var r = byEvent[i];
 			if (marks[i]) return off;
 			if (r === "right" || r === "octave") return good;
@@ -4541,7 +4617,8 @@ function drawSongEventOnce(hl, arrow, ghost) {
 	// A note tapped to try: the arrow is over it while it's tried
 	if (s.tapTrace) arrow = s.tapTrace.event;
 	var styles = getComputedStyle(document.body);
-	var accent = styles.getPropertyValue("--accent").trim() || "#4f46e5";
+	// You are here (and a note tapped): not the orange of a note nearly right
+	var here = styles.getPropertyValue("--here").trim() || "#4f46e5";
 	var done = styles.getPropertyValue("--success").trim() || "#16a34a";
 	var e = s.events[Math.min(hl, s.events.length - 1)];
 	// A part: the rest of the song grayed out
@@ -4553,16 +4630,15 @@ function drawSongEventOnce(hl, arrow, ghost) {
 	var byEvent = {};
 	if (s.along) s.notes.forEach(function(n, j) { byEvent[n.event] = s.results[j]; });
 	var marks = s.along ? songOffMarks(s) : {};
-	var tapped = styles.getPropertyValue("--warning").trim() || "#d97706";
+	var off = styles.getPropertyValue("--warning").trim() || "#d97706";
 	s.layouts = renderSongView(document.getElementById("practice-staff-output"), s.song, s.events,
 		Math.floor(e.measure / SONG_MEASURES_PER_LINE), s.measures,
 		{ end: true, arrow: arrow === undefined ? null : arrow, ghost: ghost || null, whole: !!s.free, ahead: true },
 		function(i) {
 			if (s.tapMuted && s.tapMuted[i]) return TAP_TRACE_MUTED;
 			if (inPart && (i < inPart.start || i >= inPart.end)) return muted;
-			if (i === hl) return accent;
-			if (i === s.tapped) return tapped;
-			if (marks[i]) return tapped;  // out of tune, early or late: the same orange
+			if (i === hl || i === s.tapped) return here;
+			if (marks[i]) return off;  // out of tune, an octave off, early or late
 			if (s.along) return byEvent[i] === "right" || byEvent[i] === "octave" ? done : null;
 			return i < hl ? done : null;
 		});
@@ -5339,8 +5415,10 @@ function playAlong() {
 	var s = practice.song;
 	clearTimeout(practiceAdvanceTimer);
 	if (s.pos > 0 || s.follow.listening || s.done) resetFollow();
-	// (from the note tapped, if one is)
-	s.runFrom = s.pos = songStartNote(s);
+	// (from the note picked, if one is, or over the part picked)
+	var range = songRunRange(s);
+	s.runFrom = s.pos = range.from;
+	s.runTo = range.to;
 	songMicOn();
 	var speed = ALONG_SPEEDS[alongSpeedIndex()];
 	// times: when each event started; bleed: the count-in's loudest level
@@ -5384,12 +5462,15 @@ function playAlong() {
 // Play along's count-in, then the piano part with the staff and fingering
 // following the tune
 function countInAlong(s, a, pulse, pulses) {
-	var start = s.runFrom ? s.notes[s.runFrom].event : 0;
-	var events = s.events.slice(start);
+	// (a part: its measures, rests and all, as Hear the song plays them)
+	var span = s.part ? songPartEvents(s, s.part)
+		: { start: s.runFrom ? s.notes[s.runFrom].event : 0, end: s.events.length };
+	var start = span.start;
+	var events = s.events.slice(start, span.end);
 	var showFingering = showSongFingerings(events);
 	playSongEvents(events, function(i, at) {
 		if (i === 0) {
-			setPracticeFeedback("Play!", "Play along with the piano");
+			setPracticeFeedback("Play!", s.part ? "Play " + partLabel(s.part) + " with the piano" : "Play along with the piano");
 			alongStartLag(a);
 		}
 		a.times[start + i] = at;
@@ -5466,7 +5547,7 @@ function alongNote(pitch, onset) {
 	var RANK = { right: 0, octave: 1, low: 2, high: 2 };
 	var match = -1, matchRank = 0, matchOff = 0, wrong = -1, wrongOff = Infinity;
 	a.played++;
-	for (var j = s.runFrom || 0; j < s.notes.length; j++) {
+	for (var j = s.runFrom || 0; j < songRunEnd(s); j++) {
 		var start = alongEventTime(s, s.notes[j].event, beatMs);
 		if (start === null) break;
 		var off = onset - start - lag;
@@ -5666,12 +5747,13 @@ function songTappedGhost(s) {
 }
 
 // The words over a song's orange notes, by event (renderSongLine()'s
-// marks): "low" / "high" (out of tune), Play along's "early" / "late"
+// marks): "low" / "high" (out of tune), "octave" (an octave off: it
+// scores, but the student should find it), Play along's "early" / "late"
 function songOffMarks(s) {
 	var marks = {};
 	s.notes.forEach(function(n, j) {
 		var r = s.results[j], t = s.along && s.timing ? s.timing[j] : null;
-		var words = [r === "low" || r === "high" ? r : null, t].filter(Boolean);
+		var words = [r === "low" || r === "high" || r === "octave" ? r : null, t].filter(Boolean);
 		if (words.length) marks[n.event] = words.join(" \u00b7 ");
 	});
 	return marks;
@@ -5731,13 +5813,16 @@ function showSongResultKey(s) {
 	// than over its chart
 	var j = s.tapped === null || s.tapped === undefined ? -1
 		: s.notes.findIndex(function(n) { return n.event === tieStart(s.events, s.tapped); });
-	var heard = j >= 0 ? songHeardText(s, j) : "";
-	if (heard) {
+	tools.setAttribute("data-result", "");
+	if (j >= 0) {
+		var heard = songHeardText(s, j);
 		var said = document.createElement("span");
 		said.className = "song-heard";
-		said.setAttribute("data-kind", s.results[j] === "wrong" || s.results[j] === "missed" ? "wrong" : "off");
-		said.textContent = songNoteName(s.events[s.notes[j].event]) + ": " + heard;
+		var r = s.results[j];
+		said.setAttribute("data-kind", !r ? "" : !heard ? "right" : r === "wrong" || r === "missed" ? "wrong" : "off");
+		said.textContent = songNoteName(s.events[s.notes[j].event]) + (heard ? ": " + heard : "");
 		tools.appendChild(said);
+		tools.appendChild(songTryButton(s));
 		return;
 	}
 	if (s.trouble) {
@@ -5767,16 +5852,16 @@ function finishAlong(partway) {
 	stopSongPlayback();
 	var now = performance.now(), beatMs = 60000 / a.speed.tempo;
 	var late = 2 * alongTolerance(beatMs) + alongLag(a);
-	var from = s.runFrom || 0;
+	var from = s.runFrom || 0, to = songRunEnd(s);
 	s.notes.forEach(function(n, j) {
-		if (j < from) return;
+		if (j < from || j >= to) return;
 		var start = alongEventTime(s, n.event, beatMs);
 		var gone = start !== null && start + late < now;
 		if (!s.results[j] && (!partway || gone)) s.results[j] = "missed";
 	});
-	// (from a tapped note, the notes from there; stopped partway, the
+	// (from a note picked or over a part, those notes; stopped partway, the
 	// notes already gone by)
-	var total = s.results.filter(function(r, j) { return j >= from && (!partway || r); }).length;
+	var total = s.results.filter(function(r, j) { return j >= from && j < to && (!partway || r); }).length;
 	s.done = true;
 	s.pos = s.notes.length;
 	practice.step = 4;
@@ -5795,7 +5880,7 @@ function finishAlong(partway) {
 	var heard = a.played > 0 && total > 0;
 	var perfect = !partway && right === total;
 	var stars = partway ? 0 : challengeStars(right, total);
-	var scored = !partway && a.played > 0 && !from;
+	var scored = !partway && a.played > 0 && songRunWhole(s);
 	var key = songBestKey(s.song);
 	var bests = practice.songSpeedBest[key] || {};
 	var wasOpen = next && alongSpeedOpen(s.song, k + 1);
@@ -5822,11 +5907,12 @@ function finishAlong(partway) {
 		setPracticeFeedback(
 			speed.icon + " " + (perfect ? "Perfect! " + starText(stars)
 				: right + " of " + total + " notes right" + (partway ? "" : " " + starText(stars))),
-			[partway ? "You stopped partway" : from ? "From the note you picked" : "",
+			[s.part ? partLabel(s.part, true) : "",
+				partway ? "You stopped partway" : from && !s.part ? "From the note you picked" : "",
 				!partway && nextOpen && !wasOpen ? "You unlocked " + next.icon + " " + next.name + " speed!" : "",
 				found,
 				skewed ? "Off the beat? Try the timing check" : "",
-				perfect && !next && !from ? "Top speed!" : ""].filter(Boolean).join(" \u00b7 ") || "\u00a0",
+				perfect && !next && scored ? "Top speed!" : ""].filter(Boolean).join(" \u00b7 ") || "\u00a0",
 			perfect ? "good" : "close");
 	}
 	drawSongLine(s.pos);
@@ -5842,30 +5928,14 @@ function finishAlong(partway) {
 		updateSpeedPicker();
 	}]];
 	var check = [TIMING_CHECK_LABEL, startTimingCheck];
-	var again = [playAlongLabel(speed) + " again", function() { startAlong(speed.id); }];
+	var again = [speed.icon + " Play again", function() { startAlong(speed.id); }];
 	// The main button: the next speed once this one is passed, else the
 	// trouble spot, else this speed again. Beside it, this speed again,
 	// or the timing check when the timing is in doubt.
-	var side = skewed ? check : again;
-	if (faster) {
-		more.unshift(again);
-		if (s.trouble) more.unshift(["Practice " + partLabel(s.trouble), songTroubleButton(s).onclick]);
-		actions.appendChild(practiceButton(side[0], "secondary", side[1]));
-		actions.appendChild(practiceButton("Try " + next.icon + " " + next.name + " speed \u2192", "primary", function() {
-			startAlong(next.id);
-		}));
-	} else if (s.trouble) {
-		if (skewed) more.unshift(again);
-		actions.appendChild(practiceButton(side[0], "secondary", side[1]));
-		actions.appendChild(songTroubleButton(s));
-	} else {
-		if (skewed) actions.appendChild(practiceButton(check[0], "secondary", check[1]));
-		actions.appendChild(practiceButton(again[0], "primary", again[1]));
-	}
-	more.push(["Note by note", function() { startSong(s.id); }]);
-	if (side !== check) more.push(check);
-	actions.appendChild(songMoreMenu(more));
-	if (scored && stars > 0) addPathNextButton(actions, !!s.trouble && !faster);
+	var main = faster ? ["Try " + next.icon + " " + next.name + " speed \u2192", function() { startAlong(next.id); }] : null;
+	if (!skewed) more.push(check);
+	songResultRow(s, actions, again, main, perfect, more, skewed ? check : null);
+	if (scored && stars > 0) addPathNextButton(actions, !!songTroubleToPractice(s) && !faster);
 	updateSpeedPicker();
 	if (perfect && scored) launchFireworks(document.getElementById("practice-stage"));
 	if (scored) recordProgress(10 + 2 * right + (perfect ? 15 : 0) + speed.xp + (newBest && right > 0 ? NEW_BEST_XP : 0));
@@ -6358,7 +6428,6 @@ function songNoteTap(event) {
 			name.textContent = songNoteName(s.events[hit]);
 		}
 		if (wrap && (name.firstChild)) wrap.appendChild(name);
-		if (wrap) startTapTrace(s.events[hit]);
 		if (wrap) {
 			var close = document.createElement("button");
 			close.className = "song-fingering-close";
@@ -6530,7 +6599,7 @@ function stopSongPlayback() {
 	songPlayAlong = false;
 	if (practice && practice.mode === "editor") {
 		var editorHear = document.getElementById("editor-hear");
-		if (editorHear) editorHear.textContent = "\u25b6 Hear it";
+		if (editorHear) editorHear.textContent = "\u25b6 Hear the song";
 		drawEditor();
 		return;
 	}
@@ -6937,7 +7006,7 @@ function openSongEditor(id, set) {
 
 	var actions = document.createElement("div");
 	actions.className = "practice-actions editor-actions";
-	var hear = practiceButton("\u25b6 Hear it", "secondary", function() {
+	var hear = practiceButton("\u25b6 Hear the song", "secondary", function() {
 		if (songPlayTimer !== null) {
 			stopSongPlayback();
 		} else {

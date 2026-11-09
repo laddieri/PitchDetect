@@ -341,7 +341,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   with real rhythms
   (eighths beamed by the beat they fall in, counted from the bar line, not
   by VexFlow's `generateBeams()`, which loses count after a dotted quarter)
-  (played notes green, the current one in the accent color with a bobbing
+  (played notes green, the current one in the "here" color (`--here`, see
+  Play it through) with a bobbing
   arrow above it, `opts.arrow` → `drawSongArrow()`; not during playback);
   `renderSongProgress()` shows one dot per line. `updateSongListen()` takes
   over the mic loop: a note passes after `SONG_HOLD_MS`; rhythm isn't
@@ -366,8 +367,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `#practice-view[data-song-charts]`: on screens 1000px+ wide, Play it
   through's card widens and the chart sits beside the staff, so the music
   keeps its room); `setPracticeMode()` and `closePractice()`
-  stop it. **Piano accompaniment:** Hear the song (and the editor's Hear
-  it) plays an oom-pah piano part under the tune
+  stop it. **Piano accompaniment:** Hear the song (on Play it through
+  and in the editor) plays an oom-pah piano part under the tune
   (`songAccompaniment(song, events)`: hits `{ beat, midis (concert), len,
   gain }`). Its chords are picked from the melody: I, IV, V (V7 when the
   tune has the seventh or it leads to the last chord), vi, ii of the song's
@@ -388,11 +389,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   through's Play it at a speed, `playAlong()`, `songPlayAlong`): a measure
   counted in, then just the piano with the staff and fingering following,
   for the student to play the tune over, at the speed picked with Play it
-  through's **Play along** tool (`practice.song.choosingSpeed`: the tools
+  through's **Play with piano** tool (`practice.song.choosingSpeed`: the tools
   row shows the speeds, `ALONG_SPEEDS`: Turtle 60, Walk 80, Bunny 100,
   Rocket 120, `alongSpeedPicker()` / `updateSpeedChoices()`, and Cancel;
   `songSpeed` for the visit, then a chip "🐢 Turtle speed" with an ✕; Play
-  it reads "🐢 Play along", `playAlongLabel()`; `updateSpeedPicker()` drops
+  it reads "🐢 Play it with piano", `songRecordLabel()`; `updateSpeedPicker()` drops
   a speed not open on the song). Without one, **My speed** (`songSpeed =
   "mine"`, `songOwnSpeed()`, the default), Play it is Listen to me instead;
   the piano and metronome only decide what's heard, never which of the two
@@ -407,7 +408,7 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   "Sharps and flats": in the key signature or on each note (only for a key
   with sharps or flats): settings only. The rows come from `songSettingsChoices()`;
   `updateSongSettings()` refreshes them. Hear the song, Play along and the
-  editor's Hear it play `songBacking(song, events)`: the piano part plus
+  editor's Hear the song play `songBacking(song, events)`: the piano part plus
   `songClicks()` (a click per beat, a dotted quarter in 6/8, higher
   on the downbeat, a short first measure counted back as a pickup; hits with
   `click` sound as `playClick()`'s woodblock tock, as does Play along's
@@ -464,39 +465,55 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   from a song returns to its song list (the Songs tab, or a 3- or 5-note
   list, whose back goes to the tab).
   A song opens in **Play it through** (`playThroughSong()`; the song list,
-  the editor's Play it, Next song); note by note (`startSong()`) is the
-  practice path, behind **Note by note** (a tool under the song, and in a
-  score's ⋯ menu), and
-  its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
+  the editor's Play it, Next song); note by note (`startSong()`, called
+  **Step through it**) is the "I'm stuck" path: offered beside a part
+  picked and in a score's ⋯ menu (or its row, when the part just played
+  still has mistakes), `songStepThrough()` (the part picked, else the whole
+  song); its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
   (`data-step="song-free"`, `practice.song.free`), no arrow and no waiting
-  on each note. It has two buttons (`resetFollow()`): **Hear it**
-  (`#song-hear`, `playSong()`) and **Play it** (`#song-listen`,
-  `startSongRecord()`), their labels and the prompt from what's selected
-  (`showSongSelection()`, `updateSongButtons()`, `songHearLabel()` /
-  `songRecordLabel()`). Between the prompt and them, a row of small
+  on each note. It has two buttons (`resetFollow()`): **Hear the song**
+  (`#song-hear`, `playSong()`; "Hear measures 3–4" with a part picked) and
+  **Play it** (`#song-listen`, `startSongRecord()`), their labels and the
+  prompt from what's selected (`showSongSelection()`,
+  `updateSongButtons()`, `songHearLabel()` / `songRecordLabel()`: Play it
+  always says what will happen, "Play it", "Play measures 3–4", "🐢 Play
+  measures 3–4 with piano"; on a phone the two may take two lines, and
+  always have two lines' height). "Hear the note" is only note by note's
+  Help, so Hear never changes meaning. **Part and piano are independent
+  options of the same run**: Play it is Listen to me at My speed, else
+  Play along, either over the part picked (`songRunRange()`: the part's
+  notes, else from the Start here note to the end; `practice.song.runFrom`
+  / `runTo`, `songRunEnd()`, `songRunWhole()`; `alignFollowFrom()` lines
+  up only those notes, `countInAlong()` plays the part's events,
+  `alongNote()` and both finishes count only them; only a whole-song run
+  saves a best; on its score the rest of the song is grayed,
+  `SONG_OUTSIDE_RUN`). Between the prompt and them, a row of small
   labeled **tools** (`#song-tools`, `updateSongTools()`, disabled while
-  nothing is selectable): **Note by note**, **Practice a part** and
-  **Play along** (see Play along), or what's picked as a chip with an ✕ that puts it away (`songToolChip()`), and
-  **Start here** while a note's fingering is showing. Kept explicit: the
-  student shouldn't have to discover gestures. Selected: nothing, the whole
+  nothing is selectable): **Pick a part** and **Play with piano** (see Play
+  along), or what's picked as a chip with an ✕ that puts it away
+  (`songToolChip()`: the part, the speed, the Start here note), **Step
+  through it** beside a part, and **Start here** and **Try this note**
+  while a note's fingering is showing. Kept explicit: the
+  student shouldn't have to discover gestures. **Selected / you are here**
+  has its own color, `--here` (blue in kid mode, where the accent is the
+  orange of nearly-right notes): a tapped note, the Start here note, a
+  part picked (shaded), note by note's current note and its arrow, the
+  tools' chips and the tapped note's name. Selected: nothing, the whole
   song; a note picked with **Start here** (`songStartHere()`;
   `practice.song.startNote`, an event, `songStartNote()` its note; tapping
-  a note alone only shows its fingering), both start from it, marked in the
-  accent color (Hear it's piano and clicks
-  are the whole song's from there, `songBackingFrom()`; a run from it,
-  `practice.song.runFrom`, scores just those notes and saves no best:
-  `alignFollowFrom()`, `finishAlong()`); a **part**, picked after
-  Practice a part (`startSongPicking()`, `practice.song.picking`: taps now
+  a note alone only shows its fingering), both start from it (Hear the song's piano and clicks
+  are the whole song's from there, `songBackingFrom()`; a run from it
+  scores just those notes and saves no best); a **part**, picked after
+  Pick a part (`startSongPicking()`, `practice.song.picking`: taps now
   pick measures, `songPickMeasure()`: the first, then the last; Cancel or
   the chip's ✕, `stopSongPicking()`) or by sliding
   sideways across measures (`songDragStart()` / `songDragMove()` /
   `songDragStop()`, `SONG_DRAG_PX`, `songMeasureAt()`; the staff is
   `touch-action: pan-y`, and the click ending a slide isn't a tap,
   `songDragEnd`; `practice.song.part` `{ a, b }` measures, shaded by
-  `shadeSongPart()`), Hear it plays it and Play it ("Practice it")
-  practices it note by note. Nothing is selectable while a song plays or
-  the mic follows (`songSelectable()`). Play it is Listen to me at My speed,
-  else Play along. Its score screens
+  `shadeSongPart()`), Hear plays it and Play it plays it straight through.
+  Nothing is selectable while a song plays or
+  the mic follows (`songSelectable()`). Its score screens
   (`finishFollow()`, `finishAlong()`) are the feedback: the score, then
   everything found counted (`songResultText()`: "2 wrong · 1 missed · 1 a
   bit low · 1 late"), then in the tools' row (`showSongResultKey()`, via
@@ -510,9 +527,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (`drawSongFree()`), and its button, **Practice measures 3–4**
   (`songTroubleButton()`, `.song-trouble-button`), is the main one: it
   opens Play it through with that part picked (`playThroughSong(id,
-  part)`). One row: Play again (or the timing check, on Play along when
-  the timing is in doubt) beside it, or Next song / the next speed when
-  that's the step to take, and a ⋯ menu (`songMoreMenu()`) with the rest.
+  part)`), where Play it plays it straight through and Step through it is
+  the fallback; not offered when it's the part just played
+  (`songTroubleToPractice()`). The row (`songResultRow()`): Play again (or
+  the timing check, on Play along when the timing is in doubt) beside it,
+  or Next song / the next speed when that's the step to take, and a ⋯
+  menu (`songMoreMenu()`) with the rest, Step through it and (after a
+  part) Play the whole song among them. Notes an octave off score as right
+  but are marked "octave" like the orange ones (`songOffMarks()`). The
+  score's row keeps one height whatever it holds (`.song-tools[data-result]`;
+  two lines' worth on a phone), so a tap moves nothing.
   A run stopped partway counts only the notes it reached (Listen to me:
   the alignment's `end`; Play along: the notes gone by) and gets no
   stars, best, XP or badges. The mic stays off until Play it: **Listen to me**
@@ -538,27 +562,27 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `follow.mayBeDone` ends a run that may have reached the end after 1.5 s);
   `played` keeps the pitch heard for each song note, `practice.song.played`).
   After a run, a tapped note says what was heard for it in the score's
-  row, in place of the trouble spot and key (`songHeardText()`, `.song-heard`:
-  "D: You played E♭", "A bit low", "Not heard", "a bit late"; not over the
-  chart, where it collided with wide ones), and a wrong or octave note gets a gray ghost of what was played
+  row, in place of the trouble spot and key, beside Try this note
+  (`songHeardText()`, `.song-heard`: "D: You played E♭", "A bit low", "Not
+  heard", "a bit late"; not over the chart, where it collided with wide
+  ones), and a wrong or octave note gets a gray ghost of what was played
   beside it (`songTappedGhost()`, `renderSongLine()`'s `opts.ghostAt`). Right notes turn green as
   they're played; `finishFollow()` (last note right, **Stop and score**, or
   `FOLLOW_END_SILENCE_MS` quiet; stopped partway, unreached notes stay
   black) turns the mic off and marks mistakes red with a score and stars
   (best notes right saved in `pitchdetect-songs`, shared with note by note;
   a perfect run offers Next song). Hear the
-  song restarts the run; **Note by note** returns to `startSong()`.
+  song restarts the run.
   Note by note is a level under its song's Play it through: its
   **← Whole song** button, the back arrow and its breadcrumb (Songs ›
-  the song › Note by note) all go back there (`songNoteByNoteBack()`,
+  the song › Step through it) all go back there (`songNoteByNoteBack()`,
   a part practiced still picked), a history entry deeper than the song.
-  **A part** picked on Play it through: Practice it runs
-  `startSong(id, from, to)` over just
+  Stepping through **a part** runs `startSong(id, from, to)` over just
   those notes (`songPartNotes()`; `songEnd()` stops there, one progress dot
   per measure, the rest of the song grayed out, Hear plays only the part,
-  `songPart()` / `partLabel()`); no best saved, the result offers Play
-  again, Pick another part (`playThroughSong(id, part)`, the part still
-  picked) and Play it through.
+  `songPart()` / `partLabel()`); no best saved, the result offers Play the
+  part straight through (`playThroughSong(id, part)`, the main button),
+  Step through again and Play the whole song.
   **Tap a note** (`songNoteTap()`, Play it through and note by note, not
   while a song plays): its fingering in the
   `#song-fingering` area Hear the song uses (`showSongFingerings()` with
@@ -568,9 +592,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   it again puts it away (`closeSongFingering()`). In note by note, tapping the note being waited for is Help.
   The chart takes room from the music, so `revealTappedNote()` scrolls the
   tapped note's line back into view (on a phone it could end up under it).
-  A tapped note also gets the lessons' **pitch trace** on the song's own
-  staff, with note by note's bobbing arrow over it while it's tried (`opts.arrow`;
-  in note by note it moves there from the note being waited for)
+  Tapping only shows: the mic stays off, so reviewing a mistake never
+  starts an attempt. On Play it through (before a run, or on its score),
+  **Try this note** (`songTryButton()`, `.song-try`; Stop while it's on)
+  gives it the lessons' **pitch trace** on the song's own
+  staff, with note by note's bobbing arrow over it while it's tried (`opts.arrow`)
   (`startTapTrace()`, `practice.song.tapTrace`; drawn as the song is
   by `withTapTrace()`, which wraps `drawSongFree()` / `drawSongEventOnce()`:
   `tapTraceSpot()` puts it right of the note, or left of it when the line
@@ -1077,16 +1103,19 @@ measures a line on a desktop; in a fresh browser a song link shows no
 instrument until the student picks theirs; a
 song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops, and its tool under the song picks the
-speed (the settings gear holds no speeds); Play it through has just Hear it and
+speed (the settings gear holds no speeds), a part picked plays along with the piano over
+just its measures; Play it through has just Hear the song and
 Play it, listens only after Play it, a tapped note shows its fingering
-and listens for it, tracing the pitch on the song's staff under an arrow, with trumpet's partial ladder, held in tune gets fireworks and a chime (the mic
-off again once it's put away; hidden by its ✕) and Start here makes it where Hear it and Play it
-start, and sliding across measures, or tapping them after Practice a part,
-picks a part that Play it practices note by note; Hear the song's notes sound with
+without the mic, and Try this note listens for it, tracing the pitch on the song's staff under an arrow, with trumpet's partial ladder, held in tune gets fireworks and a chime (the mic
+off again once it's put away; hidden by its ✕) and Start here makes it where Hear the song and Play it
+start, and sliding across measures, or tapping them after Pick a part,
+picks a part that Play it plays straight through, scoring just it; Step through it is offered
+for a part, not as a tool of its own; Hear names the part, and Help's the note; Hear the song's notes sound with
 the metronome's clicks, and the piano and metronome switch mid-song; on a phone, a tapped note low in a song stays in sight above its chart; Play it through marks a note
-played flat "low" and a tapped wrong note shows what was played (clear of its chart);
+played flat "low" and one an octave off "octave", and a tapped wrong note shows what was
+played (clear of its chart, without the mic); on a phone the score's row keeps its height on a tap;
 a song's score counts its mistakes, has a color key and offers its trickiest part, whose
-button opens it picked; a run stopped partway counts the notes reached and saves
+button opens it picked, to play straight through or step through; a run stopped partway counts the notes reached and saves
 nothing; Play along scores
 notes in time over the piano, marks a late note late, measures the
 delay from its count-in's clicks (or the timing check's), and opens the next speed; a long
