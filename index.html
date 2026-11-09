@@ -3928,12 +3928,6 @@
 				pointer-events: none;
 			}
 
-			/* After a run: what was heard for that note */
-			.song-fingering-heard {
-				font-size: 0.95rem;
-				font-weight: 600;
-				color: var(--text-muted);
-			}
 
 			/* A song's notes can be tapped for their fingering */
 			.practice-view[data-mode="song"] #practice-staff-output {
@@ -4235,6 +4229,49 @@
 			.song-tools .practice-btn.secondary {
 				color: var(--text);
 			}
+
+			/* A score's row (showSongResultKey()): its trouble spot, and what
+			   the colors mean, as small dots */
+			.song-trouble {
+				font-weight: 700;
+				color: var(--danger);
+				white-space: nowrap;
+			}
+
+			/* A note tapped after a run: what was heard for it */
+			.song-heard {
+				font-weight: 700;
+				color: var(--warning);
+			}
+
+			.song-heard[data-kind="wrong"] { color: var(--danger); }
+
+			.song-legend {
+				display: inline-flex;
+				flex-wrap: wrap;
+				justify-content: center;
+				gap: 4px 12px;
+				font-size: 0.85rem;
+				color: var(--text-muted);
+			}
+
+			.song-legend-item {
+				display: inline-flex;
+				align-items: center;
+				gap: 5px;
+				white-space: nowrap;
+			}
+
+			.song-legend-item::before {
+				content: "";
+				width: 10px;
+				height: 10px;
+				border-radius: 50%;
+				background: var(--success);
+			}
+
+			.song-legend-item[data-kind="off"]::before { background: var(--warning); }
+			.song-legend-item[data-kind="wrong"]::before { background: var(--danger); }
 
 			/* What's picked (a part, a note to start from) and its ✕ */
 			.song-tool-chip {

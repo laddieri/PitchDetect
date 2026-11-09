@@ -684,16 +684,69 @@ async function run() {
 		});
 		check(heardRun.results[1] === "low" && heardRun.results[3] === "wrong" && heardRun.marks.join() === "low" &&
 			heardRun.results.filter(function(r) { return r === "right"; }).length === heardRun.results.length - 2 &&
-			/1 low/.test(heardRun.sub),
+			/1 a bit low/.test(heardRun.sub),
 			"Play it through marks a note played out of tune low, not missed (got " + heardRun.sub + ")");
+		// The score says everything found, what the colors mean, and picks
+		// the trouble spot (shaded) as the main button
+		var result = await page.evaluate(function() {
+			var s = practice.song;
+			var buttons = Array.prototype.map.call(document.querySelectorAll("#practice-body .practice-actions > button"),
+				function(b) { return b.textContent; });
+			return { sub: document.getElementById("practice-feedback-sub").textContent,
+				legend: document.querySelectorAll("#song-tools .song-legend-item").length,
+				trouble: s.trouble, label: (document.querySelector("#song-tools .song-trouble") || {}).textContent,
+				shaded: document.querySelectorAll("#practice-staff-output .song-pick-shade").length,
+				buttons: buttons, primary: (document.querySelector("#practice-body .practice-actions > .primary:not(.path-next)") || {}).textContent,
+				wrongIn: s.notes[3].measure };
+		});
+		check(/1 wrong/.test(result.sub) && /1 a bit low/.test(result.sub) && result.legend === 3 &&
+			result.trouble && result.trouble.a === result.wrongIn && result.label === "Trickiest part: measure " + (result.wrongIn + 1) &&
+			result.shaded > 0 && result.primary === "Practice measure " + (result.wrongIn + 1) &&
+			!result.buttons.some(function(b) { return /red notes/.test(b); }),
+			"a song's score breaks down its mistakes, has a color key and offers its trickiest part (got " + JSON.stringify(result) + ")");
 		await page.mouse.click(heardRun.x, heardRun.y);
 		var heardTap = await page.evaluate(function() {
-			var s = practice.song, el = document.querySelector("#song-fingering .song-fingering-heard");
+			var s = practice.song, el = document.querySelector("#song-tools .song-heard");
+			var chart = document.getElementById("song-fingering");
+			var a = el && el.getBoundingClientRect(), b = chart && chart.getBoundingClientRect();
 			return { text: el ? el.textContent : "", ghost: !!document.querySelector("#practice-staff-output .vf-practice-ghost"),
+				clear: !!(a && b) && (a.top >= b.bottom || a.bottom <= b.top || a.left >= b.right || a.right <= b.left),
 				want: "You played " + practiceNoteName(s.notes[3].midi + 2) };
 		});
-		check(heardTap.text === heardTap.want && heardTap.ghost,
-			"a tapped wrong note shows what was played (got " + heardTap.text + ")");
+		check(heardTap.text.indexOf(heardTap.want) > 0 && heardTap.ghost && heardTap.clear,
+			"a tapped wrong note shows what was played, clear of its chart (got " + JSON.stringify(heardTap) + ")");
+		// Its trouble spot's button opens that part, picked
+		await page.click("#song-fingering .song-fingering-close");
+		await page.click("#practice-body .song-trouble-button");
+		var opened = await page.evaluate(function() {
+			var s = practice.song;
+			return { free: s.free, part: s.part, done: s.done };
+		});
+		check(opened.free && !opened.done && opened.part && opened.part.a === result.wrongIn && opened.part.b === result.wrongIn,
+			"the trickiest part's button opens that part on Play it through (got " + JSON.stringify(opened) + ")");
+
+		// A run stopped partway counts only the notes reached and saves
+		// nothing: no best, no stars, no XP, no badge
+		var partway = await page.evaluate(function() {
+			playThroughSong("auclair");
+			var key = songBestKey(practice.song.song);
+			delete practice.songBest[key];
+			var before = JSON.stringify(loadProfile());
+			startFollow();
+			practice.ignoreUntil = 0;
+			var s = practice.song, t = performance.now();
+			for (var j = 0; j < 4; j++) {
+				var freq = frequencyFromNoteNumber(s.notes[j].midi - getTransposition());
+				for (var k = 0; k < 10; k++) updateFollowListen(t += 16, freq, 0.2);
+				for (k = 0; k < 6; k++) updateFollowListen(t += 16, null, 0.001);
+			}
+			finishFollow();
+			return { main: document.getElementById("practice-feedback").textContent,
+				best: practice.songBest[key], same: JSON.stringify(loadProfile()) === before,
+				path: !!document.querySelector("#practice-body .path-next") };
+		});
+		check(partway.main === "4 of 4 notes right" && partway.best === undefined && partway.same && !partway.path,
+			"a run stopped partway counts the notes reached and saves nothing (got " + JSON.stringify(partway) + ")");
 
 		// Play it through follows the student, not ahead of them: a wrong
 		// note doesn't move the run on, and going back to the start is followed

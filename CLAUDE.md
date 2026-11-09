@@ -443,11 +443,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `storedTimingCheck()`); else "guess": the piano's 50 ms head start, the
   speakers' `outputLatency` and `ALONG_LATENCY_MS`. A result with most
   notes late (or early) on a guess suggests the timing check, its button
-  then beside Play along again (Practice the red notes moving to ⋯). Early, late
+  then beside Play along again (Play along again moving to ⋯). Early, late
   and out-of-tune notes don't score; they turn orange with a word over them
   at the end (`songOffMarks()`: "low" / "high" / "early" / "late",
-  `renderSongLine()`'s `opts.marks`, `drawSongMark()`; counted by
-  `songOffText()`). The mic hears the piano too
+  `renderSongLine()`'s `opts.marks`, `drawSongMark()`; counted with the red
+  ones by `songResultText()`). The mic hears the piano too
   (`echoCancellation` is off), so the count-in measures the speakers'
   level at the mic (`bleed`) and frames under `ALONG_BLEED_FACTOR` × that
   (at most `ALONG_GATE_MAX`) count as silence, and as a re-tongue.
@@ -465,8 +465,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   list, whose back goes to the tab).
   A song opens in **Play it through** (`playThroughSong()`; the song list,
   the editor's Play it, Next song); note by note (`startSong()`) is the
-  practice path, behind **Note by note** (a tool under the song) and
-  **Practice the red notes**, and
+  practice path, behind **Note by note** (a tool under the song, and in a
+  score's ⋯ menu), and
   its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
   (`data-step="song-free"`, `practice.song.free`), no arrow and no waiting
   on each note. It has two buttons (`resetFollow()`): **Hear it**
@@ -497,10 +497,25 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   practices it note by note. Nothing is selectable while a song plays or
   the mic follows (`songSelectable()`). Play it is Listen to me at My speed,
   else Play along. Its score screens
-  (`finishFollow()`, `finishAlong()`) keep one row: the next step
-  (Practice the red notes, Play again, Next song, the next speed, which then
-  puts Play along again in the menu) beside a ⋯ menu (`songMoreMenu()`)
-  with the rest. The mic stays off until Play it: **Listen to me**
+  (`finishFollow()`, `finishAlong()`) are the feedback: the score, then
+  everything found counted (`songResultText()`: "2 wrong · 1 missed · 1 a
+  bit low · 1 late"), then in the tools' row (`showSongResultKey()`, via
+  `updateSongTools()` once `s.done`) the **trouble spot** and a color key
+  (`.song-legend`: green right, orange nearly, red wrong or missed). The
+  trouble spot (`songTroubleSpot(s, offTiming)`, `practice.song.trouble`)
+  is the measures holding the red notes, else the orange ones (not the
+  early / late ones when the timing is in doubt), at most
+  `TROUBLE_MEASURES` (2); spread wider, the window with the most of them.
+  It reads "Trickiest part: measures 3–4", is shaded red on the staff
+  (`drawSongFree()`), and its button, **Practice measures 3–4**
+  (`songTroubleButton()`, `.song-trouble-button`), is the main one: it
+  opens Play it through with that part picked (`playThroughSong(id,
+  part)`). One row: Play again (or the timing check, on Play along when
+  the timing is in doubt) beside it, or Next song / the next speed when
+  that's the step to take, and a ⋯ menu (`songMoreMenu()`) with the rest.
+  A run stopped partway counts only the notes it reached (Listen to me:
+  the alignment's `end`; Play along: the notes gone by) and gets no
+  stars, best, XP or badges. The mic stays off until Play it: **Listen to me**
   (`startFollow()`, `follow.listening`; the button then turns into **Stop and
   score**) or Play along (which waits for the mic before its count-in, so
   the count-in hears the piano; the button turns into Stop); `songMicOn()` / `songMicOff()` handle a mic
@@ -522,17 +537,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   moves the run ahead of them (`furthest` at the end of a run, and
   `follow.mayBeDone` ends a run that may have reached the end after 1.5 s);
   `played` keeps the pitch heard for each song note, `practice.song.played`).
-  After a run, a tapped note says what was heard for it under its name
-  (`songHeardText()`: "You played E♭", "A bit low", "Not heard", "a bit
-  late"), and a wrong or octave note gets a gray ghost of what was played
+  After a run, a tapped note says what was heard for it in the score's
+  row, in place of the trouble spot and key (`songHeardText()`, `.song-heard`:
+  "D: You played E♭", "A bit low", "Not heard", "a bit late"; not over the
+  chart, where it collided with wide ones), and a wrong or octave note gets a gray ghost of what was played
   beside it (`songTappedGhost()`, `renderSongLine()`'s `opts.ghostAt`). Right notes turn green as
   they're played; `finishFollow()` (last note right, **Stop and score**, or
   `FOLLOW_END_SILENCE_MS` quiet; stopped partway, unreached notes stay
   black) turns the mic off and marks mistakes red with a score and stars
   (best notes right saved in `pitchdetect-songs`, shared with note by note;
-  a perfect run offers Next song). **Practice the red notes** opens note-by-note at the start
-  of the first red note's line (`startSong(id, from)`: earlier notes count
-  done, no best saved, the result offers Play it through again). Hear the
+  a perfect run offers Next song). Hear the
   song restarts the run; **Note by note** returns to `startSong()`.
   Note by note is a level under its song's Play it through: its
   **← Whole song** button, the back arrow and its breadcrumb (Songs ›
@@ -879,8 +893,9 @@ Loaded after firstfive.js; no server, everything stays on the device.
   goes to its tab).
   A result done well (stars on a quiz, drill, scale run, song or first
   sounds, or a whole lesson learned) gets **Next: <step>**
-  (`addPathNextButton(actions)`, `.path-next`, its own row, the main
-  button), unless the next step is the activity just done; the lesson's and
+  (`addPathNextButton(actions, quiet)`, `.path-next`, its own row, the main
+  button; `quiet` leaves the row's main button main, as a song's trouble
+  spot is), unless the next step is the activity just done; the lesson's and
   first sounds' fixed follow-on buttons show only when it doesn't.
 - **Screens:** the player bar (`#player-bar`, over the menu's tabs: avatar, level, XP
   bar, streak, today's goal ring; `updatePlayerBar()`, run by
@@ -1069,7 +1084,10 @@ off again once it's put away; hidden by its ✕) and Start here makes it where H
 start, and sliding across measures, or tapping them after Practice a part,
 picks a part that Play it practices note by note; Hear the song's notes sound with
 the metronome's clicks, and the piano and metronome switch mid-song; on a phone, a tapped note low in a song stays in sight above its chart; Play it through marks a note
-played flat "low" and a tapped wrong note shows what was played; Play along scores
+played flat "low" and a tapped wrong note shows what was played (clear of its chart);
+a song's score counts its mistakes, has a color key and offers its trickiest part, whose
+button opens it picked; a run stopped partway counts the notes reached and saves
+nothing; Play along scores
 notes in time over the piano, marks a late note late, measures the
 delay from its count-in's clicks (or the timing check's), and opens the next speed; a long
 song scrolls the next line into view before it's reached. Add a

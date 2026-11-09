@@ -3418,6 +3418,7 @@ function resetFollow() {
 	s.check = null;
 	s.played = s.notes.map(function() { return null; });
 	s.done = false;
+	s.trouble = null;
 	s.runFrom = 0;
 	removeSongFingerings();
 	s.tapped = null;
@@ -3480,6 +3481,10 @@ function updateSongTools() {
 	var s = practice.song;
 	var tools = document.getElementById("song-tools");
 	if (!tools || !s || !s.free) return;
+	if (s.done) {
+		showSongResultKey(s);
+		return;
+	}
 	tools.innerHTML = "";
 	var tapped = s.tapped !== null && s.tapped !== undefined && !s.done && !s.picking;
 	if (s.picking) {
@@ -3592,7 +3597,10 @@ function closeSongFingering() {
 	removeSongFingerings();
 	s.tapped = null;
 	if (s.free && !s.done) showSongSelection();
-	else drawSongLine(s.pos);
+	else {
+		drawSongLine(s.pos);
+		updateSongTools();
+	}
 }
 
 // Hear it and Play it say what they'll do (while nothing plays)
@@ -3998,72 +4006,62 @@ function finishFollow() {
 	s.played = a.played;
 	s.pos = s.notes.length;
 	s.follow.listening = false;
-	drawSongLine(s.pos);
 	songMicOff();
+	// Stopped partway: only the notes reached count, and nothing is saved
+	if (partway) total = a.end - from;
+	var heard = s.follow.heard.length > 0 && total > 0;
+	var scored = !partway && heard;
 	var right = s.results.filter(function(r) { return r === "right" || r === "octave"; }).length;
-	var octaves = s.results.filter(function(r) { return r === "octave"; }).length;
-	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
-	var offText = songOffText(s);
-	var stars = challengeStars(right, total);
+	var perfect = !partway && right === total;
+	var stars = partway ? 0 : challengeStars(right, total);
 	var prev = practice.songBest[songBestKey(s.song)];
-	var newBest = !from && s.follow.heard.length > 0 && (typeof prev !== "number" || right > prev);
+	var newBest = scored && !from && (typeof prev !== "number" || right > prev);
 	if (newBest) {
 		practice.songBest[songBestKey(s.song)] = right;
 		saveSongBest(practice.instrument, practice.songBest);
 	}
-	if (!s.follow.heard.length) {
+	s.trouble = heard ? songTroubleSpot(s) : null;
+	if (!heard) {
 		setPracticeFeedback("No notes heard", "Play into the mic, then try again", "close");
 	} else {
+		var found = songResultText(s);
 		setPracticeFeedback(
-			right === total ? "Perfect! " + starText(stars) : right + " of " + total + " notes right " + starText(stars),
-			octaves ? octaves + (octaves === 1 ? " note was" : " notes were") + " an octave off"
-				: partway ? "You stopped partway through"
-				: offText ? "Orange notes: " + offText
-				: s.results.indexOf("wrong") >= 0 ? "Tap a red note to see what you played"
-				: firstMiss >= 0 ? "The red notes need practice" : "\u00a0",
-			right === total ? "good" : "close");
+			perfect ? "Perfect! " + starText(stars)
+				: right + " of " + total + " notes right" + (partway ? "" : " " + starText(stars)),
+			[partway ? "You stopped partway" : "", found].filter(Boolean).join(" \u00b7 ") || "\u00a0",
+			perfect ? "good" : "close");
 	}
+	drawSongLine(s.pos);
+	showSongResultKey(s);
 
-	removeSongTools();
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.innerHTML = "";
-	if (firstMiss >= 0) {
-		actions.appendChild(practiceButton("Practice the red notes", "secondary", function() {
-			startSong(s.id, songLineStart(firstMiss));
-		}));
-	}
-	actions.appendChild(practiceButton("Play again", right === total ? "secondary" : "primary", resetFollow));
+	actions.appendChild(practiceButton("Play again", perfect || s.trouble ? "secondary" : "primary", resetFollow));
+	if (s.trouble) actions.appendChild(songTroubleButton(s));
 	// Played it all right: the next song waits beside Play again
 	var songs = s.song.custom
 		? listCustomSongs(practice.songList)
 		: listSongs(practice.songList || "every");
 	songs = songs.filter(function(song) { return songNotes(song).length; });
 	var next = songs[songs.indexOf(s.song) + 1];
-	if (right === total && next && !from) {
+	if (perfect && next && !from) {
 		actions.appendChild(practiceButton("Next song \u2192", "primary", function() { playThroughSong(next.id); }));
 	}
 	actions.appendChild(songMoreMenu([
 		["Note by note", function() { startSong(s.id); }]
 	]));
-	if (stars > 0) addPathNextButton(actions);
-	if (right === total) launchFireworks(document.getElementById("practice-stage"));
-	if (s.follow.heard.length) {
-		recordProgress(10 + 2 * right + (right === total ? 15 : 0) + (newBest && right > 0 ? NEW_BEST_XP : 0));
-	}
+	if (scored && stars > 0) addPathNextButton(actions, !!s.trouble);
+	if (perfect) launchFireworks(document.getElementById("practice-stage"));
+	if (scored) recordProgress(10 + 2 * right + (perfect ? 15 : 0) + (newBest && right > 0 ? NEW_BEST_XP : 0));
 }
 
-// A score screen has its own buttons (and a \u22ef menu for the rest)
-function removeSongTools() {
-	var tools = document.getElementById("song-tools");
-	if (tools) tools.remove();
-}
-
-// The first note on the line holding note pos, so practice starts from the
-// beginning of the tricky line
-function songLineStart(pos) {
-	var line = songLineOf(pos);
-	for (var i = 0; i < pos; i++) if (songLineOf(i) === line) return i;
-	return pos;
+// A score screen's main button: practice its trouble spot (the part
+// picked on Play it through, shaded, to hear and practice)
+function songTroubleButton(s) {
+	var part = s.trouble;
+	return practiceButton("Practice " + partLabel(part), "primary song-trouble-button", function() {
+		playThroughSong(s.id, part);
+	});
 }
 
 // A part dragged across on Play it through: the measures shaded under
@@ -4528,6 +4526,8 @@ function drawSongFree(pos) {
 			return part && s.events[i].measure >= part.a && s.events[i].measure <= part.b ? tapped : null;
 		});
 	if (part) shadeSongPart(s.layouts, part, tapped);
+	// A score: its trouble spot shaded, in the red of its mistakes
+	else if (s.done && s.trouble) shadeSongPart(s.layouts, s.trouble, bad);
 }
 
 // Draw the line holding event hl (a note or rest; past the end = the last
@@ -5677,15 +5677,82 @@ function songOffMarks(s) {
 	return marks;
 }
 
-// The orange notes counted: "2 low, 1 late", or "" for none
-function songOffText(s) {
-	var counts = { low: 0, high: 0, early: 0, late: 0 };
+// What a run found, counted, for its result: "3 wrong \u00b7 2 a bit low
+// \u00b7 1 late" (red first, then orange; octaves count as right but are
+// named), or "" if every note reached was right
+function songResultText(s) {
+	var counts = { wrong: 0, missed: 0, octave: 0, low: 0, high: 0, early: 0, late: 0 };
 	s.notes.forEach(function(n, j) {
-		if (s.results[j] === "low" || s.results[j] === "high") counts[s.results[j]]++;
+		if (counts[s.results[j]] !== undefined) counts[s.results[j]]++;
 		if (s.along && s.timing && s.timing[j]) counts[s.timing[j]]++;
 	});
+	var words = { wrong: "wrong", missed: "missed", octave: "in the wrong octave",
+		low: "a bit low", high: "a bit high", early: "a bit early", late: "a bit late" };
 	return Object.keys(counts).filter(function(k) { return counts[k]; })
-		.map(function(k) { return counts[k] + " " + k; }).join(", ");
+		.map(function(k) { return counts[k] + " " + words[k]; }).join(" \u00b7 ");
+}
+
+// The trouble spot of a run, for its result to offer: the measures
+// holding the red notes (wrong or missed), or with none the orange ones
+// (offTiming false: not the early / late ones, as when the timing is
+// in doubt), at most TROUBLE_MEASURES of them; spread wider, the run of
+// measures with the most of them (the earliest on a tie), trimmed to
+// the measures it has them in. { a, b } as a part, or null.
+var TROUBLE_MEASURES = 2;
+function songTroubleSpot(s, offTiming) {
+	function pick(test) {
+		return s.notes.map(function(n, j) { return test(j) ? n.measure : -1; })
+			.filter(function(m) { return m >= 0; });
+	}
+	var bad = pick(function(j) { return s.results[j] === "wrong" || s.results[j] === "missed"; });
+	if (!bad.length) bad = pick(function(j) {
+		return s.results[j] === "low" || s.results[j] === "high" ||
+			(offTiming !== false && !!(s.along && s.timing && s.timing[j]));
+	});
+	if (!bad.length) return null;
+	var best = null, bestCount = 0;
+	bad.forEach(function(a) {
+		var inside = bad.filter(function(m) { return m >= a && m < a + TROUBLE_MEASURES; });
+		if (inside.length > bestCount) {
+			bestCount = inside.length;
+			best = { a: a, b: Math.max.apply(null, inside) };
+		}
+	});
+	return best;
+}
+
+// A score screen's row between the score and its buttons (in place of the
+// tools): the trouble spot, if any, and what the colors mean
+function showSongResultKey(s) {
+	var tools = document.getElementById("song-tools");
+	if (!tools) return;
+	tools.innerHTML = "";
+	// A note tapped that wasn't right: what was heard for it, here rather
+	// than over its chart
+	var j = s.tapped === null || s.tapped === undefined ? -1
+		: s.notes.findIndex(function(n) { return n.event === tieStart(s.events, s.tapped); });
+	var heard = j >= 0 ? songHeardText(s, j) : "";
+	if (heard) {
+		var said = document.createElement("span");
+		said.className = "song-heard";
+		said.setAttribute("data-kind", s.results[j] === "wrong" || s.results[j] === "missed" ? "wrong" : "off");
+		said.textContent = songNoteName(s.events[s.notes[j].event]) + ": " + heard;
+		tools.appendChild(said);
+		return;
+	}
+	if (s.trouble) {
+		var spot = document.createElement("span");
+		spot.className = "song-trouble";
+		spot.textContent = "Trickiest part: " + partLabel(s.trouble);
+		tools.appendChild(spot);
+	}
+	if (!s.results.some(Boolean)) return;
+	var key = document.createElement("span");
+	key.className = "song-legend";
+	key.innerHTML = '<span class="song-legend-item" data-kind="right">right</span>' +
+		'<span class="song-legend-item" data-kind="off">nearly</span>' +
+		'<span class="song-legend-item" data-kind="wrong">wrong or missed</span>';
+	tools.appendChild(key);
 }
 
 // The end of Play along: the song in green and red, a score at that speed
@@ -5707,27 +5774,27 @@ function finishAlong(partway) {
 		var gone = start !== null && start + late < now;
 		if (!s.results[j] && (!partway || gone)) s.results[j] = "missed";
 	});
-	// (from a tapped note, the notes from there)
-	var total = s.notes.length - from;
+	// (from a tapped note, the notes from there; stopped partway, the
+	// notes already gone by)
+	var total = s.results.filter(function(r, j) { return j >= from && (!partway || r); }).length;
 	s.done = true;
-	s.pos = total;
+	s.pos = s.notes.length;
 	practice.step = 4;
-	drawSongLine(s.pos);
 	if (practiceStartedMic && listenActive) stopListening();
 	practiceStartedMic = false;
 
 	var speed = a.speed, k = ALONG_SPEEDS.indexOf(speed), next = ALONG_SPEEDS[k + 1];
 	// Early, late, low and high notes (orange) don't score
 	var right = s.results.filter(function(r, j) { return (r === "right" || r === "octave") && !s.timing[j]; }).length;
-	var firstMiss = s.results.findIndex(function(r) { return r === "wrong" || r === "missed"; });
-	var offText = songOffText(s);
 	// Most notes late (or early) by a guessed delay: the speakers' delay
 	// may be off, which the timing check measures
 	var timed = s.timing.filter(function(t, j) { return s.results[j] && s.results[j] !== "wrong" && s.results[j] !== "missed"; });
 	var skewed = a.lagFrom === "guess" && timed.length >= 4 && ["early", "late"].some(function(w) {
 		return timed.filter(function(t) { return t === w; }).length >= timed.length / 2;
 	});
-	var stars = challengeStars(right, total);
+	var heard = a.played > 0 && total > 0;
+	var perfect = !partway && right === total;
+	var stars = partway ? 0 : challengeStars(right, total);
 	var scored = !partway && a.played > 0 && !from;
 	var key = songBestKey(s.song);
 	var bests = practice.songSpeedBest[key] || {};
@@ -5745,27 +5812,26 @@ function finishAlong(partway) {
 		saveSongBest(practice.instrument, practice.songBest);
 	}
 	var nextOpen = next && alongSpeedOpen(s.song, k + 1);
+	// (timing that's in doubt doesn't make a trouble spot)
+	s.trouble = heard ? songTroubleSpot(s, !skewed) : null;
 
-	if (!a.played) {
+	if (!heard) {
 		setPracticeFeedback("No notes heard", "Play into the mic along with the piano", "close");
-	} else if (from && !partway) {
-		setPracticeFeedback(speed.icon + " " + right + " of " + total + " notes right " + starText(stars),
-			"From the note you tapped", right === total ? "good" : "close");
 	} else {
+		var found = songResultText(s);
 		setPracticeFeedback(
-			speed.icon + " " + (right === total ? "Perfect! " : right + " of " + total + " notes right ") + starText(stars),
-			partway ? "You stopped partway through"
-				: nextOpen && !wasOpen ? "You unlocked " + next.icon + " " + next.name + " speed!"
-				: skewed ? "Lots of notes off the beat? Try the timing check"
-				: firstMiss >= 0 && offText ? "Red: missed or wrong \u00b7 orange: " + offText
-				: offText ? "Orange notes: " + offText
-				: s.results.indexOf("wrong") >= 0 ? "Tap a red note to see what you played"
-				: firstMiss >= 0 ? "The red notes were missed or wrong"
-				: !next ? "Top speed!" : "\u00a0",
-			right === total ? "good" : "close");
+			speed.icon + " " + (perfect ? "Perfect! " + starText(stars)
+				: right + " of " + total + " notes right" + (partway ? "" : " " + starText(stars))),
+			[partway ? "You stopped partway" : from ? "From the note you picked" : "",
+				!partway && nextOpen && !wasOpen ? "You unlocked " + next.icon + " " + next.name + " speed!" : "",
+				found,
+				skewed ? "Off the beat? Try the timing check" : "",
+				perfect && !next && !from ? "Top speed!" : ""].filter(Boolean).join(" \u00b7 ") || "\u00a0",
+			perfect ? "good" : "close");
 	}
+	drawSongLine(s.pos);
+	showSongResultKey(s);
 
-	removeSongTools();
 	var actions = document.querySelector("#practice-body .practice-actions");
 	actions.innerHTML = "";
 	// Two buttons at most in the row; the rest wait behind the \u22ef menu
@@ -5775,32 +5841,34 @@ function finishAlong(partway) {
 		resetFollow();
 		updateSpeedPicker();
 	}]];
-	// Notes off the beat on a guessed delay: the timing check is the step
-	// to take, beside Play along again
 	var check = [TIMING_CHECK_LABEL, startTimingCheck];
-	if (skewed && !faster) actions.appendChild(practiceButton(check[0], "secondary", check[1]));
-	if (firstMiss >= 0) {
-		var red = ["Practice the red notes", function() { startSong(s.id, songLineStart(firstMiss)); }];
-		if (faster || skewed) more.push(red);
-		else actions.appendChild(practiceButton(red[0], "secondary", red[1]));
-	}
 	var again = [playAlongLabel(speed) + " again", function() { startAlong(speed.id); }];
+	// The main button: the next speed once this one is passed, else the
+	// trouble spot, else this speed again. Beside it, this speed again,
+	// or the timing check when the timing is in doubt.
+	var side = skewed ? check : again;
 	if (faster) {
-		// The next speed is the step to take; this one again can wait
 		more.unshift(again);
+		if (s.trouble) more.unshift(["Practice " + partLabel(s.trouble), songTroubleButton(s).onclick]);
+		actions.appendChild(practiceButton(side[0], "secondary", side[1]));
 		actions.appendChild(practiceButton("Try " + next.icon + " " + next.name + " speed \u2192", "primary", function() {
 			startAlong(next.id);
 		}));
+	} else if (s.trouble) {
+		if (skewed) more.unshift(again);
+		actions.appendChild(practiceButton(side[0], "secondary", side[1]));
+		actions.appendChild(songTroubleButton(s));
 	} else {
+		if (skewed) actions.appendChild(practiceButton(check[0], "secondary", check[1]));
 		actions.appendChild(practiceButton(again[0], "primary", again[1]));
 	}
 	more.push(["Note by note", function() { startSong(s.id); }]);
-	if (!skewed || faster) more.push(check);
+	if (side !== check) more.push(check);
 	actions.appendChild(songMoreMenu(more));
-	if (scored && stars > 0) addPathNextButton(actions);
+	if (scored && stars > 0) addPathNextButton(actions, !!s.trouble && !faster);
 	updateSpeedPicker();
-	if (right === total && scored) launchFireworks(document.getElementById("practice-stage"));
-	if (scored) recordProgress(10 + 2 * right + (right === total ? 15 : 0) + speed.xp + (newBest && right > 0 ? NEW_BEST_XP : 0));
+	if (perfect && scored) launchFireworks(document.getElementById("practice-stage"));
+	if (scored) recordProgress(10 + 2 * right + (perfect ? 15 : 0) + speed.xp + (newBest && right > 0 ? NEW_BEST_XP : 0));
 }
 
 // Play along's speeds (Play it through's Play along tool, updateSongTools()):
@@ -6278,9 +6346,6 @@ function songNoteTap(event) {
 		showSongFingerings([s.events[hit]]);
 		s.tapped = hit;
 		var wrap = document.getElementById("song-fingering");
-		// After a run, what was heard for it, if it wasn't right
-		var j = s.notes.findIndex(function(n) { return n.event === tieStart(s.events, hit); });
-		var heard = s.free && s.done && j >= 0 ? songHeardText(s, j) : "";
 		var name = document.createElement("div");
 		name.className = "song-fingering-name";
 		if (wrap && !hasFingeringData(practice.instrument)) {
@@ -6291,12 +6356,6 @@ function songNoteTap(event) {
 		} else if (wrap) {
 			wrap.removeAttribute("aria-hidden");
 			name.textContent = songNoteName(s.events[hit]);
-		}
-		if (wrap && heard) {
-			var said = document.createElement("div");
-			said.className = "song-fingering-heard";
-			said.textContent = heard;
-			name.appendChild(said);
 		}
 		if (wrap && (name.firstChild)) wrap.appendChild(name);
 		if (wrap) startTapTrace(s.events[hit]);
@@ -6310,9 +6369,13 @@ function songNoteTap(event) {
 			wrap.appendChild(close);
 		}
 	}
-	// (Play it through, before a run: Start here)
+	// (Play it through, before a run: Start here; after one, what was
+	// heard for it, in the score's row)
 	if (s.free && !s.done) showSongSelection();
-	else drawSongLine(s.pos);
+	else {
+		drawSongLine(s.pos);
+		updateSongTools();
+	}
 	revealTappedNote();
 }
 
