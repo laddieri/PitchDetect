@@ -486,7 +486,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   / `runTo`, `songRunEnd()`, `songRunWhole()`; `alignFollowFrom()` lines
   up only those notes, `countInAlong()` plays the part's events,
   `alongNote()` and both finishes count only them; only a whole-song run
-  saves a best; on its score the rest of the song is grayed,
+  saves a best or earns XP, badges or the path's Next (`scored` in both
+  finishes); on its score the rest of the song is grayed,
   `SONG_OUTSIDE_RUN`). Between the prompt and them, a row of small
   labeled **tools** (`#song-tools`, `updateSongTools()`, disabled while
   nothing is selectable): **Pick a part** and **Play with piano** (see Play
@@ -533,7 +534,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   the timing check, on Play along when the timing is in doubt) beside it,
   or Next song / the next speed when that's the step to take, and a ⋯
   menu (`songMoreMenu()`) with the rest, Step through it and (after a
-  part) Play the whole song among them. Notes an octave off score as right
+  part) Play the whole song among them; when Step through it takes the
+  row's second place, the timing check (if suggested) leads the menu. Notes an octave off score as right
   but are marked "octave" like the orange ones (`songOffMarks()`). The
   score's row keeps one height whatever it holds (`.song-tools[data-result]`;
   two lines' worth on a phone), so a tap moves nothing.
@@ -1104,12 +1106,12 @@ instrument until the student picks theirs; a
 song has piano chords and Play along counts in (on a desktop with the chart
 beside the staff), plays and stops, and its tool under the song picks the
 speed (the settings gear holds no speeds), a part picked plays along with the piano over
-just its measures; Play it through has just Hear the song and
+just its measures, and played late on a guessed delay offers the timing check in its ⋯ menu; Play it through has just Hear the song and
 Play it, listens only after Play it, a tapped note shows its fingering
 without the mic, and Try this note listens for it, tracing the pitch on the song's staff under an arrow, with trumpet's partial ladder, held in tune gets fireworks and a chime (the mic
 off again once it's put away; hidden by its ✕) and Start here makes it where Hear the song and Play it
 start, and sliding across measures, or tapping them after Pick a part,
-picks a part that Play it plays straight through, scoring just it; Step through it is offered
+picks a part that Play it plays straight through, scoring just it (no best or XP); Step through it is offered
 for a part, not as a tool of its own; Hear names the part, and Help's the note; Hear the song's notes sound with
 the metronome's clicks, and the piano and metronome switch mid-song; on a phone, a tapped note low in a song stays in sight above its chart; Play it through marks a note
 played flat "low" and one an octave off "octave", and a tapped wrong note shows what was

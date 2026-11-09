@@ -4057,12 +4057,14 @@ function finishFollow() {
 	// Stopped partway: only the notes reached count, and nothing is saved
 	if (partway) total = a.end - from;
 	var heard = s.follow.heard.length > 0 && total > 0;
-	var scored = !partway && heard;
+	// Only a whole-song run counts (a best, XP, badges, the path), as in
+	// finishAlong(): a part or a run from a note picked is practice
+	var scored = !partway && heard && songRunWhole(s);
 	var right = s.results.filter(function(r) { return r === "right" || r === "octave"; }).length;
 	var perfect = !partway && right === total;
 	var stars = partway ? 0 : challengeStars(right, total);
 	var prev = practice.songBest[songBestKey(s.song)];
-	var newBest = scored && songRunWhole(s) && (typeof prev !== "number" || right > prev);
+	var newBest = scored && (typeof prev !== "number" || right > prev);
 	if (newBest) {
 		practice.songBest[songBestKey(s.song)] = right;
 		saveSongBest(practice.instrument, practice.songBest);
@@ -4134,6 +4136,8 @@ function songResultRow(s, actions, again, main, perfect, more, side) {
 	} else {
 		if (stepRow) actions.appendChild(practiceButton(step[0], "secondary", step[1]));
 		else if (side) actions.appendChild(practiceButton(side[0], "secondary", side[1]));
+		// (no room for side beside Step through it: it goes first in the menu)
+		if (stepRow && side) more.unshift(side);
 		actions.appendChild(practiceButton(again[0], "primary", again[1]));
 	}
 	if (!stepRow) more.push(step);

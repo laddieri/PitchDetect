@@ -450,6 +450,7 @@ async function run() {
 		// notes, saving no best; Hear plays just it
 		var partRun = await page.evaluate(function() {
 			var s = practice.song, key = songBestKey(s.song), best = practice.songBest[key];
+			var xp = loadProfile().xp;
 			var hearLabel = document.getElementById("song-hear").textContent;
 			startSongRecord();
 			practice.ignoreUntil = 0;
@@ -466,13 +467,14 @@ async function run() {
 			r.main = document.getElementById("practice-feedback").textContent;
 			r.outside = s.results.slice(r.to).every(function(x) { return x === null; });
 			r.sameBest = practice.songBest[key] === best;
+			r.noXp = loadProfile().xp === xp;
 			r.step = Array.prototype.some.call(document.querySelectorAll("#practice-body .practice-actions button"),
 				function(b) { return /Step through it/.test(b.textContent); });
 			return r;
 		});
 		check(picked.part === "0-1" && picked.shaded === 2 && picked.label === "\ud83c\udfa4 Play measures 1\u20132" &&
 			partRun.free && partRun.from === partRun.want.from && partRun.to === partRun.want.to && partRun.hear === "\u25b6 Hear measures 1\u20132" &&
-			partRun.done && partRun.main === "Perfect! \u2605\u2605\u2605" && partRun.outside && partRun.sameBest && partRun.step,
+			partRun.done && partRun.main === "Perfect! \u2605\u2605\u2605" && partRun.outside && partRun.sameBest && partRun.noXp && partRun.step,
 			"sliding across measures picks a part, and Play it plays it straight through, scoring just it (got " +
 			JSON.stringify(picked) + ", " + JSON.stringify(partRun) + ")");
 		await page.evaluate(function() { closeLevelUp(); });
@@ -525,6 +527,32 @@ async function run() {
 		});
 		check(/Play measure 2 with piano$/.test(partAlong.label) && partAlong.ok,
 			"a part picked plays along with the piano, just its measures (got " + JSON.stringify(partAlong) + ")");
+		// A part played with the piano, right but mostly late on a guessed
+		// delay: Step through it beside Play again, and the timing check
+		// the score suggests is in the \u22ef menu
+		var lateAlong = await page.evaluate(function() {
+			var s = practice.song, xp = loadProfile().xp;
+			s.part = { a: 0, b: 1 };
+			s.picking = true;
+			resetFollow();
+			var range = songPartNotes(s);
+			s.runFrom = s.pos = range.from;
+			s.runTo = range.to;
+			s.along = { speed: ALONG_SPEEDS[1], times: [], played: range.to - range.from, lagFrom: "guess", lag: 0, done: false };
+			s.results = s.notes.map(function(n, j) { return j >= range.from && j < range.to ? "right" : null; });
+			s.timing = s.notes.map(function(n, j) { return j >= range.from && j < range.to ? "late" : null; });
+			s.played = s.notes.map(function() { return null; });
+			finishAlong(false);
+			var r = { sub: document.getElementById("practice-feedback-sub").textContent,
+				row: Array.prototype.map.call(document.querySelectorAll("#practice-body .practice-actions > button"), function(b) { return b.textContent; }),
+				menu: Array.prototype.map.call(document.querySelectorAll("#practice-body .song-more-menu button"), function(b) { return b.textContent; }),
+				noXp: loadProfile().xp === xp };
+			stopSongPicking();
+			return r;
+		});
+		check(/timing check/.test(lateAlong.sub) && lateAlong.row.some(function(t) { return /Step through it/.test(t); }) &&
+			lateAlong.menu.indexOf("\u23f1 Timing check") >= 0 && lateAlong.noXp,
+			"a part played late with the piano offers the timing check in the \u22ef menu, and no XP (got " + JSON.stringify(lateAlong) + ")");
 		await page.click(".song-settings-toggle");
 		check(await page.evaluate(function() {
 			var text = document.querySelector(".song-settings-panel").textContent;
