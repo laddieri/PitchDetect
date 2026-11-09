@@ -597,24 +597,28 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   Tapping only shows: the mic stays off, so reviewing a mistake never
   starts an attempt. On Play it through (before a run, or on its score),
   **Try this note** (`songTryButton()`, `.song-try`; Stop while it's on)
-  gives it the lessons' **pitch trace** on the song's own
-  staff, with note by note's bobbing arrow over it while it's tried (`opts.arrow`)
-  (`startTapTrace()`, `practice.song.tapTrace`; drawn as the song is
-  by `withTapTrace()`, which wraps `drawSongFree()` / `drawSongEventOnce()`:
-  `tapTraceSpot()` puts it right of the note, or left of it when the line
-  ends within `TAP_TRACE_MIN`, at most `TAP_TRACE_SPAN` wide, from the
-  line's note heads, `renderSongLine()`'s `heads`; the notes under it fade,
-  `tapMuted`, drawing the line again if they change; `setupPitchTrace()`'s
-  `x0`; `pitchTrace.tap`; the brass partial ladder included), and the mic
-  turns on for it (`tapTraceStartedMic`), so the student can try it; held
-  in tune for `PRACTICE_HOLD_MS`, as in a lesson, it gets fireworks and a
-  chime (`tapTraceHold()`, once until it stops or goes off);
-  `updateSongListen()` feeds the trace and nothing else meanwhile (note by
-  note stops waiting on its note, whose hint and ghost are cleared,
-  `resetPracticeHold()`). `removeSongFingerings()` → `stopTapTrace()` puts
-  it away, and the mic, unless a run that just started (Listen to me, Play
-  along, the timing check) has it now. A run started with the fingering up
-  (it stays) drops just the trace and keeps the mic (in `updateSongListen()`).
+  turns the mic on for it (`startTryNote()`, `practice.song.tryNote`,
+  `tryNoteStartedMic`) and says what it hears in the score's own colors
+  and words, not the lessons' pitch trace (too small to read on a song's
+  staff, and a second language beside the score's): `updateTryNote()`
+  classes each frame with `heardAs()`, and what has lasted
+  `PRACTICE_HINT_FRAMES` shows (cleared after `PRACTICE_GHOST_CLEAR_MS` of
+  silence): the note green when right, orange with "low" / "high" /
+  "octave" over it when nearly, red with a gray ghost of the note played
+  beside it when it's another note (`drawSongFree()`: `tryNote.state` /
+  `.ghost`, in place of the score's own color, mark and ghost for that
+  note), with note by note's bobbing arrow over it (`opts.arrow`; not while a word is there).
+  `tryNoteText()` words it ("You played F", "A bit low", "An octave too
+  high"; on brass another partial of the fingering gets "Right fingers,
+  too high" and the lips-and-air advice), shown by `sayTryNote()` in the
+  prompt before a run, or on a score, which keeps its prompt, in its row's
+  `.song-heard`. Held right for `PRACTICE_HOLD_MS`, as in a lesson, it gets
+  fireworks and a chime (once until it stops or goes off).
+  `updateSongListen()` feeds it and nothing else meanwhile.
+  `removeSongFingerings()` → `stopTryNote()` puts it away, and the mic,
+  unless a run that just started (Listen to me, Play along, the timing
+  check) has it now. A run started with the fingering up (it stays) drops
+  just the note being tried and keeps the mic (in `updateSongListen()`).
   Songs go through `songEvents(song)` (notes *and* rests: `{ midi|null,
   dur, dots, measure, letter, alter, octave }`); `songNotes()` keeps the
   playable ones, each with its `event` index. `renderSongLine()` draws a
@@ -1108,7 +1112,7 @@ beside the staff), plays and stops, and its tool under the song picks the
 speed (the settings gear holds no speeds), a part picked plays along with the piano over
 just its measures, and played late on a guessed delay offers the timing check in its ⋯ menu; Play it through has just Hear the song and
 Play it, listens only after Play it, a tapped note shows its fingering
-without the mic, and Try this note listens for it, tracing the pitch on the song's staff under an arrow, with trumpet's partial ladder, held in tune gets fireworks and a chime (the mic
+without the mic, and Try this note listens for it, showing a wrong note as a gray ghost beside it and a flat one marked "low" (no pitch trace on a song), held in tune gets fireworks and a chime (the mic
 off again once it's put away; hidden by its ✕) and Start here makes it where Hear the song and Play it
 start, and sliding across measures, or tapping them after Pick a part,
 picks a part that Play it plays straight through, scoring just it (no best or XP); Step through it is offered
