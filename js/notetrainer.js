@@ -401,6 +401,85 @@ function yPositionToNote(yPos, clef) {
 }
 
 // Pitch detection using McLeod Pitch Method (MPM / Normalized Square Difference Function)
+
+// In-place radix-2 FFT of n complex values (n a power of 2). The bit
+// reversal and twiddle tables are built once per size.
+var fftTables = {};
+function fftInPlace(re, im) {
+	var n = re.length;
+	var t = fftTables[n];
+	if (!t) {
+		t = fftTables[n] = { rev: new Uint32Array(n), cos: new Float64Array(n / 2), sin: new Float64Array(n / 2) };
+		var bits = Math.round(Math.log(n) / Math.LN2);
+		for (var i = 0; i < n; i++) {
+			var r = 0;
+			for (var b = 0; b < bits; b++) if (i & (1 << b)) r |= 1 << (bits - 1 - b);
+			t.rev[i] = r;
+		}
+		for (var i = 0; i < n / 2; i++) {
+			t.cos[i] = Math.cos(2 * Math.PI * i / n);
+			t.sin[i] = -Math.sin(2 * Math.PI * i / n);
+		}
+	}
+	var rev = t.rev, cos = t.cos, sin = t.sin;
+	for (var i = 0; i < n; i++) {
+		var j = rev[i];
+		if (j > i) {
+			var x = re[i]; re[i] = re[j]; re[j] = x;
+			x = im[i]; im[i] = im[j]; im[j] = x;
+		}
+	}
+	for (var size = 2; size <= n; size <<= 1) {
+		var half = size >> 1, step = n / size;
+		for (var start = 0; start < n; start += size) {
+			for (var k = 0, w = 0; k < half; k++, w += step) {
+				var p = start + k, q = p + half;
+				var xr = re[q] * cos[w] - im[q] * sin[w];
+				var xi = re[q] * sin[w] + im[q] * cos[w];
+				re[q] = re[p] - xr; im[q] = im[p] - xi;
+				re[p] += xr; im[p] += xi;
+			}
+		}
+	}
+}
+
+// The normalized square difference function of buf for lags below maxLag:
+// 2 * acf(tau) / m(tau). Summing each lag directly took most of a frame
+// (millions of multiplies, 60 times a second) and far longer on a school
+// Chromebook, so the autocorrelation comes from an FFT (the transform of
+// the power spectrum, zero-padded so lags do not wrap around) and m(tau)
+// from the one before it. Same values, a small fraction of the work.
+var nsdfWork = null;
+function nsdfOf(buf, maxLag) {
+	var SIZE = buf.length;
+	var n = 2;
+	while (n < SIZE + maxLag) n <<= 1;
+	if (!nsdfWork || nsdfWork.n !== n || nsdfWork.maxLag !== maxLag) {
+		nsdfWork = { n: n, maxLag: maxLag, re: new Float64Array(n), im: new Float64Array(n), nsdf: new Float32Array(maxLag) };
+	}
+	var re = nsdfWork.re, im = nsdfWork.im, nsdf = nsdfWork.nsdf;
+	var m = 0;
+	for (var i = 0; i < SIZE; i++) {
+		re[i] = buf[i];
+		m += 2 * buf[i] * buf[i];
+	}
+	re.fill(0, SIZE);
+	im.fill(0);
+	fftInPlace(re, im);
+	for (var i = 0; i < n; i++) {
+		re[i] = re[i] * re[i] + im[i] * im[i];
+		im[i] = 0;
+	}
+	// The power spectrum is real and even, so a forward transform
+	// inverts it (times n)
+	fftInPlace(re, im);
+	for (var tau = 0; tau < maxLag; tau++) {
+		if (tau > 0) m -= buf[tau - 1] * buf[tau - 1] + buf[SIZE - tau] * buf[SIZE - tau];
+		nsdf[tau] = m > 0 ? 2 * re[tau] / n / m : 0;
+	}
+	return nsdf;
+}
+
 function autoCorrelate(buf, sampleRate) {
 	var SIZE = buf.length;
 	var rms = 0;
@@ -412,15 +491,7 @@ function autoCorrelate(buf, sampleRate) {
 	if (rms < 0.01) return { frequency: -1, confidence: 0, rms: rms };
 
 	var maxLag = Math.floor(SIZE / 2);
-	var nsdf = new Float32Array(maxLag);
-	for (var tau = 0; tau < maxLag; tau++) {
-		var acf = 0, m = 0;
-		for (var j = 0; j < SIZE - tau; j++) {
-			acf += buf[j] * buf[j + tau];
-			m += buf[j] * buf[j] + buf[j + tau] * buf[j + tau];
-		}
-		nsdf[tau] = m > 0 ? 2 * acf / m : 0;
-	}
+	var nsdf = nsdfOf(buf, maxLag);
 
 	var peaks = [];
 	var pastInitial = false, inPositiveRegion = false;
