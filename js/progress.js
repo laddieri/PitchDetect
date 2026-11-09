@@ -718,14 +718,16 @@ function startPathNode(node) {
 // activity just done (Play again, Next note and Next song cover that). It
 // takes over as the screen's main button, in a row of its own. Returns
 // whether it was added.
-function addPathNextButton(actions) {
+function addPathNextButton(actions, quiet) {
 	if (!progressCounts()) return false;
 	var next = nextPathNode();
 	if (!next || next.activity === currentPracticeActivity()) return false;
-	Array.prototype.forEach.call(actions.querySelectorAll(".practice-btn.primary"), function(b) {
+	// (quiet: the row's main button stays the main one, as a song's
+	// trouble spot to practice does)
+	if (!quiet) Array.prototype.forEach.call(actions.querySelectorAll(".practice-btn.primary"), function(b) {
 		b.className = "practice-btn secondary";
 	});
-	var go = practiceButton("Next: " + next.title + " →", "primary path-next", function() {
+	var go = practiceButton("Next: " + next.title + " →", (quiet ? "secondary" : "primary") + " path-next", function() {
 		startPathNode(next);
 	});
 	actions.appendChild(go);

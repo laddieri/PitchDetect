@@ -41,6 +41,12 @@
 				--success-soft: rgba(22, 163, 74, 0.12);
 				--warning: #d97706;
 
+				/* A song's "selected / you are here" (a tapped note, a part
+				   picked, the note being played): never the orange of a
+				   note nearly right */
+				--here: #4f46e5;
+				--here-soft: #eef0fe;
+
 				/* Shape & depth */
 				--radius: 12px;
 				--radius-sm: 9px;
@@ -1668,6 +1674,8 @@
 				--danger-hover: #f23a5c;
 				--success: #2fbf4f;
 				--warning: #ff9f1c;
+				--here: #2f7cf6;
+				--here-soft: #e6f0ff;
 				--radius: 24px;
 				--radius-sm: 16px;
 				--cartoon-border: 3px solid var(--ink);
@@ -3924,16 +3932,10 @@
 				left: 8px;
 				font-size: 1.4rem;
 				font-weight: 700;
-				color: var(--accent);
+				color: var(--here);
 				pointer-events: none;
 			}
 
-			/* After a run: what was heard for that note */
-			.song-fingering-heard {
-				font-size: 0.95rem;
-				font-weight: 600;
-				color: var(--text-muted);
-			}
 
 			/* A song's notes can be tapped for their fingering */
 			.practice-view[data-mode="song"] #practice-staff-output {
@@ -4156,8 +4158,19 @@
 				.song-free-actions > #song-listen {
 					flex: 1 1 0;
 					min-width: 0;
-					padding: 10px 12px;
+					padding: 6px 12px;
 					font-size: 0.98rem;
+				}
+
+				/* Their labels say what they'll do ("Play measures 3–4
+				   with piano"), so they may take two lines; two lines'
+				   height always, so a longer label never moves anything */
+				.song-free-actions > #song-hear:not(.path-next),
+				.song-free-actions > #song-listen {
+					white-space: normal;
+					text-wrap: balance;
+					line-height: 1.15;
+					min-height: calc(2.3em + 12px);
 				}
 
 				/* Too narrow for two equal halves: a longer label takes more */
@@ -4236,13 +4249,75 @@
 				color: var(--text);
 			}
 
+			/* A score's row (showSongResultKey()): its trouble spot, and what
+			   the colors mean, as small dots */
+			.song-trouble {
+				font-weight: 700;
+				color: var(--danger);
+				white-space: nowrap;
+			}
+
+			/* A note tapped after a run: what was heard for it */
+			.song-heard {
+				font-weight: 700;
+				color: var(--text);
+				white-space: nowrap;
+			}
+
+			.song-heard[data-kind="right"] { color: var(--success); }
+			.song-heard[data-kind="off"] { color: var(--warning); }
+			.song-heard[data-kind="wrong"] { color: var(--danger); }
+
+			/* A score's row keeps one height whatever it holds (the trouble
+			   spot and key, or a tapped note and Try this note), so nothing
+			   under it moves on a tap: two rows' worth on a phone, where
+			   the key wraps */
+			.song-tools[data-result] {
+				align-content: center;
+				min-height: 34px;
+			}
+
+			@media (max-width: 700px) {
+				.song-tools[data-result] {
+					height: 64px;
+					overflow: hidden;
+				}
+			}
+
+			.song-legend {
+				display: inline-flex;
+				flex-wrap: wrap;
+				justify-content: center;
+				gap: 4px 12px;
+				font-size: 0.85rem;
+				color: var(--text-muted);
+			}
+
+			.song-legend-item {
+				display: inline-flex;
+				align-items: center;
+				gap: 5px;
+				white-space: nowrap;
+			}
+
+			.song-legend-item::before {
+				content: "";
+				width: 10px;
+				height: 10px;
+				border-radius: 50%;
+				background: var(--success);
+			}
+
+			.song-legend-item[data-kind="off"]::before { background: var(--warning); }
+			.song-legend-item[data-kind="wrong"]::before { background: var(--danger); }
+
 			/* What's picked (a part, a note to start from) and its ✕ */
 			.song-tool-chip {
 				display: inline-flex;
 				align-items: center;
 				gap: 6px;
 				padding-right: 4px;
-				background: var(--accent-soft);
+				background: var(--here-soft);
 				color: var(--text);
 				font-family: var(--font);
 				font-weight: 600;
