@@ -1122,6 +1122,57 @@ async function run() {
 		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
 		await context.close();
 
+		// --- The fingering chart: pick a note, see its fingering, play it ---
+		console.log("Fingering chart");
+		errors = [];
+		context = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ["microphone"], serviceWorkers: "block" });
+		page = await newPage(context, errors);
+		await page.goto(base);
+		await signIn(page, "Chart", "Clarinet");
+		await page.click('.practice-choice[data-activity="chart"]');
+		await page.waitForSelector('#practice-view[data-mode="chart"]');
+		// It opens on the lessons' first note with its chart drawn, the mic off
+		var opened = await page.evaluate(function() {
+			var box = document.querySelector("#chart-fingering .practice-fingering");
+			return { name: document.querySelector(".chart-prompt-name").textContent, mic: listenActive || listenStarting,
+				chart: !!box.querySelector("svg") && box.getBoundingClientRect().height > 60,
+				crumbs: document.getElementById("practice-crumbs").textContent };
+		});
+		check(opened.name === "C" && !opened.mic && opened.chart && /Notes.*Fingering chart/.test(opened.crumbs),
+			"the fingering chart opens on a note with its chart, without the mic (" + JSON.stringify(opened) + ")");
+		// C sharp, as picked (not D flat); C has no flat
+		await page.click("#chart-sharp");
+		var sharp = await page.evaluate(function() {
+			return { name: document.querySelector(".chart-prompt-name").textContent, target: practice.target,
+				staff: practiceSpelling(practice.target), flat: document.getElementById("chart-flat").disabled };
+		});
+		check(sharp.name === "C\u266f" && sharp.target === 61 && sharp.staff === "C#" && sharp.flat,
+			"a sharp is spelled as picked (" + JSON.stringify(sharp) + ")");
+		// Listen to me: 440 Hz is written B4 on clarinet, so C sharp is wrong...
+		await page.click("#chart-listen");
+		var wrong = await page.waitForFunction(function() {
+			var f = document.getElementById("practice-feedback");
+			return f.getAttribute("data-state") === "off" && /sounded like B/.test(document.getElementById("practice-feedback-sub").textContent)
+				&& !!document.querySelector('.pitch-trace-line[data-state="off"]');
+		}, null, { timeout: 8000 }).then(function() { return true; }, function() { return false; });
+		check(wrong, "the chart names a wrong note and traces it");
+		// ...and B, picked while it listens, is right
+		await page.click('.chart-key[data-letter="B"]');
+		var right = await page.waitForFunction(function() {
+			return practice.chart.done && document.getElementById("practice-feedback").textContent === "You got it!";
+		}, null, { timeout: 8000 }).then(function() { return true; }, function() { return false; });
+		var after = await page.evaluate(function() { return practice.target; });
+		check(right && after === 71, "the chart hears the right note (target " + after + ")");
+		// Back to the menu turns the mic off
+		await page.goBack();
+		await page.waitForFunction(function() { return practice.mode === "menu"; });
+		var micOff = await page.evaluate(function() {
+			return !listenActive && document.getElementById("practice-view").getAttribute("data-menu-page") === "notes";
+		});
+		check(micOff, "leaving the chart returns to Notes with the mic off");
+		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
+		await context.close();
+
 		// --- The lesson's Play step draws the pitch on the staff ---
 		console.log("Pitch trace");
 		errors = [];
