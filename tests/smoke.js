@@ -1128,9 +1128,13 @@ async function run() {
 		context = await browser.newContext({ viewport: { width: 390, height: 844 }, permissions: ["microphone"], serviceWorkers: "block" });
 		page = await newPage(context, errors);
 		await page.goto(base);
-		await signIn(page, "Chart", "Clarinet");
-		await page.click('.practice-choice[data-activity="chart"]');
-		await page.waitForSelector('#practice-view[data-mode="chart"]');
+		// The main page's Chart button: signing in first, then straight to the chart
+		await page.click("#chartButton");
+		await page.fill("#student-name", "Chart");
+		await page.press("#student-name", "Enter");
+		await page.click(".instrument-choice >> text=Clarinet");
+		var straight = await page.waitForSelector('#practice-view[data-mode="chart"]', { timeout: 5000 }).then(function() { return true; }, function() { return false; });
+		check(straight, "the main page's Chart button opens the fingering chart (after signing in)");
 		// It opens on a grid of every note in clarinet's range (E3 to G6), the mic off
 		var grid = await page.evaluate(function() {
 			var cells = document.querySelectorAll(".chart-grid .chart-cell");
