@@ -586,6 +586,13 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   (best notes right saved in `pitchdetect-songs`, shared with note by note;
   a perfect run offers Next song). Hear the
   song restarts the run.
+  Note by note shows the current note's fingering by itself
+  (`showSongNoteFingering()`, from `showSongNote()`: every pitch's chart
+  built once in `#song-fingering` by `showSongFingerings()`, marked
+  `data-auto`, its show kept in `practice.song.autoFingering`, the current
+  note's shown); a tapped note's chart takes its place until closed, Hear
+  the song shows its own and it comes back after, and Help adds no second
+  chart (just the name and the sound).
   Note by note is a level under its song's Play it through: its
   **← Whole song** button, the back arrow and its breadcrumb (Songs ›
   the song › Step through it) all go back there (`songNoteByNoteBack()`,
@@ -1146,8 +1153,9 @@ trumpet's written key too, whose overview's Learn it and Play it run the
 lesson and the scale, and Change octave moves trumpet's B♭ scale up an
 octave and back;
 the Songs tab lists every level of songs;
-a song's breadcrumbs lead back to the Songs tab, and back from note by
-note returns to the whole song; a drill's result
+a song's breadcrumbs lead back to the Songs tab, note by note shows each
+note's fingering by itself, and back from note by note returns to the
+whole song; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1

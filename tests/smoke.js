@@ -705,6 +705,36 @@ async function run() {
 		await page.click(".song-tools >> text=Step through it");
 		check(noStep && await page.evaluate(function() { return practice.mode === "song" && !practice.song.free && practice.song.to !== undefined; }),
 			"Step through it is offered for a part picked, not as a tool of its own, and steps through the part");
+		// Note by note shows each note's fingering by itself, moving on with
+		// the note; Help doesn't add a second chart, and closing a tapped
+		// note's chart brings the current note's back
+		var autoChart = await page.evaluate(function() {
+			function shown() {
+				var wrap = document.getElementById("song-fingering");
+				var boxes = wrap ? Array.prototype.filter.call(wrap.querySelectorAll(":scope > .practice-fingering"),
+					function(b) { return !b.hidden; }) : [];
+				return wrap && boxes.length === 1 ? boxes[0] : null;
+			}
+			var s = practice.song;
+			var first = shown();
+			var firstMidi = s.notes[s.pos].midi;
+			var i = s.pos + 1;
+			while (i < songEnd(s) && s.notes[i].midi === firstMidi) i++;
+			while (s.pos < i) passSongNote();
+			var next = shown();
+			showSongHelp();
+			var helpCharts = document.querySelectorAll("#practice-body .practice-fingering:not([hidden])").length;
+			stopSongPlayback();
+			stopNote();
+			s.tapped = s.notes[0].event;
+			showSongFingerings([s.events[s.tapped]]);
+			closeSongFingering();
+			var back = shown();
+			startSong(s.id, s.from, s.to);
+			return { first: !!first, moved: !!next && next !== first, helpCharts: helpCharts, back: !!back };
+		});
+		check(autoChart.first && autoChart.moved && autoChart.helpCharts === 1 && autoChart.back,
+			"note by note shows each note's fingering by itself (" + JSON.stringify(autoChart) + ")");
 		// "Hear the song" is the song (or part), "Hear the note" one note
 		var hears = await page.evaluate(function() {
 			var song = document.getElementById("song-hear").textContent;
