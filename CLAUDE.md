@@ -841,6 +841,13 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   note stops (`chart.done`), and the note's cell gets a ✓ (`data-played`),
   kept per instrument in `pitchdetect-fingering-chart` (`loadChartPlayed()`
   / `saveChartPlayed()`); the menu card counts them ("12 / 40 ✓").
+  The main page's header has a **Chart** button for it (`#chartButton`,
+  "Fingering chart" above 960px; left of the centered title on a desktop,
+  beside Practice below 1100px): `openFingeringChart()` sets
+  `pendingPracticeActivity` and opens Practice, and `openPendingPractice()`
+  (where Practice reaches its menu: `openPractice()`, `finishSignIn()`,
+  `enterTeacherMode()`; a shared song link comes first) starts it, so
+  sign-in still comes first; `closePractice()` drops it.
 - `practiceFingeringBox()` builds the chart for the Finger step and challenge
   Help. Flutes on B A G keep the thumb on the B♮ key: in the B A G lesson,
   its fingering drill and songs on only B, A and G (`fluteBThumbNow()`,
@@ -1137,7 +1144,8 @@ note returns to the whole song; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
-B♭ and clarinet's side-key F♯; the fingering chart opens on a grid of every
+B♭ and clarinet's side-key F♯; the main page's Chart button opens the fingering chart
+after sign-in, on a grid of every
 note (black keys with both names) without the mic, a tapped note shows its
 fingering, Listen to me names a wrong note and hears the right one (the mic
 off back on the grid, on through ◀ ▶), and a note played right is checked

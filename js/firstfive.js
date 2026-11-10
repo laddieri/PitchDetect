@@ -458,7 +458,24 @@ function openPractice() {
 	}
 	showPracticeMenu();
 	document.getElementById("practice-close").focus();
+	openPendingPractice();
+}
+
+// The main page's Fingering chart button: Practice, straight to the chart
+// (after signing in, if no one has yet)
+var pendingPracticeActivity = null;
+function openFingeringChart() {
+	pendingPracticeActivity = "chart";
+	openPractice();
+}
+
+// Once Practice is on its menu (opened, or signed in): a shared song
+// waiting, else the activity asked for
+function openPendingPractice() {
+	var id = pendingPracticeActivity;
+	pendingPracticeActivity = null;
 	if (pendingSongImport) openSongImport();
+	else if (id && practiceActivityAvailable(id)) startPracticeActivity(id);
 }
 
 // Load practice state for the app's selected instrument
@@ -1137,6 +1154,7 @@ function currentPracticeActivity() {
 function closePractice() {
 	if (!practiceOpen) return;
 	practiceOpen = false;
+	pendingPracticeActivity = null;
 	stopSongPlayback();
 	closeTuningTip();
 	clearTimeout(practiceAdvanceTimer);

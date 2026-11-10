@@ -109,6 +109,18 @@
 				gap: 16px;
 			}
 
+			.chart-short {
+				display: none;
+			}
+
+			/* The fingering chart: top-left, mirroring Practice */
+			#chartButton {
+				position: absolute;
+				top: 50%;
+				left: 0;
+				transform: translateY(-50%);
+			}
+
 			/* Styled like the Sustain switch */
 			.mode-switch {
 				display: inline-flex;
@@ -1207,12 +1219,23 @@
 				max-height: 100%;
 			}
 
+			/* Not much room beside the title: just "Chart" */
+			@media (max-width: 960px) {
+				.chart-long {
+					display: none;
+				}
+
+				.chart-short {
+					display: inline;
+				}
+			}
+
 			/* Narrower screens: no room beside a centered title, so the title
 			   moves left with Practice and the switch on its right */
 			@media (max-width: 1100px) {
 				.app-header {
 					display: grid;
-					grid-template-columns: minmax(0, 1fr) auto;
+					grid-template-columns: minmax(0, 1fr) auto auto;
 					align-items: center;
 					column-gap: 16px;
 					text-align: left;
@@ -1228,10 +1251,17 @@
 					grid-row: 2;
 				}
 
-				.header-actions {
+				#chartButton {
 					position: static;
 					transform: none;
 					grid-column: 2;
+					grid-row: 1 / span 2;
+				}
+
+				.header-actions {
+					position: static;
+					transform: none;
+					grid-column: 3;
 					grid-row: 1 / span 2;
 				}
 			}
@@ -1267,14 +1297,20 @@
 					display: contents;
 				}
 
-				#practiceButton {
+				#chartButton {
 					grid-column: 2;
 					grid-row: 1;
 					justify-self: end;
 				}
 
+				#practiceButton {
+					grid-column: 3;
+					grid-row: 1;
+					justify-self: end;
+				}
+
 				.mode-switch {
-					grid-column: 2;
+					grid-column: 2 / span 2;
 					grid-row: 2;
 					justify-self: end;
 					font-size: 0.85rem;
@@ -1973,7 +2009,8 @@
 			/* ---------- First 5 Notes practice ---------- */
 			/* Entry: an outline button in the header, beside the Advanced mode
 			   switch */
-			#practiceButton {
+			#practiceButton,
+			#chartButton {
 				padding: 11px 22px;
 				font-size: 0.95rem;
 				font-weight: 500;
@@ -1989,16 +2026,19 @@
 				transition: background-color 0.15s, border-color 0.15s, opacity 0.15s;
 			}
 
-			#practiceButton svg {
+			#practiceButton svg,
+			#chartButton svg {
 				flex-shrink: 0;
 			}
 
-			#practiceButton:hover {
+			#practiceButton:hover,
+			#chartButton:hover {
 				border-color: var(--accent);
 				background-color: var(--accent-soft);
 			}
 
-			#practiceButton:focus-visible {
+			#practiceButton:focus-visible,
+			#chartButton:focus-visible {
 				outline: none;
 				box-shadow: var(--ring);
 			}
@@ -5612,7 +5652,8 @@
 			}
 
 			/* Kid mode: the cartoon look */
-			body.kid-mode #practiceButton {
+			body.kid-mode #practiceButton,
+			body.kid-mode #chartButton {
 				font-size: 1.2rem;
 				font-weight: 700;
 				padding: 11px 24px;
@@ -5623,7 +5664,13 @@
 				box-shadow: 4px 4px 0 var(--ink);
 			}
 
+			/* The chart: white beside Practice's yellow */
+			body.kid-mode #chartButton {
+				background-color: var(--surface);
+			}
+
 			body.kid-mode #practiceButton:active,
+			body.kid-mode #chartButton:active,
 			body.kid-mode .practice-btn:active,
 			body.kid-mode .practice-answer:active:not(:disabled) {
 				transform: translate(3px, 3px);
@@ -5857,17 +5904,21 @@
 			@media (max-width: 700px) {
 				/* Header-sized: the star goes, the label stays */
 				#practiceButton,
-				body.kid-mode #practiceButton {
+				body.kid-mode #practiceButton,
+				#chartButton,
+				body.kid-mode #chartButton {
 					padding: 6px 12px;
 					font-size: 0.9rem;
 				}
 
-				body.kid-mode #practiceButton {
+				body.kid-mode #practiceButton,
+				body.kid-mode #chartButton {
 					border-radius: 12px;
 					box-shadow: 3px 3px 0 var(--ink);
 				}
 
-				#practiceButton svg {
+				#practiceButton svg,
+				#chartButton svg {
 					display: none;
 				}
 
@@ -6266,6 +6317,10 @@
 			<header class="app-header">
 				<h1>What Note Is This?</h1>
 				<p class="app-subtitle"><span class="std-only">Play a note and the app names it &mdash; or set a target note to practice</span><span class="kid-only">Play a note and see what it is!</span></p>
+				<button id="chartButton" onclick="openFingeringChart()" title="Fingering chart: every note and how to play it" aria-label="Fingering chart">
+					<svg width="22" height="18" viewBox="0 0 30 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true"><circle cx="5" cy="12" r="4"/><circle cx="15" cy="12" r="4" fill="currentColor"/><circle cx="25" cy="12" r="4"/></svg>
+					<span class="btn-label"><span class="chart-long">Fingering chart</span><span class="chart-short">Chart</span></span>
+				</button>
 				<div class="header-actions">
 					<button id="practiceButton" onclick="openPractice()" title="Practice your first five notes" aria-label="Practice your first five notes">
 						<svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>

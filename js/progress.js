@@ -1012,7 +1012,7 @@ function enterTeacherMode() {
 	}
 	showPracticeMenu("notes");
 	showProgressPop("Teacher mode", "goal");
-	if (pendingSongImport) openSongImport();
+	openPendingPractice();
 }
 
 // Back to the students: who's practicing next?
@@ -1097,7 +1097,7 @@ function continueSignIn(from) {
 function finishSignIn() {
 	showPracticeMenu();
 	if (currentStudent && !teacherMode) showProgressPop("Hi, " + studentLabel() + "!", "goal");
-	if (pendingSongImport) openSongImport();
+	openPendingPractice();
 }
 
 // What's your name? For a student signed in with an old student ID (from:
