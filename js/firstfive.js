@@ -3715,6 +3715,7 @@ function closeSongFingering() {
 	else {
 		drawSongLine(s.pos);
 		updateSongTools();
+		showSongNoteFingering();
 	}
 }
 
@@ -4427,7 +4428,8 @@ function showSongNote() {
 	view.setAttribute("data-step", "song");
 	var box = document.querySelector("#practice-body > .practice-fingering");
 	if (box) box.remove();
-	removeSongFingerings();
+	// (a tapped note's chart goes; the current note's comes up below)
+	if (s.tapped !== null || !s.autoFingering) removeSongFingerings();
 	s.tapped = null;
 	var help = document.getElementById("song-help");
 	if (help) {
@@ -4443,6 +4445,26 @@ function showSongNote() {
 	} else if (practice.needRetongue) {
 		setPracticeFeedback("Again!", "Tongue it: “too”", "good");
 	}
+	showSongNoteFingering();
+}
+
+// Note by note shows the current note's fingering by itself, in the chart
+// area Hear the song uses: every pitch's chart is built once (so none
+// reloads, and the area keeps one height for the song) and the current
+// one shown (s.autoFingering, showSongFingerings()'s show). Not while the
+// song plays (it shows its own), nor over a tapped note's chart.
+function showSongNoteFingering() {
+	var s = practice.song;
+	if (!s || s.free || s.pos >= songEnd(s) || practice.mode !== "song") return;
+	if (songPlayTimer !== null || s.tapped !== null) return;
+	var wrap = document.getElementById("song-fingering");
+	if (!s.autoFingering || !wrap || !wrap.hasAttribute("data-auto")) {
+		s.autoFingering = showSongFingerings(s.events);
+		wrap = document.getElementById("song-fingering");
+		if (!wrap) return;
+		wrap.setAttribute("data-auto", "");
+	}
+	s.autoFingering(s.notes[s.pos].event);
 }
 
 // Reveal the current note's name, fingering and sound. It no longer scores.
@@ -4454,7 +4476,10 @@ function showSongHelp() {
 	document.getElementById("practice-view").setAttribute("data-step", "challenge-help");
 	document.getElementById("practice-prompt").textContent = "This is " + songNoteName(s.notes[s.pos]) + ". Play it!";
 	var help = document.getElementById("song-help");
-	help.parentNode.parentNode.insertBefore(practiceFingeringBox(), help.parentNode);
+	// (the fingering is already up, showSongNoteFingering())
+	if (!document.getElementById("song-fingering")) {
+		help.parentNode.parentNode.insertBefore(practiceFingeringBox(), help.parentNode);
+	}
 	help.textContent = "\u25b6 Hear the note";
 	help.onclick = function() {
 		stopSongPlayback();
@@ -4565,6 +4590,7 @@ function passSongNote() {
 
 function finishSong() {
 	var s = practice.song;
+	removeSongFingerings();
 	var total = s.notes.length;
 	// Stepped through a part: next, play it straight through (back on Play
 	// it through, the part still picked), or step through it again
@@ -6477,6 +6503,7 @@ function showSongFingerings(events) {
 function removeSongFingerings() {
 	stopTryNote();
 	document.getElementById("practice-view").removeAttribute("data-song-charts");
+	if (practice && practice.song) practice.song.autoFingering = null;
 	var wrap = document.getElementById("song-fingering");
 	if (!wrap) return;
 	var help = wrap.parentNode.querySelector(":scope > .practice-fingering");
@@ -6760,6 +6787,7 @@ function stopSongPlayback() {
 		showSongSelection();
 	} else {
 		drawSongLine(s.pos);
+		if (practice.step === 3) showSongNoteFingering();
 	}
 	updateSpeedPicker();
 }
