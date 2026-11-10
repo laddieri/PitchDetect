@@ -332,7 +332,6 @@ function practiceSpelling(writtenMidi) {
 	var spellings = !practice ? null
 		: practice.mode === "lesson" ? currentLesson().spellings
 		: (practice.mode === "challenge" || practice.mode === "drill") && practice.challenge ? practice.challenge.spellings
-		: practice.mode === "chart" && practice.chart ? practice.chart.spellings
 		: null;
 	if (spellings && spellings[pc]) return spellings[pc];
 	return plainPracticeSpelling(writtenMidi);
@@ -619,7 +618,7 @@ var PRACTICE_ACTIVITIES = [
 	{ id: "learn3", icon: "\u266a", title: "Learn the first 3 notes", sub: "Start here: three easy notes, one at a time", page: "notes", wide: true },
 	{ id: "learn", icon: "\u266a", title: "Learn the first 5 notes", sub: "Read, finger, hear and play each note", page: "notes", wide: true },
 	{ id: "learn4", icon: "\u266a", title: "Learn notes 6 and beyond", sub: "", page: "notes", wide: true },  // sub: nextFourText()
-	{ id: "chart", icon: "fingering", title: "Fingering chart", sub: "Pick any note, see how to play it, then try it", page: "notes", wide: true },
+	{ id: "chart", icon: "fingering", title: "Fingering chart", sub: "Every note: see how to play it, then try it", page: "notes", wide: true },
 	{ id: "scale", icon: "scale", title: "Concert B\u266d scale", sub: "", page: "keys" },  // sub: scaleText()
 	{ id: "scalerun", icon: "scalerun", title: "Play the concert B\u266d scale", sub: "Up and back down, note by note", page: "keys", card: "scale" },
 	{ id: "scaleEb", icon: "scale", title: "Concert E\u266d scale", sub: "", page: "keys" },  // sub: scaleText()
@@ -857,7 +856,9 @@ function showPracticeMenu(page) {
 		} else if (a.firstSounds) {
 			score = starText(practice.firstSoundsBest);
 		} else if (a.id === "chart") {
-			score = "";  // a place to look notes up: nothing to score
+			// (a place to look notes up: just the notes played right so far)
+			var chartPlayed = Object.keys(loadChartPlayed(practice.instrument)).length;
+			score = chartPlayed ? chartPlayed + " / " + (chartRange()[1] - chartRange()[0] + 1) + " \u2713" : "";
 		} else if (a.id === "songs" || a.id === "songs3" || a.id === "songs3bag" || a.id === "songs5") {
 			var list = listSongs({ songs: "every", songs3: "three", songs3bag: "three", songs5: "five" }[a.id]);
 			var songTotal = list.reduce(function(t, song) { return t + songStars(song, set); }, 0);
@@ -1025,7 +1026,8 @@ function startPracticeActivity(id) {
 }
 
 // The back arrow (and Escape): an activity returns to its menu page, and
-// the menu leaves practice; note by note returns to its song's Play it
+// the menu leaves practice; a fingering chart's note returns to its grid;
+// note by note returns to its song's Play it
 // through, and that to the song list
 function practiceBack() {
 	if (practice && practice.mode === "signin") {
@@ -1038,6 +1040,8 @@ function practiceBack() {
 	}
 	if (practice && practice.mode === "song" && !practice.song.free) {
 		songNoteByNoteBack();
+	} else if (practice && practice.mode === "chart" && practice.chart.note !== null) {
+		showChartGrid();
 	} else if (practice && (practice.mode === "song" || practice.mode === "editor")) {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
@@ -1055,7 +1059,8 @@ function practiceBack() {
 function practiceCrumbs() {
 	var activity = currentPracticeActivity();
 	if (activity === "signin" || activity === "menu") return [];
-	var deeper = practice.mode === "song" || practice.mode === "editor";
+	var chartNote = practice.mode === "chart" && practice.chart && practice.chart.note !== null;
+	var deeper = practice.mode === "song" || practice.mode === "editor" || chartNote;
 	var parent = activity === "profile" ? practice.menuPage : menuPageFor(activity) || practice.menuPage;
 	var tab = PRACTICE_PAGES.filter(function(p) { return p.id === parent; })[0] || PRACTICE_PAGES[0];
 	var crumbs = [{ label: tab.label, go: function() { showPracticeMenu(tab.id); } }];
@@ -1067,7 +1072,7 @@ function practiceCrumbs() {
 	if (!(deeper && practice.songList === "every")) {
 		crumbs.push({
 			label: practiceActivityTitle(activity),
-			go: deeper ? function() { showSongList(); } : null
+			go: chartNote ? showChartGrid : deeper ? function() { showSongList(); } : null
 		});
 	}
 	if (practice.mode === "song") {
@@ -1077,6 +1082,8 @@ function practiceCrumbs() {
 		if (!free) crumbs.push({ label: "Step through it" });
 	} else if (practice.mode === "editor") {
 		crumbs.push({ label: "Write a song" });
+	} else if (chartNote) {
+		crumbs.push({ label: chartNoteLabel(practice.chart.note) });
 	}
 	return crumbs;
 }
@@ -7956,16 +7963,21 @@ document.addEventListener("DOMContentLoaded", function() { setTimeout(checkSongL
 window.addEventListener("hashchange", checkSongLink);
 
 // ---------------------------------------------------------------------------
-// The fingering chart (mode "chart", the Notes tab's last card): the student
-// picks any note of their instrument by name (a letter, flat or sharp, and
-// lower / higher for its octave), sees it on the staff with its fingering
-// (slide position, or piano key without charts), can hear it, and with
-// Listen to me the mic says whether they're playing it, as the lessons'
-// Play step does (updatePracticeListen(): the pitch trace, wrong notes
-// named, brass partials). Nothing is scored: it's for looking notes up.
+// The fingering chart (mode "chart", the Notes tab's last card), laid out
+// like a printed one: every note of the instrument's range in a grid, low
+// to high, each on its own little staff with its name (both names for a
+// black key, "C♯ D♭", drawn side by side as charts do). Tapping a note opens
+// it (practice.chart.note): the staff, its fingering (slide position, or
+// piano key without charts), Hear it, and with Listen to me the mic says
+// whether they're playing it, as the lessons' Play step does
+// (updatePracticeListen(): the pitch trace, wrong notes named, brass
+// partials). ◀ ▶ step a half step down or up, the mic staying on. A note
+// held right gets a ✓ on its grid cell, kept per instrument in
+// pitchdetect-fingering-chart. Nothing else is scored.
 // ---------------------------------------------------------------------------
 
-var CHART_LETTERS = "CDEFGAB";
+var CHART_PLAYED_STORAGE_KEY = "pitchdetect-fingering-chart";
+var CHART_CELL_WIDTH = 120;  // a grid cell's staff, internal units
 
 // The instrument's written range on the chart (the lessons' ranges, which
 // stay on its fingering charts)
@@ -7973,84 +7985,222 @@ function chartRange() {
 	return PRACTICE_RANGES[practice.instrument] || PRACTICE_RANGES["treble clef"];
 }
 
-// The written MIDI note of a pick { letter, alter, octave }
-function chartMidi(pick) {
-	return (pick.octave + 1) * 12 + NATURAL_SEMITONES[CHART_LETTERS.indexOf(pick.letter)] + pick.alter;
+function chartNotes() {
+	var range = chartRange(), notes = [];
+	for (var m = range[0]; m <= range[1]; m++) notes.push(m);
+	return notes;
 }
 
-// Letters that take no flat (C♭, F♭) or sharp (B♯, E♯): those are other
-// letters' notes
-function chartAlterAllowed(letter, alter) {
-	return alter === 0 || (alter < 0 ? "CF" : "BE").indexOf(letter) < 0;
+// A written note's spellings: a black key's sharp and flat, else its letter
+function chartSpellings(midi) {
+	var pc = ((midi % 12) + 12) % 12;
+	var sharp = sharpNoteSpellings[pc], flat = flatNoteSpellings[pc];
+	return sharp === flat ? [sharp] : [sharp, flat];
 }
 
-// The pick moved by octaves into the instrument's range (null if no octave
-// of it is in range)
-function chartPickInRange(pick) {
-	var range = chartRange();
-	for (var k = 0; k <= 3; k++) {
-		for (var sign = -1; sign <= 1; sign += 2) {
-			var p = { letter: pick.letter, alter: pick.alter, octave: pick.octave + sign * k };
-			var midi = chartMidi(p);
-			if (midi >= range[0] && midi <= range[1]) return p;
+// "C♯ / D♭" (or "C", or with sep between)
+function chartNoteLabel(midi, sep) {
+	return chartSpellings(midi).map(keyDisplayName).join(sep || " / ");
+}
+
+function loadChartPlayed(instrument) {
+	try {
+		var list = JSON.parse(progressGet(CHART_PLAYED_STORAGE_KEY) || "{}")[instrument];
+		if (Array.isArray(list)) {
+			var played = {};
+			list.forEach(function(m) { if (typeof m === "number") played[m] = true; });
+			return played;
 		}
-	}
-	return null;
+	} catch (e) {}
+	return {};
 }
 
-function startFingeringChart() {
+function saveChartPlayed(instrument, played) {
+	try {
+		var all = JSON.parse(progressGet(CHART_PLAYED_STORAGE_KEY) || "{}");
+		all[instrument] = Object.keys(played).map(Number).sort(function(a, b) { return a - b; });
+		progressSet(CHART_PLAYED_STORAGE_KEY, JSON.stringify(all));
+	} catch (e) {}
+}
+
+// Open the chart: on the grid, or (from history) on a note
+function startFingeringChart(note) {
 	clearTimeout(practiceAdvanceTimer);
 	stopNote();
 	setPracticeMode("chart");
-	// The note last looked up, else the first note of the lessons
-	if (!practice.chart) {
-		var midi = practice.lessons.first5.notes[0];
-		var spelled = plainPracticeSpelling(midi);
-		var alter = spelled.length > 1 ? (spelled.charAt(1) === "#" ? 1 : -1) : 0;
-		var pick = chartPickInRange({ letter: spelled.charAt(0), alter: alter, octave: Math.floor((midi - alter) / 12) - 1 })
-			|| chartPickInRange({ letter: "C", alter: 0, octave: 4 });
-		practice.chart = { pick: pick };
+	if (!practice.chart || practice.chart.instrument !== practice.instrument) {
+		practice.chart = { instrument: practice.instrument, note: null };
 	}
 	var c = practice.chart;
+	c.played = loadChartPlayed(practice.instrument);
 	c.listening = false;
 	c.done = false;
+	var range = chartRange();
+	if (typeof note === "number" && note >= range[0] && note <= range[1]) showChartNote(note);
+	else showChartGrid();
+}
+
+// The grid of every note
+function showChartGrid() {
+	var c = practice.chart;
+	if (c.listening) {
+		c.listening = false;
+		songMicOff();
+	}
+	stopNote();
+	resetPracticeHold();
+	var from = c.note;
+	c.note = null;
+	setChartBackLabel("Back to the practice menu");
+	c.done = false;
 	practice.step = -1;
-	document.getElementById("practice-view").setAttribute("data-step", "chart");
+	practice.target = null;
+	pitchTrace = null;
+	document.getElementById("practice-view").setAttribute("data-step", "chart-grid");
 	document.getElementById("practice-steps").innerHTML = "";
+	document.getElementById("practice-staff-output").innerHTML = "";
+	document.getElementById("practice-prompt").textContent = practice.instrument === "trombone"
+		? "Tap a note to see its slide position"
+		: hasFingeringData(practice.instrument) ? "Tap a note to see how to play it" : "Tap a note to find it on the keyboard";
 
 	var body = document.getElementById("practice-body");
 	body.innerHTML = "";
-	var picker = document.createElement("div");
-	picker.className = "chart-picker";
-	var letters = document.createElement("div");
-	letters.className = "chart-letters";
-	letters.setAttribute("role", "group");
-	letters.setAttribute("aria-label", "Note name");
-	CHART_LETTERS.split("").forEach(function(letter) {
-		var b = chartKey(letter, letter, function() { pickChartLetter(letter); });
-		b.setAttribute("data-letter", letter);
-		letters.appendChild(b);
+	var grid = document.createElement("div");
+	grid.className = "chart-grid";
+	grid.setAttribute("role", "list");
+	var view = chartCellView();
+	var fromCell = null;
+	chartNotes().forEach(function(midi) {
+		var cell = document.createElement("button");
+		cell.type = "button";
+		cell.className = "chart-cell";
+		cell.setAttribute("role", "listitem");
+		cell.setAttribute("data-midi", midi);
+		if (chartSpellings(midi).length > 1) cell.setAttribute("data-black", "");
+		var played = !!c.played[midi];
+		if (played) cell.setAttribute("data-played", "");
+		cell.setAttribute("aria-label", chartNoteLabel(midi, " or ") + (played ? ", played" : ""));
+		var staff = document.createElement("div");
+		staff.className = "chart-cell-staff";
+		staff.setAttribute("aria-hidden", "true");
+		cell.appendChild(staff);
+		var name = document.createElement("span");
+		name.className = "chart-cell-name";
+		name.textContent = chartNoteLabel(midi, " ");
+		cell.appendChild(name);
+		if (played) {
+			var check = document.createElement("span");
+			check.className = "chart-cell-check";
+			check.setAttribute("aria-hidden", "true");
+			check.textContent = "✓";
+			cell.appendChild(check);
+		}
+		cell.onclick = function() { showChartNote(midi); };
+		grid.appendChild(cell);
+		drawChartCell(staff, midi, view);
+		if (midi === from) fromCell = cell;
 	});
-	picker.appendChild(letters);
-	var row = document.createElement("div");
-	row.className = "chart-options";
-	var flat = chartKey("♭ Flat", "Flat", function() { pickChartAlter(-1); });
-	flat.id = "chart-flat";
-	var sharp = chartKey("♯ Sharp", "Sharp", function() { pickChartAlter(1); });
-	sharp.id = "chart-sharp";
-	var lower = chartKey("▼ Lower", "An octave lower", function() { moveChartOctave(-1); });
+	body.appendChild(grid);
+	// Back from a note: that note's cell in sight, and focused
+	if (fromCell) {
+		fromCell.scrollIntoView({ block: "nearest" });
+		try { fromCell.focus({ preventScroll: true }); } catch (e) {}
+	}
+	schedulePracticeHistorySync();
+}
+
+// One viewBox for every cell, so the notes all sit at one scale: tall enough
+// for the ledger lines of the range's highest and lowest notes
+function chartCellView() {
+	var clef = getCurrentClef();
+	var middle = clef === "bass" ? 3 * 7 + 1 : 4 * 7 + 6;  // D3, B4: the middle line
+	var range = chartRange(), reach = 4;
+	[range[0], range[1]].forEach(function(midi) {
+		chartSpellings(midi).forEach(function(spelled) {
+			var step = (Math.floor(midi / 12) - 1) * 7 + "CDEFGAB".indexOf(spelled.charAt(0));
+			reach = Math.max(reach, Math.abs(step - middle));
+		});
+	});
+	return { clef: clef, half: reach * LINE_SPACING / 2 + 12 };
+}
+
+// A grid cell's staff: its clef and the note (a black key's sharp, then flat)
+function drawChartCell(out, midi, view) {
+	var VF = Vex.Flow;
+	var W = CHART_CELL_WIDTH, H = 2 * view.half;
+	var renderer = new VF.Renderer(out, VF.Renderer.Backends.SVG);
+	renderer.resize(W, H);
+	var context = renderer.getContext();
+	var stave = new VF.Stave(2, view.half - 2 * LINE_SPACING - 4 * LINE_SPACING, W - 4);
+	stave.addClef(view.clef);
+	stave.setContext(context).draw();
+	var octave = Math.floor(midi / 12) - 1;
+	try {
+		var notes = chartSpellings(midi).map(function(spelled) {
+			var note = new VF.StaveNote({ clef: view.clef, keys: [spelled.toLowerCase() + "/" + octave], duration: "w" });
+			if (spelled.length > 1) note.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
+			return note;
+		});
+		var voice = new VF.Voice({ num_beats: 4 * notes.length, beat_value: 4 }).setStrict(false);
+		voice.addTickables(notes);
+		new VF.Formatter().joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 10);
+		voice.draw(context, stave);
+	} catch (e) {
+		console.log("Could not render chart note:", midi, e.message);
+	}
+	var svg = out.querySelector("svg");
+	if (svg) {
+		var center = (stave.getYForLine(0) + stave.getYForLine(4)) / 2;
+		svg.setAttribute("viewBox", "0 " + (center - view.half) + " " + W + " " + H);
+		svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+		svg.removeAttribute("width");
+		svg.removeAttribute("height");
+		svg.style.width = "100%";
+		svg.style.height = "auto";
+	}
+}
+
+// One note: the staff, its fingering, Hear it and Listen to me. A note
+// being listened for starts over, and the mic stays on.
+function showChartNote(midi) {
+	var c = practice.chart;
+	var range = chartRange();
+	if (midi < range[0] || midi > range[1]) return;
+	c.note = midi;
+	c.done = false;
+	setChartBackLabel("Back to all notes");
+	practice.target = midi;
+	stopNote();
+	resetPracticeHold();
+	document.getElementById("practice-view").setAttribute("data-step", "chart");
+	document.getElementById("practice-steps").innerHTML = "";
+	drawPracticeStaff(midi);
+
+	var hasFingering = hasFingeringData(practice.instrument);
+	var prompt = document.getElementById("practice-prompt");
+	prompt.innerHTML = '<span class="chart-prompt-how"></span> <span class="chart-prompt-name"></span>';
+	prompt.firstChild.textContent = practice.instrument === "trombone" ? "Slide position for"
+		: hasFingering ? "How to play" : "On the keyboard:";
+	prompt.lastChild.textContent = chartNoteLabel(midi);
+
+	var body = document.getElementById("practice-body");
+	body.innerHTML = "";
+	var nav = document.createElement("div");
+	nav.className = "chart-nav";
+	var lower = chartNavButton("◀ " + chartNoteLabel(midi - 1, "/"), "A half step lower", midi - 1);
 	lower.id = "chart-lower";
-	lower.removeAttribute("aria-pressed");
-	var higher = chartKey("▲ Higher", "An octave higher", function() { moveChartOctave(1); });
+	var all = chartNavButton("All notes", "All notes", null);
+	all.id = "chart-all";
+	all.onclick = showChartGrid;
+	var higher = chartNavButton(chartNoteLabel(midi + 1, "/") + " ▶", "A half step higher", midi + 1);
 	higher.id = "chart-higher";
-	higher.removeAttribute("aria-pressed");
-	[flat, sharp, lower, higher].forEach(function(b) { row.appendChild(b); });
-	picker.appendChild(row);
-	body.appendChild(picker);
+	[lower, all, higher].forEach(function(b) { nav.appendChild(b); });
+	body.appendChild(nav);
 
 	var chart = document.createElement("div");
 	chart.id = "chart-fingering";
 	chart.className = "chart-fingering";
+	chart.appendChild(practiceFingeringBox(false, midi));
 	body.appendChild(chart);
 
 	var feedback = document.createElement("div");
@@ -8069,97 +8219,35 @@ function startFingeringChart() {
 	actions.appendChild(listen);
 	body.appendChild(actions);
 
-	showChartNote();
+	updateChartListening();
+	schedulePracticeHistorySync();
 }
 
-function chartKey(text, label, onclick) {
+function setChartBackLabel(label) {
+	var back = document.getElementById("practice-close");
+	back.setAttribute("aria-label", label);
+	back.title = label;
+}
+
+// ◀ / ▶ / All notes: to note midi (disabled past the range)
+function chartNavButton(text, label, midi) {
 	var b = document.createElement("button");
 	b.type = "button";
 	b.className = "chart-key";
 	b.textContent = text;
 	b.setAttribute("aria-label", label);
-	b.setAttribute("aria-pressed", "false");
-	b.onclick = onclick;
+	if (midi !== null) {
+		var range = chartRange();
+		if (midi < range[0] || midi > range[1]) {
+			b.disabled = true;
+			b.textContent = text.replace(/[^◀▶ ]+/g, "").trim();
+		}
+		b.onclick = function() { showChartNote(midi); };
+	}
 	return b;
 }
 
-// A letter: its natural, in the octave showing (moved into range if it
-// falls outside)
-function pickChartLetter(letter) {
-	var c = practice.chart;
-	var pick = chartPickInRange({ letter: letter, alter: 0, octave: c.pick.octave });
-	if (!pick) return;
-	c.pick = pick;
-	showChartNote();
-}
-
-// Flat or sharp, on and off
-function pickChartAlter(alter) {
-	var c = practice.chart;
-	var pick = { letter: c.pick.letter, alter: c.pick.alter === alter ? 0 : alter, octave: c.pick.octave };
-	if (!chartAlterAllowed(pick.letter, pick.alter) || !chartInRange(pick)) return;
-	c.pick = pick;
-	showChartNote();
-}
-
-function moveChartOctave(by) {
-	var c = practice.chart;
-	var pick = { letter: c.pick.letter, alter: c.pick.alter, octave: c.pick.octave + by };
-	if (!chartInRange(pick)) return;
-	c.pick = pick;
-	showChartNote();
-}
-
-function chartInRange(pick) {
-	var range = chartRange(), midi = chartMidi(pick);
-	return midi >= range[0] && midi <= range[1];
-}
-
-// Show the note picked: its name, the staff, the buttons' states and its
-// fingering; a note being listened for starts over
-function showChartNote() {
-	var c = practice.chart, pick = c.pick;
-	var midi = chartMidi(pick);
-	practice.target = midi;
-	// (the staff and the trace spell the note as it was picked: C♯, not D♭)
-	c.spellings = {};
-	c.spellings[((midi % 12) + 12) % 12] = pick.letter + (pick.alter > 0 ? "#" : pick.alter < 0 ? "b" : "");
-	c.done = false;
-	stopNote();
-	resetPracticeHold();
-	drawPracticeStaff(midi);
-
-	var name = practiceNoteName(midi);
-	var hasFingering = hasFingeringData(practice.instrument);
-	var prompt = document.getElementById("practice-prompt");
-	prompt.innerHTML = '<span class="chart-prompt-how"></span> <span class="chart-prompt-name"></span>';
-	prompt.firstChild.textContent = practice.instrument === "trombone" ? "Slide position for"
-		: hasFingering ? "How to play" : "On the keyboard:";
-	prompt.lastChild.textContent = name;
-
-	var buttons = document.querySelectorAll("#practice-body .chart-letters .chart-key");
-	Array.prototype.forEach.call(buttons, function(b) {
-		b.setAttribute("aria-pressed", b.getAttribute("data-letter") === pick.letter ? "true" : "false");
-	});
-	[["chart-flat", -1], ["chart-sharp", 1]].forEach(function(o) {
-		var b = document.getElementById(o[0]);
-		var on = pick.alter === o[1];
-		b.setAttribute("aria-pressed", on ? "true" : "false");
-		b.disabled = !on && (!chartAlterAllowed(pick.letter, o[1])
-			|| !chartInRange({ letter: pick.letter, alter: o[1], octave: pick.octave }));
-	});
-	[["chart-lower", -1], ["chart-higher", 1]].forEach(function(o) {
-		document.getElementById(o[0]).disabled =
-			!chartInRange({ letter: pick.letter, alter: pick.alter, octave: pick.octave + o[1] });
-	});
-
-	var chart = document.getElementById("chart-fingering");
-	chart.innerHTML = "";
-	chart.appendChild(practiceFingeringBox(false, midi));
-	updateChartListening();
-}
-
-// Listen to me: the mic checks the note until Stop (or leaving the chart)
+// Listen to me: the mic checks the note until Stop (or leaving the note)
 function toggleChartListening() {
 	var c = practice.chart;
 	c.listening = !c.listening;
@@ -8186,6 +8274,7 @@ function toggleChartListening() {
 
 function updateChartListening() {
 	var c = practice.chart;
+	if (c.note === null) return;
 	var name = practiceNoteName(practice.target);
 	practice.step = c.listening ? 3 : -1;
 	var button = document.getElementById("chart-listen");
@@ -8193,15 +8282,21 @@ function updateChartListening() {
 	button.textContent = c.listening ? "Stop listening" : "🎤 Listen to me";
 	button.className = "practice-btn " + (c.listening ? "secondary" : "primary");
 	document.querySelector("#practice-body .chart-feedback").toggleAttribute("data-listening", c.listening);
-	if (c.listening) setPracticeFeedback("Play " + name + " and hold it", " ");
-	else setPracticeFeedback("Now you try it!", "Tap Listen to me, then play " + name);
+	if (c.listening) setPracticeFeedback("Play " + name + " and hold it", " ");
+	else if (c.played[c.note]) setPracticeFeedback("✓ You’ve played this one", "Tap Listen to me to play it again");
+	else setPracticeFeedback("Can you play it?", "Tap Listen to me, then play " + name);
 }
 
-// Held in tune long enough: that's the note (once, until it stops)
+// Held in tune long enough: that's the note (once, until it stops), and
+// its grid cell gets a ✓
 function passChartNote() {
 	var c = practice.chart;
 	if (c.done) return;
 	c.done = true;
+	if (!c.played[c.note]) {
+		c.played[c.note] = true;
+		saveChartPlayed(practice.instrument, c.played);
+	}
 	launchFireworks(document.getElementById("practice-stage"));
 	playChime();
 }
@@ -9277,6 +9372,10 @@ function practiceHistoryState() {
 	}
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
 	if (practice.mode === "songs") return { practice: "songs", depth: depth };
+	// (a fingering chart's note is a level under its grid)
+	if (practice.mode === "chart" && practice.chart && practice.chart.note !== null) {
+		return { practice: "chart", note: practice.chart.note, depth: depth + 1 };
+	}
 	return { practice: activity, depth: depth };
 }
 
@@ -9286,7 +9385,8 @@ function practiceHistoryDepth(state) {
 
 function samePracticeState(a, b) {
 	if (!a || !a.practice) return !b;
-	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song && !a.free === !b.free;
+	return !!b && a.practice === b.practice && a.page === b.page && a.song === b.song && !a.free === !b.free
+		&& (a.note === undefined ? null : a.note) === (b.note === undefined ? null : b.note);
 }
 
 // Set while a history.go() of ours is on its way, so its popstate syncs
@@ -9349,6 +9449,10 @@ window.addEventListener("popstate", function(event) {
 		if (state.free) playThroughSong(state.song); else startSong(state.song);
 	}
 	else if (state.practice === "editor" && findSong(state.song)) openSongEditor(state.song);
+	else if (state.practice === "chart" && practice.mode === "chart") {
+		if (typeof state.note === "number") showChartNote(state.note); else showChartGrid();
+	}
+	else if (state.practice === "chart") startFingeringChart(state.note);
 	else if (state.practice !== "song" && state.practice !== "editor" && state.practice !== "import") startPracticeActivity(state.practice);
 	else showSongList();
 });
