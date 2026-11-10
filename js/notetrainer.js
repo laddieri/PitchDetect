@@ -1672,8 +1672,10 @@ function playTone(freq, sustain, onStarted, length, legato, at) {
 	// Stop any currently playing note; a legato (slurred) note instead
 	// crossfades with it, the old one fading out over the new one's attack
 	// from the moment it starts, so there's no gap and no re-tongued edge
+	// A note at a set time (a song's) is scheduled ahead of it, so the
+	// sounding one is stopped as it starts, not now
 	if (legato) stopNote(LEGATO_FADE, lead);
-	else stopNote();
+	else stopNote(0, at !== undefined ? lead : 0);
 	sustainPlaying = false;
 
 	// Create (or recreate) audio context if needed
@@ -1711,6 +1713,8 @@ function playTone(freq, sustain, onStarted, length, legato, at) {
 				masterGain.gain.linearRampToValueAtTime(0, t + length);
 			}
 			masterGain.connect(audioContext.destination);
+			// (when its own release has ended, for a later stopNote())
+			if (length && !sustain) masterGain.releasedAt = t + length;
 			activeAudioNodes.push(masterGain);
 
 			if (timbre.type === "wind") {
@@ -1833,10 +1837,14 @@ function stopNote(fade, delay) {
 
 	var now = audioContext.currentTime + (delay || 0);
 	var stopTime = now + FADE + 0.005;
+	// A note whose own release has ended by then needs no fade (and
+	// anchoring one at its level now would sound it again for a moment)
+	var released = nodesToStop.some(function(node) { return node.releasedAt !== undefined && node.releasedAt <= now; });
 
 	// Fade every gain node (the master gain routes all sound, so this
 	// silences the output smoothly) before anything is stopped.
 	nodesToStop.forEach(function(node) {
+		if (released) return;
 		if (node.gain && delay) {
 			// A fade that starts later holds the level until then (a
 			// cancelAndHoldAtTime() in the future drops it at once)

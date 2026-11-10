@@ -424,7 +424,18 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `playTone()`'s `at` and `playPianoHit()`'s `at`; `hitOffset()` is seconds
   from now), so they keep steady time and sound together; its timers follow
   the audio clock too, since the page's clock and the audio's can disagree
-  by ~100 ms as the audio starts.
+  by ~100 ms as the audio starts. Each note's timer fires
+  `SONG_SCHEDULE_AHEAD` (100 ms) before the note is due and schedules its
+  sound first; `show()` / `onCount()` (drawing the staff, which takes
+  50-100 ms a note on a slow Chromebook or phone) run when it's due
+  (`whenDue()`, `songShowTimers`, cleared by `stopSongPlayback()`). Drawn
+  first, with only the 50 ms head start, that draw made notes up to ~70 ms
+  late, unevenly. The first note is due that long after the start, and the
+  end comes on time (it stops the sound). Since a note is now scheduled
+  while the one before still sounds, `playTone()` with `at` stops the old
+  one as the new one starts (`stopNote(0, lead)`), and `stopNote()` leaves
+  alone a note whose own release has ended by then (`releasedAt` on its
+  master gain): anchoring a fade at its level now would sound it again.
   It's scored in time (`practice.song.along`, `alongNote()`): the follow
   mic's notes each count for the nearest unplayed song note of their pitch
   whose window holds them: on time within `alongTolerance()` (a sixteenth
@@ -1117,7 +1128,8 @@ off again once it's put away; hidden by its ✕) and Start here makes it where H
 start, and sliding across measures, or tapping them after Pick a part,
 picks a part that Play it plays straight through, scoring just it (no best or XP); Step through it is offered
 for a part, not as a tool of its own; Hear names the part, and Help's the note; Hear the song's notes sound with
-the metronome's clicks, and the piano and metronome switch mid-song; on a phone, a tapped note low in a song stays in sight above its chart; Play it through marks a note
+the metronome's clicks, and the piano and metronome switch mid-song; with a slow staff redraw
+they still keep time (scheduled ahead of the redraw), and no note re-sounds; on a phone, a tapped note low in a song stays in sight above its chart; Play it through marks a note
 played flat "low" and one an octave off "octave", and a tapped wrong note shows what was
 played (clear of its chart, without the mic); on a phone the score's row keeps its height on a tap;
 a song's score counts its mistakes, has a color key and offers its trickiest part, whose
