@@ -816,26 +816,31 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `updateFirstSoundsListen()` takes over the mic loop in this mode and gives
   per-instrument hints: the other sound (flute only, `confusable`), squeaks,
   low/high, and no sound after 6 s.
-- **Fingering chart** (`chart`, the Notes tab's last card, mode `chart`,
-  `data-step="chart"`; "Slide position chart" on trombone, "Note finder"
-  without charts; `startFingeringChart()`): a place to look any note up,
-  nothing scored and not on the learning path. The student picks the note by
-  name: a letter (`pickChartLetter()`, its natural in the octave showing),
-  **Flat** / **Sharp** toggles (`pickChartAlter()`; no C♭, F♭, B♯ or E♯,
-  `chartAlterAllowed()`) and **Lower** / **Higher** for the octave
-  (`moveChartOctave()`), all kept inside `PRACTICE_RANGES` (`chartRange()`;
-  what can't be picked is disabled). `practice.chart.pick` is `{ letter,
-  alter, octave }` (`chartMidi()`), kept for the visit. `showChartNote()`
-  draws it on the staff, spelled as picked (`practice.chart.spellings`, which
-  `practiceSpelling()` reads in this mode: C♯ stays C♯), with its
+- **Fingering chart** (`chart`, the Notes tab's last card, mode `chart`;
+  "Slide position chart" on trombone, "Note finder" without charts;
+  `startFingeringChart(note)`): laid out like a printed chart, a place to
+  look any note up, not on the learning path. It opens on the **grid**
+  (`showChartGrid()`, `data-step="chart-grid"`, the staff hidden, the body
+  scrolling): every written note of `PRACTICE_RANGES` (`chartRange()`,
+  `chartNotes()`), low to high, each a `.chart-cell` button with its own
+  little staff (`drawChartCell()`; one viewBox for all, `chartCellView()`,
+  tall enough for the range's ledger lines, so every cell is one scale) and
+  its name; a black key shows both spellings side by side, "C♯ D♭"
+  (`chartSpellings()`, `chartNoteLabel()`). Tapping one opens the **note**
+  (`showChartNote(midi)`, `practice.chart.note`, `data-step="chart"`, a
+  history entry and breadcrumb a level under the grid; back returns to the
+  grid with that cell focused): the staff, "How to play C♯ / D♭", **◀ C** /
+  **All notes** / **D ▶** (a half step either way, `chartNavButton()`), its
   `practiceFingeringBox()` and **Hear it**. The mic stays off until **Listen
   to me** (`toggleChartListening()`, `songMicOn()` / `songMicOff()`; a
-  refused mic puts the button back), and then stays on as other notes are
-  picked: `practice.step` is 3 while it listens, so `updatePracticeListen()`
+  refused mic puts the button back), and then stays on through ◀ ▶ until the
+  grid: `practice.step` is 3 while it listens, so `updatePracticeListen()`
   runs as in a lesson's Play step (pitch trace, brass ladder, wrong notes
   named, tuning tips). Held in tune for `PRACTICE_HOLD_MS`:
   `passChartNote()`, fireworks and a chime and "You got it!", once until the
-  note stops (`chart.done`).
+  note stops (`chart.done`), and the note's cell gets a ✓ (`data-played`),
+  kept per instrument in `pitchdetect-fingering-chart` (`loadChartPlayed()`
+  / `saveChartPlayed()`); the menu card counts them ("12 / 40 ✓").
 - `practiceFingeringBox()` builds the chart for the Finger step and challenge
   Help. Flutes on B A G keep the thumb on the B♮ key: in the B A G lesson,
   its fingering drill and songs on only B, A and G (`fluteBThumbNow()`,
@@ -1132,9 +1137,11 @@ note returns to the whole song; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
-B♭ and clarinet's side-key F♯; the fingering chart opens without the mic,
-spells a sharp as picked, and Listen to me names a wrong note and hears the
-right one (the mic off again on leaving); the service worker keeps every chart of the
+B♭ and clarinet's side-key F♯; the fingering chart opens on a grid of every
+note (black keys with both names) without the mic, a tapped note shows its
+fingering, Listen to me names a wrong note and hears the right one (the mic
+off back on the grid, on through ◀ ▶), and a note played right is checked
+on the grid; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 shared triplet, tie and slur are timed and drawn; a shared song shows
 link goes straight into My songs (once) and opens in Play it through, 4
