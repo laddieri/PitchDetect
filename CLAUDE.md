@@ -477,10 +477,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   list, whose back goes to the tab).
   A song opens in **Play it through** (`playThroughSong()`; the song list,
   the editor's Play it, Next song); note by note (`startSong()`, called
-  **Step through it**) is the "I'm stuck" path: offered beside a part
-  picked and in a score's ⋯ menu (or its row, when the part just played
-  still has mistakes), `songStepThrough()` (the part picked, else the whole
-  song); its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
+  **Step through it**) is the "I'm stuck" path: a tool under the song
+  before any run (no need to Play it first), and in a score's ⋯ menu (or
+  its row, when the part just played still has mistakes),
+  `songStepThrough()` (the part picked, else from the Start here note to
+  the end, as a part, else the whole song); its result leads back to Play it through. Play it through: the whole song stacked as in whole song view
   (`data-step="song-free"`, `practice.song.free`), no arrow and no waiting
   on each note. It has two buttons (`resetFollow()`): **Hear the song**
   (`#song-hear`, `playSong()`; "Hear measures 3–4" with a part picked) and
@@ -504,7 +505,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   nothing is selectable): **Pick a part** and **Play with piano** (see Play
   along), or what's picked as a chip with an ✕ that puts it away
   (`songToolChip()`: the part, the speed, the Start here note), **Step
-  through it** beside a part, and **Start here** and **Try this note**
+  through it** (always; on a phone the tools take two rows, and the row
+  keeps that height so a tap never moves the buttons), and **Start here** and **Try this note**
   while a note's fingering is showing. Kept explicit: the
   student shouldn't have to discover gestures. **Selected / you are here**
   has its own color, `--here` (blue in kid mode, where the accent is the
@@ -1180,7 +1182,7 @@ without the mic, and Try this note listens for it, showing a wrong note as a gra
 off again once it's put away; hidden by its ✕) and Start here makes it where Hear the song and Play it
 start, and sliding across measures, or tapping them after Pick a part,
 picks a part that Play it plays straight through, scoring just it (no best or XP); Step through it is offered
-for a part, not as a tool of its own; Hear names the part, and Help's the note; Hear the song's notes sound with
+before Play it, and steps through a part picked; Hear names the part, and Help's the note; Hear the song's notes sound with
 the metronome's clicks, and the piano and metronome switch mid-song; with a slow staff redraw
 they still keep time (scheduled ahead of the redraw), and no note re-sounds; on a phone, a tapped note low in a song stays in sight above its chart; Play it through marks a note
 played flat "low" and one an octave off "octave", and a tapped wrong note shows what was

@@ -3621,7 +3621,9 @@ function updateSongTools() {
 				showSongSelection();
 			}));
 		}
-		if (s.part && songPartNotes(s)) {
+		// Step through it (note by note) is always at hand, before any run:
+		// the part picked, from the Start here note, or the whole song
+		if (!s.part || songPartNotes(s)) {
 			tools.appendChild(practiceButton("\ud83d\udc63 Step through it", "secondary", songStepThrough));
 		}
 	}
@@ -3772,7 +3774,10 @@ function songRunWhole(s) {
 function songStepThrough() {
 	var s = practice.song;
 	var range = s.part ? songPartNotes(s) : null;
+	var from = songStartNote(s);
 	if (range) startSong(s.id, range.from, range.to);
+	// (from a note picked, to the end: a part, so it saves no best)
+	else if (from > 0) startSong(s.id, from, s.notes.length);
 	else startSong(s.id);
 }
 
