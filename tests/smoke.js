@@ -637,6 +637,58 @@ async function run() {
 		});
 		check(together.n >= 3 && together.worst <= 2,
 			"Hear the song's notes sound with the metronome's clicks (" + together.n + " beats, " + together.worst + " ms apart at most)");
+		// A slow device (drawing the staff takes 70 ms a note) still plays
+		// in time: each note's sound is put on the audio clock ahead of its
+		// time, before the staff is drawn for it; the staff still shows the
+		// note as it sounds; and a note, once it has died away, isn't
+		// sounded again by the next one's being scheduled early
+		var steady = await page.evaluate(async function() {
+			var wind = synthesizeWind, click = playClick, draw = drawSongEvent;
+			var notes = [], clicks = [], shown = [], masters = [];
+			synthesizeWind = function(freq, timbre, t) {
+				notes.push({ t: t, ahead: t - audioContext.currentTime });
+				var m = activeAudioNodes.filter(function(n) { return n.releasedAt !== undefined; }).pop();
+				if (m) masters.push({ node: m, silent: false, again: false });
+				return wind.apply(this, arguments);
+			};
+			playClick = function(hit, t) { clicks.push(t); return click.apply(this, arguments); };
+			drawSongEvent = function() {
+				shown.push(audioContext.currentTime);
+				var until = performance.now() + 70;
+				while (performance.now() < until) {}
+				return draw.apply(this, arguments);
+			};
+			var poll = setInterval(function() {
+				masters.forEach(function(m) {
+					if (audioContext.currentTime < m.node.releasedAt + 0.01) return;
+					if (m.node.gain.value < 0.001) m.silent = true;
+					else if (m.silent) m.again = true;
+				});
+			}, 5);
+			setSongClick(true);
+			playSong();
+			await new Promise(function(r) { setTimeout(r, 3200); });
+			stopSongPlayback();
+			clearInterval(poll);
+			synthesizeWind = wind;
+			playClick = click;
+			drawSongEvent = draw;
+			setSongClick(false);
+			// Mary's first notes are quarters, one a beat
+			var beat = 60 / SONG_TEMPO, n = Math.min(notes.length, clicks.length, shown.length), off = 0, early = 0;
+			for (var i = 0; i < n; i++) {
+				off = Math.max(off, Math.abs(notes[i].t - notes[0].t - i * beat), Math.abs(notes[i].t - clicks[i]));
+				early = Math.max(early, notes[i].t - shown[i]);
+			}
+			return { n: n, off: Math.round(off * 1000), early: Math.round(early * 1000),
+				ahead: Math.round(Math.min.apply(null, notes.map(function(x) { return x.ahead; })) * 1000),
+				again: masters.filter(function(m) { return m.again; }).length,
+				died: masters.filter(function(m) { return m.silent; }).length };
+		});
+		check(steady.n >= 4 && steady.off <= 2 && steady.ahead >= 50,
+			"on a slow device Hear the song keeps time: its sounds are scheduled ahead, before the staff is drawn (" + JSON.stringify(steady) + ")");
+		check(steady.early <= 80 && steady.died >= 3 && steady.again === 0,
+			"the staff shows each note as it sounds, and no note sounds again after it has died away (" + JSON.stringify(steady) + ")");
 		check(together.switched, "the piano and metronome switch on and off mid-song");
 		await page.keyboard.press("Escape");
 		// Step through it (note by note) is offered with a part picked

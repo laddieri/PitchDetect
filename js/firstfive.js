@@ -2980,6 +2980,11 @@ MORE_SCALES.forEach(function(scale) {
 });
 
 var songPlayTimer = null;  // Hear the song playback, see playSong()
+var songShowTimers = [];   // its notes still to be shown (playSongEvents())
+// How long before a note is due playSongEvents() puts its sound on the audio
+// clock: drawing the staff for the note before can take this long on a slow
+// device without making the note late
+var SONG_SCHEDULE_AHEAD = 0.1;
 // Play along's name, with its speed (picked with the tool under the song)
 function playAlongLabel(speed) {
 	return (speed || ALONG_SPEEDS[alongSpeedIndex()]).icon + " Play with piano";
@@ -5273,11 +5278,29 @@ function playSongEvents(events, show, opts) {
 	// they keep steady time, and together, whenever their note's timer
 	// fires. The timers follow the audio clock too (the page's clock and the
 	// audio's can disagree, by as much as a tenth of a second as the audio
-	// starts), so each fires as its note is due.
-	var startMs = performance.now(), elapsed = 0, audioStart = null;
-	function wait(beats, fn) {
+	// starts). Each fires SONG_SCHEDULE_AHEAD before its note is due and
+	// schedules the sound first; the note is shown (the staff drawn, which
+	// is slow) when it's due (whenDue()). So a slow draw, or a late timer,
+	// has that long plus the 50 ms head start before any sound is late.
+	// (The first note gets the same: it's due that long after the start.)
+	var startMs = performance.now() + SONG_SCHEDULE_AHEAD * 1000, elapsed = 0, audioStart = null;
+	function wait(beats, fn, onTime) {
 		elapsed += beats;
-		songPlayTimer = setTimeout(fn, Math.max(0, hitOffset(0) * 1000));
+		songPlayTimer = setTimeout(fn, Math.max(0, (hitOffset(0) - (onTime ? 0 : SONG_SCHEDULE_AHEAD)) * 1000));
+	}
+	// Run fn(when) once the event being scheduled is due (when: on the
+	// page's clock); at once if it already is
+	function whenDue(fn) {
+		var due = hitOffset(0) * 1000, when = performance.now() + due;
+		if (due < 4) {
+			fn(when);
+			return;
+		}
+		var timer = setTimeout(function() {
+			songShowTimers = songShowTimers.filter(function(t) { return t !== timer; });
+			fn(when);
+		}, due);
+		songShowTimers.push(timer);
 	}
 	// Seconds from now until a hit at beats past the start (elapsed so far
 	// plus ahead), as playPianoHit() takes it
@@ -5326,11 +5349,7 @@ function playSongEvents(events, show, opts) {
 		var e = events[i];
 		var beats = eventBeats(e);
 		var ms = beats * beatMs;
-		practice.ignoreUntil = performance.now() + ms + 600;
-		// (with when it's meant to start, on the page's clock, which a late
-		// timer is past)
-		var due = hitOffset(0);
-		show(i, performance.now() + due * 1000);
+		practice.ignoreUntil = performance.now() + Math.max(0, hitOffset(0) * 1000) + ms + 600;
 		// End each note just before the next (a tongued gap, which also
 		// keeps repeated notes distinct) so nothing is cut off mid-sound.
 		// (a tied note sounds on from the one before; a note slurred into
@@ -5348,9 +5367,14 @@ function playSongEvents(events, show, opts) {
 		for (noteHit = h; h < piano.length && piano[h].beat < beat + beats - 1e-6; h++) {
 			if (backingOn(piano[h])) playHit(h, hitTime(piano[h].beat - beat));
 		}
+		// Shown when it's due (with when that is, on the page's clock,
+		// which a late timer is past), its sound already scheduled
+		var shown = i;
+		whenDue(function(when) { show(shown, when); });
 		beat += beats;
 		i++;
-		wait(beats, next);
+		// (the end comes on time: it stops the sound)
+		wait(beats, next, i >= events.length);
 	}
 	function countIn() {
 		if (count >= opts.countIn) {
@@ -5358,10 +5382,11 @@ function playSongEvents(events, show, opts) {
 			return;
 		}
 		var ms = opts.pulse * beatMs;
-		practice.ignoreUntil = performance.now() + ms + 600;
+		practice.ignoreUntil = performance.now() + Math.max(0, hitOffset(0) * 1000) + ms + 600;
 		count++;
-		opts.onCount(count, performance.now() + hitOffset(0) * 1000);
+		var counted = count;
 		playPianoHit({ click: true, countIn: true, accent: count === 1, len: 0.2, gain: ACCOMP_CLICK_GAIN }, 0, beatMs / 1000, hitTime(0));
+		whenDue(function(when) { opts.onCount(counted, when); });
 		wait(opts.pulse, countIn);
 	}
 	if (opts.countIn) countIn(); else next();
@@ -6620,6 +6645,8 @@ function stopSongPlayback() {
 	if (songPlayTimer === null && !songPlayAlong) return;
 	clearTimeout(songPlayTimer);
 	songPlayTimer = null;
+	songShowTimers.forEach(clearTimeout);
+	songShowTimers = [];
 	stopNote();
 	stopAccompaniment();
 	removeSongFingerings();
