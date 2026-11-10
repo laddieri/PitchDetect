@@ -1185,13 +1185,39 @@ async function run() {
 				&& !document.querySelector('.chart-cell[data-midi="61"][data-played]');
 		});
 		check(marked, "a note played right gets a check on the grid");
-		// Back to the menu turns the mic off
-		await page.goBack();
+		// From a note being listened for, the Notes breadcrumb goes to the menu and turns the mic off
+		await page.click('.chart-cell[data-midi="71"]');
+		await page.click("#chart-listen");
+		await page.waitForFunction(function() { return listenActive; });
+		await page.click('#practice-crumbs button');
 		await page.waitForFunction(function() { return practice.mode === "menu"; });
 		var micOff = await page.evaluate(function() {
 			return !listenActive && document.getElementById("practice-view").getAttribute("data-menu-page") === "notes";
 		});
 		check(micOff, "leaving the chart returns to Notes with the mic off");
+		// From the main page, the chart is the main page's instrument's, and
+		// the student keeps their own
+		await page.click("#practice-close");
+		await page.waitForFunction(function() { return !practiceOpen; });
+		await page.selectOption("#instrument", "trumpet");
+		await page.click("#chartButton");
+		await page.waitForSelector('#practice-view[data-mode="chart"]');
+		var trumpetChart = await page.evaluate(function() {
+			return { instrument: practice.instrument, first: document.querySelector(".chart-grid .chart-cell").getAttribute("data-midi"),
+				saved: profile.instrument };
+		});
+		check(trumpetChart.instrument === "trumpet" && trumpetChart.first === "54" && trumpetChart.saved === "clarinet",
+			"the main page's Chart button shows the selected instrument's chart (" + JSON.stringify(trumpetChart) + ")");
+		await page.click("#practice-close");
+		await page.waitForFunction(function() { return !practiceOpen; });
+		var backHome = await page.evaluate(function() { return document.getElementById("instrument").value; });
+		await page.click("#chartButton");
+		await page.waitForSelector('#practice-view[data-mode="chart"]');
+		await page.click('#practice-crumbs button');
+		await page.waitForFunction(function() { return practice.mode === "menu"; });
+		var ownAgain = await page.evaluate(function() { return practice.instrument; });
+		check(backHome === "trumpet" && ownAgain === "clarinet",
+			"back from it the main page stays on trumpet, and the Practice menu is on the student's clarinet (" + backHome + ", " + ownAgain + ")");
 		check(errors.length === 0, "no errors" + (errors.length ? " (" + errors.join("; ") + ")" : ""));
 		await context.close();
 

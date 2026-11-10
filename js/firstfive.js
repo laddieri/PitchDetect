@@ -431,8 +431,9 @@ function allNotesLearned() {
 
 function openPractice() {
 	// A student practices on their own instrument: picked at sign-in,
-	// changed on the profile
-	applyStudentInstrument();
+	// changed on the profile (but the main page's Chart button shows the
+	// chart of the instrument picked there)
+	if (!pendingChartInstrument) applyStudentInstrument();
 
 	// Practice owns the audio while it's open
 	if (sustainPlaying) stopSustain();
@@ -462,10 +463,13 @@ function openPractice() {
 }
 
 // The main page's Fingering chart button: Practice, straight to the chart
-// (after signing in, if no one has yet)
+// (after signing in, if no one has yet), for the instrument picked on the
+// main page (else the student's own)
 var pendingPracticeActivity = null;
+var pendingChartInstrument = null;
 function openFingeringChart() {
 	pendingPracticeActivity = "chart";
+	pendingChartInstrument = document.getElementById("instrument").value || null;
 	openPractice();
 }
 
@@ -473,9 +477,31 @@ function openFingeringChart() {
 // waiting, else the activity asked for
 function openPendingPractice() {
 	var id = pendingPracticeActivity;
+	var chartInstrument = pendingChartInstrument;
 	pendingPracticeActivity = null;
-	if (pendingSongImport) openSongImport();
-	else if (id && practiceActivityAvailable(id)) startPracticeActivity(id);
+	pendingChartInstrument = null;
+	if (pendingSongImport) {
+		openSongImport();
+	} else if (id && practiceActivityAvailable(id)) {
+		if (id === "chart") useChartInstrument(chartInstrument);
+		startPracticeActivity(id);
+	}
+}
+
+// The chart from the main page: a screen of its own, in place of the menu
+// (back goes to the app), on the main page's instrument (signing in may
+// have put the student's back), until it leaves for the menu
+// (showPracticeMenu(), which puts the student's own back) or the app
+function useChartInstrument(value) {
+	var select = document.getElementById("instrument");
+	if (value && select.value !== value) {
+		var previous = select.value;
+		select.value = value;
+		if (select.value === value) select.dispatchEvent(new Event("change"));
+		else select.value = previous;  // not offered in this mode
+	}
+	if (value && select.value === value && practice.instrument !== value) loadPracticeInstrument();
+	practice.chartFromApp = true;
 }
 
 // Load practice state for the app's selected instrument
@@ -780,6 +806,12 @@ function practiceActivityTitle(id) {
 // menu stays on its page, leaving an activity returns to the page it's on,
 // and otherwise the page with the next step on the learning path opens.
 function showPracticeMenu(page) {
+	// Leaving a chart opened from the main page: back on the student's instrument
+	if (practice.chartFromApp) {
+		if (!isPracticeMenuPage(page)) page = menuPageFor("chart");
+		applyStudentInstrument();
+		loadPracticeInstrument();
+	}
 	if (!isPracticeMenuPage(page)) {
 		page = practice.mode === "menu" ? practice.menuPage
 			: menuPageFor(currentPracticeActivity()) || practice.menuPage;
@@ -1059,6 +1091,8 @@ function practiceBack() {
 		songNoteByNoteBack();
 	} else if (practice && practice.mode === "chart" && practice.chart.note !== null) {
 		showChartGrid();
+	} else if (practice && practice.mode === "chart" && practice.chartFromApp) {
+		closePractice();  // opened from the main page: back there
 	} else if (practice && (practice.mode === "song" || practice.mode === "editor")) {
 		showSongList();
 	} else if (practice && practice.mode !== "menu") {
@@ -1155,6 +1189,7 @@ function closePractice() {
 	if (!practiceOpen) return;
 	practiceOpen = false;
 	pendingPracticeActivity = null;
+	pendingChartInstrument = null;
 	stopSongPlayback();
 	closeTuningTip();
 	clearTimeout(practiceAdvanceTimer);
@@ -8069,7 +8104,7 @@ function showChartGrid() {
 	resetPracticeHold();
 	var from = c.note;
 	c.note = null;
-	setChartBackLabel("Back to the practice menu");
+	setChartBackLabel(practice.chartFromApp ? "Back to the app" : "Back to the practice menu");
 	c.done = false;
 	practice.step = -1;
 	practice.target = null;
@@ -9391,6 +9426,8 @@ function practiceHistoryState() {
 	if (practice.mode === "editor") return { practice: "editor", song: practice.editor.song.id, depth: depth + 1 };
 	if (practice.mode === "songs") return { practice: "songs", depth: depth };
 	// (a fingering chart's note is a level under its grid)
+	// (from the main page it stands in for the menu)
+	if (practice.mode === "chart" && practice.chartFromApp) depth = 1;
 	if (practice.mode === "chart" && practice.chart && practice.chart.note !== null) {
 		return { practice: "chart", note: practice.chart.note, depth: depth + 1 };
 	}
