@@ -2835,12 +2835,14 @@
 			/* Steps with a chart: on a short screen the staff and the chart
 			   share the squeeze (in proportion to their sizes) instead of the
 			   chart shrinking alone to a sliver */
-			.practice-view[data-step="finger"] .practice-staff {
+			.practice-view[data-step="finger"] .practice-staff,
+			.practice-view[data-step="chart"] .practice-staff {
 				flex: 0 1 auto;
 				min-height: 80px;
 			}
 
 			.practice-view[data-step="finger"] .practice-body,
+			.practice-view[data-step="chart"] .practice-body,
 			.practice-view[data-step="challenge-help"] .practice-body {
 				flex: 1 1 auto;
 			}
@@ -2902,13 +2904,154 @@
 				height: 100cqh;
 			}
 
-			/* Steps other than Finger group their content mid-card (not the song
-			   list: its levels open in place, so it stays put at the top) */
-			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]):not([data-step="song-list"]) .practice-stage {
+			/* The fingering chart: pick a note by name (letter, flat or
+			   sharp, lower or higher), its chart, then the mic's verdict */
+			.practice-view[data-step="chart"] .practice-steps {
+				display: none;
+			}
+
+			.practice-view[data-step="chart"] .practice-body {
+				gap: 8px;
+			}
+
+			.chart-prompt-how {
+				color: var(--text-muted);
+				font-weight: 600;
+			}
+
+			.chart-prompt-name {
+				color: var(--here);
+				font-size: 1.3em;
+				font-weight: 800;
+			}
+
+			.chart-picker {
+				flex-shrink: 0;
+				width: 100%;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 6px;
+			}
+
+			.chart-letters {
+				display: grid;
+				grid-template-columns: repeat(7, minmax(0, 58px));
+				justify-content: center;
+				gap: 6px;
+				width: 100%;
+			}
+
+			.chart-options {
+				display: flex;
+				justify-content: center;
+				gap: 6px;
+				width: 100%;
+			}
+
+			.chart-key {
+				height: 44px;
+				padding: 0 4px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1.3rem;
+				font-weight: 700;
+				cursor: pointer;
+			}
+
+			.chart-options .chart-key {
+				flex: 0 1 100px;
+				height: 38px;
+				font-size: 0.95rem;
+				font-weight: 600;
+				white-space: nowrap;
+			}
+
+			.chart-key:hover:not(:disabled) {
+				border-color: var(--here);
+			}
+
+			.chart-key[aria-pressed="true"] {
+				border-color: var(--here);
+				background: var(--here);
+				color: #fff;
+			}
+
+			.chart-key:disabled {
+				cursor: default;
+				opacity: 0.4;
+			}
+
+			.chart-key:focus-visible {
+				outline: none;
+				box-shadow: var(--ring);
+			}
+
+			/* The chart takes the room that's left */
+			.chart-fingering {
+				flex: 1 1 auto;
+				min-height: 60px;
+				width: 100%;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
 				justify-content: center;
 			}
 
-			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]) .practice-body {
+			.chart-fingering .practice-fingering img {
+				object-fit: contain;
+			}
+
+			.chart-feedback {
+				flex-shrink: 0;
+				width: 100%;
+				display: flex;
+				flex-direction: column;
+				align-items: center;
+				gap: 4px;
+			}
+
+			.chart-feedback .practice-feedback {
+				font-size: 1.35rem;
+			}
+
+			.chart-feedback:not([data-listening]) .practice-feedback {
+				color: var(--text-muted);
+			}
+
+			.chart-feedback .practice-hold {
+				height: 12px;
+			}
+
+			.chart-feedback:not([data-listening]) .practice-hold {
+				visibility: hidden;
+			}
+
+			.chart-actions {
+				flex-shrink: 0;
+				width: 100%;
+				display: flex;
+				justify-content: center;
+				gap: 10px;
+			}
+
+			.chart-actions .practice-btn {
+				flex: 0 1 11em;
+				padding-left: 10px;
+				padding-right: 10px;
+				white-space: nowrap;
+			}
+
+			/* Steps other than Finger group their content mid-card (not the song
+			   list: its levels open in place, so it stays put at the top) */
+			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]):not([data-step="song-list"]):not([data-step="chart"]) .practice-stage {
+				justify-content: center;
+			}
+
+			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]):not([data-step="chart"]) .practice-body {
 				flex: 0 0 auto;
 			}
 

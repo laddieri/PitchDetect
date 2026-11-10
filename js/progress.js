@@ -443,7 +443,7 @@ function markPracticeActive() {
 function practicing() {
 	if (listenActive) return true;
 	return practiceOpen && !!practice &&
-		["lesson", "challenge", "drill", "song", "editor", "firstsounds"].indexOf(practice.mode) >= 0;
+		["lesson", "challenge", "drill", "song", "editor", "firstsounds", "chart"].indexOf(practice.mode) >= 0;
 }
 
 function practiceTick() {

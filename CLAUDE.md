@@ -173,7 +173,7 @@ its own songs), **Write a 5-note song** (`write5`: the editor on the first
 songs** (`songs`: the Songs tab). `showSongList()` of any list but "three"
 or "five" shows the tab.
 `#practice-view[data-mode]` (`setPracticeMode()`:
-menu / lesson / challenge / drill / songs / song / editor / import / firstsounds, plus profile / signin from progress.js) decides what shows; the note map is
+menu / lesson / challenge / drill / songs / song / editor / import / firstsounds / chart, plus profile / signin from progress.js) decides what shows; the note map is
 lessons-only. The back arrow / Escape (`practiceBack()`) returns an activity
 to its tab and the menu to the app; the menu
 also stops the mic. Browser
@@ -816,6 +816,26 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `updateFirstSoundsListen()` takes over the mic loop in this mode and gives
   per-instrument hints: the other sound (flute only, `confusable`), squeaks,
   low/high, and no sound after 6 s.
+- **Fingering chart** (`chart`, the Notes tab's last card, mode `chart`,
+  `data-step="chart"`; "Slide position chart" on trombone, "Note finder"
+  without charts; `startFingeringChart()`): a place to look any note up,
+  nothing scored and not on the learning path. The student picks the note by
+  name: a letter (`pickChartLetter()`, its natural in the octave showing),
+  **Flat** / **Sharp** toggles (`pickChartAlter()`; no C♭, F♭, B♯ or E♯,
+  `chartAlterAllowed()`) and **Lower** / **Higher** for the octave
+  (`moveChartOctave()`), all kept inside `PRACTICE_RANGES` (`chartRange()`;
+  what can't be picked is disabled). `practice.chart.pick` is `{ letter,
+  alter, octave }` (`chartMidi()`), kept for the visit. `showChartNote()`
+  draws it on the staff, spelled as picked (`practice.chart.spellings`, which
+  `practiceSpelling()` reads in this mode: C♯ stays C♯), with its
+  `practiceFingeringBox()` and **Hear it**. The mic stays off until **Listen
+  to me** (`toggleChartListening()`, `songMicOn()` / `songMicOff()`; a
+  refused mic puts the button back), and then stays on as other notes are
+  picked: `practice.step` is 3 while it listens, so `updatePracticeListen()`
+  runs as in a lesson's Play step (pitch trace, brass ladder, wrong notes
+  named, tuning tips). Held in tune for `PRACTICE_HOLD_MS`:
+  `passChartNote()`, fireworks and a chime and "You got it!", once until the
+  note stops (`chart.done`).
 - `practiceFingeringBox()` builds the chart for the Finger step and challenge
   Help. Flutes on B A G keep the thumb on the B♮ key: in the B A G lesson,
   its fingering drill and songs on only B, A and G (`fluteBThumbNow()`,
@@ -1112,7 +1132,9 @@ note returns to the whole song; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
 and shows trumpet's partial ladder; the chromatic scale shows flute's 1-and-1
-B♭ and clarinet's side-key F♯; the service worker keeps every chart of the
+B♭ and clarinet's side-key F♯; the fingering chart opens without the mic,
+spells a sharp as picked, and Listen to me names a wrong note and hears the
+right one (the mic off again on leaving); the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 shared triplet, tie and slur are timed and drawn; a shared song shows
 link goes straight into My songs (once) and opens in Play it through, 4
