@@ -840,7 +840,13 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   history entry and breadcrumb a level under the grid; back returns to the
   grid with that cell focused): the staff, "How to play C♯ / D♭", **◀ C** /
   **All notes** / **D ▶** (a half step either way, `chartNavButton()`), its
-  `practiceFingeringBox()` and **Hear it**. The mic stays off until **Listen
+  `practiceFingeringBox()` and **Hear it**. A tall chart (`chartIsTall()`:
+  clarinet, saxes, oboe, bassoon; `#practice-view[data-chart-tall]`) has a
+  column of its own beside the staff: the stage becomes a grid
+  (`#practice-body` is `display: contents`), the chart the whole card's
+  height above 700px, and on a phone from under the ◀ ▶ row down to the
+  buttons, where the mic's words get two lines each so they never move the
+  staff. Wide charts (flute, brass) stay under the staff. The mic stays off until **Listen
   to me** (`toggleChartListening()`, `songMicOn()` / `songMicOff()`; a
   refused mic puts the button back), and then stays on through ◀ ▶ until the
   grid: `practice.step` is 3 while it listens, so `updatePracticeListen()`
@@ -1193,7 +1199,7 @@ B♭ and clarinet's side-key F♯; the main page's Chart button opens the finger
 after sign-in, for the main page's instrument (the student keeps their
 own), on a grid of every
 note (black keys with both names) without the mic, a tapped note shows its
-fingering, Listen to me names a wrong note and hears the right one (the mic
+fingering (clarinet's standing tall beside the staff), Listen to me names a wrong note and hears the right one (the mic
 off back on the grid, on through ◀ ▶), and a note played right is checked
 on the grid; Make a printable chart's quick pick picks the B♭ scale and
 titles it, and Download PDF makes a one-page PDF; the service worker keeps every chart of the

@@ -8279,7 +8279,11 @@ function showChartNote(midi) {
 	practice.target = midi;
 	stopNote();
 	resetPracticeHold();
-	document.getElementById("practice-view").setAttribute("data-step", "chart");
+	var view = document.getElementById("practice-view");
+	view.setAttribute("data-step", "chart");
+	// A tall chart (clarinet, saxes, oboe, bassoon) gets a column of its own
+	// beside the staff, the height of the card
+	view.toggleAttribute("data-chart-tall", chartIsTall(practice.instrument));
 	document.getElementById("practice-steps").innerHTML = "";
 	drawPracticeStaff(midi);
 
@@ -8328,6 +8332,12 @@ function showChartNote(midi) {
 
 	updateChartListening();
 	schedulePracticeHistorySync();
+}
+
+// Whether the instrument's fingering charts are taller than wide
+function chartIsTall(instrument) {
+	var info = imageFingeringMap[instrument];
+	return instrument === "clarinet" || (!!info && info.h > info.w);
 }
 
 function setChartBackLabel(label) {

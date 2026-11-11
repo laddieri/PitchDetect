@@ -3275,6 +3275,80 @@
 				white-space: nowrap;
 			}
 
+			/* A tall chart (clarinet, saxes, oboe, bassoon) has a column of
+			   its own beside the staff, so it's drawn as tall as the card
+			   allows instead of squeezed under the staff. On a phone the
+			   note buttons and Hear it / Listen to me keep the full width. */
+			.practice-view[data-step="chart"][data-chart-tall] .practice-stage {
+				display: grid;
+				grid-template-columns: minmax(0, 1fr) minmax(0, 35%);
+				grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+				grid-template-areas:
+					"prompt prompt"
+					"nav nav"
+					"staff chart"
+					"feedback chart"
+					"actions actions";
+				gap: 8px 10px;
+			}
+
+			.practice-view[data-step="chart"][data-chart-tall] #practice-body {
+				display: contents;
+			}
+
+			.practice-view[data-step="chart"][data-chart-tall] .practice-prompt { grid-area: prompt; }
+			.practice-view[data-step="chart"][data-chart-tall] .chart-nav { grid-area: nav; }
+			.practice-view[data-step="chart"][data-chart-tall] .chart-feedback { grid-area: feedback; }
+			.practice-view[data-step="chart"][data-chart-tall] .chart-actions { grid-area: actions; }
+
+			.practice-view[data-step="chart"][data-chart-tall] .practice-staff {
+				grid-area: staff;
+				height: 100%;
+				min-height: 80px;
+				max-height: 230px;
+				align-self: center;
+			}
+
+			.practice-view[data-step="chart"][data-chart-tall] .chart-fingering {
+				grid-area: chart;
+				min-height: 0;
+				height: 100%;
+			}
+
+			.practice-view[data-step="chart"][data-chart-tall] .chart-fingering .practice-fingering {
+				flex: 1 1 0;
+				height: auto;
+			}
+
+			/* (the words wrap in the narrow column: room for two lines each,
+			   so what the mic says never moves the staff) */
+			@media (max-width: 700px) {
+				.practice-view[data-step="chart"][data-chart-tall] .chart-feedback .practice-feedback {
+					min-height: 2.5em;
+					display: flex;
+					align-items: flex-end;
+				}
+
+				.practice-view[data-step="chart"][data-chart-tall] .chart-feedback .practice-feedback-sub {
+					min-height: 2.6em;
+				}
+			}
+
+			/* With the width for it, the chart's column runs the whole card */
+			@media (min-width: 701px) {
+				.practice-view[data-step="chart"][data-chart-tall] .practice-stage {
+					grid-template-columns: minmax(0, 1fr) minmax(0, 38%);
+					grid-template-rows: auto minmax(0, 1fr) auto auto auto;
+					grid-template-areas:
+						"prompt chart"
+						"staff chart"
+						"nav chart"
+						"feedback chart"
+						"actions chart";
+					gap: 10px 16px;
+				}
+			}
+
 			/* Steps other than Finger group their content mid-card (not the song
 			   list: its levels open in place, so it stays put at the top) */
 			.practice-view:not([data-step="finger"]):not([data-step="challenge-help"]):not([data-step="drill-fingerings"]):not([data-step="song-list"]):not([data-step="chart"]):not([data-step="chart-grid"]) .practice-stage {

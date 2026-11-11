@@ -1186,6 +1186,15 @@ async function run() {
 		});
 		check(opened.name === "C\u266f / D\u266d" && opened.target === 61 && !opened.mic && opened.chart && /Notes.*Fingering chart.*C\u266f/.test(opened.crumbs),
 			"a tapped note shows its fingering, without the mic (" + JSON.stringify(opened) + ")");
+		// Clarinet's tall chart has a column beside the staff, most of the
+		// card's height, instead of a sliver under it
+		var tall = await page.evaluate(function() {
+			var chart = document.querySelector("#chart-fingering .clarinet-fingering svg").getBoundingClientRect();
+			var staff = document.querySelector(".practice-staff").getBoundingClientRect();
+			return { h: Math.round(chart.height), beside: chart.left >= staff.right - 1,
+				scroll: document.documentElement.scrollHeight > window.innerHeight };
+		});
+		check(tall.h > 400 && tall.beside && !tall.scroll, "clarinet's chart stands tall beside the staff (" + JSON.stringify(tall) + ")");
 		// Listen to me: 440 Hz is written B4 on clarinet, so C sharp is wrong...
 		await page.click("#chart-listen");
 		var wrong = await page.waitForFunction(function() {
