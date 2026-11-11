@@ -242,9 +242,12 @@ var clarinetClarion = ["Reg"].concat(clarinetAll);
 
 var clarinetFingerings = {
 	// Chalumeau
-	52: { // E3
-		primary: { keys: clarinetAll.concat(["lE"]), label: "Left pinky" },
-		alternates: [{ keys: clarinetAll.concat(["rE"]), label: "Right pinky" }]
+	52: { // E3: both pinkies down, like the clarion B an octave+fifth up
+		primary: { keys: clarinetAll.concat(["lE", "rF"]), label: "Both pinkies" },
+		alternates: [
+			{ keys: clarinetAll.concat(["lE"]), label: "Left pinky" },
+			{ keys: clarinetAll.concat(["rE"]), label: "Right pinky" }
+		]
 	},
 	53: { // F3
 		primary: { keys: clarinetAll.concat(["rF"]), label: "Right pinky" },

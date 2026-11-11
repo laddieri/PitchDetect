@@ -1056,9 +1056,9 @@ Loaded after firstfive.js; no server, everything stays on the device.
   show; other key groups appear only when the note uses one of their keys.
   Alternates (left/right pinky E/B, F/C, F♯/C♯; throat-tone resonance) show
   side by side with captions via the Show Alternate Fingerings button.
-  Clarion B (written B4, 3rd line) defaults to **both pinkies** (left E/B +
-  right F/C), as band programs teach it; left pinky alone and right pinky
-  alone are its alternates.
+  Low E (written E3) and clarion B (written B4, 3rd line) default to **both
+  pinkies** (left E/B + right F/C), as band programs teach them; left pinky
+  alone and right pinky alone are their alternates.
   `img/Fingerings/Clarinet/` is no longer used.
 - `imageFingeringMap` — instruments using chart images from `img/Fingerings/`
   (bassoon, flute, oboe, saxes, trombone, double horn); `first` / `last`
