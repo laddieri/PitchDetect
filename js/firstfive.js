@@ -8549,6 +8549,26 @@ function chartMakePanel() {
 	pickField.appendChild(pick);
 	panel.appendChild(pickField);
 
+	// Octave down / up: every picked note at once (a scale's quick pick is
+	// the lessons' octave, which may not be the one wanted on the chart)
+	var octave = document.createElement("div");
+	octave.className = "chart-make-field chart-make-octave";
+	octave.innerHTML = "<span>Octave</span>";
+	var octaveButtons = document.createElement("div");
+	octaveButtons.className = "chart-make-octave-buttons";
+	[[-12, "\u25bc Lower", "chart-make-down"], [12, "\u25b2 Higher", "chart-make-up"]].forEach(function(o) {
+		var b = document.createElement("button");
+		b.type = "button";
+		b.className = "chart-key";
+		b.id = o[2];
+		b.textContent = o[1];
+		b.setAttribute("aria-label", "Move the notes an octave " + (o[0] < 0 ? "lower" : "higher"));
+		b.onclick = function() { shiftChartPicks(o[0]); };
+		octaveButtons.appendChild(b);
+	});
+	octave.appendChild(octaveButtons);
+	panel.appendChild(octave);
+
 	var options = document.createElement("div");
 	options.className = "chart-make-options";
 	[["names", "Note names"], ["lines", "Lines and spaces"]].forEach(function(o) {
@@ -8606,10 +8626,33 @@ function applyChartPick(id) {
 		m.title = chartDefaultTitle(p.title);
 		document.getElementById("chart-make-title").value = m.title;
 	}
+	showChartPicks();
+}
+
+function showChartPicks() {
+	var m = practice.chart.make;
 	document.querySelectorAll(".chart-grid .chart-cell").forEach(function(cell) {
 		cell.setAttribute("aria-pressed", m.picked[+cell.getAttribute("data-midi")] ? "true" : "false");
 	});
 	updateChartMakeCount();
+}
+
+// Whether every picked note can move by semitones and stay on the chart
+function chartPicksCanShift(semitones) {
+	var notes = chartPickedNotes(), range = chartRange();
+	return notes.length > 0 && notes[0] + semitones >= range[0] && notes[notes.length - 1] + semitones <= range[1];
+}
+
+// Move every picked note an octave (the quick pick and title still hold:
+// it's the same scale, a different octave)
+function shiftChartPicks(semitones) {
+	if (!chartPicksCanShift(semitones)) return;
+	var m = practice.chart.make, picked = {};
+	chartPickedNotes().forEach(function(midi) { picked[midi + semitones] = true; });
+	m.picked = picked;
+	showChartPicks();
+	var first = document.querySelector('.chart-grid .chart-cell[aria-pressed="true"]');
+	if (first) first.scrollIntoView({ block: "nearest" });
 }
 
 function toggleChartPick(midi, cell) {
@@ -8632,6 +8675,10 @@ function updateChartMakeCount() {
 	var button = document.getElementById("chart-make-download");
 	if (!button || button.getAttribute("data-busy") !== null) return;
 	var n = chartPickedNotes().length;
+	[["chart-make-down", -12], ["chart-make-up", 12]].forEach(function(o) {
+		var b = document.getElementById(o[0]);
+		if (b) b.disabled = !chartPicksCanShift(o[1]);
+	});
 	button.disabled = n === 0;
 	button.textContent = n ? "Download PDF (" + n + (n === 1 ? " note)" : " notes)") : "Pick some notes";
 }

@@ -1235,6 +1235,15 @@ async function run() {
 		});
 		check(picked.n === 8 && picked.title === "Clarinet Concert B♭ Scale" && /8 notes/.test(picked.button),
 			"a printable chart's quick pick picks the B♭ scale and titles it (" + JSON.stringify(picked) + ")");
+		// Octave higher moves every picked note up; lower brings them back
+		await page.click("#chart-make-up");
+		var raised = await page.evaluate(function() {
+			return { notes: chartPickedNotes(), pressed: document.querySelectorAll('.chart-grid .chart-cell[aria-pressed="true"]').length };
+		});
+		await page.click("#chart-make-down");
+		var lowered = await page.evaluate(function() { return chartPickedNotes(); });
+		check(raised.notes[0] === 72 && raised.notes.length === 8 && raised.pressed === 8 && lowered[0] === 60 && lowered.length === 8,
+			"a printable chart's notes move up an octave and back (" + JSON.stringify(raised.notes) + ", " + JSON.stringify(lowered) + ")");
 		await page.click('.chart-cell[data-midi="72"]');
 		await page.fill("#chart-make-title", "My Scale");
 		var download = page.waitForEvent("download");
