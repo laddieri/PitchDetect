@@ -8431,6 +8431,14 @@ var CHART_PRINT_TITLE = 0.75;         // the title's band, inches
 var CHART_PRINT_MIN_CELL = 2.4;       // a cell's longer side at least, inches
 var CHART_PRINT_MAX_ART = 4.5;        // a fingering's longer side at most, inches
 var CHART_TITLE_MAX = 60;
+// The printed chart's fonts: a woodtype display face for the title and
+// note names (like a printed band chart), a plain one for the small line
+// and space labels. Fetched only when a chart is made; offline, the
+// fallbacks are used.
+var CHART_PRINT_DISPLAY_FONT = '"Holtwood One SC", "Alfa Slab One", Georgia, serif';
+var CHART_PRINT_LABEL_FONT = '"Nunito", "Inter", "Helvetica Neue", Arial, sans-serif';
+var CHART_PRINT_FONTS_URL = "https://fonts.googleapis.com/css2?family=Holtwood+One+SC&family=Nunito:wght@700&display=swap";
+var CHART_PRINT_FONTS_WAIT_MS = 3000;
 
 function startChartMaking() {
 	var c = practice.chart;
@@ -8767,7 +8775,6 @@ function drawChartPages(notes, title) {
 	var cell = [Math.max(staffW, art.w), staffH + textH + gap + art.h];
 	var layout = chartPrintLayout(items.length, cell, Math.max(art.w, art.h));
 	var s = layout.scale;
-	var font = '"Fredoka", "Inter", "Helvetica Neue", Arial, sans-serif';
 
 	var staves = items.map(function(item) {
 		var div = document.createElement("div");
@@ -8776,12 +8783,7 @@ function drawChartPages(notes, title) {
 		return svg ? loadSvgImage(svg, staffW * s, staffH * s) : Promise.resolve(null);
 	});
 	var fingerings = art.parts.map(function(part) { return part ? part.load(s) : Promise.resolve(null); });
-	var fonts = Promise.race([
-		Promise.all(["700 40px Fredoka", "600 40px Fredoka"].map(function(f) {
-			return document.fonts && document.fonts.load ? document.fonts.load(f) : null;
-		})).catch(function() {}),
-		new Promise(function(resolve) { setTimeout(resolve, 2500); })
-	]);
+	var fonts = loadChartPrintFonts();
 
 	return Promise.all([Promise.all(staves), Promise.all(fingerings), fonts]).then(function(loaded) {
 		var staffImgs = loaded[0], artImgs = loaded[1];
@@ -8801,14 +8803,10 @@ function drawChartPages(notes, title) {
 			ctx.textBaseline = "alphabetic";
 
 			// The title, as big as fits its band
-			var size = CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.78;
-			ctx.font = "700 " + size + "px " + font;
-			var tw = ctx.measureText(title).width;
-			if (tw > area.w) {
-				size *= area.w / tw;
-				ctx.font = "700 " + size + "px " + font;
-			}
-			ctx.fillText(title, area.pageW / 2, area.y - CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.2);
+			var size = CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.7;
+			var tw = drawDisplayText(ctx, title, 0, 0, size, true);
+			if (tw > area.w) size *= area.w / tw;
+			drawDisplayText(ctx, title, area.pageW / 2, area.y - CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.2, size);
 
 			var onPage = items.slice(start, start + layout.per);
 			var rows = Math.ceil(onPage.length / layout.cols);
@@ -8835,7 +8833,7 @@ function drawChartPages(notes, title) {
 					drawChartPrintCell(ctx, items[i], staffImgs[i], artImgs[i], art.parts[i],
 						x0 + k2 * cellW + cellW / 2, y0 + pad, {
 							s: s, staffW: staffW, staffH: staffH, nameSize: nameSize, placeSize: placeSize,
-							gap: gap, artW: art.w, font: font, names: m.names, lines: m.lines
+							gap: gap, artW: art.w, names: m.names, lines: m.lines
 						});
 				}
 			}
@@ -8843,6 +8841,66 @@ function drawChartPages(notes, title) {
 		}
 		return pages;
 	});
+}
+
+// The chart's fonts, fetched the first time a chart is made: Promise
+// (resolved once they're in, or after CHART_PRINT_FONTS_WAIT_MS)
+function loadChartPrintFonts() {
+	var link = document.getElementById("chart-print-fonts");
+	var css;
+	if (link) css = Promise.resolve();
+	else {
+		link = document.createElement("link");
+		link.id = "chart-print-fonts";
+		link.rel = "stylesheet";
+		link.href = CHART_PRINT_FONTS_URL;
+		css = new Promise(function(resolve) {
+			link.onload = resolve;
+			link.onerror = resolve;
+		});
+		document.head.appendChild(link);
+	}
+	var loaded = css.then(function() {
+		if (!document.fonts || !document.fonts.load) return;
+		return Promise.all(["400 40px \"Holtwood One SC\"", "700 40px Nunito"].map(function(f) {
+			return document.fonts.load(f);
+		}));
+	}).catch(function() {});
+	return Promise.race([loaded, new Promise(function(resolve) { setTimeout(resolve, CHART_PRINT_FONTS_WAIT_MS); })]);
+}
+
+// Text in the display font, centered on x at baseline y; returns its
+// width (measureOnly: just that). The display font has no ♭ or ♯, so those
+// come from another font, a little bigger and outlined in their own ink to
+// stand as heavy as the letters beside them.
+function drawDisplayText(ctx, text, x, y, size, measureOnly) {
+	var runs = text.split(/([\u266d\u266f])/).filter(function(r) { return r; }).map(function(r) {
+		var accidental = r === "\u266d" || r === "\u266f";
+		var font = accidental ? "700 " + size * 1.1 + 'px "Segoe UI Symbol", "DejaVu Sans", serif'
+			: "400 " + size + "px " + CHART_PRINT_DISPLAY_FONT;
+		ctx.font = font;
+		return { text: r, font: font, accidental: accidental, w: ctx.measureText(r).width + (accidental ? size * 0.08 : 0) };
+	});
+	var width = runs.reduce(function(sum, r) { return sum + r.w; }, 0);
+	if (measureOnly) return width;
+	ctx.save();
+	ctx.fillStyle = ctx.strokeStyle = "#111";
+	ctx.textAlign = "left";
+	ctx.lineJoin = "round";
+	var at = x - width / 2;
+	runs.forEach(function(r) {
+		ctx.font = r.font;
+		if (r.accidental) {
+			ctx.lineWidth = size * 0.07;
+			ctx.strokeText(r.text, at + size * 0.04, y);
+			ctx.fillText(r.text, at + size * 0.04, y);
+		} else {
+			ctx.fillText(r.text, at, y);
+		}
+		at += r.w;
+	});
+	ctx.restore();
+	return width;
 }
 
 // One note's cell, centered on cx from the top y
@@ -8853,13 +8911,12 @@ function drawChartPrintCell(ctx, item, staffImg, artImg, part, cx, y, o) {
 	ctx.fillStyle = "#111";
 	ctx.textAlign = "center";
 	if (o.names) {
-		ctx.font = "700 " + o.nameSize * s + "px " + o.font;
 		y += o.nameSize * s;
-		ctx.fillText(item.name, cx, y);
+		drawDisplayText(ctx, item.name, cx, y, o.nameSize * s * 0.85);
 		y += o.nameSize * s * 0.25;
 	}
 	if (o.lines && item.place) {
-		ctx.font = "600 " + o.placeSize * s + "px " + o.font;
+		ctx.font = "700 " + o.placeSize * s + "px " + CHART_PRINT_LABEL_FONT;
 		ctx.fillStyle = "#555";
 		y += o.placeSize * s * 1.05;
 		ctx.fillText(item.place, cx, y);

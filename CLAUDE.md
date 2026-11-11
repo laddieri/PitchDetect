@@ -868,7 +868,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `fingeringImageBox()`, the clarinet trimmed together, valve diagrams with
   pressed valves inked black, the piano), laid out by `chartPrintLayout()`
   (fewest pages with cells of at least `CHART_PRINT_MIN_CELL`, then the
-  biggest, landscape or portrait), and writes the PDF itself
+  biggest, landscape or portrait), in Holtwood One SC (title and note
+  names, `drawDisplayText()`, whose ♭ ♯ come from another font, outlined to
+  match its weight) and Nunito (the labels), fetched only when a chart is
+  made (`loadChartPrintFonts()`), and writes the PDF itself
   (`chartPdfBlob()`: one image per page, RGB deflated by
   `CompressionStream`, else JPEG; no library). The picks and title last
   until the instrument changes.
