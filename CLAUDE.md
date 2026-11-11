@@ -1056,6 +1056,9 @@ Loaded after firstfive.js; no server, everything stays on the device.
   show; other key groups appear only when the note uses one of their keys.
   Alternates (left/right pinky E/B, F/C, F♯/C♯; throat-tone resonance) show
   side by side with captions via the Show Alternate Fingerings button.
+  Low E (written E3) and clarion B (written B4, 3rd line) default to **both
+  pinkies** (left E/B + right F/C), as band programs teach them; left pinky
+  alone and right pinky alone are their alternates.
   `img/Fingerings/Clarinet/` is no longer used.
 - `imageFingeringMap` — instruments using chart images from `img/Fingerings/`
   (bassoon, flute, oboe, saxes, trombone, double horn); `first` / `last`
@@ -1067,7 +1070,7 @@ Loaded after firstfive.js; no server, everything stays on the device.
   and plays B♭ "1 and 1" (`70-1-and-1.png`, `82-1-and-1.png`, made from the
   B chart plus the F chart's right index finger); clarinet's F♯4 is thumb +
   the bottom two side keys (`S3`, `S4`). Clarinet's E♭ (side key) and B / C
-  (alternating pinkies) and the saxophone charts' B♭ (side B♭) already suit
+  (both pinkies on B, lift the left for C) and the saxophone charts' B♭ (side B♭) already suit
   a chromatic scale. Oboe and bassoon use their charts as they are.
 - `hasFingeringData()`, `displayFingering()` — entry points used by the app.
 - Instruments with **no** fingering data: bare clefs, bass clarinet,

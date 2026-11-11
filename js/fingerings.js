@@ -242,9 +242,12 @@ var clarinetClarion = ["Reg"].concat(clarinetAll);
 
 var clarinetFingerings = {
 	// Chalumeau
-	52: { // E3
-		primary: { keys: clarinetAll.concat(["lE"]), label: "Left pinky" },
-		alternates: [{ keys: clarinetAll.concat(["rE"]), label: "Right pinky" }]
+	52: { // E3: both pinkies down, like the clarion B an octave+fifth up
+		primary: { keys: clarinetAll.concat(["lE", "rF"]), label: "Both pinkies" },
+		alternates: [
+			{ keys: clarinetAll.concat(["lE"]), label: "Left pinky" },
+			{ keys: clarinetAll.concat(["rE"]), label: "Right pinky" }
+		]
 	},
 	53: { // F3
 		primary: { keys: clarinetAll.concat(["rF"]), label: "Right pinky" },
@@ -280,9 +283,13 @@ var clarinetFingerings = {
 	},
 
 	// Clarion
-	71: { // B4
-		primary: { keys: clarinetClarion.concat(["lE"]), label: "Left pinky" },
-		alternates: [{ keys: clarinetClarion.concat(["rE"]), label: "Right pinky" }]
+	71: { // B4: both pinkies down (left E/B, right F/C), as many band
+		// programs teach it, so the next C is just lifting the left pinky
+		primary: { keys: clarinetClarion.concat(["lE", "rF"]), label: "Both pinkies" },
+		alternates: [
+			{ keys: clarinetClarion.concat(["lE"]), label: "Left pinky" },
+			{ keys: clarinetClarion.concat(["rE"]), label: "Right pinky" }
+		]
 	},
 	72: { // C5
 		primary: { keys: clarinetClarion.concat(["rF"]), label: "Right pinky" },
