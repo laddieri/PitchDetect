@@ -4471,6 +4471,16 @@
 				min-height: 34px;
 			}
 
+			/* A phone: the tools (Pick a part, Play with piano, Step through
+			   it) take two rows, so the row keeps two rows' height whatever
+			   it holds, and a tap never moves Hear and Play it */
+			@media (max-width: 700px) {
+				.song-tools:not([data-result]) {
+					align-content: center;
+					min-height: 72px;
+				}
+			}
+
 			.song-tools .practice-btn,
 			.song-tool-chip {
 				padding: 5px 14px;

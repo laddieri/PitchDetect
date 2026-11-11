@@ -691,9 +691,10 @@ async function run() {
 			"the staff shows each note as it sounds, and no note sounds again after it has died away (" + JSON.stringify(steady) + ")");
 		check(together.switched, "the piano and metronome switch on and off mid-song");
 		await page.keyboard.press("Escape");
-		// Step through it (note by note) is offered with a part picked
+		// Step through it (note by note) is offered before any run, for the
+		// whole song, and for a part picked
 		var noStep = await page.evaluate(function() { return !!document.querySelector(".song-tools") &&
-			!/Step through|Note by note/.test(document.querySelector(".song-tools").textContent); });
+			/Step through it/.test(document.querySelector(".song-tools").textContent); });
 		async function pickPart() {
 			await page.evaluate(function() {
 				practice.song.part = { a: 0, b: 1 };
@@ -704,7 +705,7 @@ async function run() {
 		await pickPart();
 		await page.click(".song-tools >> text=Step through it");
 		check(noStep && await page.evaluate(function() { return practice.mode === "song" && !practice.song.free && practice.song.to !== undefined; }),
-			"Step through it is offered for a part picked, not as a tool of its own, and steps through the part");
+			"Step through it is offered before Play it, and with a part picked steps through the part");
 		// Note by note shows each note's fingering by itself, moving on with
 		// the note; Help doesn't add a second chart, and closing a tapped
 		// note's chart brings the current note's back
