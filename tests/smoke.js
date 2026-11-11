@@ -1216,6 +1216,33 @@ async function run() {
 				&& !document.querySelector('.chart-cell[data-midi="61"][data-played]');
 		});
 		check(marked, "a note played right gets a check on the grid");
+		// Make a printable chart: a quick pick of the B flat scale, a tap
+		// taking one note off, and Download PDF gives a one-page PDF
+		await page.click("#chart-make-open");
+		await page.selectOption("#chart-make-pick", "scale");
+		var picked = await page.evaluate(function() {
+			return { n: document.querySelectorAll('.chart-grid[data-making] .chart-cell[aria-pressed="true"]').length,
+				title: document.getElementById("chart-make-title").value, button: document.getElementById("chart-make-download").textContent };
+		});
+		check(picked.n === 8 && picked.title === "Clarinet Concert B♭ Scale" && /8 notes/.test(picked.button),
+			"a printable chart's quick pick picks the B♭ scale and titles it (" + JSON.stringify(picked) + ")");
+		await page.click('.chart-cell[data-midi="72"]');
+		await page.fill("#chart-make-title", "My Scale");
+		var download = page.waitForEvent("download");
+		await page.click("#chart-make-download");
+		download = await download;
+		var pdfFile = path.join(os.tmpdir(), "pitchdetect-chart-" + process.pid + ".pdf");
+		await download.saveAs(pdfFile);
+		var pdf = fs.readFileSync(pdfFile).toString("latin1");
+		fs.unlinkSync(pdfFile);
+		var pdfPages = (pdf.match(/\/Type \/Page /g) || []).length;
+		check(download.suggestedFilename() === "My Scale.pdf" && /^%PDF-1\.4/.test(pdf) && /%%EOF\n$/.test(pdf) && pdfPages === 1,
+			"Download PDF makes the chart of the notes picked (" + download.suggestedFilename() + ", " + pdfPages + " page, " + pdf.length + " bytes)");
+		await page.click("#practice-close");
+		var stopped = await page.evaluate(function() {
+			return practice.mode === "chart" && !practice.chart.making && !!document.getElementById("chart-make-open");
+		});
+		check(stopped, "back from making a chart returns to the grid");
 		// From a note being listened for, the Notes breadcrumb goes to the menu and turns the mic off
 		await page.click('.chart-cell[data-midi="71"]');
 		await page.click("#chart-listen");

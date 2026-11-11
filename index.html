@@ -3062,6 +3062,144 @@
 				font-weight: 800;
 			}
 
+			/* Make a printable chart: the button over the grid, then (while
+			   picking) a panel that stays at the top as the grid scrolls */
+			.chart-make-open {
+				flex-shrink: 0;
+				padding: 8px 18px;
+				font-size: 0.95rem;
+			}
+
+			.chart-make {
+				position: sticky;
+				top: -4px;
+				z-index: 2;
+				flex-shrink: 0;
+				width: 100%;
+				display: flex;
+				flex-wrap: wrap;
+				align-items: flex-end;
+				gap: 8px 12px;
+				padding: 10px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				font-family: var(--font);
+				box-shadow: 0 4px 10px rgba(0, 0, 0, 0.08);
+			}
+
+			.chart-make-field {
+				flex: 1 1 200px;
+				min-width: 0;
+				display: flex;
+				flex-direction: column;
+				gap: 2px;
+				font-size: 0.8rem;
+				font-weight: 700;
+				color: var(--text-muted);
+			}
+
+			.chart-make-field input,
+			.chart-make-field select,
+			.chart-make-check select {
+				min-width: 0;
+				height: 36px;
+				padding: 0 8px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1rem;
+				font-weight: 600;
+			}
+
+			.chart-make-title {
+				flex-basis: 260px;
+			}
+
+			/* A phone has no room to keep it in sight: it scrolls away */
+			@media (max-width: 700px) {
+				.chart-make {
+					position: static;
+				}
+			}
+
+			.chart-make-options {
+				flex: 1 1 100%;
+				display: flex;
+				flex-wrap: wrap;
+				align-items: center;
+				gap: 4px 16px;
+			}
+
+			.chart-make-check {
+				display: inline-flex;
+				align-items: center;
+				gap: 4px;
+				font-size: 0.9rem;
+				font-weight: 600;
+				color: var(--text);
+				cursor: pointer;
+			}
+
+			.chart-make-check input[type="checkbox"] {
+				width: 18px;
+				height: 18px;
+				accent-color: var(--here);
+			}
+
+			.chart-make-check select {
+				height: 30px;
+				font-size: 0.9rem;
+			}
+
+			.chart-make-actions {
+				flex: 1 1 100%;
+				display: flex;
+				justify-content: flex-end;
+				gap: 8px;
+			}
+
+			.chart-make-actions .practice-btn {
+				padding: 8px 16px;
+				font-size: 0.95rem;
+				white-space: nowrap;
+			}
+
+			.chart-make-actions .practice-btn:disabled {
+				opacity: 0.5;
+				cursor: default;
+			}
+
+			/* Picking: a picked cell is filled in, with a check */
+			.chart-grid[data-making] .chart-cell[data-played] {
+				border-color: var(--border-strong);
+			}
+
+			.chart-grid[data-making] .chart-cell-check {
+				display: none;
+			}
+
+			.chart-grid[data-making] .chart-cell[aria-pressed="false"] {
+				opacity: 0.6;
+			}
+
+			.chart-grid[data-making] .chart-cell[aria-pressed="true"] {
+				border-color: var(--here);
+				box-shadow: inset 0 0 0 2px var(--here);
+			}
+
+			.chart-grid[data-making] .chart-cell[aria-pressed="true"]::after {
+				content: "✓";
+				position: absolute;
+				top: 3px;
+				right: 5px;
+				color: var(--here);
+				font-size: 1rem;
+				font-weight: 800;
+			}
+
 			.chart-key:hover:not(:disabled) {
 				border-color: var(--here);
 			}

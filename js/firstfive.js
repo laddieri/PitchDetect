@@ -1091,6 +1091,8 @@ function practiceBack() {
 		songNoteByNoteBack();
 	} else if (practice && practice.mode === "chart" && practice.chart.note !== null) {
 		showChartGrid();
+	} else if (practice && practice.mode === "chart" && practice.chart.making) {
+		stopChartMaking();
 	} else if (practice && practice.mode === "chart" && practice.chartFromApp) {
 		closePractice();  // opened from the main page: back there
 	} else if (practice && (practice.mode === "song" || practice.mode === "editor")) {
@@ -8121,6 +8123,7 @@ function startFingeringChart(note) {
 	c.played = loadChartPlayed(practice.instrument);
 	c.listening = false;
 	c.done = false;
+	c.making = false;
 	var range = chartRange();
 	if (typeof note === "number" && note >= range[0] && note <= range[1]) showChartNote(note);
 	else showChartGrid();
@@ -8145,14 +8148,23 @@ function showChartGrid() {
 	document.getElementById("practice-view").setAttribute("data-step", "chart-grid");
 	document.getElementById("practice-steps").innerHTML = "";
 	document.getElementById("practice-staff-output").innerHTML = "";
-	document.getElementById("practice-prompt").textContent = practice.instrument === "trombone"
-		? "Tap a note to see its slide position"
+	var making = !!c.making;
+	document.getElementById("practice-prompt").textContent = making ? "Tap the notes to put on your chart"
+		: practice.instrument === "trombone" ? "Tap a note to see its slide position"
 		: hasFingeringData(practice.instrument) ? "Tap a note to see how to play it" : "Tap a note to find it on the keyboard";
 
 	var body = document.getElementById("practice-body");
 	body.innerHTML = "";
+	if (making) body.appendChild(chartMakePanel());
+	else {
+		var open = practiceButton("\ud83d\udda8\ufe0f Make a printable chart", "secondary", startChartMaking);
+		open.id = "chart-make-open";
+		open.className += " chart-make-open";
+		body.appendChild(open);
+	}
 	var grid = document.createElement("div");
 	grid.className = "chart-grid";
+	grid.toggleAttribute("data-making", making);
 	grid.setAttribute("role", "list");
 	var view = chartCellView();
 	var fromCell = null;
@@ -8181,7 +8193,12 @@ function showChartGrid() {
 			check.textContent = "✓";
 			cell.appendChild(check);
 		}
-		cell.onclick = function() { showChartNote(midi); };
+		if (making) {
+			cell.setAttribute("aria-pressed", c.make.picked[midi] ? "true" : "false");
+			cell.onclick = function() { toggleChartPick(midi, cell); };
+		} else {
+			cell.onclick = function() { showChartNote(midi); };
+		}
 		grid.appendChild(cell);
 		drawChartCell(staff, midi, view);
 		if (midi === from) fromCell = cell;
@@ -8196,13 +8213,15 @@ function showChartGrid() {
 }
 
 // One viewBox for every cell, so the notes all sit at one scale: tall enough
-// for the ledger lines of the range's highest and lowest notes
-function chartCellView() {
+// for the ledger lines of the range's highest and lowest notes (or of
+// notes: [{ midi, spellings }], a printed chart's)
+function chartCellView(notes) {
 	var clef = getCurrentClef();
 	var middle = clef === "bass" ? 3 * 7 + 1 : 4 * 7 + 6;  // D3, B4: the middle line
 	var range = chartRange(), reach = 4;
-	[range[0], range[1]].forEach(function(midi) {
-		chartSpellings(midi).forEach(function(spelled) {
+	(notes || [{ midi: range[0] }, { midi: range[1] }]).forEach(function(note) {
+		var midi = note.midi;
+		(note.spellings || chartSpellings(midi)).forEach(function(spelled) {
 			var step = (Math.floor(midi / 12) - 1) * 7 + "CDEFGAB".indexOf(spelled.charAt(0));
 			reach = Math.max(reach, Math.abs(step - middle));
 		});
@@ -8210,8 +8229,9 @@ function chartCellView() {
 	return { clef: clef, half: reach * LINE_SPACING / 2 + 12 };
 }
 
-// A grid cell's staff: its clef and the note (a black key's sharp, then flat)
-function drawChartCell(out, midi, view) {
+// A grid cell's staff: its clef and the note (a black key's sharp, then
+// flat, or the spellings given)
+function drawChartCell(out, midi, view, spellings) {
 	var VF = Vex.Flow;
 	var W = CHART_CELL_WIDTH, H = 2 * view.half;
 	var renderer = new VF.Renderer(out, VF.Renderer.Backends.SVG);
@@ -8222,7 +8242,7 @@ function drawChartCell(out, midi, view) {
 	stave.setContext(context).draw();
 	var octave = Math.floor(midi / 12) - 1;
 	try {
-		var notes = chartSpellings(midi).map(function(spelled) {
+		var notes = (spellings || chartSpellings(midi)).map(function(spelled) {
 			var note = new VF.StaveNote({ clef: view.clef, keys: [spelled.toLowerCase() + "/" + octave], duration: "w" });
 			if (spelled.length > 1) note.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
 			return note;
@@ -8254,6 +8274,7 @@ function showChartNote(midi) {
 	if (midi < range[0] || midi > range[1]) return;
 	c.note = midi;
 	c.done = false;
+	c.making = false;
 	setChartBackLabel("Back to all notes");
 	practice.target = midi;
 	stopNote();
@@ -8385,6 +8406,644 @@ function passChartNote() {
 	}
 	launchFireworks(document.getElementById("practice-stage"));
 	playChime();
+}
+
+// ---------------------------------------------------------------------------
+// Printable charts: the grid's Make a printable chart (c.making) turns its
+// cells into picks (c.make.picked, aria-pressed), with a panel above them
+// (chartMakePanel()): a title, a quick pick of notes the lessons teach
+// (chartMakePicks(): the first 3 or 5 notes, notes 6 and beyond, each
+// scale, every note), whether to print note names and which line or space
+// each is on (staffPlaceName()), and how black keys are spelled. Download
+// PDF (makeChartPdf()) draws the pages on canvases like a printed chart: a
+// title, then a cell per note, its staff over its fingering (chart image,
+// clarinet or valve diagram, or piano key), the cells as big as fit
+// (chartPrintLayout(): fewest pages, then the biggest cells, landscape or
+// portrait), and writes them into a PDF itself (chartPdfBlob(): one image
+// per page, deflated with CompressionStream, else JPEG), no library needed.
+// The picks and title last until the instrument changes.
+// ---------------------------------------------------------------------------
+
+var CHART_PRINT_DPI = 200;            // page canvases' resolution
+var CHART_PRINT_PAGE = [11, 8.5];     // US Letter, inches (landscape)
+var CHART_PRINT_MARGIN = 0.4;         // inches
+var CHART_PRINT_TITLE = 0.75;         // the title's band, inches
+var CHART_PRINT_MIN_CELL = 2.4;       // a cell's longer side at least, inches
+var CHART_PRINT_MAX_ART = 4.5;        // a fingering's longer side at most, inches
+var CHART_TITLE_MAX = 60;
+// The printed chart's fonts: a woodtype display face for the title and
+// note names (like a printed band chart), a plain one for the small line
+// and space labels. Fetched only when a chart is made; offline, the
+// fallbacks are used.
+var CHART_PRINT_DISPLAY_FONT = '"Holtwood One SC", "Alfa Slab One", Georgia, serif';
+var CHART_PRINT_LABEL_FONT = '"Nunito", "Inter", "Helvetica Neue", Arial, sans-serif';
+var CHART_PRINT_FONTS_URL = "https://fonts.googleapis.com/css2?family=Holtwood+One+SC&family=Nunito:wght@700&display=swap";
+var CHART_PRINT_FONTS_WAIT_MS = 3000;
+
+function startChartMaking() {
+	var c = practice.chart;
+	if (!c.make) {
+		c.make = { picked: {}, spellings: null, title: "", titleEdited: false, pick: "",
+			names: true, lines: true, accidentals: "flats" };
+	}
+	c.making = true;
+	showChartGrid();
+}
+
+function stopChartMaking() {
+	practice.chart.making = false;
+	showChartGrid();
+}
+
+// The instrument's name as the app lists it ("Clarinet", "Alto Saxophone")
+function chartInstrumentName() {
+	var select = document.getElementById("instrument");
+	var option = select.options[select.selectedIndex];
+	return option && select.value ? option.textContent.trim() : "";
+}
+
+function chartDefaultTitle(pickLabel) {
+	var name = chartInstrumentName();
+	if (pickLabel) return (name ? name + " " : "") + pickLabel;
+	return (name ? name + " " : "") + (practice.instrument === "trombone" ? "Slide Positions"
+		: hasFingeringData(practice.instrument) ? "Fingering Chart" : "Notes");
+}
+
+// The quick picks: [{ id, label, title, notes, spellings }], notes in the
+// chart's range
+function chartMakePicks() {
+	var range = chartRange();
+	function inRange(notes) {
+		return notes.filter(function(m) { return m >= range[0] && m <= range[1]; });
+	}
+	function lesson(id) { return practice.lessons[id]; }
+	var picks = [];
+	function add(id, label, title, notes, spellings) {
+		notes = inRange(notes);
+		if (notes.length) picks.push({ id: id, label: label, title: title, notes: notes, spellings: spellings || null });
+	}
+	var three = lesson(defaultThreeSet(practice.instrument));
+	add("first3", "First 3 notes", "First 3 Notes", three.notes);
+	add("first5", "First 5 notes", "First 5 Notes", lesson("first5").notes);
+	add("first9", "First 5 notes and notes 6 and beyond", "Notes 1 to 9",
+		lesson("first5").notes.concat(lesson("next4").notes));
+	add("scale", "Concert B♭ scale", "Concert B♭ Scale", lesson("scale").notes);
+	MORE_SCALES.forEach(function(scale) {
+		add(scale.id, "Concert " + scale.name + " scale", "Concert " + scale.name + " Scale",
+			lesson(scale.id).notes, lesson(scale.id).spellings);
+	});
+	add("scaleChromatic", "Chromatic scale", "Chromatic Scale", lesson("scaleChromatic").notes);
+	add("all", "Every note", "", chartNotes());
+	return picks;
+}
+
+function chartMakePanel() {
+	var m = practice.chart.make;
+	var panel = document.createElement("div");
+	panel.className = "chart-make";
+	panel.id = "chart-make";
+
+	var titleField = document.createElement("label");
+	titleField.className = "chart-make-field chart-make-title";
+	titleField.innerHTML = "<span>Title</span>";
+	var title = document.createElement("input");
+	title.type = "text";
+	title.id = "chart-make-title";
+	title.maxLength = CHART_TITLE_MAX;
+	title.autocomplete = "off";
+	title.value = m.title || chartDefaultTitle();
+	title.oninput = function() {
+		m.title = title.value;
+		m.titleEdited = true;
+	};
+	titleField.appendChild(title);
+	panel.appendChild(titleField);
+
+	var pickField = document.createElement("label");
+	pickField.className = "chart-make-field";
+	pickField.innerHTML = "<span>Notes</span>";
+	var pick = document.createElement("select");
+	pick.id = "chart-make-pick";
+	var none = document.createElement("option");
+	none.value = "";
+	none.textContent = "Tap notes, or pick…";
+	pick.appendChild(none);
+	chartMakePicks().forEach(function(p) {
+		var o = document.createElement("option");
+		o.value = p.id;
+		o.textContent = p.label;
+		pick.appendChild(o);
+	});
+	pick.value = m.pick;
+	pick.onchange = function() { applyChartPick(pick.value); };
+	pickField.appendChild(pick);
+	panel.appendChild(pickField);
+
+	var options = document.createElement("div");
+	options.className = "chart-make-options";
+	[["names", "Note names"], ["lines", "Lines and spaces"]].forEach(function(o) {
+		var label = document.createElement("label");
+		label.className = "chart-make-check";
+		var box = document.createElement("input");
+		box.type = "checkbox";
+		box.id = "chart-make-" + o[0];
+		box.checked = m[o[0]];
+		box.onchange = function() { m[o[0]] = box.checked; };
+		label.appendChild(box);
+		label.appendChild(document.createTextNode(" " + o[1]));
+		options.appendChild(label);
+	});
+	var accLabel = document.createElement("label");
+	accLabel.className = "chart-make-check";
+	accLabel.appendChild(document.createTextNode("Black keys "));
+	var acc = document.createElement("select");
+	acc.id = "chart-make-accidentals";
+	[["flats", "B♭, E♭…"], ["sharps", "A♯, D♯…"], ["both", "Both names"]].forEach(function(a) {
+		var o = document.createElement("option");
+		o.value = a[0];
+		o.textContent = a[1];
+		acc.appendChild(o);
+	});
+	acc.value = m.accidentals;
+	acc.onchange = function() {
+		m.accidentals = acc.value;
+		m.spellings = null;  // the choice made here wins over a scale's
+	};
+	accLabel.appendChild(acc);
+	options.appendChild(accLabel);
+	panel.appendChild(options);
+
+	var actions = document.createElement("div");
+	actions.className = "chart-make-actions";
+	actions.appendChild(practiceButton("Cancel", "secondary", stopChartMaking));
+	var download = practiceButton("", "primary", downloadChartPdf);
+	download.id = "chart-make-download";
+	actions.appendChild(download);
+	panel.appendChild(actions);
+	setTimeout(updateChartMakeCount, 0);
+	return panel;
+}
+
+function applyChartPick(id) {
+	var m = practice.chart.make;
+	var p = chartMakePicks().filter(function(q) { return q.id === id; })[0];
+	if (!p) return;
+	m.pick = id;
+	m.picked = {};
+	p.notes.forEach(function(midi) { m.picked[midi] = true; });
+	m.spellings = p.spellings;
+	if (!m.titleEdited) {
+		m.title = chartDefaultTitle(p.title);
+		document.getElementById("chart-make-title").value = m.title;
+	}
+	document.querySelectorAll(".chart-grid .chart-cell").forEach(function(cell) {
+		cell.setAttribute("aria-pressed", m.picked[+cell.getAttribute("data-midi")] ? "true" : "false");
+	});
+	updateChartMakeCount();
+}
+
+function toggleChartPick(midi, cell) {
+	var m = practice.chart.make;
+	if (m.picked[midi]) delete m.picked[midi];
+	else m.picked[midi] = true;
+	cell.setAttribute("aria-pressed", m.picked[midi] ? "true" : "false");
+	// The picks no longer match the quick pick
+	m.pick = "";
+	var pick = document.getElementById("chart-make-pick");
+	if (pick) pick.value = "";
+	updateChartMakeCount();
+}
+
+function chartPickedNotes() {
+	return Object.keys(practice.chart.make.picked).map(Number).sort(function(a, b) { return a - b; });
+}
+
+function updateChartMakeCount() {
+	var button = document.getElementById("chart-make-download");
+	if (!button || button.getAttribute("data-busy") !== null) return;
+	var n = chartPickedNotes().length;
+	button.disabled = n === 0;
+	button.textContent = n ? "Download PDF (" + n + (n === 1 ? " note)" : " notes)") : "Pick some notes";
+}
+
+// How a picked note is spelled on the printed chart
+function chartPrintSpellings(midi) {
+	var m = practice.chart.make;
+	var pc = ((midi % 12) + 12) % 12;
+	if (m.spellings && m.spellings[pc]) return [m.spellings[pc]];
+	var both = chartSpellings(midi);
+	if (both.length === 1) return both;
+	if (m.accidentals === "sharps") return [both[0]];
+	if (m.accidentals === "both") return both;
+	return [plainPracticeSpelling(midi)];
+}
+
+// Where a spelled note sits on the staff, as beginners are taught to find
+// it: "1st line", "2nd space", "Space below the staff", "Ledger line above"
+function staffPlaceName(spelled, midi, clef) {
+	var letter = "CDEFGAB".indexOf(spelled.charAt(0));
+	var alter = spelled.length > 1 ? (spelled.charAt(1) === "#" ? 1 : -1) : 0;
+	var octave = Math.floor((midi - alter) / 12) - 1;
+	var pos = octave * 7 + letter - (clef === "bass" ? 2 * 7 + 4 : 4 * 7 + 2);  // 0: the bottom line
+	var ordinals = ["1st", "2nd", "3rd", "4th", "5th"];
+	if (pos >= 0 && pos <= 8) return ordinals[Math.floor(pos / 2)] + (pos % 2 ? " space" : " line");
+	if (pos === -1) return "Space below the staff";
+	if (pos === 9) return "Space above the staff";
+	var below = pos < 0;
+	var lines = below ? Math.floor(-pos / 2) : Math.floor((pos - 8) / 2);
+	var count = lines === 1 ? "1 ledger line" : lines + " ledger lines";
+	var onLine = (below ? -pos : pos) % 2 === 0;
+	if (onLine) return lines === 1 ? "Ledger line " + (below ? "below" : "above") : count + " " + (below ? "below" : "above");
+	return (below ? "Under " : "Over ") + count;
+}
+
+// The fingering art of the notes, on one canvas so they're at one scale:
+// { w, h, parts: [{ box: [x, y, w, h], load(scale) -> Promise<image> }] }
+function chartPrintArt(notes) {
+	var instrument = practice.instrument;
+	if (imageFingeringMap[instrument]) {
+		var boxes = notes.map(function(midi) { return fingeringImageBox(instrument, midi); });
+		var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		boxes.forEach(function(b) {
+			minX = Math.min(minX, b[0]);
+			minY = Math.min(minY, b[1]);
+			maxX = Math.max(maxX, b[0] + b[2]);
+			maxY = Math.max(maxY, b[1] + b[3]);
+		});
+		return { w: maxX - minX, h: maxY - minY, parts: notes.map(function(midi, i) {
+			var b = boxes[i];
+			return { box: [b[0] - minX, b[1] - minY, b[2], b[3]],
+				load: function() { return loadChartImage(fingeringImagePath(instrument, midi)); } };
+		}) };
+	}
+	var holders = notes.map(function(midi) { return practiceFingeringBox(true, midi, true); });
+	if (instrument === "clarinet") trimClarinetCharts(holders);
+	var svgs = holders.map(function(h) { return h.querySelector("svg"); });
+	var sizes = svgs.map(function(svg) {
+		if (!svg) return [0, 0];
+		var vb = (svg.getAttribute("viewBox") || "").split(/[\s,]+/).map(Number);
+		return vb.length === 4 ? [vb[2], vb[3]] : [+svg.getAttribute("width") || 0, +svg.getAttribute("height") || 0];
+	});
+	var w = Math.max.apply(null, sizes.map(function(z) { return z[0]; }).concat([1]));
+	var h = Math.max.apply(null, sizes.map(function(z) { return z[1]; }).concat([1]));
+	return { w: w, h: h, parts: svgs.map(function(svg, i) {
+		if (!svg) return null;
+		var z = sizes[i];
+		return { box: [(w - z[0]) / 2, 0, z[0], z[1]],
+			load: function(scale) { return loadSvgImage(svg, z[0] * scale, z[1] * scale, true); } };
+	}) };
+}
+
+function loadChartImage(src) {
+	return new Promise(function(resolve) {
+		var img = new Image();
+		img.onload = function() { resolve(img); };
+		img.onerror = function() { resolve(null); };
+		img.src = src;
+	});
+}
+
+// An <svg> as an image drawn at w x h pixels (sized up front, so it's drawn
+// sharp rather than scaled up). ink: pressed keys printed black
+function loadSvgImage(svg, w, h, ink) {
+	var copy = svg.cloneNode(true);
+	copy.removeAttribute("style");
+	copy.setAttribute("width", Math.max(1, Math.round(w)));
+	copy.setAttribute("height", Math.max(1, Math.round(h)));
+	copy.setAttribute("preserveAspectRatio", "xMidYMid meet");
+	if (!copy.getAttribute("xmlns")) copy.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+	var xml = new XMLSerializer().serializeToString(copy);
+	if (ink) xml = xml.replace(/#2196F3/gi, "#111");
+	return loadChartImage("data:image/svg+xml;charset=utf-8," + encodeURIComponent(xml));
+}
+
+// The pages' grid: the fewest pages whose cells are at least
+// CHART_PRINT_MIN_CELL, then the biggest cells, landscape or portrait.
+// cell: [w, h] in art units; returns { landscape, cols, rows, per, scale }
+// (scale: pixels per art unit)
+function chartPrintLayout(n, cell, artSide) {
+	var dpi = CHART_PRINT_DPI, pad = 0.12 * dpi;
+	var maxScale = CHART_PRINT_MAX_ART * dpi / artSide;
+	for (var pages = 1; pages <= n; pages++) {
+		var per = Math.ceil(n / pages), best = null;
+		[true, false].forEach(function(landscape) {
+			var area = chartPrintArea(landscape);
+			for (var cols = 1; cols <= per; cols++) {
+				var rows = Math.ceil(per / cols);
+				if ((rows - 1) * cols >= per) continue;
+				var scale = Math.min((area.w / cols - 2 * pad) / cell[0], (area.h / rows - 2 * pad) / cell[1], maxScale);
+				if (scale <= 0 || Math.max(cell[0], cell[1]) * scale < CHART_PRINT_MIN_CELL * dpi) continue;
+				// A printed chart is usually landscape: it wins a near tie
+				var score = scale * (landscape ? 1.08 : 1);
+				if (!best || score > best.score) best = { landscape: landscape, cols: cols, rows: rows, per: per, scale: scale, score: score };
+			}
+		});
+		if (best) return best;
+	}
+	return { landscape: true, cols: 1, rows: 1, per: 1, scale: chartPrintArea(true).h / 2 / cell[1] };
+}
+
+// The page in pixels, and the grid's area under the title
+function chartPrintArea(landscape) {
+	var dpi = CHART_PRINT_DPI;
+	var w = (landscape ? CHART_PRINT_PAGE[0] : CHART_PRINT_PAGE[1]) * dpi;
+	var h = (landscape ? CHART_PRINT_PAGE[1] : CHART_PRINT_PAGE[0]) * dpi;
+	var m = CHART_PRINT_MARGIN * dpi;
+	var top = m + CHART_PRINT_TITLE * dpi;
+	return { pageW: w, pageH: h, x: m, y: top, w: w - 2 * m, h: h - top - m };
+}
+
+// Draw the chart's pages: Promise<[canvas]>
+function drawChartPages(notes, title) {
+	var m = practice.chart.make;
+	var clef = getCurrentClef();
+	var items = notes.map(function(midi) {
+		var spellings = chartPrintSpellings(midi);
+		return { midi: midi, spellings: spellings,
+			name: spellings.map(keyDisplayName).join(" / "),
+			place: spellings.length === 1 ? staffPlaceName(spellings[0], midi, clef) : "" };
+	});
+	var view = chartCellView(items);
+	var art = chartPrintArt(notes);
+	// The cell, in art units: the staff (sized to the art, within reason),
+	// its name and place, then the fingering
+	var staffW = Math.min(260, Math.max(200, art.w * 0.45, art.h * 0.45));
+	var staffH = staffW * 2 * view.half / CHART_CELL_WIDTH;
+	var nameSize = staffW * 0.2, placeSize = staffW * 0.13;
+	var textH = (m.names ? nameSize * 1.25 : 0) + (m.lines ? placeSize * 1.4 : 0);
+	var gap = staffW * 0.08;
+	var cell = [Math.max(staffW, art.w), staffH + textH + gap + art.h];
+	var layout = chartPrintLayout(items.length, cell, Math.max(art.w, art.h));
+	var s = layout.scale;
+
+	var staves = items.map(function(item) {
+		var div = document.createElement("div");
+		drawChartCell(div, item.midi, view, item.spellings);
+		var svg = div.querySelector("svg");
+		return svg ? loadSvgImage(svg, staffW * s, staffH * s) : Promise.resolve(null);
+	});
+	var fingerings = art.parts.map(function(part) { return part ? part.load(s) : Promise.resolve(null); });
+	var fonts = loadChartPrintFonts();
+
+	return Promise.all([Promise.all(staves), Promise.all(fingerings), fonts]).then(function(loaded) {
+		var staffImgs = loaded[0], artImgs = loaded[1];
+		var area = chartPrintArea(layout.landscape);
+		var cellW = area.w / layout.cols, cellH = area.h / layout.rows;
+		var pad = 0.12 * CHART_PRINT_DPI;
+		var pages = [];
+		for (var start = 0; start < items.length; start += layout.per) {
+			var canvas = document.createElement("canvas");
+			canvas.width = area.pageW;
+			canvas.height = area.pageH;
+			var ctx = canvas.getContext("2d");
+			ctx.fillStyle = "#fff";
+			ctx.fillRect(0, 0, canvas.width, canvas.height);
+			ctx.fillStyle = "#111";
+			ctx.textAlign = "center";
+			ctx.textBaseline = "alphabetic";
+
+			// The title, as big as fits its band
+			var size = CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.7;
+			var tw = drawDisplayText(ctx, title, 0, 0, size, true);
+			if (tw > area.w) size *= area.w / tw;
+			drawDisplayText(ctx, title, area.pageW / 2, area.y - CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.2, size);
+
+			var onPage = items.slice(start, start + layout.per);
+			var rows = Math.ceil(onPage.length / layout.cols);
+			// Lines between the cells, as printed charts have
+			ctx.strokeStyle = "#999";
+			ctx.lineWidth = Math.max(2, CHART_PRINT_DPI / 100);
+			for (var r = 0; r < rows; r++) {
+				var inRow = Math.min(layout.cols, onPage.length - r * layout.cols);
+				var x0 = area.x + (area.w - inRow * cellW) / 2, y0 = area.y + r * cellH;
+				for (var k = 1; k < inRow; k++) {
+					ctx.beginPath();
+					ctx.moveTo(x0 + k * cellW, y0 + pad);
+					ctx.lineTo(x0 + k * cellW, y0 + cellH - pad);
+					ctx.stroke();
+				}
+				if (r > 0) {
+					ctx.beginPath();
+					ctx.moveTo(area.x, y0);
+					ctx.lineTo(area.x + area.w, y0);
+					ctx.stroke();
+				}
+				for (var k2 = 0; k2 < inRow; k2++) {
+					var i = start + r * layout.cols + k2;
+					drawChartPrintCell(ctx, items[i], staffImgs[i], artImgs[i], art.parts[i],
+						x0 + k2 * cellW + cellW / 2, y0 + pad, {
+							s: s, staffW: staffW, staffH: staffH, nameSize: nameSize, placeSize: placeSize,
+							gap: gap, artW: art.w, names: m.names, lines: m.lines
+						});
+				}
+			}
+			pages.push(canvas);
+		}
+		return pages;
+	});
+}
+
+// The chart's fonts, fetched the first time a chart is made: Promise
+// (resolved once they're in, or after CHART_PRINT_FONTS_WAIT_MS)
+function loadChartPrintFonts() {
+	var link = document.getElementById("chart-print-fonts");
+	var css;
+	if (link) css = Promise.resolve();
+	else {
+		link = document.createElement("link");
+		link.id = "chart-print-fonts";
+		link.rel = "stylesheet";
+		link.href = CHART_PRINT_FONTS_URL;
+		css = new Promise(function(resolve) {
+			link.onload = resolve;
+			link.onerror = resolve;
+		});
+		document.head.appendChild(link);
+	}
+	var loaded = css.then(function() {
+		if (!document.fonts || !document.fonts.load) return;
+		return Promise.all(["400 40px \"Holtwood One SC\"", "700 40px Nunito"].map(function(f) {
+			return document.fonts.load(f);
+		}));
+	}).catch(function() {});
+	return Promise.race([loaded, new Promise(function(resolve) { setTimeout(resolve, CHART_PRINT_FONTS_WAIT_MS); })]);
+}
+
+// Text in the display font, centered on x at baseline y; returns its
+// width (measureOnly: just that). The display font has no ♭ or ♯, so those
+// come from another font, a little bigger and outlined in their own ink to
+// stand as heavy as the letters beside them.
+function drawDisplayText(ctx, text, x, y, size, measureOnly) {
+	var runs = text.split(/([\u266d\u266f])/).filter(function(r) { return r; }).map(function(r) {
+		var accidental = r === "\u266d" || r === "\u266f";
+		var font = accidental ? "700 " + size * 1.1 + 'px "Segoe UI Symbol", "DejaVu Sans", serif'
+			: "400 " + size + "px " + CHART_PRINT_DISPLAY_FONT;
+		ctx.font = font;
+		return { text: r, font: font, accidental: accidental, w: ctx.measureText(r).width + (accidental ? size * 0.08 : 0) };
+	});
+	var width = runs.reduce(function(sum, r) { return sum + r.w; }, 0);
+	if (measureOnly) return width;
+	ctx.save();
+	ctx.fillStyle = ctx.strokeStyle = "#111";
+	ctx.textAlign = "left";
+	ctx.lineJoin = "round";
+	var at = x - width / 2;
+	runs.forEach(function(r) {
+		ctx.font = r.font;
+		if (r.accidental) {
+			ctx.lineWidth = size * 0.07;
+			ctx.strokeText(r.text, at + size * 0.04, y);
+			ctx.fillText(r.text, at + size * 0.04, y);
+		} else {
+			ctx.fillText(r.text, at, y);
+		}
+		at += r.w;
+	});
+	ctx.restore();
+	return width;
+}
+
+// One note's cell, centered on cx from the top y
+function drawChartPrintCell(ctx, item, staffImg, artImg, part, cx, y, o) {
+	var s = o.s;
+	if (staffImg) ctx.drawImage(staffImg, cx - o.staffW * s / 2, y, o.staffW * s, o.staffH * s);
+	y += o.staffH * s;
+	ctx.fillStyle = "#111";
+	ctx.textAlign = "center";
+	if (o.names) {
+		y += o.nameSize * s;
+		drawDisplayText(ctx, item.name, cx, y, o.nameSize * s * 0.85);
+		y += o.nameSize * s * 0.25;
+	}
+	if (o.lines && item.place) {
+		ctx.font = "700 " + o.placeSize * s + "px " + CHART_PRINT_LABEL_FONT;
+		ctx.fillStyle = "#555";
+		y += o.placeSize * s * 1.05;
+		ctx.fillText(item.place, cx, y);
+		y += o.placeSize * s * 0.35;
+	} else if (o.lines) {
+		y += o.placeSize * s * 1.4;
+	}
+	y += o.gap * s;
+	if (artImg && part) {
+		var left = cx - o.artW * s / 2;
+		ctx.drawImage(artImg, left + part.box[0] * s, y + part.box[1] * s, part.box[2] * s, part.box[3] * s);
+	}
+}
+
+// A PDF of page canvases (letter size), titled: Promise<Blob>
+function chartPdfBlob(pages, title) {
+	return Promise.all(pages.map(chartPdfImage)).then(function(images) {
+		var enc = new TextEncoder(), chunks = [], length = 0, offsets = [];
+		function put(part) {
+			var bytes = typeof part === "string" ? enc.encode(part) : part;
+			chunks.push(bytes);
+			length += bytes.length;
+		}
+		function obj(n, dict, stream) {
+			offsets[n] = length;
+			put(n + " 0 obj\n" + dict);
+			if (stream) {
+				put("\nstream\n");
+				put(stream);
+				put("\nendstream");
+			}
+			put("\nendobj\n");
+		}
+		put("%PDF-1.4\n");
+		put(new Uint8Array([37, 226, 227, 207, 211, 10]));  // binary marker
+		var kids = pages.map(function(p, i) { return (4 + i * 3) + " 0 R"; }).join(" ");
+		obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+		obj(2, "<< /Type /Pages /Kids [" + kids + "] /Count " + pages.length + " >>");
+		obj(3, "<< /Title " + pdfTextString(title) + " /Creator (PitchDetect) >>");
+		pages.forEach(function(canvas, i) {
+			var n = 4 + i * 3, img = images[i];
+			var w = +(canvas.width / CHART_PRINT_DPI * 72).toFixed(2), h = +(canvas.height / CHART_PRINT_DPI * 72).toFixed(2);
+			obj(n, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + w + " " + h + "] /Resources << /XObject << /Im0 " +
+				(n + 2) + " 0 R >> >> /Contents " + (n + 1) + " 0 R >>");
+			var content = enc.encode("q " + w + " 0 0 " + h + " 0 0 cm /Im0 Do Q");
+			obj(n + 1, "<< /Length " + content.length + " >>", content);
+			obj(n + 2, "<< /Type /XObject /Subtype /Image /Width " + img.width + " /Height " + img.height +
+				" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /" + img.filter + " /Length " + img.data.length + " >>", img.data);
+		});
+		var xref = length, total = 4 + pages.length * 3;
+		put("xref\n0 " + total + "\n0000000000 65535 f \n");
+		for (var k = 1; k < total; k++) put(("000000000" + offsets[k]).slice(-10) + " 00000 n \n");
+		put("trailer\n<< /Size " + total + " /Root 1 0 R /Info 3 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+		return new Blob(chunks, { type: "application/pdf" });
+	});
+}
+
+// A page canvas as a PDF image: its RGB pixels deflated (PDF's
+// FlateDecode is zlib, what CompressionStream("deflate") writes), or a JPEG
+// where that's missing
+function chartPdfImage(canvas) {
+	var w = canvas.width, h = canvas.height;
+	if (typeof CompressionStream === "function") {
+		var rgba = canvas.getContext("2d").getImageData(0, 0, w, h).data;
+		var rgb = new Uint8Array(w * h * 3);
+		for (var i = 0, j = 0; i < rgba.length; i += 4) {
+			rgb[j++] = rgba[i];
+			rgb[j++] = rgba[i + 1];
+			rgb[j++] = rgba[i + 2];
+		}
+		var stream = new Blob([rgb]).stream().pipeThrough(new CompressionStream("deflate"));
+		return new Response(stream).arrayBuffer().then(function(buf) {
+			return { width: w, height: h, filter: "FlateDecode", data: new Uint8Array(buf) };
+		});
+	}
+	return new Promise(function(resolve) { canvas.toBlob(resolve, "image/jpeg", 0.92); }).then(function(blob) {
+		return blob.arrayBuffer();
+	}).then(function(buf) {
+		return { width: w, height: h, filter: "DCTDecode", data: new Uint8Array(buf) };
+	});
+}
+
+// A PDF text string in UTF-16 (so ♭ and accented names survive)
+function pdfTextString(text) {
+	var hex = "<FEFF";
+	for (var i = 0; i < text.length; i++) hex += ("000" + text.charCodeAt(i).toString(16)).slice(-4);
+	return hex + ">";
+}
+
+function chartPdfFileName(title) {
+	var name = title.replace(/♭/g, "b").replace(/♯/g, "#").replace(/[\\/:*?"<>|]+/g, "").replace(/\s+/g, " ").trim();
+	return (name || "Fingering chart") + ".pdf";
+}
+
+function downloadChartPdf() {
+	var m = practice.chart.make;
+	var button = document.getElementById("chart-make-download");
+	var notes = chartPickedNotes();
+	if (!notes.length || (button && button.getAttribute("data-busy") !== null)) return;
+	var title = (m.title || chartDefaultTitle()).trim() || chartDefaultTitle();
+	if (button) {
+		button.setAttribute("data-busy", "");
+		button.disabled = true;
+		button.textContent = "Making your chart…";
+	}
+	function done() {
+		if (!button) return;
+		button.removeAttribute("data-busy");
+		updateChartMakeCount();
+	}
+	drawChartPages(notes, title).then(function(pages) {
+		return chartPdfBlob(pages, title);
+	}).then(function(blob) {
+		var url = URL.createObjectURL(blob);
+		var a = document.createElement("a");
+		a.href = url;
+		a.download = chartPdfFileName(title);
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+		done();
+	}).catch(function(e) {
+		console.log("Could not make the chart:", e);
+		showToast("Sorry, the chart couldn’t be made on this device");
+		done();
+	});
 }
 
 // ---------------------------------------------------------------------------
