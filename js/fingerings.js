@@ -280,9 +280,13 @@ var clarinetFingerings = {
 	},
 
 	// Clarion
-	71: { // B4
-		primary: { keys: clarinetClarion.concat(["lE"]), label: "Left pinky" },
-		alternates: [{ keys: clarinetClarion.concat(["rE"]), label: "Right pinky" }]
+	71: { // B4: both pinkies down (left E/B, right F/C), as many band
+		// programs teach it, so the next C is just lifting the left pinky
+		primary: { keys: clarinetClarion.concat(["lE", "rF"]), label: "Both pinkies" },
+		alternates: [
+			{ keys: clarinetClarion.concat(["lE"]), label: "Left pinky" },
+			{ keys: clarinetClarion.concat(["rE"]), label: "Right pinky" }
+		]
 	},
 	72: { // C5
 		primary: { keys: clarinetClarion.concat(["rF"]), label: "Right pinky" },
