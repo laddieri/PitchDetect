@@ -611,7 +611,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   that one event, plus `.song-fingering-name`; the piano labels its own
   key), the note marked (`practice.song.tapped`; layouts in
   `practice.song.layouts`); its ✕ (`.song-fingering-close`) or tapping
-  it again puts it away (`closeSongFingering()`). In note by note, tapping the note being waited for is Help.
+  it again puts it away (`closeSongFingering()`). In note by note, tapping the note being waited for is Help,
+  and tapping another note of the song (or part) goes there (`songJumpTo()`:
+  the arrow, its fingering and the mic's target; notes jumped over score as
+  helped, and going back plays the notes from there again).
   The chart takes room from the music, so `revealTappedNote()` scrolls the
   tapped note's line back into view (on a phone it could end up under it).
   Tapping only shows: the mic stays off, so reviewing a mistake never
@@ -1192,7 +1195,7 @@ lesson and the scale, and Change octave moves trumpet's B♭ scale up an
 octave and back;
 the Songs tab lists every level of songs;
 a song's breadcrumbs lead back to the Songs tab, note by note shows each
-note's fingering by itself, and back from note by note returns to the
+note's fingering by itself and a tapped note moves its arrow there, and back from note by note returns to the
 whole song; a drill's result
 goes on to the next step; a failed save warns; the iPhone
 Home Screen hint shows once; the lesson's Play step traces a wrong note
