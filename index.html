@@ -118,7 +118,9 @@
 				position: absolute;
 				top: 50%;
 				left: 0;
-				transform: translateY(-50%);
+				/* Not transform: kid mode's :active press sets that, and the
+				   button would jump out from under the pointer */
+				translate: 0 -50%;
 			}
 
 			/* Styled like the Sustain switch */
@@ -1253,7 +1255,7 @@
 
 				#chartButton {
 					position: static;
-					transform: none;
+					translate: none;
 					grid-column: 2;
 					grid-row: 1 / span 2;
 				}
