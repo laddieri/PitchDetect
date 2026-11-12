@@ -880,7 +880,10 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   pressed valves inked black, the piano), laid out by `chartPrintLayout()`
   (fewest pages with cells of at least `CHART_PRINT_MIN_CELL`, then the
   biggest, landscape or portrait; up to `CHART_PRINT_ONE_PAGE` (8) notes
-  always go on one page, so a major scale is a single sheet), in Holtwood One SC (title and note
+  always go on one page, so a major scale is a single sheet; labels fit
+  the cell's width: a place name too wide wraps to two lines,
+  `chartWrapLabel()`, and a name or word still too wide shrinks every
+  cell's alike), in Holtwood One SC (title and note
   names, `drawDisplayText()`, whose ♭ ♯ come from another font, outlined to
   match its weight) and Nunito (the labels), fetched only when a chart is
   made (`loadChartPrintFonts()`), and writes the PDF itself

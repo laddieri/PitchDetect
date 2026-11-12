@@ -8859,76 +8859,94 @@ function drawChartPages(notes, title) {
 	var staffW = Math.min(260, Math.max(200, art.w * 0.45, art.h * 0.45));
 	var staffH = staffW * 2 * view.half / CHART_CELL_WIDTH;
 	var nameSize = staffW * 0.2, placeSize = staffW * 0.13;
-	var textH = (m.names ? nameSize * 1.25 : 0) + (m.lines ? placeSize * 1.4 : 0);
 	var gap = staffW * 0.08;
-	var cell = [Math.max(staffW, art.w), staffH + textH + gap + art.h];
-	var layout = chartPrintLayout(items.length, cell, Math.max(art.w, art.h));
-	var s = layout.scale;
+	var cellW = Math.max(staffW, art.w);
 
-	var staves = items.map(function(item) {
-		var div = document.createElement("div");
-		drawChartCell(div, item.midi, view, item.spellings);
-		var svg = div.querySelector("svg");
-		return svg ? loadSvgImage(svg, staffW * s, staffH * s) : Promise.resolve(null);
-	});
-	var fingerings = art.parts.map(function(part) { return part ? part.load(s) : Promise.resolve(null); });
-	var fonts = loadChartPrintFonts();
+	return loadChartPrintFonts().then(function() {
+		// The labels must fit the cell's width (a narrow chart, like the
+		// clarinet's, makes narrow cells): "Under 3 ledger lines" goes on two
+		// lines, and a name or a word still too wide shrinks them all alike
+		var measure = document.createElement("canvas").getContext("2d");
+		var fit = cellW * 0.94;
+		var nameScale = 1, placeScale = 1, placeLines = 1;
+		items.forEach(function(item) {
+			if (m.names) nameScale = Math.min(nameScale, fit / drawDisplayText(measure, item.name, 0, 0, nameSize * 0.85, true));
+			if (!m.lines || !item.place) return;
+			measure.font = "700 " + placeSize + "px " + CHART_PRINT_LABEL_FONT;
+			item.placeLines = chartWrapLabel(measure, item.place, fit);
+			placeLines = Math.max(placeLines, item.placeLines.length);
+			item.placeLines.forEach(function(line) { placeScale = Math.min(placeScale, fit / measure.measureText(line).width); });
+		});
+		var textH = (m.names ? nameSize * 1.25 : 0) + (m.lines ? placeSize * (1.4 + (placeLines - 1) * 1.15) : 0);
+		var cell = [cellW, staffH + textH + gap + art.h];
+		var layout = chartPrintLayout(items.length, cell, Math.max(art.w, art.h));
+		var s = layout.scale;
 
-	return Promise.all([Promise.all(staves), Promise.all(fingerings), fonts]).then(function(loaded) {
-		var staffImgs = loaded[0], artImgs = loaded[1];
-		var area = chartPrintArea(layout.landscape);
-		var cellW = area.w / layout.cols, cellH = area.h / layout.rows;
-		var pad = 0.12 * CHART_PRINT_DPI;
-		var pages = [];
-		for (var start = 0; start < items.length; start += layout.per) {
-			var canvas = document.createElement("canvas");
-			canvas.width = area.pageW;
-			canvas.height = area.pageH;
-			var ctx = canvas.getContext("2d");
-			ctx.fillStyle = "#fff";
-			ctx.fillRect(0, 0, canvas.width, canvas.height);
-			ctx.fillStyle = "#111";
-			ctx.textAlign = "center";
-			ctx.textBaseline = "alphabetic";
+		var staves = items.map(function(item) {
+			var div = document.createElement("div");
+			drawChartCell(div, item.midi, view, item.spellings);
+			var svg = div.querySelector("svg");
+			return svg ? loadSvgImage(svg, staffW * s, staffH * s) : Promise.resolve(null);
+		});
+		var fingerings = art.parts.map(function(part) { return part ? part.load(s) : Promise.resolve(null); });
 
-			// The title, as big as fits its band
-			var size = CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.7;
-			var tw = drawDisplayText(ctx, title, 0, 0, size, true);
-			if (tw > area.w) size *= area.w / tw;
-			drawDisplayText(ctx, title, area.pageW / 2, area.y - CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.2, size);
+		return Promise.all([Promise.all(staves), Promise.all(fingerings)]).then(function(loaded) {
+			var staffImgs = loaded[0], artImgs = loaded[1];
+			var area = chartPrintArea(layout.landscape);
+			var cellW = area.w / layout.cols, cellH = area.h / layout.rows;
+			var pad = 0.12 * CHART_PRINT_DPI;
+			var pages = [];
+			for (var start = 0; start < items.length; start += layout.per) {
+				var canvas = document.createElement("canvas");
+				canvas.width = area.pageW;
+				canvas.height = area.pageH;
+				var ctx = canvas.getContext("2d");
+				ctx.fillStyle = "#fff";
+				ctx.fillRect(0, 0, canvas.width, canvas.height);
+				ctx.fillStyle = "#111";
+				ctx.textAlign = "center";
+				ctx.textBaseline = "alphabetic";
 
-			var onPage = items.slice(start, start + layout.per);
-			var rows = Math.ceil(onPage.length / layout.cols);
-			// Lines between the cells, as printed charts have
-			ctx.strokeStyle = "#999";
-			ctx.lineWidth = Math.max(2, CHART_PRINT_DPI / 100);
-			for (var r = 0; r < rows; r++) {
-				var inRow = Math.min(layout.cols, onPage.length - r * layout.cols);
-				var x0 = area.x + (area.w - inRow * cellW) / 2, y0 = area.y + r * cellH;
-				for (var k = 1; k < inRow; k++) {
-					ctx.beginPath();
-					ctx.moveTo(x0 + k * cellW, y0 + pad);
-					ctx.lineTo(x0 + k * cellW, y0 + cellH - pad);
-					ctx.stroke();
+				// The title, as big as fits its band
+				var size = CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.7;
+				var tw = drawDisplayText(ctx, title, 0, 0, size, true);
+				if (tw > area.w) size *= area.w / tw;
+				drawDisplayText(ctx, title, area.pageW / 2, area.y - CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.2, size);
+
+				var onPage = items.slice(start, start + layout.per);
+				var rows = Math.ceil(onPage.length / layout.cols);
+				// Lines between the cells, as printed charts have
+				ctx.strokeStyle = "#999";
+				ctx.lineWidth = Math.max(2, CHART_PRINT_DPI / 100);
+				for (var r = 0; r < rows; r++) {
+					var inRow = Math.min(layout.cols, onPage.length - r * layout.cols);
+					var x0 = area.x + (area.w - inRow * cellW) / 2, y0 = area.y + r * cellH;
+					for (var k = 1; k < inRow; k++) {
+						ctx.beginPath();
+						ctx.moveTo(x0 + k * cellW, y0 + pad);
+						ctx.lineTo(x0 + k * cellW, y0 + cellH - pad);
+						ctx.stroke();
+					}
+					if (r > 0) {
+						ctx.beginPath();
+						ctx.moveTo(area.x, y0);
+						ctx.lineTo(area.x + area.w, y0);
+						ctx.stroke();
+					}
+					for (var k2 = 0; k2 < inRow; k2++) {
+						var i = start + r * layout.cols + k2;
+						drawChartPrintCell(ctx, items[i], staffImgs[i], artImgs[i], art.parts[i],
+							x0 + k2 * cellW + cellW / 2, y0 + pad, {
+								s: s, staffW: staffW, staffH: staffH, nameSize: nameSize, placeSize: placeSize,
+								nameScale: nameScale, placeScale: placeScale, placeLines: placeLines,
+								gap: gap, artW: art.w, names: m.names, lines: m.lines
+							});
+					}
 				}
-				if (r > 0) {
-					ctx.beginPath();
-					ctx.moveTo(area.x, y0);
-					ctx.lineTo(area.x + area.w, y0);
-					ctx.stroke();
-				}
-				for (var k2 = 0; k2 < inRow; k2++) {
-					var i = start + r * layout.cols + k2;
-					drawChartPrintCell(ctx, items[i], staffImgs[i], artImgs[i], art.parts[i],
-						x0 + k2 * cellW + cellW / 2, y0 + pad, {
-							s: s, staffW: staffW, staffH: staffH, nameSize: nameSize, placeSize: placeSize,
-							gap: gap, artW: art.w, names: m.names, lines: m.lines
-						});
-				}
+				pages.push(canvas);
 			}
-			pages.push(canvas);
-		}
-		return pages;
+			return pages;
+		});
 	});
 }
 
@@ -8992,6 +9010,21 @@ function drawDisplayText(ctx, text, x, y, size, measureOnly) {
 	return width;
 }
 
+// A label in at most two lines no wider than maxW (ctx's font set), split
+// where the longer line is shortest: "Under 3 ledger lines" -> "Under 3",
+// "ledger lines"
+function chartWrapLabel(ctx, text, maxW) {
+	if (ctx.measureText(text).width <= maxW) return [text];
+	var words = text.split(" ");
+	var best = [text], bestW = Infinity;
+	for (var k = 1; k < words.length; k++) {
+		var lines = [words.slice(0, k).join(" "), words.slice(k).join(" ")];
+		var w = Math.max(ctx.measureText(lines[0]).width, ctx.measureText(lines[1]).width);
+		if (w < bestW) { best = lines; bestW = w; }
+	}
+	return best;
+}
+
 // One note's cell, centered on cx from the top y
 function drawChartPrintCell(ctx, item, staffImg, artImg, part, cx, y, o) {
 	var s = o.s;
@@ -9001,17 +9034,18 @@ function drawChartPrintCell(ctx, item, staffImg, artImg, part, cx, y, o) {
 	ctx.textAlign = "center";
 	if (o.names) {
 		y += o.nameSize * s;
-		drawDisplayText(ctx, item.name, cx, y, o.nameSize * s * 0.85);
+		drawDisplayText(ctx, item.name, cx, y, o.nameSize * s * 0.85 * o.nameScale);
 		y += o.nameSize * s * 0.25;
 	}
-	if (o.lines && item.place) {
-		ctx.font = "700 " + o.placeSize * s + "px " + CHART_PRINT_LABEL_FONT;
+	if (o.lines) {
+		// Every cell keeps the same room, so the fingerings line up
+		var lines = item.placeLines || (item.place ? [item.place] : []);
+		ctx.font = "700 " + o.placeSize * s * o.placeScale + "px " + CHART_PRINT_LABEL_FONT;
 		ctx.fillStyle = "#555";
-		y += o.placeSize * s * 1.05;
-		ctx.fillText(item.place, cx, y);
-		y += o.placeSize * s * 0.35;
-	} else if (o.lines) {
-		y += o.placeSize * s * 1.4;
+		lines.forEach(function(line, k) {
+			ctx.fillText(line, cx, y + o.placeSize * s * (1.05 + k * 1.15));
+		});
+		y += o.placeSize * s * (1.4 + (o.placeLines - 1) * 1.15);
 	}
 	y += o.gap * s;
 	if (artImg && part) {
