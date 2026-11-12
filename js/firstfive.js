@@ -4474,6 +4474,25 @@ function showSongNoteFingering() {
 	s.autoFingering(s.notes[s.pos].event);
 }
 
+// Note by note, a note tapped: go there (the arrow, its fingering and the
+// mic's target). Notes jumped over weren't played on your own, so they
+// score as helped; going back plays the notes from there again.
+function songJumpTo(to) {
+	var s = practice.song;
+	clearTimeout(practiceAdvanceTimer);
+	stopSongPlayback();
+	stopNote();
+	if (to > s.pos) {
+		while (s.results.length < to) s.results.push(false);
+	} else {
+		s.results.length = to;
+	}
+	s.streak = 0;
+	s.pos = to;
+	showSongNote();
+	setPracticeFeedback("Play the glowing note", " ");
+}
+
 // Reveal the current note's name, fingering and sound. It no longer scores.
 function showSongHelp() {
 	var s = practice.song;
@@ -6522,8 +6541,9 @@ function removeSongFingerings() {
 // the chart area Hear the song uses, with an \u2715 to put it away, and the
 // note marked (on Play it through, Start here then starts from it). A tap on
 // it again puts it away too. In note by note, the note being waited for gets
-// Help instead (so it no longer scores). While picking a part, a tap picks
-// a measure instead (songPickMeasure()).
+// Help instead (so it no longer scores), and another note moves the arrow
+// there (songJumpTo()). While picking a part, a tap picks a measure instead
+// (songPickMeasure()).
 function songNoteTap(event) {
 	if (!practiceOpen || !practice || practice.mode !== "song" || !practice.song) return;
 	if (songPlayTimer !== null || songPlayAlong) return;
@@ -6560,6 +6580,14 @@ function songNoteTap(event) {
 	if (!s.free && hit !== null && practice.step === 3 && s.pos < songEnd(s) && tieStart(s.events, hit) === s.notes[s.pos].event) {
 		if (!s.helped) showSongHelp();
 		return;
+	}
+	// Note by note: another note of the song (or part) moves the arrow there
+	if (!s.free && hit !== null && practice.step === 3) {
+		var to = s.notes.findIndex(function(n) { return n.event === tieStart(s.events, hit); });
+		if (to >= (s.from || 0) && to < songEnd(s)) {
+			songJumpTo(to);
+			return;
+		}
 	}
 	if (hit === null) return;
 	if (hit === s.tapped) {

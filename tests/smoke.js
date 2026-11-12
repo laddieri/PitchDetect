@@ -736,6 +736,31 @@ async function run() {
 		});
 		check(autoChart.first && autoChart.moved && autoChart.helpCharts === 1 && autoChart.back,
 			"note by note shows each note's fingering by itself (" + JSON.stringify(autoChart) + ")");
+		// Tapping another note in note by note moves the arrow (and the
+		// chart and the mic's target) there; the notes jumped over don't
+		// count as played on your own
+		var jumpAt = await page.evaluate(function() {
+			var s = practice.song;
+			var to = s.pos + 2;
+			var key = Object.keys(s.layouts).find(function(l) { return s.layouts[l].xs[s.notes[to].event] !== undefined; });
+			var r = s.layouts[key];
+			var pt = r.svg.createSVGPoint();
+			pt.x = r.xs[s.notes[to].event];
+			pt.y = r.svg.viewBox.baseVal.height / 2;
+			var p = pt.matrixTransform(r.svg.getScreenCTM());
+			return { x: p.x, y: p.y, to: to, from: s.pos };
+		});
+		await page.mouse.click(jumpAt.x, jumpAt.y);
+		var jumped = await page.evaluate(function(j) {
+			var s = practice.song;
+			var wrap = document.getElementById("song-fingering");
+			return { pos: s.pos, target: practice.target === s.notes[j.to].midi, tapped: s.tapped,
+				results: s.results.slice(j.from), auto: !!(wrap && wrap.hasAttribute("data-auto")) };
+		}, jumpAt);
+		check(jumped.pos === jumpAt.to && jumped.target && jumped.tapped === null && jumped.auto &&
+			jumped.results.length === 2 && jumped.results.every(function(r) { return r === false; }),
+			"tapping another note in note by note moves the arrow there (" + JSON.stringify(jumped) + ")");
+		await page.evaluate(function() { var s = practice.song; startSong(s.id, s.from, s.to); });
 		// "Hear the song" is the song (or part), "Hear the note" one note
 		var hears = await page.evaluate(function() {
 			var song = document.getElementById("song-hear").textContent;
