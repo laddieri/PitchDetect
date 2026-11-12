@@ -863,7 +863,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   sticky above 700px): a title (default "Clarinet Fingering Chart", or the
   quick pick's, "Clarinet Concert B♭ Scale", until edited), a quick pick
   (`chartMakePicks()`: the first 3 / 5 / 9 notes, each scale with its
-  written-key spelling, chromatic, every note; `applyChartPick()`), Note
+  written-key spelling, chromatic, every note; `applyChartPick()`), Octave
+  ▼ / ▲ (`shiftChartPicks()`: every pick an octave, disabled where one
+  would leave the chart's range, `chartPicksCanShift()`), Note
   names, Lines and spaces (`staffPlaceName()`: "1st line", "Space below the
   staff", "Ledger line above") and how black keys are spelled
   (`chartPrintSpellings()`). **Download PDF** (`downloadChartPdf()`) draws
@@ -1202,7 +1204,8 @@ note (black keys with both names) without the mic, a tapped note shows its
 fingering (clarinet's standing tall beside the staff), Listen to me names a wrong note and hears the right one (the mic
 off back on the grid, on through ◀ ▶), and a note played right is checked
 on the grid; Make a printable chart's quick pick picks the B♭ scale and
-titles it, and Download PDF makes a one-page PDF; the service worker keeps every chart of the
+titles it, Octave moves the picks up and back, and Download PDF makes a
+one-page PDF; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 shared triplet, tie and slur are timed and drawn; a shared song shows
 link goes straight into My songs (once) and opens in Play it through, 4
