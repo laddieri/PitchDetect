@@ -879,7 +879,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `fingeringImageBox()`, the clarinet trimmed together, valve diagrams with
   pressed valves inked black, the piano), laid out by `chartPrintLayout()`
   (fewest pages with cells of at least `CHART_PRINT_MIN_CELL`, then the
-  biggest, landscape or portrait), in Holtwood One SC (title and note
+  biggest, landscape or portrait; up to `CHART_PRINT_ONE_PAGE` (8) notes
+  always go on one page, so a major scale is a single sheet), in Holtwood One SC (title and note
   names, `drawDisplayText()`, whose ♭ ♯ come from another font, outlined to
   match its weight) and Nunito (the labels), fetched only when a chart is
   made (`loadChartPrintFonts()`), and writes the PDF itself
@@ -1208,7 +1209,7 @@ fingering (clarinet's standing tall beside the staff), Listen to me names a wron
 off back on the grid, on through ◀ ▶), and a note played right is checked
 on the grid; Make a printable chart's quick pick picks the B♭ scale and
 titles it, Octave moves the picks up and back, and Download PDF makes a
-one-page PDF; the service worker keeps every chart of the
+one-page PDF of the whole 8-note scale; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 shared triplet, tie and slur are timed and drawn; a shared song shows
 link goes straight into My songs (once) and opens in Play it through, 4

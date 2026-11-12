@@ -1250,8 +1250,8 @@ async function run() {
 				&& !document.querySelector('.chart-cell[data-midi="61"][data-played]');
 		});
 		check(marked, "a note played right gets a check on the grid");
-		// Make a printable chart: a quick pick of the B flat scale, a tap
-		// taking one note off, and Download PDF gives a one-page PDF
+		// Make a printable chart: a quick pick of the B flat scale, and
+		// Download PDF gives a one-page PDF (a whole scale fits one page)
 		await page.click("#chart-make-open");
 		await page.selectOption("#chart-make-pick", "scale");
 		var picked = await page.evaluate(function() {
@@ -1269,7 +1269,6 @@ async function run() {
 		var lowered = await page.evaluate(function() { return chartPickedNotes(); });
 		check(raised.notes[0] === 72 && raised.notes.length === 8 && raised.pressed === 8 && lowered[0] === 60 && lowered.length === 8,
 			"a printable chart's notes move up an octave and back (" + JSON.stringify(raised.notes) + ", " + JSON.stringify(lowered) + ")");
-		await page.click('.chart-cell[data-midi="72"]');
 		await page.fill("#chart-make-title", "My Scale");
 		var download = page.waitForEvent("download");
 		await page.click("#chart-make-download");
@@ -1280,7 +1279,7 @@ async function run() {
 		fs.unlinkSync(pdfFile);
 		var pdfPages = (pdf.match(/\/Type \/Page /g) || []).length;
 		check(download.suggestedFilename() === "My Scale.pdf" && /^%PDF-1\.4/.test(pdf) && /%%EOF\n$/.test(pdf) && pdfPages === 1,
-			"Download PDF makes the chart of the notes picked (" + download.suggestedFilename() + ", " + pdfPages + " page, " + pdf.length + " bytes)");
+			"Download PDF makes the chart of the notes picked, a whole scale on one page (" + download.suggestedFilename() + ", " + pdfPages + " page, " + pdf.length + " bytes)");
 		await page.click("#practice-close");
 		var stopped = await page.evaluate(function() {
 			return practice.mode === "chart" && !practice.chart.making && !!document.getElementById("chart-make-open");

@@ -8467,6 +8467,7 @@ var CHART_PRINT_PAGE = [11, 8.5];     // US Letter, inches (landscape)
 var CHART_PRINT_MARGIN = 0.4;         // inches
 var CHART_PRINT_TITLE = 0.75;         // the title's band, inches
 var CHART_PRINT_MIN_CELL = 2.4;       // a cell's longer side at least, inches
+var CHART_PRINT_ONE_PAGE = 8;         // up to this many notes (a major scale) always fit one page
 var CHART_PRINT_MAX_ART = 4.5;        // a fingering's longer side at most, inches
 var CHART_TITLE_MAX = 60;
 // The printed chart's fonts: a woodtype display face for the title and
@@ -8804,6 +8805,8 @@ function loadSvgImage(svg, w, h, ink) {
 
 // The pages' grid: the fewest pages whose cells are at least
 // CHART_PRINT_MIN_CELL, then the biggest cells, landscape or portrait.
+// Up to CHART_PRINT_ONE_PAGE notes go on one page whatever their size, so
+// a major scale prints as a single reference sheet.
 // cell: [w, h] in art units; returns { landscape, cols, rows, per, scale }
 // (scale: pixels per art unit)
 function chartPrintLayout(n, cell, artSide) {
@@ -8817,7 +8820,8 @@ function chartPrintLayout(n, cell, artSide) {
 				var rows = Math.ceil(per / cols);
 				if ((rows - 1) * cols >= per) continue;
 				var scale = Math.min((area.w / cols - 2 * pad) / cell[0], (area.h / rows - 2 * pad) / cell[1], maxScale);
-				if (scale <= 0 || Math.max(cell[0], cell[1]) * scale < CHART_PRINT_MIN_CELL * dpi) continue;
+				if (scale <= 0) continue;
+				if (!(pages === 1 && n <= CHART_PRINT_ONE_PAGE) && Math.max(cell[0], cell[1]) * scale < CHART_PRINT_MIN_CELL * dpi) continue;
 				// A printed chart is usually landscape: it wins a near tie
 				var score = scale * (landscape ? 1.08 : 1);
 				if (!best || score > best.score) best = { landscape: landscape, cols: cols, rows: rows, per: per, scale: scale, score: score };
