@@ -3072,6 +3072,44 @@
 				font-size: 0.95rem;
 			}
 
+			/* Over the grid: the key signature picker beside Make a
+			   printable chart */
+			.chart-top {
+				flex-shrink: 0;
+				display: flex;
+				flex-wrap: wrap;
+				justify-content: center;
+				align-items: center;
+				gap: 8px 16px;
+				width: 100%;
+			}
+
+			.chart-keysig {
+				display: inline-flex;
+				align-items: center;
+				gap: 6px;
+				font-family: var(--font);
+				font-size: 0.95rem;
+				font-weight: 700;
+				color: var(--text);
+			}
+
+			.chart-keysig select {
+				height: 36px;
+				padding: 0 8px;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-family: var(--font);
+				font-size: 1rem;
+				font-weight: 600;
+			}
+
+			.chart-make-field.chart-make-keysig {
+				flex: 0 1 180px;
+			}
+
 			.chart-make {
 				position: sticky;
 				top: -4px;

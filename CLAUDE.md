@@ -838,7 +838,17 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   little staff (`drawChartCell()`; one viewBox for all, `chartCellView()`,
   tall enough for the range's ledger lines, so every cell is one scale) and
   its name; a black key shows both spellings side by side, "C♯ D♭"
-  (`chartSpellings()`, `chartNoteLabel()`). Tapping one opens the **note**
+  (`chartSpellings()`, `chartNoteLabel()`). A **Key signature** picker over
+  the grid (and in the printable chart's panel; `chartKeyField()`,
+  `setChartKey()`, `practice.chart.key`, written keys `CHART_KEYS`, "" for
+  none, reset with the instrument) puts that key signature on every note:
+  grid cells (`chartCellView()` widens the staff for it), the note's staff
+  (`drawPracticeStaff()` and `practiceSpelling()` in chart mode) and the
+  PDF. Each note then has one spelling (`chartKeySpelling()`: the key's own
+  notes as its scale spells them; other black keys sharps in a sharp key,
+  else flats but F♯) and an accidental only off the key, naturals included
+  (`chartAccidental()`); the PDF's Black keys choice is disabled meanwhile.
+  Tapping one opens the **note**
   (`showChartNote(midi)`, `practice.chart.note`, `data-step="chart"`, a
   history entry and breadcrumb a level under the grid; back returns to the
   grid with that cell focused): the staff, "How to play C♯ / D♭", **◀ C** /
@@ -1210,7 +1220,8 @@ own), on a grid of every
 note (black keys with both names) without the mic, a tapped note shows its
 fingering (clarinet's standing tall beside the staff), Listen to me names a wrong note and hears the right one (the mic
 off back on the grid, on through ◀ ▶), and a note played right is checked
-on the grid; Make a printable chart's quick pick picks the B♭ scale and
+on the grid; a key signature shows on every note with accidentals only
+off the key; Make a printable chart's quick pick picks the B♭ scale and
 titles it, Octave moves the picks up and back, and Download PDF makes a
 one-page PDF of the whole 8-note scale; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a

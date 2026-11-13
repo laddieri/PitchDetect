@@ -334,6 +334,8 @@ function practiceSpelling(writtenMidi) {
 		: (practice.mode === "challenge" || practice.mode === "drill") && practice.challenge ? practice.challenge.spellings
 		: null;
 	if (spellings && spellings[pc]) return spellings[pc];
+	// The fingering chart, in the key signature picked for it
+	if (practice && practice.mode === "chart" && chartKey()) return chartKeySpelling(pc, chartKey());
 	return plainPracticeSpelling(writtenMidi);
 }
 
@@ -8107,11 +8109,91 @@ function chartNotes() {
 	return notes;
 }
 
-// A written note's spellings: a black key's sharp and flat, else its letter
+// A written note's spellings: a black key's sharp and flat, else its letter;
+// with a key signature picked, the one spelling it reads as in that key
 function chartSpellings(midi) {
 	var pc = ((midi % 12) + 12) % 12;
+	var key = chartKey();
+	if (key) return [chartKeySpelling(pc, key)];
 	var sharp = sharpNoteSpellings[pc], flat = flatNoteSpellings[pc];
 	return sharp === flat ? [sharp] : [sharp, flat];
+}
+
+// The key signature the chart is written in (a VexFlow key name), or ""
+// for none: picked over the grid (chartKeyField()), it puts the key
+// signature on every note, grid, note and printed chart alike, and an
+// accidental only on a note outside it (a natural sign too)
+function chartKey() {
+	return practice.chart && practice.chart.key || "";
+}
+
+// A pitch class's spelling in a key: the key's own notes as its scale spells
+// them (C♭ in G♭, E♯ in F♯); any other black key a sharp in a sharp key,
+// else as band parts read it (flats, but F♯); any other white key natural
+function chartKeySpelling(pc, key) {
+	for (var letter = 0; letter < 7; letter++) {
+		var alter = keyAlter(key, letter);
+		if ((([0, 2, 4, 5, 7, 9, 11][letter] + alter) % 12 + 12) % 12 === pc) {
+			return "CDEFGAB".charAt(letter) + (alter > 0 ? "#" : alter < 0 ? "b" : "");
+		}
+	}
+	if (sharpNoteSpellings[pc].length === 1) return sharpNoteSpellings[pc];
+	return keyToFifths[key] > 0 ? sharpNoteSpellings[pc] : spellNoteForKey(pc, key);
+}
+
+// The accidental a spelled note needs on a staff in key ("#", "b", "n"), or ""
+function chartAccidental(spelled, key) {
+	var alter = spelled.length > 1 ? (spelled.charAt(1) === "#" ? 1 : -1) : 0;
+	if (alter === keyAlter(key || "C", "CDEFGAB".indexOf(spelled.charAt(0)))) return "";
+	return alter > 0 ? "#" : alter < 0 ? "b" : "n";
+}
+
+// The key signatures to pick from, as SONG_KEYS counts them, with the key's name
+var CHART_KEYS = [
+	"C", "F", "Bb", "Eb", "Ab", "Db", "Gb", "G", "D", "A", "E", "B", "F#"
+];
+
+function chartKeyLabel(key) {
+	var fifths = keyToFifths[key];
+	if (!fifths) return "C (no \u266d or \u266f)";
+	var n = Math.abs(fifths);
+	return keyDisplayName(key) + " (" + n + " " + (fifths < 0 ? "\u266d" : "\u266f") + ")";
+}
+
+// The Key signature picker over the grid (or in the printable chart's panel)
+function chartKeyField(inPanel) {
+	var field = document.createElement("label");
+	field.className = inPanel ? "chart-make-field chart-make-keysig" : "chart-keysig";
+	var caption = document.createElement("span");
+	caption.textContent = "Key signature";
+	field.appendChild(caption);
+	var select = document.createElement("select");
+	select.id = "chart-keysig";
+	var none = document.createElement("option");
+	none.value = "";
+	none.textContent = "None";
+	select.appendChild(none);
+	CHART_KEYS.forEach(function(key) {
+		var o = document.createElement("option");
+		o.value = key;
+		o.textContent = chartKeyLabel(key);
+		select.appendChild(o);
+	});
+	select.value = chartKey();
+	select.onchange = function() { setChartKey(select.value); };
+	field.appendChild(select);
+	return field;
+}
+
+// Put the chart in a key: the grid redrawn where it was, the picker kept focused
+function setChartKey(key) {
+	practice.chart.key = key;
+	var body = document.getElementById("practice-body");
+	var top = body.scrollTop;
+	showChartGrid();
+	body.scrollTop = top;
+	var select = document.getElementById("chart-keysig");
+	if (select) try { select.focus({ preventScroll: true }); } catch (e) {}
 }
 
 // "C♯ / D♭" (or "C", or with sep between)
@@ -8185,10 +8267,14 @@ function showChartGrid() {
 	body.innerHTML = "";
 	if (making) body.appendChild(chartMakePanel());
 	else {
+		var top = document.createElement("div");
+		top.className = "chart-top";
+		top.appendChild(chartKeyField(false));
 		var open = practiceButton("\ud83d\udda8\ufe0f Make a printable chart", "secondary", startChartMaking);
 		open.id = "chart-make-open";
 		open.className += " chart-make-open";
-		body.appendChild(open);
+		top.appendChild(open);
+		body.appendChild(top);
 	}
 	var grid = document.createElement("div");
 	grid.className = "chart-grid";
@@ -8250,29 +8336,38 @@ function chartCellView(notes) {
 	(notes || [{ midi: range[0] }, { midi: range[1] }]).forEach(function(note) {
 		var midi = note.midi;
 		(note.spellings || chartSpellings(midi)).forEach(function(spelled) {
-			var step = (Math.floor(midi / 12) - 1) * 7 + "CDEFGAB".indexOf(spelled.charAt(0));
+			var alter = spelled.length > 1 ? (spelled.charAt(1) === "#" ? 1 : -1) : 0;
+			var step = (Math.floor((midi - alter) / 12) - 1) * 7 + "CDEFGAB".indexOf(spelled.charAt(0));
 			reach = Math.max(reach, Math.abs(step - middle));
 		});
 	});
-	return { clef: clef, half: reach * LINE_SPACING / 2 + 12 };
+	// A key signature takes room before the note: the staff widens for it
+	var key = chartKey();
+	var width = CHART_CELL_WIDTH + (key ? Math.abs(keyToFifths[key]) * 10 : 0);
+	return { clef: clef, half: reach * LINE_SPACING / 2 + 12, key: key, width: width };
 }
 
-// A grid cell's staff: its clef and the note (a black key's sharp, then
-// flat, or the spellings given)
+// A grid cell's staff: its clef, the chart's key signature (view.key) and
+// the note (a black key's sharp, then flat, or the spellings given), with an
+// accidental only where the key signature doesn't already say it
 function drawChartCell(out, midi, view, spellings) {
 	var VF = Vex.Flow;
-	var W = CHART_CELL_WIDTH, H = 2 * view.half;
+	var W = view.width, H = 2 * view.half;
 	var renderer = new VF.Renderer(out, VF.Renderer.Backends.SVG);
 	renderer.resize(W, H);
 	var context = renderer.getContext();
 	var stave = new VF.Stave(2, view.half - 2 * LINE_SPACING - 4 * LINE_SPACING, W - 4);
 	stave.addClef(view.clef);
+	if (view.key) stave.addKeySignature(view.key);
 	stave.setContext(context).draw();
-	var octave = Math.floor(midi / 12) - 1;
 	try {
 		var notes = (spellings || chartSpellings(midi)).map(function(spelled) {
+			// (C♭ and B♯ are written in the octave next to their sound)
+			var alter = spelled.length > 1 ? (spelled.charAt(1) === "#" ? 1 : -1) : 0;
+			var octave = Math.floor((midi - alter) / 12) - 1;
 			var note = new VF.StaveNote({ clef: view.clef, keys: [spelled.toLowerCase() + "/" + octave], duration: "w" });
-			if (spelled.length > 1) note.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
+			var acc = chartAccidental(spelled, view.key);
+			if (acc) note.addAccidental(0, new VF.Accidental(acc));
 			return note;
 		});
 		var voice = new VF.Voice({ num_beats: 4 * notes.length, beat_value: 4 }).setStrict(false);
@@ -8597,6 +8692,7 @@ function chartMakePanel() {
 	});
 	octave.appendChild(octaveButtons);
 	panel.appendChild(octave);
+	panel.appendChild(chartKeyField(true));
 
 	var options = document.createElement("div");
 	options.className = "chart-make-options";
@@ -8624,6 +8720,9 @@ function chartMakePanel() {
 		acc.appendChild(o);
 	});
 	acc.value = m.accidentals;
+	// A key signature spells the black keys itself
+	acc.disabled = !!chartKey();
+	if (acc.disabled) accLabel.title = "The key signature decides";
 	acc.onchange = function() {
 		m.accidentals = acc.value;
 		m.spellings = null;  // the choice made here wins over a scale's
@@ -8716,6 +8815,7 @@ function updateChartMakeCount() {
 function chartPrintSpellings(midi) {
 	var m = practice.chart.make;
 	var pc = ((midi % 12) + 12) % 12;
+	if (chartKey()) return chartSpellings(midi);  // the key signature's spelling
 	if (m.spellings && m.spellings[pc]) return [m.spellings[pc]];
 	var both = chartSpellings(midi);
 	if (both.length === 1) return both;
@@ -8856,8 +8956,8 @@ function drawChartPages(notes, title) {
 	var art = chartPrintArt(notes);
 	// The cell, in art units: the staff (sized to the art, within reason),
 	// its name and place, then the fingering
-	var staffW = Math.min(260, Math.max(200, art.w * 0.45, art.h * 0.45));
-	var staffH = staffW * 2 * view.half / CHART_CELL_WIDTH;
+	var staffW = Math.min(260, Math.max(200, art.w * 0.45, art.h * 0.45)) * view.width / CHART_CELL_WIDTH;
+	var staffH = staffW * 2 * view.half / view.width;
 	var nameSize = staffW * 0.2, placeSize = staffW * 0.13;
 	var gap = staffW * 0.08;
 	var cellW = Math.max(staffW, art.w);
@@ -9931,13 +10031,19 @@ function drawPracticeStaff(writtenMidi, sharp) {
 	var context = renderer.getContext();
 	var stave = new VF.Stave(5, Math.round((H - 4 * LINE_SPACING) / 2), W - 10);
 	stave.addClef(clef);
+	// The fingering chart's key signature, if one is picked
+	var key = practice && practice.mode === "chart" ? chartKey() : "";
+	if (key) stave.addKeySignature(key);
 	stave.setContext(context).draw();
 
-	var spelled = sharp ? sharpNoteSpellings[((writtenMidi % 12) + 12) % 12] : practiceSpelling(writtenMidi);
-	var octave = Math.floor(writtenMidi / 12) - 1;
+	var spelled = sharp ? sharpNoteSpellings[((writtenMidi % 12) + 12) % 12]
+		: practiceSpelling(writtenMidi);
+	var alter = spelled.length > 1 ? (spelled.charAt(1) === "#" ? 1 : -1) : 0;
+	var octave = Math.floor((writtenMidi - alter) / 12) - 1;
 	try {
 		var note = new VF.StaveNote({ clef: clef, keys: [spelled.toLowerCase() + "/" + octave], duration: "w" });
-		if (spelled.length > 1) note.addAccidental(0, new VF.Accidental(spelled.charAt(1)));
+		var acc = chartAccidental(spelled, key);
+		if (acc) note.addAccidental(0, new VF.Accidental(acc));
 		var voice = new VF.Voice({ num_beats: 4, beat_value: 4 }).setStrict(false);
 		voice.addTickables([note]);
 		new VF.Formatter().joinVoices([voice]).format([voice], stave.getNoteEndX() - stave.getNoteStartX() - 20);

@@ -1250,6 +1250,36 @@ async function run() {
 				&& !document.querySelector('.chart-cell[data-midi="61"][data-played]');
 		});
 		check(marked, "a note played right gets a check on the grid");
+		// A key signature on every note, and accidentals only off the key:
+		// in F (one flat) B♭ has none, B a natural, the black key one name
+		// (VexFlow doesn't group a key signature: its flat is one more glyph
+		// on the staff of every white key's cell; a black key's has one
+		// note now, not two)
+		var staffGlyphs = function() {
+			var glyphs = {};
+			document.querySelectorAll(".chart-grid .chart-cell").forEach(function(c) {
+				var m = +c.getAttribute("data-midi");
+				if ([1, 3, 6, 8, 10].indexOf(m % 12) < 0) glyphs[m] = c.querySelectorAll("svg > path").length;
+			});
+			return glyphs;
+		};
+		var unkeyed = await page.evaluate(staffGlyphs);
+		await page.selectOption("#chart-keysig", "F");
+		var keyedGlyphs = await page.evaluate(staffGlyphs);
+		var keyed = await page.evaluate(function() {
+			function cell(m) { return document.querySelector('.chart-grid .chart-cell[data-midi="' + m + '"]'); }
+			function accidentals(m) { return cell(m).querySelectorAll(".vf-stavenote .vf-modifiers > *").length; }
+			return { bb: accidentals(70), b: accidentals(71), f: accidentals(65), black: cell(61).querySelector(".chart-cell-name").textContent };
+		});
+		await page.click('.chart-cell[data-midi="71"]');
+		var keyedNote = await page.evaluate(function() {
+			return document.querySelectorAll("#practice-staff-output .vf-stavenote .vf-modifiers > *").length === 1;
+		});
+		await page.click("#chart-all");
+		await page.selectOption("#chart-keysig", "");
+		keyed.keyed = Object.keys(unkeyed).length > 0 && Object.keys(unkeyed).every(function(m) { return keyedGlyphs[m] === unkeyed[m] + 1; });
+		check(keyed.keyed && keyed.bb === 0 && keyed.b === 1 && keyed.f === 0 && keyed.black === "D♭" && keyedNote,
+			"a key signature shows on every note, with accidentals only off the key (" + JSON.stringify(keyed) + ", note " + keyedNote + ")");
 		// Make a printable chart: a quick pick of the B flat scale, and
 		// Download PDF gives a one-page PDF (a whole scale fits one page)
 		await page.click("#chart-make-open");
