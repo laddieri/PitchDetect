@@ -1324,13 +1324,38 @@ async function run() {
 			return ["portrait", "landscape"].reduce(function(p, way) {
 				return p.then(function() {
 					practice.chart.make.orientation = way;
-					return drawChartPages(notes, "Test").then(function(pages) { out[way] = pages[0].width > pages[0].height ? "landscape" : "portrait"; });
+					return drawChartPages(Object.assign(chartPrintSettings(), { notes: notes, orientation: way })).then(function(pages) { out[way] = pages[0].width > pages[0].height ? "landscape" : "portrait"; });
 				});
 			}, Promise.resolve()).then(function() { practice.chart.make.orientation = ""; return out; });
 		});
 		check(paper.portrait === "portrait" && paper.landscape === "landscape",
 			"a printable chart prints portrait or landscape as picked (" + JSON.stringify(paper) + ")");
 		check(JSON.stringify(slides) === "[1,6,4,1]", "a trombone's printed chart gives each note its slide position (" + JSON.stringify(slides) + ")");
+		// A packet: the B flat scale and two notes of my own, added one by
+		// one, download as one PDF, a page each
+		await page.click("#chart-make-add");
+		var afterAdd = await page.evaluate(function() {
+			return { packet: practice.chart.make.packet.length, picked: chartPickedNotes().length,
+				rows: document.querySelectorAll("#chart-packet li").length, addDisabled: document.getElementById("chart-make-add").disabled };
+		});
+		await page.click('.chart-grid .chart-cell[data-midi="62"]');
+		await page.click('.chart-grid .chart-cell[data-midi="64"]');
+		await page.click("#chart-make-add");
+		var rows = await page.evaluate(function() {
+			return [].map.call(document.querySelectorAll("#chart-packet .chart-packet-name"), function(n) { return n.textContent; });
+		});
+		var packetDownload = page.waitForEvent("download");
+		await page.click("#chart-packet-download");
+		packetDownload = await packetDownload;
+		var packetFile = path.join(os.tmpdir(), "pitchdetect-packet-" + process.pid + ".pdf");
+		await packetDownload.saveAs(packetFile);
+		var packetPdf = fs.readFileSync(packetFile).toString("latin1");
+		fs.unlinkSync(packetFile);
+		var packetPages = (packetPdf.match(/\/Type \/Page /g) || []).length;
+		check(afterAdd.packet === 1 && afterAdd.picked === 0 && afterAdd.rows === 1 && afterAdd.addDisabled && rows.length === 2
+			&& rows[0] === "My Scale" && packetPages === 2 && packetDownload.suggestedFilename() === "Clarinet Fingering Packet.pdf",
+			"a packet of charts downloads as one PDF, a page each (" + JSON.stringify(afterAdd) + ", " + JSON.stringify(rows) + ", "
+			+ packetPages + " pages, " + packetDownload.suggestedFilename() + ")");
 		await page.click("#practice-close");
 		var stopped = await page.evaluate(function() {
 			return practice.mode === "chart" && !practice.chart.making && !!document.getElementById("chart-make-open");

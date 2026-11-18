@@ -903,8 +903,16 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   match its weight) and Nunito (the labels), fetched only when a chart is
   made (`loadChartPrintFonts()`), and writes the PDF itself
   (`chartPdfBlob()`: one image per page, RGB deflated by
-  `CompressionStream`, else JPEG; no library). The picks and title last
-  until the instrument changes.
+  `CompressionStream`, else JPEG; no library; `chartPdfImages()` turns a
+  chart's pages into images one at a time). A chart is drawn from
+  `chartPrintSettings()` (title, notes, key, spellings, names, lines,
+  paper), so **Add to packet** (`addChartToPacket()`) can keep it in
+  `m.packet` and clear the picks for the next; the panel lists the packet
+  (`#chart-packet`, `renderChartPacket()`: ▲▼ to reorder, ✕ to remove)
+  and **Download packet** (`downloadChartPacket()`) writes every chart's
+  pages, in order, into one PDF (`chartPacketTitle()`, "Clarinet
+  Fingering Packet"). The picks, title and packet last until the
+  instrument changes.
   The main page's header has a **Chart** button for it (`#chartButton`,
   "Fingering chart" above 960px; left of the centered title on a desktop,
   beside Practice below 1100px): `openFingeringChart()` sets
@@ -1228,7 +1236,8 @@ off back on the grid, on through ◀ ▶), and a note played right is checked
 on the grid; a key signature shows on every note with accidentals only
 off the key; Make a printable chart's quick pick picks the B♭ scale and
 titles it, Octave moves the picks up and back, and Download PDF makes a
-one-page PDF of the whole 8-note scale; the service worker keeps every chart of the
+one-page PDF of the whole 8-note scale; a packet of two charts downloads as one
+two-page PDF; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 shared triplet, tie and slur are timed and drawn; a shared song shows
 link goes straight into My songs (once) and opens in Play it through, 4
