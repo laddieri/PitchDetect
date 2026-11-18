@@ -3596,6 +3596,7 @@ function updateSongTools() {
 		if (s.tapped !== s.startNote) {
 			tools.appendChild(practiceButton("\u25b6 Start here", "secondary", songStartHere));
 		}
+		tools.appendChild(songHearNoteButton());
 		tools.appendChild(songTryButton(s));
 	} else {
 		if (s.part) {
@@ -3654,6 +3655,26 @@ function songTryButton(s) {
 		}
 	});
 	return b;
+}
+
+// Hear it (a note tapped on Play it through, or on its score): sounds
+// that note, held as long as the song holds it (ties included) but no
+// shorter than a beat, so it's heard clearly; the mic (Try this note)
+// ignores it meanwhile
+function songHearNoteButton() {
+	return practiceButton("\ud83d\udd0a Hear it", "secondary song-hear-note", songHearNote);
+}
+
+function songHearNote() {
+	var s = practice.song;
+	if (!s || s.tapped === null || s.tapped === undefined) return;
+	var i = tieStart(s.events, s.tapped);
+	var e = s.events[i];
+	if (!e || e.midi === null) return;
+	var secs = Math.min(3, Math.max(1, tiedBeats(s.events, i)) * 60 / SONG_TEMPO);
+	stopNote();
+	practice.ignoreUntil = performance.now() + secs * 1000 + 400;
+	playTone(frequencyFromNoteNumber(e.midi - getTransposition()), false, null, secs);
 }
 
 // What's picked, with an \u2715 that puts it away (label: the \u2715's)
@@ -4528,7 +4549,8 @@ function updateSongListen(now, freq, level) {
 			tryNoteStartedMic = false;
 			drawSongLine(s.pos);
 		} else {
-			updateTryNote(now, freq);
+			// (not while Hear it sounds the note itself)
+			updateTryNote(now, now < (practice.ignoreUntil || 0) ? null : freq);
 			practice.lastFrame = null;
 			return;
 		}
@@ -5995,6 +6017,7 @@ function showSongResultKey(s) {
 			said.textContent = now[0];
 		}
 		tools.appendChild(said);
+		tools.appendChild(songHearNoteButton());
 		tools.appendChild(songTryButton(s));
 		return;
 	}
