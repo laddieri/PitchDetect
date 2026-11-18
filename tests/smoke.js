@@ -1310,6 +1310,15 @@ async function run() {
 		var pdfPages = (pdf.match(/\/Type \/Page /g) || []).length;
 		check(download.suggestedFilename() === "My Scale.pdf" && /^%PDF-1\.4/.test(pdf) && /%%EOF\n$/.test(pdf) && pdfPages === 1,
 			"Download PDF makes the chart of the notes picked, a whole scale on one page (" + download.suggestedFilename() + ", " + pdfPages + " page, " + pdf.length + " bytes)");
+		// A trombone's printed chart: one slide diagram, a position number per note
+		var slides = await page.evaluate(function() {
+			var was = practice.instrument;
+			practice.instrument = "trombone";
+			var art = chartPrintArt([46, 48, 50, 53]);
+			practice.instrument = was;
+			return art.positions;
+		});
+		check(JSON.stringify(slides) === "[1,6,4,1]", "a trombone's printed chart gives each note its slide position (" + JSON.stringify(slides) + ")");
 		await page.click("#practice-close");
 		var stopped = await page.evaluate(function() {
 			return practice.mode === "chart" && !practice.chart.making && !!document.getElementById("chart-make-open");

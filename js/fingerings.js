@@ -352,10 +352,31 @@ var imageFingeringMap = {
 	"alto sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73 },
 	"tenor sax": { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73 },
 	"bari sax":  { folder: "Saxophone", ext: "png", transposition: 12, w: 221, h: 462, first: 46, last: 73 },
-	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0,  w: 534, h: 112, first: 40, last: 70 },
+	// extra: the slide diagram printed charts head their page with
+	"trombone":  { folder: "Trombone",  ext: "gif", transposition: 0,  w: 534, h: 112, first: 40, last: 70,
+		extra: ["TromboneSlidePositions/1st"] },
 	// Double F/Bb horn: F side through written G4, Bb side (thumb) from G#4.
 	// Range: 42 (written F#2) through 84 (written C6).
 	"horn":      { folder: "Horn",      ext: "png", transposition: 0,  w: 360, h: 160, first: 42, last: 84 }
+};
+
+// The slide position each trombone chart shows (its red number), written
+// E2 (40) to B♭4 (70): the shortest slide with the note as a partial
+var TROMBONE_POSITIONS = [7, 6, 5, 4, 3, 2, 1, 7, 6, 5, 4, 3, 2, 1, 5, 4, 3, 2, 1,
+	4, 3, 2, 1, 3, 2, 1, 5, 4, 3, 2, 1];
+
+// A written note's slide position, or 0 off the charts
+function trombonePosition(writtenMidi) {
+	return TROMBONE_POSITIONS[writtenMidi - 40] || 0;
+}
+
+// The slide diagram (1st position, the other positions dotted along the
+// slide and numbered under it): its file, the drawing's crop (the numbers
+// below it and the blank right side left out) and each number's x
+var TROMBONE_SLIDE_DIAGRAM = {
+	src: "img/Fingerings/Trombone/TromboneSlidePositions/1st.gif",
+	crop: [0, 0, 348, 90], numberY: 96, numberH: 11,
+	numberX: [127.5, 156.5, 186.5, 216.5, 247.5, 281.5, 316.5]
 };
 
 // Path of an image-based instrument's chart for a written MIDI note
