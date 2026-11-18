@@ -1318,6 +1318,18 @@ async function run() {
 			practice.instrument = was;
 			return art.positions;
 		});
+		// Paper: portrait or landscape as picked, else the best fit
+		var paper = await page.evaluate(function() {
+			var notes = chartPickedNotes(), out = {};
+			return ["portrait", "landscape"].reduce(function(p, way) {
+				return p.then(function() {
+					practice.chart.make.orientation = way;
+					return drawChartPages(notes, "Test").then(function(pages) { out[way] = pages[0].width > pages[0].height ? "landscape" : "portrait"; });
+				});
+			}, Promise.resolve()).then(function() { practice.chart.make.orientation = ""; return out; });
+		});
+		check(paper.portrait === "portrait" && paper.landscape === "landscape",
+			"a printable chart prints portrait or landscape as picked (" + JSON.stringify(paper) + ")");
 		check(JSON.stringify(slides) === "[1,6,4,1]", "a trombone's printed chart gives each note its slide position (" + JSON.stringify(slides) + ")");
 		await page.click("#practice-close");
 		var stopped = await page.evaluate(function() {
