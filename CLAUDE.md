@@ -887,7 +887,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `drawChartCell()` with the spellings given, over its fingering at one
   scale for all, `chartPrintArt()`: image charts placed by
   `fingeringImageBox()`, the clarinet trimmed together, valve diagrams with
-  pressed valves inked black, the piano), laid out by `chartPrintLayout()`
+  pressed valves inked black, the piano; a trombone's cells print just the
+  slide position as a big number, `trombonePosition()` (fingerings.js,
+  `TROMBONE_POSITIONS`, as the charts show), under one slide diagram
+  numbered 1–7 below the title, `drawSlideDiagram()` over
+  `TROMBONE_SLIDE_DIAGRAM`, in a `CHART_PRINT_SLIDE` band), laid out by `chartPrintLayout()`
   (fewest pages with cells of at least `CHART_PRINT_MIN_CELL`, then the
   biggest, landscape or portrait; up to `CHART_PRINT_ONE_PAGE` (8) notes
   always go on one page, so a major scale is a single sheet; labels fit

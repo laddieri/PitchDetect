@@ -8564,6 +8564,7 @@ var CHART_PRINT_TITLE = 0.75;         // the title's band, inches
 var CHART_PRINT_MIN_CELL = 2.4;       // a cell's longer side at least, inches
 var CHART_PRINT_ONE_PAGE = 8;         // up to this many notes (a major scale) always fit one page
 var CHART_PRINT_MAX_ART = 4.5;        // a fingering's longer side at most, inches
+var CHART_PRINT_SLIDE = 1.45;         // trombone: the slide diagram's band under the title, inches
 var CHART_TITLE_MAX = 60;
 // The printed chart's fonts: a woodtype display face for the title and
 // note names (like a printed band chart), a plain one for the small line
@@ -8845,8 +8846,14 @@ function staffPlaceName(spelled, midi, clef) {
 
 // The fingering art of the notes, on one canvas so they're at one scale:
 // { w, h, parts: [{ box: [x, y, w, h], load(scale) -> Promise<image> }] }
+// A trombone's is just each note's slide position (positions), printed as
+// a big number under one slide diagram at the top of the page.
 function chartPrintArt(notes) {
 	var instrument = practice.instrument;
+	if (instrument === "trombone") {
+		return { w: 200, h: 90, positions: notes.map(trombonePosition),
+			parts: notes.map(function() { return null; }) };
+	}
 	if (imageFingeringMap[instrument]) {
 		var boxes = notes.map(function(midi) { return fingeringImageBox(instrument, midi); });
 		var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -8909,13 +8916,13 @@ function loadSvgImage(svg, w, h, ink) {
 // a major scale prints as a single reference sheet.
 // cell: [w, h] in art units; returns { landscape, cols, rows, per, scale }
 // (scale: pixels per art unit)
-function chartPrintLayout(n, cell, artSide) {
+function chartPrintLayout(n, cell, artSide, header) {
 	var dpi = CHART_PRINT_DPI, pad = 0.12 * dpi;
 	var maxScale = CHART_PRINT_MAX_ART * dpi / artSide;
 	for (var pages = 1; pages <= n; pages++) {
 		var per = Math.ceil(n / pages), best = null;
 		[true, false].forEach(function(landscape) {
-			var area = chartPrintArea(landscape);
+			var area = chartPrintArea(landscape, header);
 			for (var cols = 1; cols <= per; cols++) {
 				var rows = Math.ceil(per / cols);
 				if ((rows - 1) * cols >= per) continue;
@@ -8929,17 +8936,19 @@ function chartPrintLayout(n, cell, artSide) {
 		});
 		if (best) return best;
 	}
-	return { landscape: true, cols: 1, rows: 1, per: 1, scale: chartPrintArea(true).h / 2 / cell[1] };
+	return { landscape: true, cols: 1, rows: 1, per: 1, scale: chartPrintArea(true, header).h / 2 / cell[1] };
 }
 
-// The page in pixels, and the grid's area under the title
-function chartPrintArea(landscape) {
+// The page in pixels, and the grid's area under the title (and header:
+// inches more under it, the trombone's slide diagram)
+function chartPrintArea(landscape, header) {
 	var dpi = CHART_PRINT_DPI;
 	var w = (landscape ? CHART_PRINT_PAGE[0] : CHART_PRINT_PAGE[1]) * dpi;
 	var h = (landscape ? CHART_PRINT_PAGE[1] : CHART_PRINT_PAGE[0]) * dpi;
 	var m = CHART_PRINT_MARGIN * dpi;
-	var top = m + CHART_PRINT_TITLE * dpi;
-	return { pageW: w, pageH: h, x: m, y: top, w: w - 2 * m, h: h - top - m };
+	var title = m + CHART_PRINT_TITLE * dpi;
+	var top = title + (header || 0) * dpi;
+	return { pageW: w, pageH: h, x: m, y: top, titleY: title, w: w - 2 * m, h: h - top - m };
 }
 
 // Draw the chart's pages: Promise<[canvas]>
@@ -8979,7 +8988,8 @@ function drawChartPages(notes, title) {
 		});
 		var textH = (m.names ? nameSize * 1.25 : 0) + (m.lines ? placeSize * (1.4 + (placeLines - 1) * 1.15) : 0);
 		var cell = [cellW, staffH + textH + gap + art.h];
-		var layout = chartPrintLayout(items.length, cell, Math.max(art.w, art.h));
+		var header = art.positions ? CHART_PRINT_SLIDE : 0;
+		var layout = chartPrintLayout(items.length, cell, Math.max(art.w, art.h), header);
 		var s = layout.scale;
 
 		var staves = items.map(function(item) {
@@ -8989,10 +8999,11 @@ function drawChartPages(notes, title) {
 			return svg ? loadSvgImage(svg, staffW * s, staffH * s) : Promise.resolve(null);
 		});
 		var fingerings = art.parts.map(function(part) { return part ? part.load(s) : Promise.resolve(null); });
+		var slide = art.positions ? loadChartImage(TROMBONE_SLIDE_DIAGRAM.src) : Promise.resolve(null);
 
-		return Promise.all([Promise.all(staves), Promise.all(fingerings)]).then(function(loaded) {
-			var staffImgs = loaded[0], artImgs = loaded[1];
-			var area = chartPrintArea(layout.landscape);
+		return Promise.all([Promise.all(staves), Promise.all(fingerings), slide]).then(function(loaded) {
+			var staffImgs = loaded[0], artImgs = loaded[1], slideImg = loaded[2];
+			var area = chartPrintArea(layout.landscape, header);
 			var cellW = area.w / layout.cols, cellH = area.h / layout.rows;
 			var pad = 0.12 * CHART_PRINT_DPI;
 			var pages = [];
@@ -9011,7 +9022,8 @@ function drawChartPages(notes, title) {
 				var size = CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.7;
 				var tw = drawDisplayText(ctx, title, 0, 0, size, true);
 				if (tw > area.w) size *= area.w / tw;
-				drawDisplayText(ctx, title, area.pageW / 2, area.y - CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.2, size);
+				drawDisplayText(ctx, title, area.pageW / 2, area.titleY - CHART_PRINT_TITLE * CHART_PRINT_DPI * 0.2, size);
+				if (header) drawSlideDiagram(ctx, slideImg, area.pageW / 2, area.titleY, header * CHART_PRINT_DPI);
 
 				var onPage = items.slice(start, start + layout.per);
 				var rows = Math.ceil(onPage.length / layout.cols);
@@ -9039,7 +9051,8 @@ function drawChartPages(notes, title) {
 							x0 + k2 * cellW + cellW / 2, y0 + pad, {
 								s: s, staffW: staffW, staffH: staffH, nameSize: nameSize, placeSize: placeSize,
 								nameScale: nameScale, placeScale: placeScale, placeLines: placeLines,
-								gap: gap, artW: art.w, names: m.names, lines: m.lines
+								gap: gap, artW: art.w, artH: art.h, names: m.names, lines: m.lines,
+								position: art.positions ? art.positions[i] : null
 							});
 					}
 				}
@@ -9148,10 +9161,40 @@ function drawChartPrintCell(ctx, item, staffImg, artImg, part, cx, y, o) {
 		y += o.placeSize * s * (1.4 + (o.placeLines - 1) * 1.15);
 	}
 	y += o.gap * s;
+	if (o.position !== null) {
+		// The slide position, as big as its box allows
+		var size = o.artH * s * 0.9;
+		ctx.textBaseline = "middle";
+		drawDisplayText(ctx, o.position ? String(o.position) : "\u2013", cx, y + o.artH * s / 2, size);
+		ctx.textBaseline = "alphabetic";
+		return;
+	}
 	if (artImg && part) {
 		var left = cx - o.artW * s / 2;
 		ctx.drawImage(artImg, left + part.box[0] * s, y + part.box[1] * s, part.box[2] * s, part.box[3] * s);
 	}
+}
+
+// The trombone's slide diagram, centered on cx in a band from the top y,
+// band pixels tall: the slide at 1st position with the others dotted
+// along it, numbered 1-7 underneath in print big enough to read (the
+// file's own numbers are tiny, so they're left out and drawn here)
+function drawSlideDiagram(ctx, img, cx, top, band) {
+	var d = TROMBONE_SLIDE_DIAGRAM, crop = d.crop;
+	var numberSize = 22, numberGap = 6;
+	var unitsH = crop[3] + numberGap + numberSize;
+	var s = band * 0.88 / unitsH;
+	var left = cx - crop[2] * s / 2, y = top + band * 0.04;
+	if (img) ctx.drawImage(img, crop[0], crop[1], crop[2], crop[3], left, y, crop[2] * s, crop[3] * s);
+	ctx.save();
+	ctx.fillStyle = "#111";
+	ctx.textAlign = "center";
+	ctx.textBaseline = "top";
+	ctx.font = "700 " + numberSize * s + "px " + CHART_PRINT_LABEL_FONT;
+	d.numberX.forEach(function(x, k) {
+		ctx.fillText(String(k + 1), left + x * s, y + (crop[3] + numberGap) * s);
+	});
+	ctx.restore();
 }
 
 // A PDF of page canvases (letter size), titled: Promise<Blob>
