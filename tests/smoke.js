@@ -1283,6 +1283,18 @@ async function run() {
 		// Make a printable chart: a quick pick of the B flat scale, and
 		// Download PDF gives a one-page PDF (a whole scale fits one page)
 		await page.click("#chart-make-open");
+		// On a wide screen the settings stand beside the notes, not over them
+		var chartViewport = page.viewportSize();
+		await page.setViewportSize({ width: 1280, height: 800 });
+		var beside = await page.evaluate(function() {
+			var panel = document.getElementById("chart-make").getBoundingClientRect();
+			var grid = document.querySelector(".chart-grid").getBoundingClientRect();
+			return { beside: panel.left >= grid.right && panel.top < grid.bottom, notesShown: Math.round(grid.height),
+				scroll: document.documentElement.scrollWidth > innerWidth };
+		});
+		await page.setViewportSize(chartViewport);
+		check(beside.beside && beside.notesShown > 300 && !beside.scroll,
+			"a printable chart's settings stand beside the notes on a wide screen (" + JSON.stringify(beside) + ")");
 		await page.selectOption("#chart-make-pick", "scale");
 		var picked = await page.evaluate(function() {
 			return { n: document.querySelectorAll('.chart-grid[data-making] .chart-cell[aria-pressed="true"]').length,

@@ -873,7 +873,9 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   `startChartMaking()`, `practice.chart.making`; back or Cancel,
   `stopChartMaking()`): the cells become picks (`c.make.picked`,
   `aria-pressed`, `toggleChartPick()`) under a panel (`chartMakePanel()`,
-  sticky above 700px): a title (default "Clarinet Fingering Chart", or the
+  sticky above 700px; from 1000px wide, `#practice-view[data-chart-making]`,
+  the card widens and the panel is a column beside the notes, each
+  scrolling on its own, so it never covers them): a title (default "Clarinet Fingering Chart", or the
   quick pick's, "Clarinet Concert B♭ Scale", until edited), a quick pick
   (`chartMakePicks()`: the first 3 / 5 / 9 notes, each scale with its
   written-key spelling, chromatic, every note; `applyChartPick()`), Octave
@@ -1236,7 +1238,8 @@ off back on the grid, on through ◀ ▶), and a note played right is checked
 on the grid; a key signature shows on every note with accidentals only
 off the key; Make a printable chart's quick pick picks the B♭ scale and
 titles it, Octave moves the picks up and back, and Download PDF makes a
-one-page PDF of the whole 8-note scale; a packet of two charts downloads as one
+one-page PDF of the whole 8-note scale, its settings beside the notes on a
+desktop; a packet of two charts downloads as one
 two-page PDF; the service worker keeps every chart of the
 instrument, answers from cache on a slow network, and loads offline; a
 shared triplet, tie and slur are timed and drawn; a shared song shows

@@ -8259,6 +8259,8 @@ function showChartGrid() {
 	document.getElementById("practice-steps").innerHTML = "";
 	document.getElementById("practice-staff-output").innerHTML = "";
 	var making = !!c.making;
+	// Making a chart: on a wide screen the settings go beside the notes
+	document.getElementById("practice-view").toggleAttribute("data-chart-making", making);
 	document.getElementById("practice-prompt").textContent = making ? "Tap the notes to put on your chart"
 		: practice.instrument === "trombone" ? "Tap a note to see its slide position"
 		: hasFingeringData(practice.instrument) ? "Tap a note to see how to play it" : "Tap a note to find it on the keyboard";
