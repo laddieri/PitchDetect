@@ -8111,9 +8111,9 @@ function chartNotes() {
 
 // A written note's spellings: a black key's sharp and flat, else its letter;
 // with a key signature picked, the one spelling it reads as in that key
-function chartSpellings(midi) {
+function chartSpellings(midi, key) {
 	var pc = ((midi % 12) + 12) % 12;
-	var key = chartKey();
+	if (key === undefined) key = chartKey();
 	if (key) return [chartKeySpelling(pc, key)];
 	var sharp = sharpNoteSpellings[pc], flat = flatNoteSpellings[pc];
 	return sharp === flat ? [sharp] : [sharp, flat];
@@ -8328,8 +8328,9 @@ function showChartGrid() {
 
 // One viewBox for every cell, so the notes all sit at one scale: tall enough
 // for the ledger lines of the range's highest and lowest notes (or of
-// notes: [{ midi, spellings }], a printed chart's)
-function chartCellView(notes) {
+// notes: [{ midi, spellings }], a printed chart's; key: its key signature,
+// else the chart's)
+function chartCellView(notes, key) {
 	var clef = getCurrentClef();
 	var middle = clef === "bass" ? 3 * 7 + 1 : 4 * 7 + 6;  // D3, B4: the middle line
 	var range = chartRange(), reach = 4;
@@ -8342,7 +8343,7 @@ function chartCellView(notes) {
 		});
 	});
 	// A key signature takes room before the note: the staff widens for it
-	var key = chartKey();
+	if (key === undefined) key = chartKey();
 	var width = CHART_CELL_WIDTH + (key ? Math.abs(keyToFifths[key]) * 10 : 0);
 	return { clef: clef, half: reach * LINE_SPACING / 2 + 12, key: key, width: width };
 }
@@ -8579,7 +8580,7 @@ function startChartMaking() {
 	var c = practice.chart;
 	if (!c.make) {
 		c.make = { picked: {}, spellings: null, title: "", titleEdited: false, pick: "",
-			names: true, lines: true, accidentals: "flats", orientation: "" };
+			names: true, lines: true, accidentals: "flats", orientation: "", packet: [] };
 	}
 	c.making = true;
 	showChartGrid();
@@ -8751,11 +8752,22 @@ function chartMakePanel() {
 	var actions = document.createElement("div");
 	actions.className = "chart-make-actions";
 	actions.appendChild(practiceButton("Cancel", "secondary", stopChartMaking));
+	var add = practiceButton("Add to packet", "secondary", addChartToPacket);
+	add.id = "chart-make-add";
+	actions.appendChild(add);
 	var download = practiceButton("", "primary", downloadChartPdf);
 	download.id = "chart-make-download";
 	actions.appendChild(download);
 	panel.appendChild(actions);
-	setTimeout(updateChartMakeCount, 0);
+	var packet = document.createElement("div");
+	packet.className = "chart-packet";
+	packet.id = "chart-packet";
+	packet.hidden = true;
+	panel.appendChild(packet);
+	setTimeout(function() {
+		updateChartMakeCount();
+		renderChartPacket();
+	}, 0);
 	return panel;
 }
 
@@ -8825,16 +8837,27 @@ function updateChartMakeCount() {
 		if (b) b.disabled = !chartPicksCanShift(o[1]);
 	});
 	button.disabled = n === 0;
+	var add = document.getElementById("chart-make-add");
+	if (add) add.disabled = n === 0;
 	button.textContent = n ? "Download PDF (" + n + (n === 1 ? " note)" : " notes)") : "Pick some notes";
 }
 
-// How a picked note is spelled on the printed chart
-function chartPrintSpellings(midi) {
+// What a printed chart is made from, as the panel has it now (a packet
+// keeps one per chart): { title, notes, key, spellings, accidentals, names,
+// lines, orientation }
+function chartPrintSettings() {
 	var m = practice.chart.make;
+	return { title: (m.title || chartDefaultTitle()).trim() || chartDefaultTitle(),
+		notes: chartPickedNotes(), key: chartKey(), spellings: m.spellings, accidentals: m.accidentals,
+		names: m.names, lines: m.lines, orientation: m.orientation };
+}
+
+// How a picked note is spelled on the printed chart (m: its settings)
+function chartPrintSpellings(midi, m) {
 	var pc = ((midi % 12) + 12) % 12;
-	if (chartKey()) return chartSpellings(midi);  // the key signature's spelling
+	if (m.key) return chartSpellings(midi, m.key);  // the key signature's spelling
 	if (m.spellings && m.spellings[pc]) return [m.spellings[pc]];
-	var both = chartSpellings(midi);
+	var both = chartSpellings(midi, "");
 	if (both.length === 1) return both;
 	if (m.accidentals === "sharps") return [both[0]];
 	if (m.accidentals === "both") return both;
@@ -8969,17 +8992,17 @@ function chartPrintArea(landscape, header) {
 	return { pageW: w, pageH: h, x: m, y: top, titleY: title, w: w - 2 * m, h: h - top - m };
 }
 
-// Draw the chart's pages: Promise<[canvas]>
-function drawChartPages(notes, title) {
-	var m = practice.chart.make;
+// Draw a chart's pages (m: chartPrintSettings()): Promise<[canvas]>
+function drawChartPages(m) {
+	var notes = m.notes, title = m.title;
 	var clef = getCurrentClef();
 	var items = notes.map(function(midi) {
-		var spellings = chartPrintSpellings(midi);
+		var spellings = chartPrintSpellings(midi, m);
 		return { midi: midi, spellings: spellings,
 			name: spellings.map(keyDisplayName).join(" / "),
 			place: spellings.length === 1 ? staffPlaceName(spellings[0], midi, clef) : "" };
 	});
-	var view = chartCellView(items);
+	var view = chartCellView(items, m.key);
 	var art = chartPrintArt(notes);
 	// The cell, in art units: the staff (sized to the art, within reason),
 	// its name and place, then the fingering
@@ -9215,46 +9238,59 @@ function drawSlideDiagram(ctx, img, cx, top, band) {
 	ctx.restore();
 }
 
-// A PDF of page canvases (letter size), titled: Promise<Blob>
-function chartPdfBlob(pages, title) {
-	return Promise.all(pages.map(chartPdfImage)).then(function(images) {
-		var enc = new TextEncoder(), chunks = [], length = 0, offsets = [];
-		function put(part) {
-			var bytes = typeof part === "string" ? enc.encode(part) : part;
-			chunks.push(bytes);
-			length += bytes.length;
+// A PDF of page images (chartPdfImage()'s, one a page), titled: Blob
+function chartPdfBlob(images, title) {
+	var pages = images;
+	var enc = new TextEncoder(), chunks = [], length = 0, offsets = [];
+	function put(part) {
+		var bytes = typeof part === "string" ? enc.encode(part) : part;
+		chunks.push(bytes);
+		length += bytes.length;
+	}
+	function obj(n, dict, stream) {
+		offsets[n] = length;
+		put(n + " 0 obj\n" + dict);
+		if (stream) {
+			put("\nstream\n");
+			put(stream);
+			put("\nendstream");
 		}
-		function obj(n, dict, stream) {
-			offsets[n] = length;
-			put(n + " 0 obj\n" + dict);
-			if (stream) {
-				put("\nstream\n");
-				put(stream);
-				put("\nendstream");
-			}
-			put("\nendobj\n");
-		}
-		put("%PDF-1.4\n");
-		put(new Uint8Array([37, 226, 227, 207, 211, 10]));  // binary marker
-		var kids = pages.map(function(p, i) { return (4 + i * 3) + " 0 R"; }).join(" ");
-		obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
-		obj(2, "<< /Type /Pages /Kids [" + kids + "] /Count " + pages.length + " >>");
-		obj(3, "<< /Title " + pdfTextString(title) + " /Creator (PitchDetect) >>");
-		pages.forEach(function(canvas, i) {
-			var n = 4 + i * 3, img = images[i];
-			var w = +(canvas.width / CHART_PRINT_DPI * 72).toFixed(2), h = +(canvas.height / CHART_PRINT_DPI * 72).toFixed(2);
-			obj(n, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + w + " " + h + "] /Resources << /XObject << /Im0 " +
-				(n + 2) + " 0 R >> >> /Contents " + (n + 1) + " 0 R >>");
-			var content = enc.encode("q " + w + " 0 0 " + h + " 0 0 cm /Im0 Do Q");
-			obj(n + 1, "<< /Length " + content.length + " >>", content);
-			obj(n + 2, "<< /Type /XObject /Subtype /Image /Width " + img.width + " /Height " + img.height +
-				" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /" + img.filter + " /Length " + img.data.length + " >>", img.data);
-		});
-		var xref = length, total = 4 + pages.length * 3;
-		put("xref\n0 " + total + "\n0000000000 65535 f \n");
-		for (var k = 1; k < total; k++) put(("000000000" + offsets[k]).slice(-10) + " 00000 n \n");
-		put("trailer\n<< /Size " + total + " /Root 1 0 R /Info 3 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
-		return new Blob(chunks, { type: "application/pdf" });
+		put("\nendobj\n");
+	}
+	put("%PDF-1.4\n");
+	put(new Uint8Array([37, 226, 227, 207, 211, 10]));  // binary marker
+	var kids = pages.map(function(p, i) { return (4 + i * 3) + " 0 R"; }).join(" ");
+	obj(1, "<< /Type /Catalog /Pages 2 0 R >>");
+	obj(2, "<< /Type /Pages /Kids [" + kids + "] /Count " + pages.length + " >>");
+	obj(3, "<< /Title " + pdfTextString(title) + " /Creator (PitchDetect) >>");
+	pages.forEach(function(img, i) {
+		var n = 4 + i * 3;
+		var w = +(img.width / CHART_PRINT_DPI * 72).toFixed(2), h = +(img.height / CHART_PRINT_DPI * 72).toFixed(2);
+		obj(n, "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 " + w + " " + h + "] /Resources << /XObject << /Im0 " +
+			(n + 2) + " 0 R >> >> /Contents " + (n + 1) + " 0 R >>");
+		var content = enc.encode("q " + w + " 0 0 " + h + " 0 0 cm /Im0 Do Q");
+		obj(n + 1, "<< /Length " + content.length + " >>", content);
+		obj(n + 2, "<< /Type /XObject /Subtype /Image /Width " + img.width + " /Height " + img.height +
+			" /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /" + img.filter + " /Length " + img.data.length + " >>", img.data);
+	});
+	var xref = length, total = 4 + pages.length * 3;
+	put("xref\n0 " + total + "\n0000000000 65535 f \n");
+	for (var k = 1; k < total; k++) put(("000000000" + offsets[k]).slice(-10) + " 00000 n \n");
+	put("trailer\n<< /Size " + total + " /Root 1 0 R /Info 3 0 R >>\nstartxref\n" + xref + "\n%%EOF\n");
+	return new Blob(chunks, { type: "application/pdf" });
+}
+
+// A chart's pages as PDF images, one page at a time (a page's canvas is
+// let go once it's an image, so a long packet doesn't hold every canvas)
+function chartPdfImages(m) {
+	return drawChartPages(m).then(function(pages) {
+		var images = [];
+		return pages.reduce(function(p, canvas, i) {
+			return p.then(function() { return chartPdfImage(canvas); }).then(function(img) {
+				images.push(img);
+				pages[i] = null;
+			});
+		}, Promise.resolve()).then(function() { return images; });
 	});
 }
 
@@ -9295,12 +9331,23 @@ function chartPdfFileName(title) {
 	return (name || "Fingering chart") + ".pdf";
 }
 
+// Save a PDF blob as a download
+function saveChartPdf(blob, title) {
+	var url = URL.createObjectURL(blob);
+	var a = document.createElement("a");
+	a.href = url;
+	a.download = chartPdfFileName(title);
+	document.body.appendChild(a);
+	a.click();
+	a.remove();
+	setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+}
+
 function downloadChartPdf() {
-	var m = practice.chart.make;
 	var button = document.getElementById("chart-make-download");
-	var notes = chartPickedNotes();
-	if (!notes.length || (button && button.getAttribute("data-busy") !== null)) return;
-	var title = (m.title || chartDefaultTitle()).trim() || chartDefaultTitle();
+	var settings = chartPrintSettings();
+	var title = settings.title;
+	if (!settings.notes.length || chartMakeBusy()) return;
 	if (button) {
 		button.setAttribute("data-busy", "");
 		button.disabled = true;
@@ -9311,21 +9358,154 @@ function downloadChartPdf() {
 		button.removeAttribute("data-busy");
 		updateChartMakeCount();
 	}
-	drawChartPages(notes, title).then(function(pages) {
-		return chartPdfBlob(pages, title);
-	}).then(function(blob) {
-		var url = URL.createObjectURL(blob);
-		var a = document.createElement("a");
-		a.href = url;
-		a.download = chartPdfFileName(title);
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-		setTimeout(function() { URL.revokeObjectURL(url); }, 60000);
+	chartPdfImages(settings).then(function(images) {
+		saveChartPdf(chartPdfBlob(images, title), title);
 		done();
 	}).catch(function(e) {
 		console.log("Could not make the chart:", e);
 		showToast("Sorry, the chart couldn’t be made on this device");
+		done();
+	});
+}
+
+// ---------------------------------------------------------------------------
+// A packet: charts added one by one (Add to packet keeps the panel's chart,
+// its notes and settings, chartPrintSettings(), in m.packet, and clears the
+// picks for the next), downloaded as one PDF, each chart's pages in turn.
+// It lasts as the picks do, until the instrument changes.
+// ---------------------------------------------------------------------------
+
+// Whether a PDF is being made (the buttons wait for it)
+function chartMakeBusy() {
+	return ["chart-make-download", "chart-packet-download"].some(function(id) {
+		var b = document.getElementById(id);
+		return b && b.getAttribute("data-busy") !== null;
+	});
+}
+
+function addChartToPacket() {
+	var m = practice.chart.make;
+	var settings = chartPrintSettings();
+	if (!settings.notes.length || chartMakeBusy()) return;
+	m.packet.push(settings);
+	// A fresh start for the next chart: no picks, the default title
+	m.picked = {};
+	m.pick = "";
+	m.spellings = null;
+	m.title = "";
+	m.titleEdited = false;
+	var title = document.getElementById("chart-make-title");
+	if (title) title.value = chartDefaultTitle();
+	var pick = document.getElementById("chart-make-pick");
+	if (pick) pick.value = "";
+	showChartPicks();
+	renderChartPacket();
+	showInfoToast("Added \u201c" + settings.title + "\u201d to your packet");
+}
+
+function removeChartFromPacket(i) {
+	if (chartMakeBusy()) return;
+	practice.chart.make.packet.splice(i, 1);
+	renderChartPacket();
+}
+
+function moveChartInPacket(i, by) {
+	var packet = practice.chart.make.packet;
+	var j = i + by;
+	if (chartMakeBusy() || j < 0 || j >= packet.length) return;
+	var item = packet.splice(i, 1)[0];
+	packet.splice(j, 0, item);
+	renderChartPacket();
+}
+
+function chartPacketTitle() {
+	var name = chartInstrumentName();
+	return (name ? name + " " : "") + (practice.instrument === "trombone" ? "Slide Position Packet" : "Fingering Packet");
+}
+
+// The packet's list in the panel (#chart-packet): a row per chart, with
+// up / down and remove, and Download packet; empty, it's hidden
+function renderChartPacket() {
+	var box = document.getElementById("chart-packet");
+	if (!box) return;
+	var packet = practice.chart.make.packet;
+	box.hidden = !packet.length;
+	box.innerHTML = "";
+	if (!packet.length) return;
+	var head = document.createElement("div");
+	head.className = "chart-packet-head";
+	head.textContent = "Your packet: " + packet.length + (packet.length === 1 ? " chart" : " charts");
+	box.appendChild(head);
+	var list = document.createElement("ol");
+	list.className = "chart-packet-list";
+	packet.forEach(function(item, i) {
+		var li = document.createElement("li");
+		var row = document.createElement("div");
+		row.className = "chart-packet-row";
+		var label = document.createElement("span");
+		label.className = "chart-packet-label";
+		var name = document.createElement("span");
+		name.className = "chart-packet-name";
+		name.textContent = item.title;
+		var count = document.createElement("span");
+		count.className = "chart-packet-count";
+		count.textContent = item.notes.length + (item.notes.length === 1 ? " note" : " notes");
+		label.appendChild(name);
+		label.appendChild(count);
+		row.appendChild(label);
+		li.appendChild(row);
+		[["\u25b2", "Move up", -1], ["\u25bc", "Move down", 1]].forEach(function(o) {
+			var b = document.createElement("button");
+			b.type = "button";
+			b.className = "chart-packet-tool";
+			b.textContent = o[0];
+			b.setAttribute("aria-label", o[1] + ": " + item.title);
+			b.disabled = i + o[2] < 0 || i + o[2] >= packet.length;
+			b.onclick = function() { moveChartInPacket(i, o[2]); };
+			row.appendChild(b);
+		});
+		var remove = document.createElement("button");
+		remove.type = "button";
+		remove.className = "chart-packet-tool";
+		remove.textContent = "\u2715";
+		remove.setAttribute("aria-label", "Remove " + item.title);
+		remove.onclick = function() { removeChartFromPacket(i); };
+		row.appendChild(remove);
+		list.appendChild(li);
+	});
+	box.appendChild(list);
+	var actions = document.createElement("div");
+	actions.className = "chart-make-actions";
+	var download = practiceButton("Download packet (" + packet.length + (packet.length === 1 ? " chart)" : " charts)"),
+		"primary", downloadChartPacket);
+	download.id = "chart-packet-download";
+	actions.appendChild(download);
+	box.appendChild(actions);
+}
+
+// Every chart of the packet in one PDF, in order
+function downloadChartPacket() {
+	var packet = practice.chart.make.packet.slice();
+	var button = document.getElementById("chart-packet-download");
+	if (!packet.length || chartMakeBusy()) return;
+	var title = chartPacketTitle();
+	if (button) {
+		button.setAttribute("data-busy", "");
+		button.disabled = true;
+		button.textContent = "Making your packet\u2026";
+	}
+	function done() { renderChartPacket(); }
+	var images = [];
+	packet.reduce(function(p, settings) {
+		return p.then(function() { return chartPdfImages(settings); }).then(function(more) {
+			images = images.concat(more);
+		});
+	}, Promise.resolve()).then(function() {
+		saveChartPdf(chartPdfBlob(images, title), title);
+		done();
+	}).catch(function(e) {
+		console.log("Could not make the packet:", e);
+		showToast("Sorry, the packet couldn\u2019t be made on this device");
 		done();
 	});
 }

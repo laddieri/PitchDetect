@@ -3212,8 +3212,20 @@
 			.chart-make-actions {
 				flex: 1 1 100%;
 				display: flex;
+				flex-wrap: wrap;
 				justify-content: flex-end;
 				gap: 8px;
+			}
+
+			/* A phone: Download PDF gets a row of its own */
+			@media (max-width: 700px) {
+				.chart-make-actions .practice-btn {
+					flex: 1 1 auto;
+				}
+
+				#chart-make-download {
+					flex-basis: 100%;
+				}
 			}
 
 			.chart-make-actions .practice-btn {
@@ -3224,6 +3236,82 @@
 
 			.chart-make-actions .practice-btn:disabled {
 				opacity: 0.5;
+				cursor: default;
+			}
+
+			/* The packet: the charts added so far, and Download packet */
+			.chart-packet {
+				flex: 1 1 100%;
+				display: flex;
+				flex-direction: column;
+				gap: 6px;
+				padding-top: 8px;
+				border-top: 2px solid var(--border);
+			}
+
+			.chart-packet[hidden] {
+				display: none;
+			}
+
+			.chart-packet-head {
+				font-size: 0.8rem;
+				font-weight: 700;
+				color: var(--text-muted);
+			}
+
+			.chart-packet-list {
+				margin: 0;
+				padding: 0 0 0 1.6em;
+				display: flex;
+				flex-direction: column;
+				gap: 4px;
+				max-height: 9.5em;
+				overflow-y: auto;
+			}
+
+			.chart-packet-list li {
+				font-size: 0.95rem;
+				font-weight: 600;
+				color: var(--text);
+			}
+
+			/* The name and count take the room left; the buttons stay at the right */
+			.chart-packet-row {
+				display: flex;
+				align-items: center;
+				gap: 2px;
+			}
+
+			.chart-packet-label {
+				flex: 1 1 auto;
+				min-width: 0;
+				margin-right: 6px;
+				overflow-wrap: anywhere;
+			}
+
+			.chart-packet-count {
+				margin-left: 6px;
+				font-size: 0.8rem;
+				color: var(--text-muted);
+				white-space: nowrap;
+			}
+
+			.chart-packet-tool {
+				flex: 0 0 auto;
+				width: 28px;
+				height: 28px;
+				margin-left: 2px;
+				padding: 0;
+				border: 2px solid var(--border-strong);
+				border-radius: var(--radius-sm);
+				background: var(--surface);
+				color: var(--text);
+				font-size: 0.75rem;
+				cursor: pointer;
+			}
+
+			.chart-packet-tool:disabled {
+				opacity: 0.35;
 				cursor: default;
 			}
 
