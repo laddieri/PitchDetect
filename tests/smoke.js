@@ -335,6 +335,17 @@ async function run() {
 		});
 		check(!spot.mic && tapped.tapped === spot.event && tapped.chart && tapped.name,
 			"Stop and score turns the mic off, and a tapped note shows its fingering (" + tapped.name + ")");
+		// ...and Hear it sounds that note (concert pitch), the mic still off
+		var heard = await page.evaluate(function() {
+			var tones = [], play = playTone;
+			playTone = function(f) { tones.push(f); };
+			document.querySelector(".song-tools .song-hear-note").click();
+			playTone = play;
+			var e = practice.song.events[practice.song.tapped];
+			return { tones: tones, want: frequencyFromNoteNumber(e.midi - getTransposition()), mic: listenActive };
+		});
+		check(heard.tones.length === 1 && Math.abs(heard.tones[0] - heard.want) < 0.01 && !heard.mic,
+			"a tapped note's Hear it plays that note (" + JSON.stringify(heard) + ")");
 		// ...without listening, until Try this note
 		await page.waitForTimeout(300);
 		check(await page.evaluate(function() { return !listenActive && !listenStarting && !practice.song.tryNote; }),

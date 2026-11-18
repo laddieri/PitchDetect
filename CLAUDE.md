@@ -618,7 +618,11 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   The chart takes room from the music, so `revealTappedNote()` scrolls the
   tapped note's line back into view (on a phone it could end up under it).
   Tapping only shows: the mic stays off, so reviewing a mistake never
-  starts an attempt. On Play it through (before a run, or on its score),
+  starts an attempt. **Hear it** (`songHearNoteButton()` →
+  `songHearNote()`, `.song-hear-note`, in the tools' row before a run and
+  in the score's row, beside Try this note) plays the tapped note, as long
+  as the song holds it (ties too) but at least a beat, at most 3 s; Try
+  this note ignores it meanwhile (`practice.ignoreUntil`). On Play it through (before a run, or on its score),
   **Try this note** (`songTryButton()`, `.song-try`; Stop while it's on)
   turns the mic on for it (`startTryNote()`, `practice.song.tryNote`,
   `tryNoteStartedMic`) and says what it hears in the score's own colors
@@ -1251,7 +1255,7 @@ beside the staff), plays and stops, and its tool under the song picks the
 speed (the settings gear holds no speeds), a part picked plays along with the piano over
 just its measures, and played late on a guessed delay offers the timing check in its ⋯ menu; Play it through has just Hear the song and
 Play it, listens only after Play it, a tapped note shows its fingering
-without the mic, and Try this note listens for it, showing a wrong note as a gray ghost beside it and a flat one marked "low" (no pitch trace on a song), held in tune gets fireworks and a chime (the mic
+without the mic, Hear it plays it, and Try this note listens for it, showing a wrong note as a gray ghost beside it and a flat one marked "low" (no pitch trace on a song), held in tune gets fireworks and a chime (the mic
 off again once it's put away; hidden by its ✕) and Start here makes it where Hear the song and Play it
 start, and sliding across measures, or tapping them after Pick a part,
 picks a part that Play it plays straight through, scoring just it (no best or XP); Step through it is offered
