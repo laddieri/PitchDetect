@@ -8579,7 +8579,7 @@ function startChartMaking() {
 	var c = practice.chart;
 	if (!c.make) {
 		c.make = { picked: {}, spellings: null, title: "", titleEdited: false, pick: "",
-			names: true, lines: true, accidentals: "flats" };
+			names: true, lines: true, accidentals: "flats", orientation: "" };
 	}
 	c.making = true;
 	showChartGrid();
@@ -8730,6 +8730,22 @@ function chartMakePanel() {
 	};
 	accLabel.appendChild(acc);
 	options.appendChild(accLabel);
+	// The paper's way round: best fit (the chart picks), or the one asked for
+	var pageLabel = document.createElement("label");
+	pageLabel.className = "chart-make-check";
+	pageLabel.appendChild(document.createTextNode("Paper "));
+	var orientation = document.createElement("select");
+	orientation.id = "chart-make-orientation";
+	[["", "Best fit"], ["landscape", "Landscape"], ["portrait", "Portrait"]].forEach(function(a) {
+		var o = document.createElement("option");
+		o.value = a[0];
+		o.textContent = a[1];
+		orientation.appendChild(o);
+	});
+	orientation.value = m.orientation || "";
+	orientation.onchange = function() { m.orientation = orientation.value; };
+	pageLabel.appendChild(orientation);
+	options.appendChild(pageLabel);
 	panel.appendChild(options);
 
 	var actions = document.createElement("div");
@@ -8914,14 +8930,16 @@ function loadSvgImage(svg, w, h, ink) {
 // CHART_PRINT_MIN_CELL, then the biggest cells, landscape or portrait.
 // Up to CHART_PRINT_ONE_PAGE notes go on one page whatever their size, so
 // a major scale prints as a single reference sheet.
-// cell: [w, h] in art units; returns { landscape, cols, rows, per, scale }
+// cell: [w, h] in art units; orientation: "landscape" or "portrait" to
+// use only that, else either; returns { landscape, cols, rows, per, scale }
 // (scale: pixels per art unit)
-function chartPrintLayout(n, cell, artSide, header) {
+function chartPrintLayout(n, cell, artSide, header, orientation) {
+	var ways = orientation === "portrait" ? [false] : orientation === "landscape" ? [true] : [true, false];
 	var dpi = CHART_PRINT_DPI, pad = 0.12 * dpi;
 	var maxScale = CHART_PRINT_MAX_ART * dpi / artSide;
 	for (var pages = 1; pages <= n; pages++) {
 		var per = Math.ceil(n / pages), best = null;
-		[true, false].forEach(function(landscape) {
+		ways.forEach(function(landscape) {
 			var area = chartPrintArea(landscape, header);
 			for (var cols = 1; cols <= per; cols++) {
 				var rows = Math.ceil(per / cols);
@@ -8936,7 +8954,7 @@ function chartPrintLayout(n, cell, artSide, header) {
 		});
 		if (best) return best;
 	}
-	return { landscape: true, cols: 1, rows: 1, per: 1, scale: chartPrintArea(true, header).h / 2 / cell[1] };
+	return { landscape: ways[0], cols: 1, rows: 1, per: 1, scale: chartPrintArea(ways[0], header).h / 2 / cell[1] };
 }
 
 // The page in pixels, and the grid's area under the title (and header:
@@ -8989,7 +9007,7 @@ function drawChartPages(notes, title) {
 		var textH = (m.names ? nameSize * 1.25 : 0) + (m.lines ? placeSize * (1.4 + (placeLines - 1) * 1.15) : 0);
 		var cell = [cellW, staffH + textH + gap + art.h];
 		var header = art.positions ? CHART_PRINT_SLIDE : 0;
-		var layout = chartPrintLayout(items.length, cell, Math.max(art.w, art.h), header);
+		var layout = chartPrintLayout(items.length, cell, Math.max(art.w, art.h), header, m.orientation);
 		var s = layout.scale;
 
 		var staves = items.map(function(item) {

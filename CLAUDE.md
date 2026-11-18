@@ -893,7 +893,8 @@ best per note per instrument in localStorage (`pitchdetect-first-five`).
   numbered 1–7 below the title, `drawSlideDiagram()` over
   `TROMBONE_SLIDE_DIAGRAM`, in a `CHART_PRINT_SLIDE` band), laid out by `chartPrintLayout()`
   (fewest pages with cells of at least `CHART_PRINT_MIN_CELL`, then the
-  biggest, landscape or portrait; up to `CHART_PRINT_ONE_PAGE` (8) notes
+  biggest, landscape or portrait, or only the one the panel's **Paper**
+  picks, `m.orientation` (Best fit `""`, `#chart-make-orientation`); up to `CHART_PRINT_ONE_PAGE` (8) notes
   always go on one page, so a major scale is a single sheet; labels fit
   the cell's width: a place name too wide wraps to two lines,
   `chartWrapLabel()`, and a name or word still too wide shrinks every
